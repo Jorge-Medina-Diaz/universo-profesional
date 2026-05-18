@@ -1,0 +1,128 @@
+name: cvs-saas
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: cvs-postgres
+    environment:
+      POSTGRES_USER: cvs
+      POSTGRES_PASSWORD: cvs_dev_password
+      POSTGRES_DB: cvs
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cvs -d cvs"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: cvs-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: cvs-mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8025/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../docker/backend.Dockerfile
+    container_name: cvs-backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cvs:cvs_dev_password@postgres:5432/cvs
+      DATABASE_URL_SYNC: postgresql://cvs:cvs_dev_password@postgres:5432/cvs
+      REDIS_URL: redis://redis:6379/0
+      EMAIL_HOST: mailhog
+      EMAIL_PORT: 1025
+      EMAIL_FROM: no-reply@cvs-saas.local
+      JWT_PRIVATE_KEY_PATH: /app/var/keys/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/var/keys/jwt_public.pem
+      STORAGE_ROOT: /app/var/documents
+      CANONICAL_BASE_URL: http://localhost:8000
+      FRONTEND_BASE_URL: http://localhost:5173
+      LLM_PROVIDER: mock
+      EMBEDDINGS_PROVIDER: deterministic
+      STRIPE_PROVIDER: mock
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      ENV: development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - backend_var:/app/var
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/src
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: ../docker/worker.Dockerfile
+    container_name: cvs-worker
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cvs:cvs_dev_password@postgres:5432/cvs
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_ROOT: /app/var/documents
+      CANONICAL_BASE_URL: http://localhost:8000
+      LLM_PROVIDER: mock
+      EMBEDDINGS_PROVIDER: deterministic
+      PYTHONUNBUFFERED: "1"
+      ENV: development
+    volumes:
+      - ./backend:/app
+      - backend_var:/app/var
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: arq src.shared.worker.WorkerSettings
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend.Dockerfile
+    container_name: cvs-frontend
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+      NODE_ENV: development
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_var:
+  frontend_node_modules:

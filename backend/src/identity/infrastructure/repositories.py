@@ -1,0 +1,216 @@
+"""SQLAlchemy implementations of Identity ports."""
+from __future__ import annotations
+
+from datetime import datetime
+from uuid import UUID
+
+from sqlalchemy import delete, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.identity.application.ports import (
+    EmailTokenRepository,
+    RefreshTokenRepository,
+    UserRepository,
+)
+from src.identity.domain.user import User
+from src.identity.infrastructure.orm import EmailTokenOrm, RefreshTokenOrm, UserOrm
+from src.shared.security import utc_now
+from src.shared.value_objects import Email
+
+
+def _to_domain(row: UserOrm) -> User:
+    return User(
+        id=row.id,
+        email=Email(row.email),
+        password_hash=row.password_hash,
+        display_name=row.display_name,
+        locale=row.locale,
+        email_verified_at=row.email_verified_at,
+        mfa_secret=row.mfa_secret,
+        mfa_enabled=row.mfa_enabled,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+        deleted_at=row.deleted_at,
+        last_login_at=row.last_login_at,
+    )
+
+
+class SqlAlchemyUserRepository(UserRepository):
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get_by_id(self, user_id: UUID) -> User | None:
+        row = await self._session.get(UserOrm, user_id)
+        return _to_domain(row) if row else None
+
+    async def get_by_email(self, email: str) -> User | None:
+        stmt = select(UserOrm).where(UserOrm.email == email)
+        row = (await self._session.execute(stmt)).scalar_one_or_none()
+        return _to_domain(row) if row else None
+
+    async def save(self, user: User) -> None:
+        existing = await self._session.get(UserOrm, user.id)
+        if existing is None:
+            self._session.add(
+                UserOrm(
+                    id=user.id,
+                    email=str(user.email),
+                    password_hash=user.password_hash,
+                    display_name=user.display_name,
+                    locale=user.locale,
+                    email_verified_at=user.email_verified_at,
+                    mfa_secret=user.mfa_secret,
+                    mfa_enabled=user.mfa_enabled,
+                    created_at=user.created_at,
+                    updated_at=user.updated_at,
+                    deleted_at=user.deleted_at,
+                    last_login_at=user.last_login_at,
+                )
+            )
+        else:
+            existing.email = str(user.email)
+            existing.password_hash = user.password_hash
+            existing.display_name = user.display_name
+            existing.locale = user.locale
+            existing.email_verified_at = user.email_verified_at
+            existing.mfa_secret = user.mfa_secret
+            existing.mfa_enabled = user.mfa_enabled
+            existing.updated_at = user.updated_at
+            existing.deleted_at = user.deleted_at
+            existing.last_login_at = user.last_login_at
+        await self._session.flush()
+
+    async def hard_delete_expired(self, before: datetime) -> int:
+        stmt = (
+            delete(UserOrm)
+            .where(UserOrm.deleted_at.is_not(None))
+            .where(UserOrm.deleted_at < before)
+            .returning(UserOrm.id)
+        )
+        result = await self._session.execute(stmt)
+        return len(result.fetchall())
+
+
+class SqlAlchemyEmailTokenRepository(EmailTokenRepository):
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def create(
+        self,
+        *,
+        user_id: UUID,
+        token_hash: str,
+        purpose: str,
+        expires_at: datetime,
+    ) -> None:
+        self._session.add(
+            EmailTokenOrm(
+                token_hash=token_hash,
+                user_id=user_id,
+                purpose=purpose,
+                expires_at=expires_at,
+                used_at=None,
+                created_at=utc_now(),
+            )
+        )
+        await self._session.flush()
+
+    async def consume(
+        self, *, token_hash: str, purpose: str, now: datetime
+    ) -> UUID | None:
+        stmt = (
+            update(EmailTokenOrm)
+            .where(EmailTokenOrm.token_hash == token_hash)
+            .where(EmailTokenOrm.purpose == purpose)
+            .where(EmailTokenOrm.used_at.is_(None))
+            .where(EmailTokenOrm.expires_at > now)
+            .values(used_at=now)
+            .returning(EmailTokenOrm.user_id)
+        )
+        result = await self._session.execute(stmt)
+        row = result.first()
+        return row[0] if row else None
+
+
+class SqlAlchemyRefreshTokenRepository(RefreshTokenRepository):
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def store(
+        self,
+        *,
+        user_id: UUID,
+        token_hash: str,
+        expires_at: datetime,
+        user_agent: str | None,
+        ip_address: str | None,
+    ) -> None:
+        self._session.add(
+            RefreshTokenOrm(
+                token_hash=token_hash,
+                user_id=user_id,
+                issued_at=utc_now(),
+                expires_at=expires_at,
+                revoked_at=None,
+                replaced_by=None,
+                user_agent=user_agent,
+                ip_address=ip_address,
+            )
+        )
+        await self._session.flush()
+
+    async def rotate(
+        self,
+        *,
+        old_token_hash: str,
+        new_token_hash: str,
+        new_expires_at: datetime,
+        user_agent: str | None,
+        ip_address: str | None,
+    ) -> UUID | None:
+        now = utc_now()
+        stmt = (
+            update(RefreshTokenOrm)
+            .where(RefreshTokenOrm.token_hash == old_token_hash)
+            .where(RefreshTokenOrm.revoked_at.is_(None))
+            .where(RefreshTokenOrm.expires_at > now)
+            .values(revoked_at=now, replaced_by=new_token_hash)
+            .returning(RefreshTokenOrm.user_id)
+        )
+        result = await self._session.execute(stmt)
+        row = result.first()
+        if row is None:
+            return None
+        user_id: UUID = row[0]
+        self._session.add(
+            RefreshTokenOrm(
+                token_hash=new_token_hash,
+                user_id=user_id,
+                issued_at=now,
+                expires_at=new_expires_at,
+                revoked_at=None,
+                replaced_by=None,
+                user_agent=user_agent,
+                ip_address=ip_address,
+            )
+        )
+        await self._session.flush()
+        return user_id
+
+    async def revoke(self, token_hash: str) -> None:
+        stmt = (
+            update(RefreshTokenOrm)
+            .where(RefreshTokenOrm.token_hash == token_hash)
+            .where(RefreshTokenOrm.revoked_at.is_(None))
+            .values(revoked_at=utc_now())
+        )
+        await self._session.execute(stmt)
+
+    async def revoke_all_for_user(self, user_id: UUID) -> None:
+        stmt = (
+            update(RefreshTokenOrm)
+            .where(RefreshTokenOrm.user_id == user_id)
+            .where(RefreshTokenOrm.revoked_at.is_(None))
+            .values(revoked_at=utc_now())
+        )
+        await self._session.execute(stmt)

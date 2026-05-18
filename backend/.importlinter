@@ -1,0 +1,18 @@
+[importlinter]
+root_packages =
+    src
+
+[importlinter:contract:layered]
+name = Clean architecture layering
+type = layers
+layers =
+    src.interfaces
+    src.infrastructure
+    src.application
+    src.domain
+containers =
+    src.identity
+    src.universe
+    src.documents
+    src.billing
+    src.mcp_server

@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    name: backend lint + test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: cvs
+          POSTGRES_PASSWORD: cvs_dev_password
+          POSTGRES_DB: cvs
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cvs -d cvs"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: System deps for WeasyPrint
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcairo2 libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf-2.0-0 shared-mime-info fonts-dejavu
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Install deps
+        working-directory: backend
+        run: |
+          uv sync --all-extras
+      - name: Ensure pgvector extensions
+        env:
+          PGPASSWORD: cvs_dev_password
+        run: |
+          sudo apt-get install -y postgresql-client
+          psql -h localhost -U cvs -d cvs -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+      - name: Alembic migrate
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://cvs:cvs_dev_password@localhost:5432/cvs
+          DATABASE_URL_SYNC: postgresql://cvs:cvs_dev_password@localhost:5432/cvs
+        run: uv run alembic upgrade head
+      - name: Ruff
+        working-directory: backend
+        run: uv run ruff check src tests
+      - name: Mypy
+        working-directory: backend
+        run: uv run mypy src
+        continue-on-error: true  # MVP: strict mypy may require further tuning
+      - name: Pytest
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://cvs:cvs_dev_password@localhost:5432/cvs
+          DATABASE_URL_SYNC: postgresql://cvs:cvs_dev_password@localhost:5432/cvs
+          REDIS_URL: redis://localhost:6379/1
+          ENV: test
+          CANONICAL_BASE_URL: http://test
+          FRONTEND_BASE_URL: http://test
+          STORAGE_ROOT: /tmp/cvs-docs
+          JWT_PRIVATE_KEY_PATH: /tmp/jwt_priv.pem
+          JWT_PUBLIC_KEY_PATH: /tmp/jwt_pub.pem
+          EMAIL_HOST: localhost
+          EMAIL_PORT: "1025"
+        run: |
+          mkdir -p /tmp/cvs-docs
+          uv run pytest -q
+
+  frontend:
+    name: frontend lint + typecheck + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        working-directory: frontend
+        run: npm install --include=dev
+      - name: Typecheck
+        working-directory: frontend
+        run: npm run typecheck
+      - name: Test
+        working-directory: frontend
+        run: npm test -- --run

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="{{ language }}">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ resume.basics.name or "Curriculum Vitae" }}</title>
+  <style>
+    @page { size: A4; margin: 18mm 18mm 20mm 18mm; }
+    body {
+      font-family: "Helvetica", "Arial", "DejaVu Sans", sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.4;
+      color: #1f1f1f;
+    }
+    h1 { font-size: 22pt; margin: 0 0 2pt 0; }
+    h2 {
+      font-size: 12pt;
+      margin: 14pt 0 4pt 0;
+      padding-bottom: 2pt;
+      border-bottom: 1pt solid #444;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    h3 { font-size: 11pt; margin: 8pt 0 2pt 0; }
+    .label { color: #555; font-size: 11pt; margin-bottom: 6pt; }
+    .summary { margin-bottom: 6pt; }
+    .meta { color: #666; font-size: 9.5pt; margin-bottom: 6pt; }
+    ul { margin: 4pt 0 6pt 16pt; padding: 0; }
+    li { margin: 0 0 2pt 0; }
+    .row { margin-bottom: 10pt; }
+    .dates { color: #555; font-size: 10pt; }
+    .skill-list { margin: 4pt 0 0 0; }
+    .skill { display: inline-block; margin: 0 6pt 4pt 0; }
+    a { color: inherit; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>{{ resume.basics.name or "" }}</h1>
+    {% if resume.basics.label %}<div class="label">{{ resume.basics.label }}</div>{% endif %}
+    <div class="meta">
+      {% if resume.basics.email %}{{ resume.basics.email }}{% endif %}
+      {% if resume.basics.phone %} · {{ resume.basics.phone }}{% endif %}
+      {% if resume.basics.url %} · {{ resume.basics.url }}{% endif %}
+    </div>
+    {% if resume.basics.summary %}<p class="summary">{{ resume.basics.summary }}</p>{% endif %}
+  </header>
+
+  {% if resume.work %}
+    <section>
+      <h2>{{ "Experience" if language == "en" else "Experiencia" }}</h2>
+      {% for w in resume.work %}
+        <div class="row">
+          <h3>{{ w.position }} — {{ w.name }}</h3>
+          <div class="dates">{{ w.startDate or "" }} — {{ w.endDate or ("Present" if language == "en" else "Actualidad") }}</div>
+          {% if w.summary %}<p>{{ w.summary }}</p>{% endif %}
+          {% if w.highlights %}
+            <ul>
+              {% for h in w.highlights %}<li>{{ h }}</li>{% endfor %}
+            </ul>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </section>
+  {% endif %}
+
+  {% if resume.education %}
+    <section>
+      <h2>{{ "Education" if language == "en" else "Educación" }}</h2>
+      {% for e in resume.education %}
+        <div class="row">
+          <h3>{{ e.studyType or "" }}{% if e.area %} — {{ e.area }}{% endif %}</h3>
+          <div class="dates">{{ e.institution }} · {{ e.startDate or "" }} — {{ e.endDate or "" }}</div>
+        </div>
+      {% endfor %}
+    </section>
+  {% endif %}
+
+  {% if resume.projects %}
+    <section>
+      <h2>{{ "Projects" if language == "en" else "Proyectos" }}</h2>
+      {% for p in resume.projects %}
+        <div class="row">
+          <h3>{{ p.name }}{% if p.url %} — <a href="{{ p.url }}">{{ p.url }}</a>{% endif %}</h3>
+          {% if p.description %}<p>{{ p.description }}</p>{% endif %}
+          {% if p.keywords %}<div class="dates">{{ p.keywords | join(", ") }}</div>{% endif %}
+          {% if p.highlights %}
+            <ul>{% for h in p.highlights %}<li>{{ h }}</li>{% endfor %}</ul>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </section>
+  {% endif %}
+
+  {% if resume.skills %}
+    <section>
+      <h2>{{ "Skills" if language == "en" else "Competencias" }}</h2>
+      <div class="skill-list">
+        {% for s in resume.skills %}<span class="skill">{{ s.name }}{% if s.level %} ({{ s.level }}){% endif %}</span>{% if not loop.last %} · {% endif %}{% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if resume.languages %}
+    <section>
+      <h2>{{ "Languages" if language == "en" else "Idiomas" }}</h2>
+      <div>{% for l in resume.languages %}{{ l.language }} ({{ l.fluency }}){% if not loop.last %} · {% endif %}{% endfor %}</div>
+    </section>
+  {% endif %}
+</body>
+</html>

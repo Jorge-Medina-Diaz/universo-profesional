@@ -1,0 +1,75 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# uv
+.uv/
+
+# Node
+node_modules/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+.turbo/
+coverage/
+.next/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Local data
+var/
+data/
+.local/
+
+# Docker volumes (when bind-mounted)
+docker-data/
+
+# Secrets / keys
+*.pem
+*.key
+*.crt
+secrets/
+
+# Test artifacts
+playwright-report/
+test-results/
+
+# Backend specific
+backend/var/
+backend/.coverage
+backend/htmlcov/
+
+# Frontend specific
+frontend/dist/
+frontend/.vite/
+frontend/playwright/.cache/

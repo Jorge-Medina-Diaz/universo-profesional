@@ -1,0 +1,23 @@
+"""Billing ports."""
+from __future__ import annotations
+
+from typing import Protocol
+from uuid import UUID
+
+from src.billing.domain.entities import Subscription
+
+
+class SubscriptionRepository(Protocol):
+    async def get(self, user_id: UUID) -> Subscription | None: ...
+    async def upsert(self, subscription: Subscription) -> None: ...
+
+
+class QuotaRepository(Protocol):
+    async def increment(self, user_id: UUID, resource: str, period: str) -> int: ...
+    async def current(self, user_id: UUID, resource: str, period: str) -> int: ...
+
+
+class PaymentsProvider(Protocol):
+    async def create_checkout(self, *, user_id: UUID, plan: str, return_url: str) -> str: ...
+    async def create_portal(self, *, user_id: UUID, return_url: str) -> str: ...
+    async def cancel(self, *, user_id: UUID) -> None: ...
