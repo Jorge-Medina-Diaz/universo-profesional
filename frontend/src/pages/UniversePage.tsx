@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { universe } from "@/shared/api";
+import { SuggestionBar } from "@/widgets/SuggestionBar";
 
 const SECTIONS = [
   { key: "education", label: "Educación" },
@@ -22,11 +23,16 @@ export function UniversePage() {
   });
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4 space-y-6">
+    <div className="max-w-5xl mx-auto py-6 px-4 pb-24 md:pb-8 space-y-6">
       <header className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">{t("universe.title")}</h1>
-        <a href="#/cv/new" className="btn-primary">{t("cv.generate")}</a>
+        <h1 className="text-2xl md:text-3xl font-bold">{t("universe.title")}</h1>
+        <div className="flex gap-2">
+          <a href="#/connections" className="btn-secondary text-xs">🔗 Conexiones</a>
+          <a href="#/cv/new" className="btn-primary">{t("cv.generate")}</a>
+        </div>
       </header>
+
+      <SuggestionBar />
 
       {summaryQuery.data && (
         <section className="card">

@@ -60,6 +60,8 @@ class _Base:
     source: str = "manual"
     visibility: str = "public"
     confidence: float | None = None
+    source_metadata: dict[str, Any] | None = None
+    last_reviewed_at: datetime | None = None
     created_at: datetime = field(default_factory=lambda: datetime.utcnow())
     updated_at: datetime = field(default_factory=lambda: datetime.utcnow())
     deleted_at: datetime | None = None

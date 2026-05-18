@@ -5,7 +5,7 @@ WORKDIR /app
 # Copy manifest first for layer caching
 COPY package.json package-lock.json* ./
 
-RUN npm install --include=dev
+RUN npm install --include=dev --legacy-peer-deps
 
 COPY . /app
 

@@ -552,3 +552,196 @@ async def search(
 ) -> list[dict[str, Any]]:
     type_list = types.split(",") if types else None
     return await uc.execute(user_id=user_id, query=q, top_k=k, entity_types=type_list)
+
+
+# --- Mark reviewed ---------------------------------------------------------
+
+
+@router.post("/mark-reviewed")
+async def mark_reviewed(
+    user_id: CurrentUserId,
+    session: SessionDep,
+    body: dict[str, str] = Body(...),
+) -> dict[str, Any]:
+    from src.universe.application.use_cases import MarkReviewed
+
+    uc = MarkReviewed(session)
+    result = await uc.execute(
+        user_id=user_id,
+        entity_type=body["entity_type"],
+        entity_id=body["entity_id"],
+    )
+    if result.is_failure:
+        raise result.error  # type: ignore[union-attr]
+    await session.commit()
+    return result.value  # type: ignore[union-attr, return-value]
+
+
+# --- Evidence linking ------------------------------------------------------
+
+
+class EvidenceBody(BaseModel):
+    skill_id: str
+    evidence_entity_type: str
+    evidence_entity_id: str
+    weight: float = 1.0
+    notes: str | None = None
+
+
+@router.post("/evidence")
+async def link_evidence(
+    user_id: CurrentUserId,
+    session: SessionDep,
+    body: EvidenceBody,
+) -> dict[str, Any]:
+    from src.universe.application.use_cases import LinkEvidence
+
+    uc = LinkEvidence(session)
+    result = await uc.execute(
+        user_id=user_id,
+        skill_id=body.skill_id,
+        evidence_entity_type=body.evidence_entity_type,
+        evidence_entity_id=body.evidence_entity_id,
+        weight=body.weight,
+        notes=body.notes,
+    )
+    if result.is_failure:
+        raise result.error  # type: ignore[union-attr]
+    await session.commit()
+    return result.value  # type: ignore[union-attr, return-value]
+
+
+@router.get("/evidence")
+async def list_evidence(
+    user_id: CurrentUserId,
+    session: SessionDep,
+    skill_id: str | None = None,
+) -> list[dict[str, Any]]:
+    from src.universe.application.use_cases import ListEvidence
+
+    return await ListEvidence(session).execute(user_id=user_id, skill_id=skill_id)
+
+
+# --- Suggestions ----------------------------------------------------------
+
+
+@router.post("/suggestions/regenerate")
+async def regenerate_suggestions(
+    user_id: CurrentUserId, session: SessionDep
+) -> list[dict[str, Any]]:
+    from src.universe.application.suggestions import GenerateSuggestions
+    from src.universe.infrastructure.repositories import (
+        SqlAlchemyCareerPreferencesRepository,
+        SqlAlchemyCertificationRepository,
+        SqlAlchemyEducationRepository,
+        SqlAlchemyExperienceRepository,
+        SqlAlchemyLanguageRepository,
+        SqlAlchemyProjectRepository,
+        SqlAlchemySkillRepository,
+    )
+
+    uc = GenerateSuggestions(
+        session,
+        SqlAlchemyEducationRepository(session),
+        SqlAlchemyExperienceRepository(session),
+        SqlAlchemyProjectRepository(session),
+        SqlAlchemySkillRepository(session),
+        SqlAlchemyCertificationRepository(session),
+        SqlAlchemyLanguageRepository(session),
+        SqlAlchemyCareerPreferencesRepository(session),
+    )
+    return await uc.execute(user_id=user_id)
+
+
+@router.get("/suggestions")
+async def list_suggestions(
+    user_id: CurrentUserId,
+    session: SessionDep,
+    status: str = "pending",
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    from src.universe.application.suggestions import ListSuggestions
+
+    return await ListSuggestions(session).execute(
+        user_id=user_id, status=status, limit=limit
+    )
+
+
+@router.post("/suggestions/{suggestion_id}/act")
+async def act_on_suggestion(
+    suggestion_id: str,
+    user_id: CurrentUserId,
+    session: SessionDep,
+    body: dict[str, str] = Body(...),
+) -> dict[str, Any]:
+    from src.universe.application.suggestions import ActOnSuggestion
+
+    uc = ActOnSuggestion(session)
+    r = await uc.execute(user_id=user_id, suggestion_id=suggestion_id, action=body["action"])
+    if r.is_failure:
+        raise r.error  # type: ignore[union-attr]
+    await session.commit()
+    return r.value  # type: ignore[union-attr, return-value]
+
+
+# --- Reminders -----------------------------------------------------------
+
+
+@router.get("/reminders")
+async def list_reminders(
+    user_id: CurrentUserId,
+    session: SessionDep,
+    due_within_days: int | None = None,
+) -> list[dict[str, Any]]:
+    from src.universe.application.reminders import ListReminders
+
+    return await ListReminders(session).execute(
+        user_id=user_id, due_within_days=due_within_days
+    )
+
+
+@router.post("/reminders/scan")
+async def scan_reminders(
+    user_id: CurrentUserId, session: SessionDep
+) -> dict[str, int]:
+    from uuid import UUID
+
+    from src.universe.application.reminders import ScanReminders
+
+    created = await ScanReminders(session).execute(user_id=UUID(user_id))
+    await session.commit()
+    return {"created": created}
+
+
+@router.post("/reminders/{reminder_id}/dismiss")
+async def dismiss_reminder(
+    reminder_id: str,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> dict[str, Any]:
+    from src.universe.application.reminders import DismissReminder
+
+    r = await DismissReminder(session).execute(user_id=user_id, reminder_id=reminder_id)
+    if r.is_failure:
+        raise r.error  # type: ignore[union-attr]
+    await session.commit()
+    return {"ok": True}
+
+
+# --- Activity ------------------------------------------------------------
+
+
+@router.get("/activity")
+async def get_activity(
+    user_id: CurrentUserId,
+    session: SessionDep,
+    limit: int = 50,
+    since: str | None = None,
+    types: str | None = None,
+) -> list[dict[str, Any]]:
+    from src.universe.application.use_cases import GetActivity
+
+    type_list = types.split(",") if types else None
+    return await GetActivity(session).execute(
+        user_id=user_id, limit=limit, since=since, event_types=type_list
+    )

@@ -5,14 +5,20 @@ import io
 import json
 import zipfile
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import APIRouter, Depends
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import Response, StreamingResponse
 
 from src.identity.application.use_cases import (
     DeleteAccount,
     ExportUserData,
     GetCurrentUser,
+)
+from src.identity.infrastructure.photo_storage import (
+    delete_avatar,
+    load_avatar,
+    save_avatar,
 )
 from src.identity.interfaces.api.deps import (
     CurrentUserId,
@@ -83,4 +89,42 @@ async def delete_me(
         if result.is_failure:
             raise result.error  # type: ignore[union-attr]
         await uow.commit()
+    return GenericOkResponse()
+
+
+@router.post("/me/photo")
+async def upload_photo(
+    user_id: CurrentUserId,
+    session: SessionDep,
+    file: UploadFile = File(...),
+) -> dict[str, object]:
+    raw = await file.read()
+    try:
+        info = await save_avatar(
+            session,
+            user_id=UUID(user_id),
+            data=raw,
+            mime=file.content_type,
+            original_filename=file.filename,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await session.commit()
+    return info
+
+
+@router.get("/me/photo")
+async def get_photo(user_id: CurrentUserId, session: SessionDep) -> Response:
+    result = await load_avatar(session, UUID(user_id))
+    if result is None:
+        raise HTTPException(status_code=404, detail="No avatar")
+    data, mime = result
+    return Response(content=data, media_type=mime)
+
+
+@router.delete("/me/photo", response_model=GenericOkResponse)
+async def delete_photo(user_id: CurrentUserId, session: SessionDep) -> GenericOkResponse:
+    removed = await delete_avatar(session, UUID(user_id))
+    if removed:
+        await session.commit()
     return GenericOkResponse()

@@ -29,12 +29,32 @@ SCOPES: dict[str, Scope] = {
     "applications:write": Scope("applications:write", "Crear y actualizar candidaturas"),
     "preferences:read": Scope("preferences:read", "Leer tus preferencias de carrera"),
     "preferences:write": Scope("preferences:write", "Modificar tus preferencias de carrera"),
+    "evidence:write": Scope("evidence:write", "Vincular skills con evidencias (experiencias, proyectos…)"),
+    "integrations:read": Scope("integrations:read", "Ver tus cuentas externas conectadas (GitHub, LinkedIn…)"),
+    "integrations:write": Scope(
+        "integrations:write",
+        "Sincronizar y desconectar cuentas externas",
+    ),
+    "suggestions:read": Scope("suggestions:read", "Ver sugerencias para tu perfil"),
+    "suggestions:write": Scope("suggestions:write", "Generar y aplicar sugerencias automáticas"),
+    "reminders:read": Scope("reminders:read", "Ver recordatorios (certificados expirando, etc.)"),
+    "reminders:write": Scope("reminders:write", "Crear, dispatch y dismiss recordatorios"),
 }
 
 DEFAULT_SCOPES = (
     "universe:read",
     "universe:write",
+    "documents:read",
     "documents:generate",
+    "preferences:read",
+    "preferences:write",
+    "evidence:write",
+    "integrations:read",
+    "integrations:write",
+    "suggestions:read",
+    "suggestions:write",
+    "reminders:read",
+    "reminders:write",
 )
 
 

@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { auth, useAuthStore } from "@/shared/api";
+import { PhotoUpload } from "@/widgets/PhotoUpload";
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -30,8 +31,13 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto py-8 px-4 space-y-6">
+    <div className="max-w-2xl mx-auto py-6 px-4 pb-24 md:pb-8 space-y-6">
       <h1 className="text-2xl font-bold">{t("settings.title")}</h1>
+
+      <section className="card">
+        <h2 className="font-semibold mb-3">Foto de perfil</h2>
+        <PhotoUpload />
+      </section>
 
       <section className="card">
         <h2 className="font-semibold mb-2">Cuenta</h2>

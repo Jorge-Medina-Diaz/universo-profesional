@@ -80,6 +80,19 @@ class Settings(BaseSettings):
     # --- CORS ---
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    # --- Integrations (OAuth apps) ---
+    github_client_id: str | None = None
+    github_client_secret: str | None = None
+    linkedin_client_id: str | None = None
+    linkedin_client_secret: str | None = None
+    linkedin_dma_enabled: bool = False
+
+    # --- Token encryption ---
+    token_encryption_key: str | None = None
+
+    # --- CopilotKit runtime ---
+    copilotkit_runtime_url: str = "http://copilotkit-runtime:4000/copilotkit"
+
     # --- Observability ---
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     sentry_dsn: str | None = None

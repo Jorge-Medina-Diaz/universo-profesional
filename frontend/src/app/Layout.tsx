@@ -25,10 +25,11 @@ export function Layout({ title, isAuthed, children }: Props) {
             <span aria-hidden className="inline-block w-2 h-2 rounded-full bg-brand-500" />
             {title}
           </a>
-          <nav className="flex gap-3 text-sm items-center">
+          <nav className="hidden md:flex gap-3 text-sm items-center">
             {isAuthed ? (
               <>
                 <NavLink href="#/universe">{t("universe.title")}</NavLink>
+                <NavLink href="#/connections">Conexiones</NavLink>
                 <NavLink href="#/cv/new">{t("cv.generate")}</NavLink>
                 <NavLink href="#/documents">Documentos</NavLink>
                 <NavLink href="#/mcp">MCP</NavLink>

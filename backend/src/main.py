@@ -51,10 +51,12 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 def _wire_event_subscribers() -> None:
     """Subscribe in-process handlers to domain events."""
+    from src.shared.activity_log import register as register_activity_log
     from src.universe.application.event_handlers import register_universe_subscribers
 
     bus = get_event_bus()
     register_universe_subscribers(bus)
+    register_activity_log(bus)
 
 
 def create_app() -> FastAPI:
@@ -125,6 +127,9 @@ def create_app() -> FastAPI:
     app.include_router(import_router, prefix="/api/v1/import", tags=["import"])
     app.include_router(documents_router, prefix="/api/v1/documents", tags=["documents"])
     app.include_router(billing_router, prefix="/api/v1/billing", tags=["billing"])
+    from src.integrations.interfaces.api.router import router as integrations_router
+
+    app.include_router(integrations_router, prefix="/api/v1/integrations", tags=["integrations"])
     app.include_router(oauth_router, prefix="/auth/oauth", tags=["oauth"])
     app.include_router(well_known_router, tags=["well-known"])
     app.include_router(mcp_router, prefix="/mcp", tags=["mcp"])

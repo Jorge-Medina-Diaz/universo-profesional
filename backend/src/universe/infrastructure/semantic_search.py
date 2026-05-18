@@ -15,7 +15,10 @@ ENTITY_TABLES = {
     "project": ("projects", ["name", "description", "impact"]),
     "skill": ("skills", ["name", "category", "level"]),
     "certification": ("certifications", ["name", "issuer"]),
+    "course": ("courses", ["title", "platform"]),
+    "language": ("languages", ["code", "name", "level"]),
     "achievement": ("achievements", ["title", "description"]),
+    "interest": ("interests", ["name", "description"]),
 }
 
 

@@ -14,6 +14,8 @@ import { McpConnectPage } from "@/pages/McpConnectPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { BillingPage } from "@/pages/BillingPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
+import { ConnectionsPage } from "@/pages/ConnectionsPage";
+import { OnboardingChatPage } from "@/pages/OnboardingChatPage";
 
 function parseHash(): { path: string; query: URLSearchParams } {
   const raw = (window.location.hash || "#/").slice(1);
@@ -51,6 +53,8 @@ export function Router() {
 
   // Authed routes
   if (path === "/onboarding") return <OnboardingPage />;
+  if (path === "/onboarding/chat") return <OnboardingChatPage />;
+  if (path === "/connections") return <ConnectionsPage />;
   if (path === "/universe") return <UniversePage />;
   if (path === "/cv/new") return <GenerateCvPage />;
   if (path === "/documents") return <DocumentsPage />;

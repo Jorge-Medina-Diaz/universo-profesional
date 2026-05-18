@@ -419,6 +419,7 @@ class CourseCrud(_EntityCrud):
         except ValidationError as e:
             return err(e)
         await self._repo.add(entity)
+        await self._scheduler.enqueue(entity_type="course", entity_id=entity.id)
         uow.add_event(
             EntryAdded(
                 user_id=UUID(user_id),
@@ -459,6 +460,7 @@ class LanguageCrud(_EntityCrud):
         except ValidationError as e:
             return err(e)
         await self._repo.add(entity)
+        await self._scheduler.enqueue(entity_type="language", entity_id=entity.id)
         uow.add_event(
             EntryAdded(
                 user_id=UUID(user_id),
@@ -499,6 +501,7 @@ class AchievementCrud(_EntityCrud):
         except ValidationError as e:
             return err(e)
         await self._repo.add(entity)
+        await self._scheduler.enqueue(entity_type="achievement", entity_id=entity.id)
         uow.add_event(
             EntryAdded(
                 user_id=UUID(user_id),
@@ -539,6 +542,7 @@ class InterestCrud(_EntityCrud):
         except ValidationError as e:
             return err(e)
         await self._repo.add(entity)
+        await self._scheduler.enqueue(entity_type="interest", entity_id=entity.id)
         uow.add_event(
             EntryAdded(
                 user_id=UUID(user_id),
@@ -654,3 +658,164 @@ class SearchUniverse:
             top_k=top_k,
             entity_types=entity_types,
         )
+
+
+# --- MarkReviewed -----------------------------------------------------------
+
+
+class MarkReviewed:
+    """Touch `last_reviewed_at` on an entity. Confirms the user has inspected it recently."""
+
+    _TABLE_BY_TYPE = {
+        "education": "educations",
+        "experience": "experiences",
+        "project": "projects",
+        "skill": "skills",
+        "certification": "certifications",
+        "course": "courses",
+        "language": "languages",
+        "achievement": "achievements",
+        "interest": "interests",
+    }
+
+    def __init__(self, session: Any) -> None:
+        self._session = session
+
+    async def execute(
+        self, *, user_id: str, entity_type: str, entity_id: str
+    ) -> Result[dict[str, str], NotFoundError | ValidationError]:
+        from sqlalchemy import text
+
+        table = self._TABLE_BY_TYPE.get(entity_type)
+        if table is None:
+            return err(ValidationError(f"Unknown entity_type {entity_type!r}"))
+        stmt = text(
+            f"UPDATE {table} SET last_reviewed_at = now() "  # noqa: S608
+            f"WHERE id = :eid AND user_id = :uid RETURNING id"
+        )
+        result = await self._session.execute(
+            stmt, {"eid": entity_id, "uid": user_id}
+        )
+        row = result.first()
+        if row is None:
+            return err(NotFoundError(f"{entity_type} not found"))
+        return ok({"entity_type": entity_type, "entity_id": entity_id, "reviewed_at": "now"})
+
+
+# --- GetActivity ------------------------------------------------------------
+
+
+class GetActivity:
+    """Read from domain_events table (populated by activity_log subscriber)."""
+
+    def __init__(self, session: Any) -> None:
+        self._session = session
+
+    async def execute(
+        self,
+        *,
+        user_id: str,
+        limit: int = 50,
+        since: str | None = None,
+        event_types: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        from sqlalchemy import text
+
+        params: dict[str, Any] = {"uid": user_id, "limit": limit}
+        where = ["user_id = :uid"]
+        if since:
+            where.append("occurred_at >= :since")
+            params["since"] = since
+        if event_types:
+            placeholders = ",".join(f":et{i}" for i in range(len(event_types)))
+            where.append(f"event_type IN ({placeholders})")
+            for i, et in enumerate(event_types):
+                params[f"et{i}"] = et
+        stmt = text(
+            "SELECT event_id::text, event_type, occurred_at, payload "
+            "FROM domain_events "
+            f"WHERE {' AND '.join(where)} "
+            "ORDER BY occurred_at DESC LIMIT :limit"
+        )
+        rows = await self._session.execute(stmt, params)
+        return [
+            {
+                "event_id": r[0],
+                "event_type": r[1],
+                "occurred_at": r[2].isoformat() if r[2] else None,
+                "payload": r[3],
+            }
+            for r in rows.fetchall()
+        ]
+
+
+# --- Evidence linking -------------------------------------------------------
+
+
+class LinkEvidence:
+    """Create a skill ↔ entity evidence link with weight."""
+
+    def __init__(self, session: Any) -> None:
+        self._session = session
+
+    async def execute(
+        self,
+        *,
+        user_id: str,
+        skill_id: str,
+        evidence_entity_type: str,
+        evidence_entity_id: str,
+        weight: float = 1.0,
+        notes: str | None = None,
+    ) -> Result[dict[str, Any], ValidationError]:
+        from uuid import uuid4
+
+        from src.shared.security import utc_now
+        from src.universe.infrastructure.orm import EvidenceOrm
+
+        if evidence_entity_type not in {"experience", "project", "achievement", "certification", "course"}:
+            return err(ValidationError(f"Unknown evidence type {evidence_entity_type!r}"))
+        ev = EvidenceOrm(
+            id=uuid4(),
+            user_id=UUID(user_id),
+            skill_id=UUID(skill_id),
+            evidence_entity_type=evidence_entity_type,
+            evidence_entity_id=UUID(evidence_entity_id),
+            weight=weight,
+            notes=notes,
+            created_at=utc_now(),
+        )
+        self._session.add(ev)
+        await self._session.flush()
+        return ok({"id": str(ev.id)})
+
+
+class ListEvidence:
+    def __init__(self, session: Any) -> None:
+        self._session = session
+
+    async def execute(self, *, user_id: str, skill_id: str | None = None) -> list[dict[str, Any]]:
+        from sqlalchemy import desc as sa_desc, select
+
+        from src.universe.infrastructure.orm import EvidenceOrm
+
+        stmt = (
+            select(EvidenceOrm)
+            .where(EvidenceOrm.user_id == UUID(user_id))
+            .order_by(sa_desc(EvidenceOrm.created_at))
+        )
+        if skill_id:
+            stmt = stmt.where(EvidenceOrm.skill_id == UUID(skill_id))
+        rows = (await self._session.execute(stmt)).scalars().all()
+        return [
+            {
+                "id": str(r.id),
+                "skill_id": str(r.skill_id),
+                "evidence_entity_type": r.evidence_entity_type,
+                "evidence_entity_id": str(r.evidence_entity_id),
+                "weight": r.weight,
+                "notes": r.notes,
+                "created_at": r.created_at.isoformat(),
+            }
+            for r in rows
+        ]
