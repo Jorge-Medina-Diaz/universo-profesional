@@ -111,11 +111,11 @@ export function ProfileCompleteness() {
           aria-hidden
           className="absolute -top-16 -right-12 w-48 h-48 rounded-full bg-leaf/15 blur-3xl pointer-events-none"
         />
-        <div className="relative grid md:grid-cols-[auto_1fr] gap-6 items-start">
-          <CompletenessGauge score={score} />
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-heading-sm font-medium tracking-tight">
+        <div className="relative space-y-4">
+          <div className="flex items-center gap-4">
+            <CompletenessGauge score={score} />
+            <div className="min-w-0 space-y-1.5">
+              <h3 className="font-display text-[22px] leading-tight text-ink">
                 Universo {isComplete ? "completo" : "en marcha"}
               </h3>
               {isComplete ? (
@@ -124,23 +124,23 @@ export function ProfileCompleteness() {
                 </Badge>
               ) : (
                 <Badge tone="sunbeam" size="sm">
-                  {doneCount} de {checks.length}
+                  {doneCount} de {checks.length} pasos
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-stone leading-relaxed">
-              {isComplete
-                ? "Buen trabajo. Cualquier CV que generes ahora aprovecha al máximo tu universo."
-                : `Cada hueco que rellenes mejora la calidad de tus CVs adaptados. Te quedan ${missing.length} pasos.`}
-            </p>
-            {!isComplete && missing.length > 0 && (
-              <div className="grid grid-cols-1 gap-2 pt-2">
-                {missing.slice(0, 4).map((c) => (
-                  <CompletenessRow key={c.id} check={c} />
-                ))}
-              </div>
-            )}
           </div>
+          <p className="text-sm text-stone leading-relaxed">
+            {isComplete
+              ? "Buen trabajo. Cualquier CV que generes ahora aprovecha al máximo tu universo."
+              : `Cada hueco que rellenes mejora la calidad de tus CVs adaptados. Te quedan ${missing.length} pasos.`}
+          </p>
+          {!isComplete && missing.length > 0 && (
+            <div className="grid grid-cols-1 gap-2">
+              {missing.slice(0, 4).map((c) => (
+                <CompletenessRow key={c.id} check={c} />
+              ))}
+            </div>
+          )}
         </div>
       </Card>
     </Reveal>

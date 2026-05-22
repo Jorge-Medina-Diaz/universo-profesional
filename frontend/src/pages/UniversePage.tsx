@@ -35,7 +35,9 @@ import {
   Badge,
   Button,
   Card,
+  GalaxyIllustration,
   PageHeader,
+  SectionLabel,
   Skeleton,
   cn,
 } from "@/ui";
@@ -114,118 +116,161 @@ export function UniversePage() {
     });
   };
 
+  const isEmpty = !snapshotQuery.isLoading && (filteredSnapshot?.node_count ?? 0) === 0;
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 lg:px-8 lg:py-10">
       <PageHeader
+        eyebrow="Tu mapa profesional"
         title="Tu universo"
         subtitle="Skills, proyectos, experiencias y decisiones — todo conectado como un grafo navegable."
       />
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_300px]">
-        <div className="space-y-4">
-          <LensSwitcher current={lens} onChange={setLens} />
+      {/* Toolbar: lens switcher + legend */}
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+        <LensSwitcher current={lens} onChange={setLens} />
+        {knownKinds.length > 0 ? (
+          <KindFilters
+            kinds={knownKinds}
+            active={activeKinds}
+            onToggle={(k) => {
+              setActiveKinds((prev) => {
+                const next = new Set(prev);
+                if (next.has(k)) next.delete(k);
+                else next.add(k);
+                return next;
+              });
+            }}
+            onClear={() => setActiveKinds(new Set())}
+          />
+        ) : null}
+      </div>
 
-          {knownKinds.length > 0 ? (
-            <KindFilters
-              kinds={knownKinds}
-              active={activeKinds}
-              onToggle={(k) => {
-                setActiveKinds((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(k)) next.delete(k);
-                  else next.add(k);
-                  return next;
-                });
-              }}
-              onClear={() => setActiveKinds(new Set())}
-            />
-          ) : null}
-
-          <Card className="overflow-hidden p-0">
-            <div className="relative h-[60vh] min-h-[420px]">
-              <AnimatePresence mode="wait">
-                {snapshotQuery.isLoading ? (
-                  <motion.div
-                    key="loading"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex h-full items-center justify-center"
-                  >
-                    <Skeleton className="h-64 w-64 rounded-full" />
-                  </motion.div>
-                ) : lens === "graph" && filteredSnapshot ? (
-                  <motion.div
-                    key="graph"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="h-full"
-                  >
-                    <GraphView
-                      snapshot={filteredSnapshot}
-                      onFocusEntity={handleFocus}
-                    />
-                  </motion.div>
-                ) : lens === "outline" && filteredSnapshot ? (
-                  <motion.div
-                    key="outline"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="h-full overflow-y-auto p-6"
-                  >
-                    <OutlineLens
-                      snapshot={filteredSnapshot}
-                      onFocusEntity={handleFocus}
-                    />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="trajectory"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="h-full overflow-y-auto p-6"
-                  >
-                    <TrajectoryLens snapshot={filteredSnapshot} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </Card>
-
-          {filteredSnapshot ? (
-            <p className="text-xs text-ink/50 px-1">
-              {filteredSnapshot.node_count} nodos · {filteredSnapshot.edge_count} aristas
-              {activeKinds.size > 0
-                ? ` (filtrado: ${Array.from(activeKinds).join(", ")})`
-                : ""}
-            </p>
-          ) : null}
+      {/* Hero graph */}
+      <div className="mt-4 relative overflow-hidden rounded-card border border-hairline constellation-bg">
+        <div className="relative h-[64vh] min-h-[460px]">
+          <AnimatePresence mode="wait">
+            {snapshotQuery.isLoading ? (
+              <motion.div
+                key="loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex h-full items-center justify-center"
+              >
+                <Skeleton className="h-64 w-64 rounded-full" />
+              </motion.div>
+            ) : isEmpty ? (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="h-full"
+              >
+                <UniverseEmptyState />
+              </motion.div>
+            ) : lens === "graph" && filteredSnapshot ? (
+              <motion.div
+                key="graph"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="h-full"
+              >
+                <GraphView snapshot={filteredSnapshot} onFocusEntity={handleFocus} />
+              </motion.div>
+            ) : lens === "outline" && filteredSnapshot ? (
+              <motion.div
+                key="outline"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="h-full overflow-y-auto p-6 md:p-8"
+              >
+                <OutlineLens snapshot={filteredSnapshot} onFocusEntity={handleFocus} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="trajectory"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="h-full overflow-y-auto p-6 md:p-8"
+              >
+                <TrajectoryLens snapshot={filteredSnapshot} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
+      </div>
 
-        <aside className="space-y-4">
-          <ProfileCompleteness />
-          <SuggestionBar />
-          {summaryQuery.data ? (
-            <Card className="p-4">
-              <p className="text-xs uppercase tracking-wide text-ink/40">
-                resumen
-              </p>
-              <ul className="mt-2 space-y-1 text-sm">
-                {Object.entries(summaryQuery.data.counts ?? {}).map(([k, v]) => (
-                  <li key={k} className="flex items-center justify-between">
-                    <span className="text-ink/70">
-                      {KIND_LABELS[k] ?? k}
-                    </span>
-                    <span className="font-medium tabular-nums">{v as number}</span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          ) : null}
-        </aside>
+      {filteredSnapshot && !isEmpty ? (
+        <p className="mt-3 px-1 text-xs text-stone">
+          {filteredSnapshot.node_count} nodos · {filteredSnapshot.edge_count} aristas
+          {activeKinds.size > 0
+            ? ` · filtrado: ${Array.from(activeKinds).map((k) => KIND_LABELS[k] ?? k).join(", ")}`
+            : ""}
+        </p>
+      ) : null}
+
+      {/* Insight cards — full width below the hero so text never gets cramped */}
+      <div className="mt-8 grid gap-4 lg:grid-cols-3">
+        <ProfileCompleteness />
+        <SuggestionBar />
+        {summaryQuery.data ? (
+          <Card padding="lg" className="flex flex-col">
+            <SectionLabel index={3} tone="leaf">
+              Resumen
+            </SectionLabel>
+            <ul className="mt-4 space-y-2.5 text-sm">
+              {Object.entries(summaryQuery.data.counts ?? {}).map(([k, v]) => (
+                <li
+                  key={k}
+                  className="flex items-center justify-between border-b border-hairline pb-2 last:border-0 last:pb-0"
+                >
+                  <span className="flex items-center gap-2 text-stone">
+                    <span
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: KIND_COLORS[k] ?? "#94a3b8" }}
+                    />
+                    {KIND_LABELS[k] ?? k}
+                  </span>
+                  <span className="font-display text-[18px] tabular-nums text-ink">
+                    {v as number}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Empty state — elegant constellation placeholder
+// ---------------------------------------------------------------------------
+
+function UniverseEmptyState() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center text-center px-6">
+      <GalaxyIllustration className="opacity-90" width={200} height={150} />
+      <h3 className="mt-4 font-display text-[26px] leading-tight text-ink">
+        Tu universo está esperando
+      </h3>
+      <p className="mt-2 max-w-sm text-sm text-stone leading-relaxed">
+        Cada skill, proyecto y experiencia se conecta aquí como una constelación
+        navegable. Empieza importando lo que ya tienes o cuéntaselo al chat.
+      </p>
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+        <Button onClick={() => (window.location.hash = "#/connections")}>
+          Importar mis cuentas
+        </Button>
+        <Button variant="outline" onClick={() => (window.location.hash = "#/")}>
+          Empezar en el chat
+        </Button>
       </div>
     </div>
   );
@@ -243,7 +288,7 @@ function LensSwitcher({
   onChange: (l: Lens) => void;
 }) {
   return (
-    <div className="inline-flex rounded-full bg-ink/[0.05] p-1 text-sm">
+    <div className="inline-flex rounded-full border border-hairline bg-canvas p-1 text-sm">
       {LENSES.map(({ id, label, icon: Icon }) => {
         const isActive = current === id;
         return (
@@ -252,10 +297,10 @@ function LensSwitcher({
             type="button"
             onClick={() => onChange(id)}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors",
+              "flex items-center gap-1.5 px-3.5 py-1.5 rounded-full transition-colors duration-180 ease-pirsch",
               isActive
-                ? "bg-surface text-ink shadow-soft"
-                : "text-ink/60 hover:text-ink",
+                ? "bg-ink text-canvas"
+                : "text-stone hover:text-ink",
             )}
           >
             <Icon className="w-3.5 h-3.5" />
