@@ -35,7 +35,10 @@ export function CopilotSurface({ instructions, title, initial }: Props) {
       <ChatInjector />
       <RemindersBannerLauncher />
       <ChatDropTarget>
-        <CopilotChat instructions={instructions} labels={{ title, initial }} />
+        <CopilotChat
+          instructions={instructions}
+          labels={{ title, initial, placeholder: "Escribe a tu agente…" }}
+        />
       </ChatDropTarget>
       <SyncTaskTray />
     </>

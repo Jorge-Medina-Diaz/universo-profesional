@@ -96,6 +96,21 @@ async def store_digest(
 async def read_digest(
     session: AsyncSession, *, user_id: str, session_id: str
 ) -> dict[str, Any] | None:
+    # The `metadata` column is added lazily on first write_digest(). Reading
+    # before any digest has ever been written would 500 on a missing column,
+    # so guard on its existence and degrade to "no digest yet".
+    has_col = (
+        await session.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_schema = 'public' "
+                "  AND table_name = 'chat_session_meta' "
+                "  AND column_name = 'metadata'"
+            )
+        )
+    ).first()
+    if has_col is None:
+        return None
     row = (
         await session.execute(
             text(

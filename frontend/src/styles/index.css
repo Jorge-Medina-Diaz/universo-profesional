@@ -415,6 +415,22 @@
   background-color: var(--color-leafy-green) !important;
 }
 
+/* Collapsed floating composer — hide the message stream so only the input
+ * shows (Claude-style). The surface stays mounted; just visually clipped. */
+.chat-collapsed .copilotKitMessagesContainer,
+.chat-collapsed .copilotKitMessages {
+  display: none !important;
+}
+.chat-collapsed .copilotKitInputContainer {
+  padding-top: 16px !important;
+}
+
+/* Hide CopilotKit's "Powered by" tag — but NOT .poweredByContainer, which
+ * is the input container itself (it would hide the composer). */
+.poweredBy {
+  display: none !important;
+}
+
 /* ---------------------------------------------------------------- *
  * Editorial utilities
  * ---------------------------------------------------------------- */

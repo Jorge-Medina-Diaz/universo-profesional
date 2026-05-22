@@ -70,6 +70,8 @@ type CopilotKitComponent = ComponentType<{
   runtimeUrl: string;
   agent: string;
   headers?: Record<string, string>;
+  showDevConsole?: boolean;
+  enableInspector?: boolean;
   children: ReactNode;
 }>;
 
@@ -126,6 +128,8 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
       <CopilotKit
         runtimeUrl={runtimeUrl}
         agent="universe_coordinator"
+        showDevConsole={false}
+        enableInspector={false}
         headers={accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined}
       >
         {children}

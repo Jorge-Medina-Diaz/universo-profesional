@@ -1,19 +1,23 @@
 /**
  * HomePage = the authenticated landing surface.
  *
- * Desktop ≥1024px: 3-col layout (top-nav from Layout) | chat centered | widget pane right.
- * Mobile <1024px:  full-width chat + FAB bottom-right that opens the WidgetPane in a Vaul bottom-sheet.
- *
- * The chat itself is centered (max-w ~680px) so it stops feeling "big and flat";
- * widgets accumulate in the right pane via `present_widget` (see chat/actions.tsx).
+ * The home IS the universe: a live constellation backdrop with a floating,
+ * expandable chat composer docked at the bottom (Claude/Typeform style).
+ * Focusing the composer expands it into the full agentic chat; the
+ * constellation dims behind. Widgets and the full universe stay one tap away.
  */
 import { Suspense, lazy, useEffect, useState } from "react";
-import { Sparkles, PanelRightOpen, LayoutGrid } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "motion/react";
+import { PanelRightOpen, LayoutGrid } from "lucide-react";
 import { Drawer } from "vaul";
 import { UniverseDrawer } from "@/chat/UniverseDrawer";
 import { WidgetPane } from "@/chat/WidgetPane";
+import { FloatingChat } from "@/chat/FloatingChat";
 import { useChatState } from "@/chat/state";
-import { Button, Skeleton } from "@/ui";
+import { graphApi } from "@/graph/api";
+import { GraphView } from "@/graph/GraphView";
+import { Button, GalaxyIllustration, Skeleton } from "@/ui";
 import { tour } from "@/app/tour/TourProvider";
 import { firstRunTour } from "@/app/tour/tours";
 import { enableCopilot, useCopilotReady } from "@/app/CopilotProvider";
@@ -56,49 +60,93 @@ const INITIAL_MESSAGE = `Hola. Soy tu compañero para construir y mantener tu un
 export function HomePage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [widgetsSheetOpen, setWidgetsSheetOpen] = useState(false);
+  const [chatExpanded, setChatExpanded] = useState(false);
   const ready = useCopilotReady();
   const widgetsCount = useChatState((s) => s.widgets.length);
 
-  // First-run tour — only on the chat surface, only once per user.
+  const snapshot = useQuery({
+    queryKey: ["graph", "snapshot"],
+    queryFn: () => graphApi.snapshot(false),
+    staleTime: 30_000,
+  });
+
+  // First-run tour — only on the home surface, only once per user.
   useEffect(() => {
     if (!tour.isCompleted(firstRunTour.id)) {
-      const t = setTimeout(() => tour.start(firstRunTour), 600);
+      const t = setTimeout(() => tour.start(firstRunTour), 700);
       return () => clearTimeout(t);
     }
   }, []);
 
+  const hasNodes = (snapshot.data?.node_count ?? 0) > 0;
+
   return (
-    <div className="fixed inset-0 top-16 bottom-16 md:bottom-0 flex bg-canvas">
-      {/* Chat column — centered on desktop within its share of the row */}
-      <div className="flex-1 min-w-0 flex flex-col">
-        <div
-          data-tour="home-chat-header"
-          className="flex items-center justify-between bg-canvas/80 backdrop-blur-md px-4 md:px-6 py-3 bg-gradient-to-b from-canvas to-canvas/60"
-        >
-          <div className="flex items-center gap-2.5">
-            <span
-              aria-hidden
-              className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-leaf-soft text-leaf-ink"
-            >
-              <Sparkles size={14} />
-            </span>
-            <div className="leading-tight">
-              <div className="text-sm font-medium text-ink">Tu universo profesional</div>
-              <div className="text-[11px] text-stone">Conversación con tu agente</div>
-            </div>
+    <div className="fixed inset-0 top-16 bottom-16 md:bottom-0 overflow-hidden constellation-bg">
+      {/* Constellation backdrop */}
+      <div className="absolute inset-0 animate-drift">
+        {hasNodes && snapshot.data ? (
+          <GraphView snapshot={snapshot.data} ambient />
+        ) : (
+          <div className="flex h-full items-center justify-center opacity-40">
+            <GalaxyIllustration width={420} height={320} />
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setDrawerOpen(true)}
-            trailingIcon={<PanelRightOpen size={14} />}
-            data-tour="open-universe-button"
+        )}
+      </div>
+
+      {/* Hero — fades out when the chat expands */}
+      <AnimatePresence>
+        {!chatExpanded && (
+          <motion.div
+            key="hero"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.42, ease: [0.2, 0.8, 0.2, 1] }}
+            className="absolute inset-x-0 top-[16%] md:top-[20%] flex flex-col items-center text-center px-6 pointer-events-none"
           >
-            <span className="hidden sm:inline">Abrir universo</span>
-            <span className="sm:hidden">Universo</span>
-          </Button>
-        </div>
-        <div className="flex-1 min-h-0 bg-canvas chat-surface-area">
+            <span className="eyebrow mb-4">Universo profesional</span>
+            <h1 className="font-display text-display text-ink max-w-3xl">
+              Tu carrera, viva
+            </h1>
+            <p className="mt-4 max-w-md text-body-lg text-stone">
+              Habla con tu agente para construir y mantener tu universo. Cada
+              conversación lo hace crecer.
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating controls — top right */}
+      <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setDrawerOpen(true)}
+          trailingIcon={<PanelRightOpen size={14} />}
+          data-tour="open-universe-button"
+        >
+          <span className="hidden sm:inline">Abrir universo</span>
+          <span className="sm:hidden">Universo</span>
+        </Button>
+        <button
+          type="button"
+          onClick={() => setWidgetsSheetOpen(true)}
+          className="relative inline-flex items-center gap-2 h-9 pl-3 pr-3.5 rounded-btn border border-hairline bg-canvas/90 backdrop-blur text-stone hover:text-ink transition-colors"
+          aria-label="Panel de widgets"
+        >
+          <LayoutGrid size={15} />
+          <span className="hidden sm:inline text-sm">Widgets</span>
+          {widgetsCount > 0 && (
+            <span className="grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-leaf text-[10px] font-medium text-ink">
+              {widgetsCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Floating chat composer (expands into the full surface) */}
+      <div data-tour="home-chat-header">
+        <FloatingChat onExpandedChange={setChatExpanded}>
           {ready ? (
             <Suspense fallback={<ChatLoadingSkeleton />}>
               <CopilotSurface
@@ -110,34 +158,14 @@ export function HomePage() {
           ) : (
             <ChatLoadingSkeleton />
           )}
-        </div>
+        </FloatingChat>
       </div>
 
-      {/* Widget pane — desktop only */}
-      <aside className="hidden lg:flex w-[360px] xl:w-[400px] border-l border-ink/5 flex-col">
-        <WidgetPane />
-      </aside>
-
-      {/* Mobile FAB to open widgets as a bottom-sheet */}
-      <button
-        type="button"
-        onClick={() => setWidgetsSheetOpen(true)}
-        className="lg:hidden fixed bottom-20 right-4 z-30 inline-flex items-center gap-2 pl-3 pr-4 h-11 rounded-full bg-ink text-canvas shadow-lift hover:-translate-y-[1px] transition-transform focus-visible:ring-2 focus-visible:ring-ink/30 focus-visible:ring-offset-2 focus-visible:outline-none"
-        aria-label="Abrir panel de widgets"
-      >
-        <LayoutGrid size={16} />
-        <span className="text-sm font-medium">
-          Widgets{widgetsCount > 0 ? ` · ${widgetsCount}` : ""}
-        </span>
-      </button>
-
-      <Drawer.Root
-        open={widgetsSheetOpen}
-        onOpenChange={(v: boolean) => setWidgetsSheetOpen(v)}
-      >
+      {/* Widgets bottom-sheet (all sizes — widgets accumulate via present_widget) */}
+      <Drawer.Root open={widgetsSheetOpen} onOpenChange={(v: boolean) => setWidgetsSheetOpen(v)}>
         <Drawer.Portal>
-          <Drawer.Overlay className="fixed inset-0 bg-ink/30 backdrop-blur-sm z-40 lg:hidden" />
-          <Drawer.Content className="bg-canvas text-ink flex flex-col fixed bottom-0 left-0 right-0 z-50 h-[85vh] rounded-t-card shadow-lift lg:hidden">
+          <Drawer.Overlay className="fixed inset-0 bg-ink/30 backdrop-blur-sm z-40" />
+          <Drawer.Content className="bg-canvas text-ink flex flex-col fixed bottom-0 left-0 right-0 z-50 h-[85vh] rounded-t-card shadow-lift">
             <Drawer.Title className="sr-only">Widgets</Drawer.Title>
             <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-ink/15" aria-hidden />
             <div className="flex-1 min-h-0">
@@ -154,12 +182,7 @@ export function HomePage() {
 
 function ChatLoadingSkeleton() {
   return (
-    <div className="flex flex-col h-full p-4 md:p-6 gap-3 max-w-[680px] mx-auto w-full">
-      <div className="flex-1 flex flex-col gap-3 overflow-hidden">
-        <Skeleton shape="block" className="h-12 max-w-[60%]" />
-        <Skeleton shape="block" className="h-20 max-w-[75%] ml-auto" />
-        <Skeleton shape="block" className="h-16 max-w-[70%]" />
-      </div>
+    <div className="flex flex-col h-full p-4 gap-3 max-w-[680px] mx-auto w-full justify-end">
       <Skeleton shape="block" className="h-12" />
     </div>
   );

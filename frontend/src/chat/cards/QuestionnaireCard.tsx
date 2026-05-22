@@ -16,11 +16,32 @@ export interface QuestionnaireQuestion {
   id: string;
   kind: "single_choice" | "multi_choice" | "scale" | "open";
   prompt: string;
-  options?: string[];
+  // The agent may emit plain strings OR { label, value } objects — both are
+  // normalised at render so an object never reaches React as a child.
+  options?: Array<string | { label?: string; value?: string }>;
   scale_min?: number;
   scale_max?: number;
   placeholder?: string;
   required?: boolean;
+}
+
+interface NormOption {
+  label: string;
+  value: string;
+}
+
+function normOptions(
+  options: QuestionnaireQuestion["options"],
+): NormOption[] {
+  if (!Array.isArray(options)) return [];
+  return options.map((o) => {
+    if (o && typeof o === "object") {
+      const value = String(o.value ?? o.label ?? "");
+      const label = String(o.label ?? o.value ?? "");
+      return { label, value };
+    }
+    return { label: String(o), value: String(o) };
+  });
 }
 
 export interface QuestionnaireCardProps {
@@ -85,30 +106,30 @@ export function QuestionnaireCard({
               </p>
               {q.kind === "single_choice" && (
                 <div className="flex flex-wrap gap-2">
-                  {(q.options ?? []).map((opt) => (
+                  {normOptions(q.options).map((opt) => (
                     <ChipOption
-                      key={opt}
-                      checked={answers[q.id] === opt}
-                      onChange={() => set(q.id, opt)}
+                      key={opt.value}
+                      checked={answers[q.id] === opt.value}
+                      onChange={() => set(q.id, opt.value)}
                       name={q.id}
                       type="radio"
-                      label={opt}
+                      label={opt.label}
                     />
                   ))}
                 </div>
               )}
               {q.kind === "multi_choice" && (
                 <div className="flex flex-wrap gap-2">
-                  {(q.options ?? []).map((opt) => {
-                    const checked = ((answers[q.id] as string[] | undefined) ?? []).includes(opt);
+                  {normOptions(q.options).map((opt) => {
+                    const checked = ((answers[q.id] as string[] | undefined) ?? []).includes(opt.value);
                     return (
                       <ChipOption
-                        key={opt}
+                        key={opt.value}
                         checked={checked}
-                        onChange={() => toggleMulti(q.id, opt)}
+                        onChange={() => toggleMulti(q.id, opt.value)}
                         name={q.id}
                         type="checkbox"
-                        label={opt}
+                        label={opt.label}
                       />
                     );
                   })}
