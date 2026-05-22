@@ -85,7 +85,7 @@ async function authHeader(): Promise<Record<string, string>> {
 
 export async function api<T = unknown>(
   path: string,
-  init: RequestInit & { authRequired?: boolean } = {},
+  init: RequestInit & { authRequired?: boolean; _retried?: boolean } = {},
 ): Promise<T> {
   const headers: Record<string, string> = {
     Accept: "application/json",
@@ -116,9 +116,11 @@ export async function api<T = unknown>(
   if (!resp.ok) {
      
     console.error(`[api] ✗ ${method} ${path} ${resp.status} (${ms}ms)`, parsed);
-    if (resp.status === 401) {
+    // Retry once after a token refresh. The `_retried` guard prevents an
+    // infinite loop if the refreshed token is also rejected.
+    if (resp.status === 401 && init.authRequired !== false && !init._retried) {
       const refreshed = await tryRefresh();
-      if (refreshed) return api<T>(path, init);
+      if (refreshed) return api<T>(path, { ...init, _retried: true });
       useAuthStore.getState().clear();
     }
     throw new ApiError(resp.status, parsed, extractErrorMessage(resp.status, parsed));
@@ -136,7 +138,23 @@ function safeJson(text: string): unknown {
   }
 }
 
-async function tryRefresh(): Promise<boolean> {
+// Single-flight refresh: concurrent 401s (page mount fires many queries at
+// once) must NOT each POST /auth/refresh. The backend ROTATES the refresh
+// token, so the first call invalidates it and every other concurrent call
+// would fail → clear() → the user gets logged out mid-session. Coalescing
+// into one shared in-flight promise means the token is consumed exactly once
+// and all waiters retry with the same rotated access token.
+let _refreshInFlight: Promise<boolean> | null = null;
+
+function tryRefresh(): Promise<boolean> {
+  if (_refreshInFlight) return _refreshInFlight;
+  _refreshInFlight = doRefresh().finally(() => {
+    _refreshInFlight = null;
+  });
+  return _refreshInFlight;
+}
+
+async function doRefresh(): Promise<boolean> {
   const { refreshToken } = useAuthStore.getState();
   if (!refreshToken) return false;
   try {
