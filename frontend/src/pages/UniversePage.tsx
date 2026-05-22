@@ -200,9 +200,15 @@ export function UniversePage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex h-full items-center justify-center"
+                className="h-full"
               >
-                <Skeleton className="h-64 w-64 rounded-full" />
+                {lens === "graph" ? (
+                  <GraphSkeleton />
+                ) : lens === "outline" ? (
+                  <OutlineSkeleton />
+                ) : (
+                  <TrajectorySkeleton />
+                )}
               </motion.div>
             ) : isEmpty ? (
               <motion.div
@@ -315,6 +321,108 @@ function UniverseEmptyState() {
         <Button variant="outline" onClick={() => (window.location.hash = "#/")}>
           Empezar en el chat
         </Button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Per-lens loading skeletons — each mirrors the geometry of its lens
+// ---------------------------------------------------------------------------
+
+/** Grafo — scattered constellation of haloed dots with faint links. */
+function GraphSkeleton() {
+  const dots = [
+    { top: "20%", left: "30%", size: 40 },
+    { top: "32%", left: "60%", size: 26 },
+    { top: "47%", left: "44%", size: 56 },
+    { top: "60%", left: "26%", size: 30 },
+    { top: "54%", left: "70%", size: 34 },
+    { top: "72%", left: "52%", size: 24 },
+    { top: "38%", left: "18%", size: 26 },
+    { top: "76%", left: "36%", size: 30 },
+    { top: "26%", left: "80%", size: 22 },
+    { top: "66%", left: "82%", size: 28 },
+  ];
+  const links = [
+    ["30%", "20%", "44%", "47%"],
+    ["60%", "32%", "44%", "47%"],
+    ["44%", "47%", "26%", "60%"],
+    ["44%", "47%", "70%", "54%"],
+    ["52%", "72%", "70%", "54%"],
+    ["18%", "38%", "30%", "20%"],
+  ] as const;
+  return (
+    <div className="relative h-full w-full overflow-hidden">
+      <svg className="absolute inset-0 h-full w-full" aria-hidden preserveAspectRatio="none">
+        {links.map(([x1, y1, x2, y2], i) => (
+          <line
+            key={i}
+            x1={x1}
+            y1={y1}
+            x2={x2}
+            y2={y2}
+            stroke="var(--hairline)"
+            strokeWidth="1"
+          />
+        ))}
+      </svg>
+      {dots.map((d, i) => (
+        <Skeleton
+          key={i}
+          shape="circle"
+          className="absolute -translate-x-1/2 -translate-y-1/2"
+          style={{ top: d.top, left: d.left, width: d.size, height: d.size }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Outline — grouped list: section headers + indented item rows. */
+function OutlineSkeleton() {
+  return (
+    <div className="h-full overflow-hidden p-6 md:p-8 space-y-7">
+      {[0, 1, 2].map((g) => (
+        <div key={g} className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Skeleton shape="circle" className="h-2.5 w-2.5" />
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="ml-auto h-5 w-6 rounded-full" />
+          </div>
+          <div className="ml-5 space-y-2">
+            {Array.from({ length: 4 - g }).map((_, i) => (
+              <Skeleton
+                key={i}
+                className="h-3.5"
+                style={{ width: `${70 - i * 12}%` }}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Trayectoria — vertical timeline spine with nodes + content bars. */
+function TrajectorySkeleton() {
+  return (
+    <div className="relative h-full overflow-hidden p-6 md:p-8">
+      <div className="absolute left-[27px] md:left-[39px] top-8 bottom-8 w-px bg-hairline" />
+      <div className="space-y-6">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="flex items-start gap-4">
+            <Skeleton shape="circle" className="h-4 w-4 shrink-0 relative z-10" />
+            <div className="flex-1 space-y-2 pt-0.5">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-16" />
+              </div>
+              <Skeleton className="h-3.5" style={{ width: `${80 - i * 9}%` }} />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
