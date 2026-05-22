@@ -20,16 +20,16 @@ export const firstRunTour: TourDefinition = {
     {
       id: "chat",
       target: "home-chat-header",
-      placement: "bottom",
-      title: "El chat es tu interfaz principal",
-      body: "Cuéntale lo que haces y propondrá entradas en tu universo. Cada propuesta la confirmas con un toque.",
+      placement: "top",
+      title: "Habla con tu agente desde aquí",
+      body: "Escribe en este chat flotante y se despliega. Cuéntale lo que haces y propondrá entradas en tu universo — cada propuesta la confirmas con un toque.",
     },
     {
       id: "drawer",
       target: "open-universe-button",
       placement: "left",
       title: "Tu universo, siempre a un clic",
-      body: "Abre este panel para ver tu trayectoria, sugerencias y conexiones — sin salir del chat.",
+      body: "Detrás está tu constelación: skills, proyectos y documentos conectados. Ábrela cuando quieras explorarla.",
     },
     {
       id: "command",
