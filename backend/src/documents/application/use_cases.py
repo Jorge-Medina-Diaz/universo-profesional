@@ -191,6 +191,13 @@ class ListDocuments:
                 "has_pdf": d.pdf_path is not None,
                 "has_docx": d.docx_path is not None,
                 "share_token": d.share_token,
+                # Entity ids this document was generated from — lets the
+                # frontend draw document→entity edges in the universe graph.
+                "source_entity_ids": [
+                    str(r.get("entity_id"))
+                    for r in ((d.generated_from or {}).get("retrieved") or [])
+                    if r.get("entity_id")
+                ],
             }
             for d in docs
         ]

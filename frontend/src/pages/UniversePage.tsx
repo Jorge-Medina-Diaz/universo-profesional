@@ -23,7 +23,7 @@ import {
   ListTree,
   GitBranch,
 } from "lucide-react";
-import { universe } from "@/shared/api";
+import { universe, documents } from "@/shared/api";
 import { useChatState, type FocusEntity } from "@/chat/state";
 import { useGraphLensState } from "@/graph/lensState";
 import { graphApi, type GraphSnapshot } from "@/graph/api";
@@ -77,27 +77,67 @@ export function UniversePage() {
     queryFn: universe.summary,
   });
 
+  const documentsQuery = useQuery({
+    queryKey: ["documents"],
+    queryFn: () => documents.list(),
+    staleTime: 30_000,
+  });
+
+  // Documents are part of the universe: overlay them as `document` nodes with
+  // `generated_from` edges to the entities they were built from.
+  const baseSnapshot: GraphSnapshot | null = useMemo(() => {
+    if (!snapshotQuery.data) return null;
+    const docs = documentsQuery.data ?? [];
+    if (docs.length === 0) return snapshotQuery.data;
+    const nodeIds = new Set(snapshotQuery.data.nodes.map((n) => n.key));
+    const docNodes = docs.map((d) => ({
+      key: `doc-${d.id}`,
+      attributes: {
+        kind: "document",
+        label: `${d.kind === "cover_letter" ? "Carta" : "CV"} · ${new Date(
+          d.created_at,
+        ).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}`,
+      },
+    }));
+    const docEdges = docs.flatMap((d) =>
+      (d.source_entity_ids ?? [])
+        .filter((eid) => nodeIds.has(eid))
+        .map((eid) => ({
+          key: `doc-${d.id}-${eid}`,
+          source: `doc-${d.id}`,
+          target: eid,
+          attributes: { edge_type: "generated_from" },
+        })),
+    );
+    return {
+      nodes: [...snapshotQuery.data.nodes, ...docNodes],
+      edges: [...snapshotQuery.data.edges, ...docEdges],
+      node_count: snapshotQuery.data.node_count + docNodes.length,
+      edge_count: snapshotQuery.data.edge_count + docEdges.length,
+    };
+  }, [snapshotQuery.data, documentsQuery.data]);
+
   const knownKinds = useMemo(() => {
-    if (!snapshotQuery.data) return [] as string[];
+    if (!baseSnapshot) return [] as string[];
     const set = new Set<string>();
-    for (const node of snapshotQuery.data.nodes) {
+    for (const node of baseSnapshot.nodes) {
       set.add(node.attributes.kind);
     }
     return Array.from(set).sort();
-  }, [snapshotQuery.data]);
+  }, [baseSnapshot]);
 
   const filteredSnapshot: GraphSnapshot | null = useMemo(() => {
-    if (!snapshotQuery.data) return null;
-    if (activeKinds.size === 0) return snapshotQuery.data;
+    if (!baseSnapshot) return null;
+    if (activeKinds.size === 0) return baseSnapshot;
     const visible = new Set<string>();
-    const nodes = snapshotQuery.data.nodes.filter((n) => {
+    const nodes = baseSnapshot.nodes.filter((n) => {
       if (activeKinds.has(n.attributes.kind)) {
         visible.add(n.key);
         return true;
       }
       return false;
     });
-    const edges = snapshotQuery.data.edges.filter(
+    const edges = baseSnapshot.edges.filter(
       (e) => visible.has(e.source) && visible.has(e.target),
     );
     return {
@@ -106,9 +146,13 @@ export function UniversePage() {
       node_count: nodes.length,
       edge_count: edges.length,
     };
-  }, [snapshotQuery.data, activeKinds]);
+  }, [baseSnapshot, activeKinds]);
 
   const handleFocus = (id: string, kind: string, label: string) => {
+    if (kind === "document") {
+      window.location.hash = `#/documents/${id.replace(/^doc-/, "")}`;
+      return;
+    }
     setFocus({
       entity: kind as FocusEntity,
       id,

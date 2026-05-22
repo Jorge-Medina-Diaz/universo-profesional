@@ -459,6 +459,7 @@ export interface DocumentSummary {
   has_pdf: boolean;
   has_docx: boolean;
   share_token: string | null;
+  source_entity_ids?: string[];
 }
 export interface DocumentDetail extends DocumentSummary {
   content_json: Record<string, unknown>;

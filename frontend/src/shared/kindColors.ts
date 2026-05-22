@@ -19,6 +19,7 @@ export const KIND_COLORS: Record<string, string> = {
   interest: "#84cc16",
   artifact: "#8b5cf6",
   architecture_decision: "#ec4899",
+  document: "#0a0a0a",
 };
 
 export const DEFAULT_KIND_COLOR = "#94a3b8";
@@ -35,6 +36,7 @@ export const KIND_LABELS: Record<string, string> = {
   interest: "Interés",
   artifact: "Artifact",
   architecture_decision: "ADR",
+  document: "Documento",
 };
 
 export function kindColor(kind: string): string {
