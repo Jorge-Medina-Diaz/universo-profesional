@@ -119,8 +119,11 @@ function GraphLoader({ snapshot, kindsFilter }: GraphLoaderProps) {
     });
 
     // ForceAtlas2 — synchronous; deferred to a worker in Sprint R for >500 nodes.
+    // `g` is narrowed to GraphLike (see note above); cast to the graphology
+    // Graph type the layout + loader expect.
+    type LoadableGraph = Parameters<typeof loadGraph>[0];
     if (g.order > 1) {
-      forceAtlas2.assign(g, {
+      forceAtlas2.assign(g as unknown as LoadableGraph, {
         iterations: g.order < 100 ? 80 : 50,
         settings: {
           gravity: 1,
@@ -130,7 +133,7 @@ function GraphLoader({ snapshot, kindsFilter }: GraphLoaderProps) {
       });
     }
 
-    loadGraph(g);
+    loadGraph(g as unknown as LoadableGraph);
   }, [loadGraph, snapshot, kindsFilter]);
 
   return null;

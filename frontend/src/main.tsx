@@ -3,6 +3,10 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "@fontsource/dm-sans/400.css";
 import "@fontsource/dm-sans/500.css";
+// Editorial display face — Fraunces (variable: optical sizing + weight) is
+// paired with DM Sans for body. Used for hero/display headings + section
+// numbers to give the product a distinctive editorial voice.
+import "@fontsource-variable/fraunces";
 import { App } from "./app/App";
 import "./app/i18n";
 import "./styles/index.css";

@@ -15,6 +15,7 @@ const config: Config = {
         stone: "var(--color-muted-stone)",
         canvas: "var(--surface-canvas)",
         surface: "var(--surface-card-surface)",
+        hairline: "var(--hairline)",
         sunbeam: {
           DEFAULT: "var(--color-sunbeam-yellow)",
           soft: "var(--color-sunbeam-soft)",
@@ -50,15 +51,27 @@ const config: Config = {
           "Roboto",
           "sans-serif",
         ],
-        display: ["DM Sans", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: [
+          "Fraunces Variable",
+          "Fraunces",
+          "Georgia",
+          "Times New Roman",
+          "serif",
+        ],
       },
       fontSize: {
+        eyebrow: ["11px", { lineHeight: "1", letterSpacing: "0.18em" }],
         body: ["16px", { lineHeight: "1.5", letterSpacing: "-0.016em" }],
-        "body-lg": ["18px", { lineHeight: "1.5", letterSpacing: "-0.016em" }],
-        subheading: ["20px", { lineHeight: "1.25", letterSpacing: "-0.016em" }],
-        "heading-sm": ["24px", { lineHeight: "1.25", letterSpacing: "-0.016em" }],
-        heading: ["28px", { lineHeight: "1.25", letterSpacing: "-0.016em" }],
-        display: ["64px", { lineHeight: "1.05", letterSpacing: "-0.022em" }],
+        "body-lg": ["18px", { lineHeight: "1.55", letterSpacing: "-0.016em" }],
+        subheading: ["20px", { lineHeight: "1.3", letterSpacing: "-0.016em" }],
+        "heading-sm": ["24px", { lineHeight: "1.2", letterSpacing: "-0.018em" }],
+        heading: ["28px", { lineHeight: "1.15", letterSpacing: "-0.02em" }],
+        "heading-lg": ["36px", { lineHeight: "1.1", letterSpacing: "-0.02em" }],
+        display: ["clamp(40px, 6vw, 68px)", { lineHeight: "1.04", letterSpacing: "-0.022em" }],
+        "display-lg": ["clamp(56px, 9vw, 116px)", { lineHeight: "0.98", letterSpacing: "-0.028em" }],
+      },
+      letterSpacing: {
+        eyebrow: "0.18em",
       },
       borderRadius: {
         input: "6px",
@@ -70,6 +83,8 @@ const config: Config = {
         // Soft Pirsch-style elevation — no harsh shadows, just a hint of depth.
         soft: "0 1px 2px rgba(0,0,0,0.04), 0 8px 24px -12px rgba(0,0,0,0.08)",
         lift: "0 2px 4px rgba(0,0,0,0.04), 0 16px 40px -20px rgba(0,0,0,0.12)",
+        // Floating composer / overlay — deeper, for elements over the constellation.
+        float: "0 4px 12px -2px rgba(0,0,0,0.08), 0 24px 60px -24px rgba(0,0,0,0.22)",
       },
       transitionTimingFunction: {
         pirsch: "cubic-bezier(0.2, 0.8, 0.2, 1)",

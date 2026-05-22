@@ -31,10 +31,15 @@
   /* Typography — scale */
   --font-dm-sans: "DM Sans", Inter, ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* Editorial display face — Fraunces variable (optical sizing + weight). */
+  --font-display: "Fraunces Variable", "Fraunces", Georgia, "Times New Roman",
+    serif;
   --text-body: 16px;
   --leading-body: 1.5;
   --tracking-body: -0.016em;
   --text-display: 64px;
+  /* Eyebrow / section-label tracking. */
+  --tracking-eyebrow: 0.18em;
 
   /* Spacing — 8px base */
   --spacing-unit: 8px;
@@ -63,6 +68,22 @@
   --duration-micro: 180ms;
   --duration-enter: 280ms;
   --duration-modal: 420ms;
+
+  /* Editorial elevation — hairline borders + refined depth. */
+  --hairline: rgba(10, 10, 10, 0.08);
+  --hairline-strong: rgba(10, 10, 10, 0.14);
+
+  /* Constellation backdrop — radial sky gradient + grain. */
+  --constellation-sky: radial-gradient(
+      120% 90% at 50% -10%,
+      rgba(110, 206, 157, 0.1) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      90% 70% at 85% 110%,
+      rgba(255, 218, 110, 0.1) 0%,
+      transparent 60%
+    );
 }
 
 
@@ -86,6 +107,19 @@
   --surface-canvas: #0c0b08;
   --surface-card-surface: #16140f;
   --surface-overlay: rgba(0, 0, 0, 0.6);
+
+  --hairline: rgba(243, 239, 230, 0.1);
+  --hairline-strong: rgba(243, 239, 230, 0.18);
+  --constellation-sky: radial-gradient(
+      120% 90% at 50% -10%,
+      rgba(92, 194, 141, 0.14) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      90% 70% at 85% 110%,
+      rgba(241, 200, 75, 0.1) 0%,
+      transparent 60%
+    );
 }
 
 :root[data-theme="dark"] .copilotKitUserMessage {
@@ -377,6 +411,62 @@
 /* Activity dots — match leaf. */
 .copilotKitActivityDot {
   background-color: var(--color-leafy-green) !important;
+}
+
+/* ---------------------------------------------------------------- *
+ * Editorial utilities
+ * ---------------------------------------------------------------- */
+/* Display serif — hero/section headlines + section numbers. Optical sizing
+ * + weight handled by the variable axes; we lean a touch lighter for the
+ * refined editorial feel. */
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  font-optical-sizing: auto;
+}
+
+/* Eyebrow / section label — small, tracked, uppercase. */
+.eyebrow {
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-eyebrow);
+  color: var(--color-muted-stone);
+}
+
+/* Hairline border helpers — editorial thinness. */
+.hairline {
+  border-color: var(--hairline);
+}
+.hairline-t {
+  border-top: 1px solid var(--hairline);
+}
+.hairline-b {
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* Constellation backdrop — radial sky behind the universe graph. */
+.constellation-bg {
+  background-color: var(--surface-canvas);
+  background-image: var(--constellation-sky);
+}
+
+/* Slow ambient drift for backdrop elements. */
+@keyframes constellation-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -1.5%, 0) scale(1.015);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+.animate-drift {
+  animation: constellation-drift 24s ease-in-out infinite;
 }
 
 /* ---------------------------------------------------------------- *

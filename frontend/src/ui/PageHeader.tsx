@@ -31,15 +31,13 @@ export function PageHeader({
       <div className={cn("flex flex-col gap-2", centered && "items-center")}>
         {eyebrow && (
           <Reveal delay={0}>
-            <span className="text-xs font-medium uppercase tracking-[0.16em] text-stone">
-              {eyebrow}
-            </span>
+            <span className="eyebrow">{eyebrow}</span>
           </Reveal>
         )}
         <Reveal delay={0.04}>
           <h1
             className={cn(
-              "text-3xl md:text-[40px] font-medium leading-[1.1] tracking-tight text-ink",
+              "font-display text-[34px] md:text-heading-lg lg:text-[44px] leading-[1.04] text-ink",
             )}
           >
             {title}
