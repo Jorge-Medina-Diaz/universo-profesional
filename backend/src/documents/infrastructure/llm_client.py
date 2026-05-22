@@ -6,18 +6,30 @@
   3. lightly biasing bullet order toward keywords matched in the JD
 
 It produces *real* CV content (not fake) — just without LLM rewriting.
-Switching to the real Anthropic/OpenAI client is a class swap.
+
+`AiLlmClient` builds on that grounded base: it reuses the same composition
+(so the *structure* always comes from the user's real entities and nothing
+is fabricated), then runs a single LLM pass that only **rephrases** the
+prose fields — the professional summary and each work entry's bullets —
+to the target job. The model can never add a job/skill/degree the user
+doesn't have, because tailored prose is merged field-by-field back onto
+the grounded structure by index. On any LLM failure it degrades to the
+grounded base.
 """
 from __future__ import annotations
 
 from typing import Any
 from uuid import UUID
 
+import structlog
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.documents.application.ports import LlmClient
 from src.identity.infrastructure.orm import UserOrm
+from src.shared.config import get_settings
+from src.shared.llm_client import get_llm_client
 from src.universe.infrastructure.orm import (
     EducationOrm,
     ExperienceOrm,
@@ -26,6 +38,8 @@ from src.universe.infrastructure.orm import (
     SkillOrm,
     UniverseOrm,
 )
+
+logger = structlog.get_logger(__name__)
 
 
 class MockLlmClient(LlmClient):
@@ -262,6 +276,209 @@ class MockLlmClient(LlmClient):
             return UUID(row[0])
         except (ValueError, TypeError):
             return None
+
+
+class _TailoredWorkEntry(BaseModel):
+    index: int = Field(description="0-based index of the work entry being rewritten.")
+    summary: str | None = Field(
+        default=None,
+        description="One-sentence role summary, rephrased to emphasise what the job cares about. Optional.",
+    )
+    highlights: list[str] = Field(
+        default_factory=list,
+        description="3-5 achievement bullets, each starting with an action verb and grounded ONLY in facts present in the provided entry. Do not invent metrics or responsibilities.",
+    )
+
+
+class _TailoredCv(BaseModel):
+    summary: str = Field(
+        description="A 2-4 sentence professional summary tailored to the job. Use ONLY facts present in the candidate profile (skills, roles, projects). Never invent experience the candidate lacks.",
+    )
+    work: list[_TailoredWorkEntry] = Field(
+        default_factory=list,
+        description="Rephrased prose for each work entry, referenced by its 0-based index. Omit entries you don't change.",
+    )
+
+
+class _TailoredCoverLetter(BaseModel):
+    body: str = Field(
+        description="A complete, professional cover-letter body in the requested language. Ground every claim in the provided profile facts — do not invent employers, titles, or skills the candidate doesn't have.",
+    )
+
+
+def _facts_for_prompt(resume: dict[str, Any]) -> str:
+    """Compact, LLM-friendly rendering of the grounded resume facts."""
+    import json
+
+    basics = resume.get("basics") or {}
+    payload = {
+        "name": basics.get("name"),
+        "current_headline": basics.get("label"),
+        "current_summary": basics.get("summary"),
+        "skills": [s.get("name") for s in (resume.get("skills") or [])],
+        "languages": [
+            f"{l.get('language')} ({l.get('fluency')})" for l in (resume.get("languages") or [])
+        ],
+        "work": [
+            {
+                "index": i,
+                "organization": w.get("name"),
+                "position": w.get("position"),
+                "summary": w.get("summary"),
+                "highlights": w.get("highlights") or [],
+            }
+            for i, w in enumerate(resume.get("work") or [])
+        ],
+        "projects": [
+            {"name": p.get("name"), "description": p.get("description"), "tech": p.get("keywords")}
+            for p in (resume.get("projects") or [])
+        ],
+        "education": [
+            {"institution": e.get("institution"), "study": e.get("studyType"), "area": e.get("area")}
+            for e in (resume.get("education") or [])
+        ],
+    }
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+def _job_for_prompt(job_summary: dict[str, Any]) -> str:
+    import json
+
+    return json.dumps(
+        {
+            "title": job_summary.get("title"),
+            "company": job_summary.get("company"),
+            "must_haves": job_summary.get("must_haves"),
+            "nice_to_haves": job_summary.get("nice_to_haves"),
+            "keywords": job_summary.get("ats_keywords"),
+            "description": (job_summary.get("description_raw") or "")[:4000],
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+class AiLlmClient(LlmClient):
+    """Grounded-tailoring client: real entities for structure, LLM for prose."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+        self._grounded = MockLlmClient(session)
+        self._llm = get_llm_client()
+
+    async def generate_cv_bullets(
+        self,
+        *,
+        job_summary: dict[str, Any],
+        retrieved: list[dict[str, Any]],
+        language: str,
+        tone: str | None,
+    ) -> dict[str, Any]:
+        resume = await self._grounded.generate_cv_bullets(
+            job_summary=job_summary, retrieved=retrieved, language=language, tone=tone
+        )
+        # Nothing to tailor for an empty profile.
+        if not (resume.get("skills") or resume.get("work") or resume.get("projects")):
+            return resume
+        system = (
+            "You are an expert CV writer. You tailor an existing, factual professional "
+            "profile to a specific job posting. You MUST NOT invent experience, employers, "
+            "titles, metrics, or skills that are not present in the profile facts. You only "
+            f"rephrase and re-emphasise what is already there. Write in language '{language}' "
+            f"with a {tone or 'professional'} tone."
+        )
+        prompt = (
+            "## Candidate profile (facts — do not contradict or extend)\n"
+            f"{_facts_for_prompt(resume)}\n\n"
+            "## Target job\n"
+            f"{_job_for_prompt(job_summary)}\n\n"
+            "Produce a tailored professional summary and, for each work entry, rephrased "
+            "highlights that surface the most job-relevant evidence. Reference work entries "
+            "by their 0-based index. Ground everything in the facts above."
+        )
+        try:
+            tailored = await self._llm.structured(
+                system=system, prompt=prompt, schema=_TailoredCv, max_tokens=2048, temperature=0.4
+            )
+        except Exception as exc:  # noqa: BLE001 — degrade to grounded base
+            logger.warning("cv_tailoring_failed_using_grounded", error=str(exc))
+            return resume
+
+        if tailored.summary.strip():
+            resume.setdefault("basics", {})["summary"] = tailored.summary.strip()
+        work = resume.get("work") or []
+        for entry in tailored.work:
+            if 0 <= entry.index < len(work):
+                if entry.summary and entry.summary.strip():
+                    work[entry.index]["summary"] = entry.summary.strip()
+                if entry.highlights:
+                    work[entry.index]["highlights"] = [h for h in entry.highlights if h.strip()]
+        meta = resume.setdefault("meta", {})
+        meta["generated_by"] = f"cvs-saas AiLlmClient/{get_settings().llm_provider_resolved}"
+        return resume
+
+    async def generate_cover_letter(
+        self,
+        *,
+        job_summary: dict[str, Any],
+        retrieved: list[dict[str, Any]],
+        language: str,
+        tone: str | None,
+    ) -> dict[str, Any]:
+        base = await self._grounded.generate_cover_letter(
+            job_summary=job_summary, retrieved=retrieved, language=language, tone=tone
+        )
+        facts = await self._grounded.generate_cv_bullets(
+            job_summary=job_summary, retrieved=retrieved, language=language, tone=tone
+        )
+        if not (facts.get("skills") or facts.get("work") or facts.get("projects")):
+            return base
+        company = job_summary.get("company") or ""
+        title = job_summary.get("title") or ""
+        system = (
+            "You are an expert cover-letter writer. Ground every claim in the candidate's "
+            "factual profile — never invent employers, titles, metrics, or skills they lack. "
+            f"Write the letter body in language '{language}' with a {tone or 'professional'} tone. "
+            "Return only the letter body (greeting through sign-off), no preamble."
+        )
+        prompt = (
+            "## Candidate profile (facts)\n"
+            f"{_facts_for_prompt(facts)}\n\n"
+            "## Target job\n"
+            f"{_job_for_prompt(job_summary)}\n\n"
+            f"Write a concise, compelling cover letter for the {title or 'role'} at "
+            f"{company or 'the company'}. 3-4 short paragraphs."
+        )
+        try:
+            tailored = await self._llm.structured(
+                system=system,
+                prompt=prompt,
+                schema=_TailoredCoverLetter,
+                max_tokens=1500,
+                temperature=0.5,
+            )
+        except Exception as exc:  # noqa: BLE001 — degrade to grounded base
+            logger.warning("cover_letter_tailoring_failed_using_grounded", error=str(exc))
+            return base
+
+        body = tailored.body.strip()
+        if not body:
+            return base
+        base.setdefault("basics", {})["summary"] = body
+        base["cover_letter_body"] = body
+        base.setdefault("meta", {})["generated_by"] = (
+            f"cvs-saas AiLlmClient/{get_settings().llm_provider_resolved}"
+        )
+        return base
+
+
+def build_document_llm_client(session: AsyncSession) -> LlmClient:
+    """Pick the real grounded-tailoring client when a provider is configured,
+    else the deterministic mock. Mirrors the provider-resolution pattern used
+    across the codebase (a single key auto-activates real generation)."""
+    if get_settings().llm_provider_resolved == "mock":
+        return MockLlmClient(session)
+    return AiLlmClient(session)
 
 
 from datetime import date as _date  # noqa: E402

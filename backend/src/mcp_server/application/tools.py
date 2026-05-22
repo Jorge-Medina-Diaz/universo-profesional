@@ -319,7 +319,7 @@ async def _h_generate_cv(*, session, user_id, client_id, args):
     )
     from src.documents.application.use_cases import GenerateCv, GenerateCvInput
     from src.documents.infrastructure.job_parser import MockJobParser
-    from src.documents.infrastructure.llm_client import MockLlmClient
+    from src.documents.infrastructure.llm_client import build_document_llm_client
     from src.documents.infrastructure.renderer import WeasyPrintRenderer
     from src.documents.infrastructure.repositories import (
         SqlAlchemyDocumentRepository,
@@ -347,7 +347,7 @@ async def _h_generate_cv(*, session, user_id, client_id, args):
         parser=MockJobParser(),
         embedder=get_embeddings_service(),
         search=PgVectorSemanticSearch(session),
-        llm=MockLlmClient(session),
+        llm=build_document_llm_client(session),
         renderer=WeasyPrintRenderer(),
     )
     uow = _new_uow(session)

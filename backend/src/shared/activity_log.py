@@ -36,7 +36,7 @@ async def persist_event_handler(event: DomainEvent) -> None:
                 text(
                     """
                     INSERT INTO domain_events (event_id, user_id, aggregate_id, event_type, payload, occurred_at)
-                    VALUES (:eid, :uid, NULL, :etype, CAST(:payload AS jsonb), :occurred_at)
+                    VALUES (CAST(:eid AS uuid), CAST(:uid AS uuid), NULL, :etype, CAST(:payload AS jsonb), :occurred_at)
                     """
                 ).bindparams(
                     eid=str(event.event_id),

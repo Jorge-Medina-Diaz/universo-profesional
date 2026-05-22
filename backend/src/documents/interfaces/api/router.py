@@ -16,7 +16,7 @@ from src.documents.application.use_cases import (
     ShareDocument,
 )
 from src.documents.infrastructure.job_parser import MockJobParser
-from src.documents.infrastructure.llm_client import MockLlmClient
+from src.documents.infrastructure.llm_client import build_document_llm_client
 from src.documents.infrastructure.renderer import WeasyPrintRenderer
 from src.documents.infrastructure.repositories import (
     SqlAlchemyDocumentRepository,
@@ -47,7 +47,7 @@ def _generate_cv_dep(session: SessionDep) -> GenerateCv:
         parser=MockJobParser(),
         embedder=get_embeddings_service(),
         search=PgVectorSemanticSearch(session),
-        llm=MockLlmClient(session),
+        llm=build_document_llm_client(session),
         renderer=WeasyPrintRenderer(),
     )
 
