@@ -1,0 +1,17 @@
+{
+  "name": "Universo Profesional",
+  "short_name": "Universo",
+  "description": "Tu carrera, viva.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8f5ed",
+  "theme_color": "#ffda6e",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    }
+  ]
+}

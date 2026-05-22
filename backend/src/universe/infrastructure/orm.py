@@ -29,6 +29,10 @@ class UniverseOrm(Base):
     last_reviewed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    primary_area: Mapped[str | None] = mapped_column(Text, nullable=True)
+    secondary_areas: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), default=list, nullable=False
+    )
 
 
 def _common_cols(table_name: str) -> dict[str, Any]:
@@ -93,6 +97,8 @@ class ExperienceOrm(Base):
     highlights: Mapped[list[Any]] = mapped_column(JSONB, default=list, nullable=False)
     competences: Mapped[list[Any]] = mapped_column(JSONB, default=list, nullable=False)
     url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    industry_sector: Mapped[str | None] = mapped_column(Text, nullable=True)
+    seniority_level: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class ProjectOrm(Base):
@@ -124,6 +130,9 @@ class ProjectOrm(Base):
     impact: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str | None] = mapped_column(Text, nullable=True)
     url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    domain_tags: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), default=list, nullable=False
+    )
 
 
 class SkillOrm(Base):
@@ -148,7 +157,8 @@ class SkillOrm(Base):
     level: Mapped[str | None] = mapped_column(Text, nullable=True)
     years: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_used_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    evidence_refs: Mapped[list[Any]] = mapped_column(JSONB, default=list, nullable=False)
+    # evidence_refs dropped in migration 0017 — skill→evidence relations
+    # now live as :DEMONSTRATES edges in the AGE personal graph.
 
 
 class CertificationOrm(Base):
@@ -305,7 +315,12 @@ class GoalOrm(Base):
     horizon: Mapped[str] = mapped_column(Text, nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="active")
+    target_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    details: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
 
 
 class EvidenceOrm(Base):
@@ -377,3 +392,117 @@ class AvatarOrm(Base):
     width: Mapped[int | None] = mapped_column(Integer, nullable=True)
     height: Mapped[int | None] = mapped_column(Integer, nullable=True)
     uploaded_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+
+
+class AreaStrengthOrm(Base):
+    __tablename__ = "area_strengths"
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    area: Mapped[str] = mapped_column(Text, nullable=False)
+    depth_years: Mapped[float] = mapped_column(Numeric(4, 1), default=0, nullable=False)
+    breadth_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    recency_months: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    confidence: Mapped[float] = mapped_column(Numeric(3, 2), default=0, nullable=False)
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    computed_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+
+
+class ArtifactOrm(Base):
+    __tablename__ = "artifacts"
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    type: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    venue: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # linked_skill_ids / linked_project_id dropped in migration 0017 —
+    # artifact relations now live as :USES_TECH / :PART_OF graph edges.
+    metrics: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    source: Mapped[str] = mapped_column(Text, default="manual", nullable=False)
+    visibility: Mapped[str] = mapped_column(Text, default="public", nullable=False)
+    confidence: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)
+    source_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    last_reviewed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+
+
+class SkillStackOrm(Base):
+    __tablename__ = "skill_stacks"
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    slug: Mapped[str] = mapped_column(Text, nullable=False)
+    area: Mapped[str] = mapped_column(Text, nullable=False)
+    skill_ids: Mapped[list[UUID]] = mapped_column(
+        ARRAY(PgUUID(as_uuid=True)), default=list, nullable=False
+    )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+
+
+class ArchitectureDecisionOrm(Base):
+    __tablename__ = "architecture_decisions"
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    context: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decision: Mapped[str | None] = mapped_column(Text, nullable=True)
+    consequences: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(Text, default="proposed", nullable=False)
+    # superseded_by / related_project_id dropped in migration 0017 — ADR
+    # relations now live as :SUPERSEDES / :PART_OF graph edges.
+    tags: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list, nullable=False)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIM), nullable=True)
+    source: Mapped[str] = mapped_column(Text, default="manual", nullable=False)
+    visibility: Mapped[str] = mapped_column(Text, default="public", nullable=False)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    last_reviewed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+
+
+class UserRubricSignalOrm(Base):
+    __tablename__ = "user_rubric_signals"
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    rubric_chunk_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("rubric_chunks.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    section_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    confidence: Mapped[float] = mapped_column(Numeric(3, 2), default=0, nullable=False)
+    evidence_entity_type: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence_entity_ids: Mapped[list[UUID]] = mapped_column(
+        ARRAY(PgUUID(as_uuid=True)), default=list, nullable=False
+    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(Text, default="auto", nullable=False)
+    last_reviewed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)

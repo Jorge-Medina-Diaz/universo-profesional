@@ -32,6 +32,13 @@ class AccountSoftDeleted(DomainEvent):
     event_type: ClassVar[str] = "identity.account_soft_deleted"
 
 
+@dataclass(frozen=True, kw_only=True)
+class TierChanged(DomainEvent):
+    event_type: ClassVar[str] = "identity.tier_changed"
+    previous_tier: str = "free"
+    new_tier: str = "free"
+
+
 @dataclass
 class User:
     """User aggregate root.
@@ -55,6 +62,8 @@ class User:
     updated_at: datetime
     deleted_at: datetime | None
     last_login_at: datetime | None
+    tier: str = "free"
+    tier_updated_at: datetime | None = None
     _events: list[DomainEvent] = field(default_factory=list, repr=False, compare=False)
 
     @classmethod
@@ -121,6 +130,23 @@ class User:
         self.deleted_at = now
         self.updated_at = now
         self._events.append(AccountSoftDeleted(user_id=self.id))
+
+    @property
+    def is_pro(self) -> bool:
+        return self.tier == "pro"
+
+    def set_tier(self, tier: str, *, now: datetime) -> None:
+        if tier not in ("free", "pro"):
+            raise ValueError(f"Unsupported tier: {tier}")
+        if self.tier == tier:
+            return
+        previous = self.tier
+        self.tier = tier
+        self.tier_updated_at = now
+        self.updated_at = now
+        self._events.append(
+            TierChanged(user_id=self.id, previous_tier=previous, new_tier=tier)
+        )
 
     def pop_events(self) -> list[DomainEvent]:
         events = list(self._events)

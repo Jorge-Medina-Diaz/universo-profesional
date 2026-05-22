@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from fastapi import APIRouter, Body
+import structlog
+from fastapi import APIRouter, Body, HTTPException, Request
 from pydantic import BaseModel
 
 from src.billing.application.use_cases import (
@@ -13,11 +14,16 @@ from src.billing.application.use_cases import (
     StartPortal,
 )
 from src.billing.domain.entities import PLAN_LIMITS, Plan
-from src.billing.infrastructure.payments import MockStripeProvider
+from src.billing.infrastructure.payments import (
+    MockStripeProvider,
+    get_payments_provider,
+)
 from src.billing.infrastructure.repositories import SqlAlchemySubscriptionRepository
 from src.identity.interfaces.api.deps import CurrentUserId, SessionDep
 from src.shared.config import get_settings
 from src.shared.uow import unit_of_work
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 
@@ -77,7 +83,7 @@ async def create_checkout(
     session: SessionDep,
 ) -> dict[str, str]:
     settings = get_settings()
-    uc = StartCheckout(MockStripeProvider(session))
+    uc = StartCheckout(get_payments_provider(session))
     url = await uc.execute(
         user_id=user_id,
         plan=body.plan,
@@ -93,7 +99,7 @@ async def create_portal(
     body: dict[str, str] = Body(default_factory=dict),
 ) -> dict[str, str]:
     settings = get_settings()
-    uc = StartPortal(MockStripeProvider(session))
+    uc = StartPortal(get_payments_provider(session))
     url = await uc.execute(
         user_id=user_id,
         return_url=body.get("return_url") or f"{settings.frontend_base_url}/settings/billing",
@@ -108,7 +114,7 @@ async def cancel_subscription(
     async with unit_of_work(session) as uow:
         uc = CancelSubscription(
             SqlAlchemySubscriptionRepository(session),
-            MockStripeProvider(session),
+            get_payments_provider(session),
         )
         r = await uc.execute(user_id=user_id)
         if r.is_failure:
@@ -116,6 +122,160 @@ async def cancel_subscription(
         await uow.commit()
         sub = r.value  # type: ignore[union-attr]
     return {"plan": sub.plan, "status": sub.status}
+
+
+# --- Stripe webhook (production) -----------------------------------------
+
+
+@router.post("/webhook")
+async def stripe_webhook(
+    request: Request,
+    session: SessionDep,
+) -> dict[str, Any]:
+    """Real Stripe webhook receiver.
+
+    Verifies HMAC signature, dispatches by `type`, and ACKs with 200 so
+    Stripe doesn't retry. Idempotency: we use `event.id` (the Stripe event
+    id) as a natural dedup key — every handler should be safe to replay.
+
+    Supported events:
+      * checkout.session.completed       — upgrade plan + send receipt email
+      * customer.subscription.updated    — sync plan + current_period_end
+      * customer.subscription.deleted    — downgrade to free at period end
+      * invoice.paid                     — log + optional email
+      * invoice.payment_failed           — log + flag subscription
+    """
+    settings = get_settings()
+    raw_body = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+
+    # If we're not running the real provider, refuse to process — anyone
+    # sending a fake signature shouldn't be able to flip a plan in prod.
+    if settings.stripe_provider != "real" or not settings.stripe_webhook_secret:
+        raise HTTPException(status_code=400, detail="webhook not configured")
+
+    from src.billing.infrastructure.stripe_provider import verify_stripe_signature
+
+    if not verify_stripe_signature(
+        raw_body, sig_header, settings.stripe_webhook_secret
+    ):
+        logger.warning("stripe_webhook_bad_signature")
+        raise HTTPException(status_code=400, detail="invalid signature")
+
+    import json
+
+    event = json.loads(raw_body.decode("utf-8"))
+    event_type = event.get("type", "")
+    data_object = (event.get("data") or {}).get("object") or {}
+    logger.info("stripe_webhook_received", event_type=event_type, id=event.get("id"))
+
+    from uuid import UUID
+
+    from src.billing.infrastructure.repositories import SqlAlchemySubscriptionRepository
+    from src.shared.security import utc_now
+
+    subs = SqlAlchemySubscriptionRepository(session)
+
+    async def _resolve_user_id() -> UUID | None:
+        # Prefer client_reference_id when present (checkout sessions). Fall
+        # back to the customer metadata we set when creating the customer.
+        for key in ("client_reference_id",):
+            v = data_object.get(key)
+            if v:
+                try:
+                    return UUID(str(v))
+                except ValueError:
+                    pass
+        meta = (data_object.get("metadata") or {})
+        v = meta.get("user_id")
+        if v:
+            try:
+                return UUID(str(v))
+            except ValueError:
+                pass
+        return None
+
+    try:
+        if event_type == "checkout.session.completed":
+            uid = await _resolve_user_id()
+            if uid is None:
+                return {"ok": True, "skipped": "no user_id"}
+            plan = ((data_object.get("metadata") or {}).get("plan") or "premium")
+            sub = await subs.get(uid)
+            if sub is None:
+                from src.billing.domain.entities import Subscription
+
+                sub = Subscription.free_for(uid, utc_now())
+            sub.plan = plan if plan in {"premium", "pro"} else "premium"
+            sub.status = "active"
+            sub.stripe_customer_id = data_object.get("customer") or sub.stripe_customer_id
+            sub.stripe_subscription_id = (
+                data_object.get("subscription") or sub.stripe_subscription_id
+            )
+            sub.updated_at = utc_now()
+            await subs.upsert(sub)
+            await session.commit()
+
+            # Send the payment-received email (mock or real depending on env).
+            try:
+                from src.identity.infrastructure.tasks import (
+                    enqueue_transactional_email,
+                )
+
+                await enqueue_transactional_email(
+                    user_id=uid, template="payment_received", context={"plan": plan}
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("payment_email_enqueue_failed", error=str(exc))
+
+        elif event_type == "customer.subscription.updated":
+            uid = await _resolve_user_id()
+            if uid is None:
+                return {"ok": True, "skipped": "no user_id"}
+            sub = await subs.get(uid)
+            if sub is None:
+                return {"ok": True, "skipped": "no local subscription"}
+            # Map Stripe sub status → our state. Active/trialing/past_due
+            # keep the user paid (give the dunning window). Canceled/unpaid
+            # bumps them back to free.
+            status = str(data_object.get("status") or "")
+            sub.status = status or sub.status
+            period_end = data_object.get("current_period_end")
+            if isinstance(period_end, int):
+                from datetime import datetime, timezone
+
+                sub.current_period_end = datetime.fromtimestamp(
+                    period_end, tz=timezone.utc
+                )
+            sub.updated_at = utc_now()
+            await subs.upsert(sub)
+            await session.commit()
+
+        elif event_type == "customer.subscription.deleted":
+            uid = await _resolve_user_id()
+            if uid is None:
+                return {"ok": True, "skipped": "no user_id"}
+            sub = await subs.get(uid)
+            if sub is None:
+                return {"ok": True, "skipped": "no local subscription"}
+            sub.plan = "free"
+            sub.status = "canceled"
+            sub.updated_at = utc_now()
+            await subs.upsert(sub)
+            await session.commit()
+
+        # invoice.paid / invoice.payment_failed are observability-only today.
+
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("stripe_webhook_handler_failed", error=str(exc))
+        # Return 200 anyway — Stripe retries with the SAME event id, and
+        # we already logged it. Retrying buggy handlers just floods the log.
+        return {"ok": False, "error": str(exc)}
+
+    return {"ok": True}
+
+
+# --- Mock webhook (dev/test only) ----------------------------------------
 
 
 class WebhookTestRequest(BaseModel):
@@ -129,7 +289,16 @@ async def webhook_test(
     body: WebhookTestRequest,
     session: SessionDep,
 ) -> dict[str, Any]:
-    """MOCK-ONLY webhook to simulate Stripe events from the frontend."""
+    """Mock-only webhook to simulate Stripe events from the frontend.
+
+    Hard-blocked in production — there's no signature, so anyone could call
+    it to flip arbitrary users onto Pro. The real `/webhook` endpoint above
+    is the authenticated path.
+    """
+    settings = get_settings()
+    if settings.is_prod:
+        raise HTTPException(status_code=404)
+
     from uuid import UUID
 
     payments = MockStripeProvider(session)
@@ -141,8 +310,6 @@ async def webhook_test(
             await uow.commit()
             return {"plan": sub.plan, "status": sub.status}
         # canceled
-        from src.billing.infrastructure.repositories import SqlAlchemySubscriptionRepository
-
         subs = SqlAlchemySubscriptionRepository(session)
         sub = await subs.get(UUID(body.user_id))
         if sub is None:

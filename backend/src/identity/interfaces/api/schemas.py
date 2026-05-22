@@ -1,14 +1,52 @@
 """Pydantic schemas for Identity endpoints."""
 from __future__ import annotations
 
-from pydantic import BaseModel, EmailStr, Field
+import re
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+
+# --- Password policy ---------------------------------------------------------
+# Enforced on register + password reset confirm. We deliberately keep the
+# minimum requirements modest (length + 1 digit + 1 uppercase + not a top-N
+# common password) — NIST 800-63B advises against complex policies because
+# they push users towards predictable patterns. Length + dictionary check
+# beat character classes in practice.
+
+_PWD_MIN_LENGTH = 10
+_PWD_MAX_LENGTH = 256
+_PWD_DIGIT_RE = re.compile(r"\d")
+_PWD_UPPER_RE = re.compile(r"[A-Z]")
+
+
+def _validate_password(pwd: str) -> str:
+    if len(pwd) < _PWD_MIN_LENGTH:
+        raise ValueError(f"password must be at least {_PWD_MIN_LENGTH} characters")
+    if len(pwd) > _PWD_MAX_LENGTH:
+        raise ValueError(f"password must be at most {_PWD_MAX_LENGTH} characters")
+    if not _PWD_DIGIT_RE.search(pwd):
+        raise ValueError("password must contain at least one digit")
+    if not _PWD_UPPER_RE.search(pwd):
+        raise ValueError("password must contain at least one uppercase letter")
+    # Local import keeps the common-password list out of the module import
+    # graph during static analysis / IDE indexing.
+    from src.shared.common_passwords import is_common_password
+
+    if is_common_password(pwd):
+        raise ValueError("password is too common; pick something less guessable")
+    return pwd
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=10, max_length=256)
+    password: str = Field(min_length=_PWD_MIN_LENGTH, max_length=_PWD_MAX_LENGTH)
     display_name: str | None = Field(default=None, max_length=120)
     locale: str = Field(default="es-ES", max_length=10)
+
+    @field_validator("password")
+    @classmethod
+    def _check_password(cls, v: str) -> str:
+        return _validate_password(v)
 
 
 class RegisterResponse(BaseModel):
@@ -44,7 +82,12 @@ class PasswordResetRequest(BaseModel):
 
 class PasswordResetConfirm(BaseModel):
     token: str
-    new_password: str = Field(min_length=10, max_length=256)
+    new_password: str = Field(min_length=_PWD_MIN_LENGTH, max_length=_PWD_MAX_LENGTH)
+
+    @field_validator("new_password")
+    @classmethod
+    def _check_password(cls, v: str) -> str:
+        return _validate_password(v)
 
 
 class CurrentUserResponse(BaseModel):
@@ -55,6 +98,12 @@ class CurrentUserResponse(BaseModel):
     email_verified: bool
     mfa_enabled: bool
     created_at: str
+    tier: str = "free"
+    tier_updated_at: str | None = None
+
+
+class SetTierRequest(BaseModel):
+    tier: str = Field(pattern="^(free|pro)$")
 
 
 class GenericOkResponse(BaseModel):

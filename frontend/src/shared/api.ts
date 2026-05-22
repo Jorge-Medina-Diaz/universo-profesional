@@ -49,6 +49,35 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Extract a human-readable message from any shape the backend returns:
+ *   - FastAPI HTTPException → { detail: "..." } | { detail: { error, message, ... } }
+ *   - DomainError problem → { title, detail }
+ *   - String → use as-is
+ */
+function extractErrorMessage(status: number, payload: unknown): string {
+  if (typeof payload === "string" && payload) return payload;
+  if (payload && typeof payload === "object") {
+    const p = payload as Record<string, unknown>;
+    // FastAPI: detail
+    if (typeof p.detail === "string") return p.detail;
+    if (p.detail && typeof p.detail === "object") {
+      const d = p.detail as Record<string, unknown>;
+      if (typeof d.message === "string") return d.message;
+      if (typeof d.error === "string") return d.error;
+      return JSON.stringify(d);
+    }
+    // RFC 7807 / DomainError
+    if (typeof p.title === "string") {
+      return p.detail && typeof p.detail === "string"
+        ? `${p.title}: ${p.detail}`
+        : p.title;
+    }
+    if (typeof p.message === "string") return p.message;
+  }
+  return `HTTP ${status}`;
+}
+
 async function authHeader(): Promise<Record<string, string>> {
   const { accessToken } = useAuthStore.getState();
   return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
@@ -64,18 +93,38 @@ export async function api<T = unknown>(
     ...(init.authRequired === false ? {} : await authHeader()),
     ...((init.headers as Record<string, string>) ?? {}),
   };
-  const resp = await fetch(path, { ...init, headers });
-  if (resp.status === 204) return undefined as T;
+  const method = (init.method ?? "GET").toUpperCase();
+  const t0 = performance.now();
+   
+  console.debug(`[api] → ${method} ${path}`);
+  let resp: Response;
+  try {
+    resp = await fetch(path, { ...init, headers });
+  } catch (networkError) {
+     
+    console.error(`[api] ✗ ${method} ${path} — network error`, networkError);
+    throw new ApiError(0, null, `Sin conexión al backend: ${(networkError as Error).message}`);
+  }
+  const ms = Math.round(performance.now() - t0);
+  if (resp.status === 204) {
+     
+    console.debug(`[api] ← ${method} ${path} 204 (${ms}ms)`);
+    return undefined as T;
+  }
   const text = await resp.text();
   const parsed = text ? safeJson(text) : undefined;
   if (!resp.ok) {
+     
+    console.error(`[api] ✗ ${method} ${path} ${resp.status} (${ms}ms)`, parsed);
     if (resp.status === 401) {
       const refreshed = await tryRefresh();
       if (refreshed) return api<T>(path, init);
       useAuthStore.getState().clear();
     }
-    throw new ApiError(resp.status, parsed, typeof parsed === "object" && parsed && "title" in parsed ? String((parsed as { title: unknown }).title) : undefined);
+    throw new ApiError(resp.status, parsed, extractErrorMessage(resp.status, parsed));
   }
+   
+  console.debug(`[api] ← ${method} ${path} ${resp.status} (${ms}ms)`);
   return parsed as T;
 }
 
@@ -137,7 +186,56 @@ export interface MeResponse {
   email_verified: boolean;
   mfa_enabled: boolean;
   created_at: string;
+  tier: "free" | "pro";
+  tier_updated_at: string | null;
 }
+
+export const account = {
+  setTier: (tier: "free" | "pro") =>
+    api<MeResponse>("/api/v1/users/me/tier", {
+      method: "POST",
+      body: JSON.stringify({ tier }),
+    }),
+};
+
+export interface ChatSession {
+  session_id: string;
+  title: string | null;
+  pinned: boolean;
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export const chatSessions = {
+  list: () => api<ChatSession[]>("/api/v1/chat/sessions"),
+  create: (title?: string) =>
+    api<ChatSession>("/api/v1/chat/sessions", {
+      method: "POST",
+      body: JSON.stringify({ title: title ?? null }),
+    }),
+  get: (id: string) => api<ChatSession>(`/api/v1/chat/sessions/${id}`),
+  update: (id: string, body: Partial<Pick<ChatSession, "title" | "pinned" | "archived">>) =>
+    api<ChatSession>(`/api/v1/chat/sessions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  remove: (id: string) =>
+    api<void>(`/api/v1/chat/sessions/${id}`, { method: "DELETE" }),
+};
+
+export interface ChatStateResponse {
+  session_id: string;
+  digest: Record<string, unknown> | null;
+  message_count: number;
+}
+
+export const chat = {
+  // Long-term conversation memory: the digest of everything older than the
+  // sliding window, computed by the session-digest workflow. Injected into
+  // the agent context as a readable so long chats stay coherent cheaply.
+  state: () => api<ChatStateResponse>("/api/v1/chat/state"),
+};
 
 export const universe = {
   summary: () => api<UniverseSummary>("/api/v1/universe/summary"),
@@ -159,7 +257,81 @@ export const universe = {
       body: fd,
     }).then((r) => r.json());
   },
+  reminders: {
+    list: (dueWithinDays?: number) => {
+      const qs = dueWithinDays != null ? `?due_within_days=${dueWithinDays}` : "";
+      return api<ReminderRow[]>(`/api/v1/universe/reminders${qs}`);
+    },
+    dismiss: (id: string) =>
+      api(`/api/v1/universe/reminders/${id}/dismiss`, { method: "POST" }),
+    scan: () =>
+      api<{ created: number }>("/api/v1/universe/reminders/scan", { method: "POST" }),
+  },
+  preferences: {
+    get: () => api<CareerPreferences | null>("/api/v1/universe/preferences"),
+    set: (body: Partial<CareerPreferences>) =>
+      api<CareerPreferences>("/api/v1/universe/preferences", {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
+  },
+  search: (q: string, k = 10, types?: string[]) => {
+    const qs = new URLSearchParams({ q, k: String(k) });
+    if (types?.length) qs.set("types", types.join(","));
+    return api<UniverseSearchHit[]>(`/api/v1/universe/search?${qs}`);
+  },
+  activity: (params?: { limit?: number; since?: string; types?: string[] }) => {
+    const qs = new URLSearchParams();
+    if (params?.limit) qs.set("limit", String(params.limit));
+    if (params?.since) qs.set("since", params.since);
+    if (params?.types?.length) qs.set("types", params.types.join(","));
+    const qstr = qs.toString();
+    return api<ActivityEvent[]>(`/api/v1/universe/activity${qstr ? `?${qstr}` : ""}`);
+  },
 };
+
+export interface UniverseSearchHit {
+  entity_type: string;
+  entity_id: string;
+  score: number;
+  preview?: string | null;
+  payload?: Record<string, unknown>;
+}
+
+export interface ActivityEvent {
+  event_id: string;
+  event_type: string;
+  occurred_at: string;
+  payload: Record<string, unknown>;
+}
+
+export interface CareerPreferences {
+  status: string | null;
+  salary_min: number | null;
+  salary_max: number | null;
+  salary_currency: string | null;
+  contract_types: string[];
+  remote_preference: string | null;
+  open_to_relocate: boolean | null;
+  working_areas: Array<Record<string, unknown>>;
+  perks_must_have: string[];
+  perks_nice_to_have: string[];
+  preferred_competences: string[];
+  discarded_competences: string[];
+  preferred_roles: string[];
+  discarded_roles: string[];
+  motivations: string | null;
+}
+
+export interface ReminderRow {
+  id: string;
+  kind: string;
+  subject_type: string | null;
+  subject_id: string | null;
+  title: string;
+  body: string;
+  due_at: string;
+}
 
 export interface UniverseSummary {
   headline: string | null;
@@ -173,11 +345,88 @@ export interface UniverseSummary {
   preferences: Record<string, unknown> | null;
 }
 
+export const jobs = {
+  list: (status?: JobStatus) => {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+    return api<JobRow[]>(`/api/v1/jobs${qs}`);
+  },
+  create: (body: Partial<Pick<JobRow, "url" | "title" | "company_name" | "description_raw" | "status">>) =>
+    api<JobRow>("/api/v1/jobs", { method: "POST", body: JSON.stringify(body) }),
+  patch: (
+    id: string,
+    body: Partial<
+      Pick<
+        JobRow,
+        "status" | "notes" | "applied_at" | "title" | "company_name" | "url" | "position"
+      >
+    >,
+  ) => api<JobRow>(`/api/v1/jobs/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  remove: (id: string) => api<void>(`/api/v1/jobs/${id}`, { method: "DELETE" }),
+  computeScore: (id: string) =>
+    api<JobRow>(`/api/v1/jobs/${id}/score`, { method: "POST" }),
+  reorder: (items: Array<{ id: string; position: number; status?: JobStatus }>) =>
+    api<{ updated: number }>("/api/v1/jobs/reorder", {
+      method: "POST",
+      body: JSON.stringify({ items }),
+    }),
+};
+
+export type JobStatus =
+  | "interested"
+  | "applied"
+  | "interviewing"
+  | "offer"
+  | "rejected"
+  | "archived";
+
+export interface JobRow {
+  id: string;
+  company_name: string | null;
+  title: string | null;
+  url: string | null;
+  description_raw: string;
+  ats_detected: string | null;
+  created_at: string | null;
+  status: JobStatus;
+  notes: string | null;
+  applied_at: string | null;
+  match_score: number | null;
+  position: number | null;
+}
+
+export const notes = {
+  list: () => api<NoteRow[]>("/api/v1/notes"),
+  create: (body: { title?: string | null; body_md: string; tags?: string[] }) =>
+    api<NoteRow>("/api/v1/notes", { method: "POST", body: JSON.stringify(body) }),
+  patch: (id: string, body: { title?: string | null; body_md?: string; tags?: string[] }) =>
+    api<NoteRow>(`/api/v1/notes/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  remove: (id: string) => api<void>(`/api/v1/notes/${id}`, { method: "DELETE" }),
+};
+
+export interface NoteRow {
+  id: string;
+  title: string | null;
+  body_md: string;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
 export const documents = {
   list: () => api<DocumentSummary[]>("/api/v1/documents"),
   get: (id: string) => api<DocumentDetail>(`/api/v1/documents/${id}`),
-  generate: (b: { job_description?: string; job_url?: string; template?: string; language?: string; tone?: string }) =>
-    api<GenerateCvResponse>("/api/v1/documents/generate-cv", { method: "POST", body: JSON.stringify(b) }),
+  generate: (b: {
+    job_description?: string;
+    job_url?: string;
+    template?: string;
+    language?: string;
+    tone?: string;
+    kind?: "cv" | "cover_letter";
+  }) =>
+    api<GenerateCvResponse>("/api/v1/documents/generate-cv", {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
   share: (id: string) => api<{ share_token: string; share_url: string }>(`/api/v1/documents/${id}/share`, { method: "POST" }),
 };
 
@@ -206,13 +455,35 @@ export interface GenerateCvResponse {
 export const billing = {
   plans: () => api<{ plans: Plan[] }>("/api/v1/billing/plans", { authRequired: false }),
   subscription: () => api<SubscriptionDto>("/api/v1/billing/subscription"),
-  upgrade: (plan: "premium" | "pro") =>
-    api<SubscriptionDto>("/api/v1/billing/webhook/test", {
+  /** Production checkout: backend returns a Stripe hosted URL; if Stripe is
+   *  in mock mode the URL is a local /billing/checkout-mock?... we navigate
+   *  to directly. */
+  checkout: (plan: "premium" | "pro", returnUrl?: string) =>
+    api<{ checkout_url: string }>("/api/v1/billing/checkout", {
       method: "POST",
-      body: JSON.stringify({ event: "checkout.completed", user_id: useAuthStore.getState().userId, plan }),
-      authRequired: false,
+      body: JSON.stringify({ plan, return_url: returnUrl }),
+    }),
+  /** Stripe Customer Portal (manage card, cancel, see invoices). Only
+   *  works if the user already has a Stripe customer id. */
+  portal: (returnUrl?: string) =>
+    api<{ portal_url: string }>("/api/v1/billing/portal", {
+      method: "POST",
+      body: JSON.stringify({ return_url: returnUrl }),
     }),
   cancel: () => api<SubscriptionDto>("/api/v1/billing/cancel", { method: "POST" }),
+  /** Dev-only: simulates a Stripe webhook event. The backend rejects this
+   *  in production. The frontend keeps using it when running against a
+   *  dev/staging backend so the upgrade button works without real cards. */
+  upgradeMock: (plan: "premium" | "pro") =>
+    api<SubscriptionDto>("/api/v1/billing/webhook/test", {
+      method: "POST",
+      body: JSON.stringify({
+        event: "checkout.completed",
+        user_id: useAuthStore.getState().userId,
+        plan,
+      }),
+      authRequired: false,
+    }),
 };
 
 export interface Plan {

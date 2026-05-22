@@ -1,0 +1,67 @@
+/**
+ * Thin client for the `/api/v1/graph/*` REST surface.
+ */
+import { api } from "@/shared/api";
+
+export interface GraphNode {
+  key: string;
+  attributes: {
+    kind: string;
+    label: string;
+    [k: string]: unknown;
+  };
+}
+
+export interface GraphEdge {
+  key: string;
+  source: string;
+  target: string;
+  attributes: {
+    edge_type: string;
+    confidence?: number | null;
+    [k: string]: unknown;
+  };
+}
+
+export interface GraphSnapshot {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  node_count: number;
+  edge_count: number;
+}
+
+export interface RetrievedItem {
+  entity_id: string;
+  kind: string;
+  name: string;
+  fused_score: number;
+  contributions: Record<string, { rank: number; score: number }>;
+}
+
+export const graphApi = {
+  snapshot: async (includeExpired = false): Promise<GraphSnapshot> =>
+    api<GraphSnapshot>(
+      `/api/v1/graph/snapshot?include_expired=${includeExpired ? "true" : "false"}`,
+    ),
+
+  retrieve: async (
+    q: string,
+    opts: { topK?: number; kinds?: string[] } = {},
+  ): Promise<{ items: RetrievedItem[]; count: number; query: string }> => {
+    const params = new URLSearchParams({ q });
+    if (opts.topK) params.set("top_k", String(opts.topK));
+    if (opts.kinds && opts.kinds.length > 0)
+      params.set("kinds", opts.kinds.join(","));
+    return api(`/api/v1/graph/retrieve?${params}`);
+  },
+
+  neighbors: async (
+    entityId: string,
+    opts: { depth?: number; includeExpired?: boolean } = {},
+  ): Promise<{ items: Record<string, unknown>[]; count: number }> => {
+    const params = new URLSearchParams();
+    if (opts.depth) params.set("depth", String(opts.depth));
+    if (opts.includeExpired) params.set("include_expired", "true");
+    return api(`/api/v1/graph/entity/${entityId}/neighbors?${params}`);
+  },
+};

@@ -175,7 +175,7 @@ _CANNED_FOR_MOCK = ParsedCv(
 async def parse_cv_pdf(pdf_bytes: bytes) -> ParsedCv:
     """Extract a structured CV. Returns mock data in mock mode."""
     settings = get_settings()
-    if settings.llm_provider == "mock":
+    if settings.llm_provider_resolved == "mock":
         return _CANNED_FOR_MOCK
 
     try:
@@ -221,7 +221,13 @@ async def commit_selection(
     achievement_uc: Any,
     uow: Any,
 ) -> dict[str, int]:
-    """Apply the user-selected items from a parsed CV to the universe."""
+    """Apply the user-selected items from a parsed CV to the universe.
+
+    Each item runs inside a savepoint so a bad row doesn't poison the rest,
+    and ISO date strings are coerced to `datetime.date` before construction.
+    """
+    from src.integrations.application.linkedin_mapper import coerce_dates_in_payload
+
     summary = {
         "experiences": 0,
         "educations": 0,
@@ -240,17 +246,26 @@ async def commit_selection(
         ("projects", project_uc),
         ("achievements", achievement_uc),
     ]
+    session = getattr(uow, "_session", None) or getattr(uow, "session", None)
     for name, uc in sections:
         items = parsed.get(name, []) or []
         selected = set(selection.get(name, []) or list(range(len(items))))
         for idx, payload in enumerate(items):
             if idx not in selected:
                 continue
-            payload = {k: v for k, v in dict(payload).items() if k != "confidence" and k != "source_page"}
+            clean = coerce_dates_in_payload(
+                {k: v for k, v in dict(payload).items() if k not in {"confidence", "source_page"}}
+            )
             try:
-                r = await uc.add(user_id=user_id, payload=payload, uow=uow)
-                if r.is_success:
-                    summary[name] += 1
+                if session is not None:
+                    async with session.begin_nested():
+                        r = await uc.add(user_id=user_id, payload=clean, uow=uow)
+                        if r.is_success:
+                            summary[name] += 1
+                else:
+                    r = await uc.add(user_id=user_id, payload=clean, uow=uow)
+                    if r.is_success:
+                        summary[name] += 1
             except Exception as exc:  # noqa: BLE001
                 logger.warning("pdf_commit_failed", section=name, error=str(exc))
     return summary

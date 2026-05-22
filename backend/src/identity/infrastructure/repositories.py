@@ -32,6 +32,8 @@ def _to_domain(row: UserOrm) -> User:
         updated_at=row.updated_at,
         deleted_at=row.deleted_at,
         last_login_at=row.last_login_at,
+        tier=getattr(row, "tier", "free") or "free",
+        tier_updated_at=getattr(row, "tier_updated_at", None),
     )
 
 
@@ -65,6 +67,8 @@ class SqlAlchemyUserRepository(UserRepository):
                     updated_at=user.updated_at,
                     deleted_at=user.deleted_at,
                     last_login_at=user.last_login_at,
+                    tier=user.tier,
+                    tier_updated_at=user.tier_updated_at,
                 )
             )
         else:
@@ -78,6 +82,8 @@ class SqlAlchemyUserRepository(UserRepository):
             existing.updated_at = user.updated_at
             existing.deleted_at = user.deleted_at
             existing.last_login_at = user.last_login_at
+            existing.tier = user.tier
+            existing.tier_updated_at = user.tier_updated_at
         await self._session.flush()
 
     async def hard_delete_expired(self, before: datetime) -> int:
@@ -168,24 +174,54 @@ class SqlAlchemyRefreshTokenRepository(RefreshTokenRepository):
         user_agent: str | None,
         ip_address: str | None,
     ) -> UUID | None:
+        """Rotate a refresh token. Detects reuse and burns the chain.
+
+        OAuth 2.0 refresh-token rotation security model (RFC 6749 §10.4 +
+        OAuth 2.1 §6.1): when a refresh token is rotated, the OLD one is
+        invalidated. If a request arrives later for that same OLD token,
+        we have two possibilities:
+          1. The legitimate user is replaying it (browser session lost
+             the new token before persisting). Unlikely but possible.
+          2. An attacker stole the old token before rotation. Almost
+             certain when (1) is unlikely.
+
+        Both cases warrant the same response: revoke EVERY refresh token
+        for the user (force re-login). This kills the attacker's session
+        AND any legitimate ones — annoying but the only safe default.
+        """
         now = utc_now()
-        stmt = (
-            update(RefreshTokenOrm)
-            .where(RefreshTokenOrm.token_hash == old_token_hash)
-            .where(RefreshTokenOrm.revoked_at.is_(None))
-            .where(RefreshTokenOrm.expires_at > now)
-            .values(revoked_at=now, replaced_by=new_token_hash)
-            .returning(RefreshTokenOrm.user_id)
-        )
-        result = await self._session.execute(stmt)
-        row = result.first()
-        if row is None:
+        # Look up the token without filters to inspect its state.
+        existing = (
+            await self._session.execute(
+                select(RefreshTokenOrm).where(
+                    RefreshTokenOrm.token_hash == old_token_hash
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is None:
             return None
-        user_id: UUID = row[0]
+
+        # Reuse detection: token was already rotated (revoked + replaced_by set).
+        if existing.replaced_by is not None or existing.revoked_at is not None:
+            await self._session.execute(
+                update(RefreshTokenOrm)
+                .where(RefreshTokenOrm.user_id == existing.user_id)
+                .where(RefreshTokenOrm.revoked_at.is_(None))
+                .values(revoked_at=now)
+            )
+            await self._session.flush()
+            return None
+
+        if existing.expires_at <= now:
+            return None
+
+        # Happy path — mark old as rotated, mint new.
+        existing.revoked_at = now
+        existing.replaced_by = new_token_hash
         self._session.add(
             RefreshTokenOrm(
                 token_hash=new_token_hash,
-                user_id=user_id,
+                user_id=existing.user_id,
                 issued_at=now,
                 expires_at=new_expires_at,
                 revoked_at=None,
@@ -195,7 +231,7 @@ class SqlAlchemyRefreshTokenRepository(RefreshTokenRepository):
             )
         )
         await self._session.flush()
-        return user_id
+        return existing.user_id
 
     async def revoke(self, token_hash: str) -> None:
         stmt = (

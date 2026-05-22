@@ -14,7 +14,9 @@ from src.identity.application.use_cases import (
     DeleteAccount,
     ExportUserData,
     GetCurrentUser,
+    SetUserTier,
 )
+from src.identity.infrastructure.repositories import SqlAlchemyUserRepository
 from src.identity.infrastructure.photo_storage import (
     delete_avatar,
     load_avatar,
@@ -27,7 +29,11 @@ from src.identity.interfaces.api.deps import (
     export_user_data_dep,
     get_current_user_uc_dep,
 )
-from src.identity.interfaces.api.schemas import CurrentUserResponse, GenericOkResponse
+from src.identity.interfaces.api.schemas import (
+    CurrentUserResponse,
+    GenericOkResponse,
+    SetTierRequest,
+)
 from src.shared.uow import unit_of_work
 
 router = APIRouter()
@@ -50,6 +56,39 @@ async def me(
         email_verified=dto.email_verified,
         mfa_enabled=dto.mfa_enabled,
         created_at=dto.created_at,
+        tier=dto.tier,
+        tier_updated_at=dto.tier_updated_at,
+    )
+
+
+@router.post("/me/tier", response_model=CurrentUserResponse)
+async def set_tier(
+    body: SetTierRequest,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> CurrentUserResponse:
+    """Set the user's subscription tier.
+
+    Dev/admin endpoint — in production this is driven by Stripe webhooks.
+    Exposed today so we can flip free→pro without Stripe wired up.
+    """
+    uc = SetUserTier(SqlAlchemyUserRepository(session))
+    async with unit_of_work(session) as uow:
+        result = await uc.execute(user_id=user_id, tier=body.tier, uow=uow)
+        if result.is_failure:
+            raise result.error  # type: ignore[union-attr]
+        await uow.commit()
+        dto = result.value  # type: ignore[union-attr]
+    return CurrentUserResponse(
+        user_id=dto.user_id,
+        email=dto.email,
+        display_name=dto.display_name,
+        locale=dto.locale,
+        email_verified=dto.email_verified,
+        mfa_enabled=dto.mfa_enabled,
+        created_at=dto.created_at,
+        tier=dto.tier,
+        tier_updated_at=dto.tier_updated_at,
     )
 
 

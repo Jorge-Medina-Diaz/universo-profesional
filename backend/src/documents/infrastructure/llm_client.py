@@ -173,6 +173,80 @@ class MockLlmClient(LlmClient):
         }
         return resume
 
+    async def generate_cover_letter(
+        self,
+        *,
+        job_summary: dict[str, Any],
+        retrieved: list[dict[str, Any]],
+        language: str,
+        tone: str | None,
+    ) -> dict[str, Any]:
+        """Compose a minimal cover-letter body from the user's top experiences
+        and the JD title/company. Pure mock — no LLM call. Real LLM swap
+        replaces this method only."""
+        del retrieved  # bias hint not used yet
+        user_id = await self._current_user_id()
+        if user_id is None:
+            return _empty_cover_letter(language)
+
+        exp_rows = (
+            await self._session.execute(
+                select(ExperienceOrm)
+                .where(ExperienceOrm.user_id == user_id)
+                .where(ExperienceOrm.deleted_at.is_(None))
+            )
+        ).scalars().all()
+        universe = await self._session.get(UniverseOrm, user_id)
+        user = await self._session.get(UserOrm, user_id)
+
+        name = (user.display_name if user else None) or (user.email if user else "")
+        title = job_summary.get("title") or "el puesto"
+        company = job_summary.get("company") or "su equipo"
+        latest = sorted(
+            exp_rows,
+            key=lambda e: e.end_date or e.start_date or _DATE_MIN,
+            reverse=True,
+        )[:2]
+
+        if language.lower().startswith("en"):
+            greeting = f"Dear {company} team,"
+            opener = f"I'm writing to apply for the {title} role."
+            mid_parts = [
+                f"In my most recent role at {e.organization} I worked as {e.role}." for e in latest
+            ]
+            close = "I'd love to talk about how my background fits this opportunity."
+            sign = f"Best,\n{name}"
+        else:
+            greeting = f"Hola equipo de {company},"
+            opener = f"Os escribo para postular a {title}."
+            mid_parts = [
+                f"En mi etapa más reciente en {e.organization} trabajé como {e.role}." for e in latest
+            ]
+            close = "Me encantaría hablar de cómo encajo en esta oportunidad."
+            sign = f"Un saludo,\n{name}"
+
+        body = "\n\n".join(
+            [greeting, opener, *mid_parts, close, sign]
+        )
+
+        return {
+            "basics": {
+                "name": name,
+                "email": user.email if user else "",
+                "label": universe.headline if universe else None,
+                "summary": body,
+            },
+            "cover_letter_body": body,
+            "meta": {
+                "language": language,
+                "tone": tone,
+                "version": "v1.0.0",
+                "kind": "cover_letter",
+                "target_company": company,
+                "target_title": title,
+            },
+        }
+
     async def _current_user_id(self) -> UUID | None:
         from sqlalchemy import text
 
@@ -204,4 +278,12 @@ def _empty_resume(language: str) -> dict[str, Any]:
         "languages": [],
         "projects": [],
         "meta": {"language": language, "version": "v1.0.0"},
+    }
+
+
+def _empty_cover_letter(language: str) -> dict[str, Any]:
+    return {
+        "basics": {"summary": ""},
+        "cover_letter_body": "",
+        "meta": {"language": language, "version": "v1.0.0", "kind": "cover_letter"},
     }

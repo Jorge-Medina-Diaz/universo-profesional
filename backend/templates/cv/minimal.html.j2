@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="{{ language }}">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ resume.basics.name or "Curriculum Vitae" }}</title>
+  <style>
+    @page { size: A4; margin: 24mm 22mm 26mm 22mm; }
+    body {
+      font-family: "Georgia", "Times", serif;
+      font-size: 10.5pt;
+      line-height: 1.55;
+      color: #161616;
+    }
+    h1 {
+      font-size: 24pt;
+      margin: 0 0 2pt 0;
+      font-weight: normal;
+      letter-spacing: -0.01em;
+    }
+    h2 {
+      font-size: 10pt;
+      margin: 22pt 0 6pt 0;
+      text-transform: uppercase;
+      letter-spacing: 0.22em;
+      font-weight: normal;
+      color: #555;
+      border-bottom: 0.5pt solid #999;
+      padding-bottom: 3pt;
+    }
+    h3 {
+      font-size: 11pt;
+      margin: 8pt 0 1pt 0;
+      font-weight: bold;
+    }
+    .label { font-style: italic; color: #555; margin-bottom: 8pt; }
+    .summary { margin-bottom: 6pt; }
+    .meta { color: #555; font-size: 9.5pt; margin-top: 4pt; }
+    .dates { color: #666; font-size: 9.5pt; font-style: italic; }
+    ul { margin: 4pt 0 6pt 14pt; padding: 0; }
+    li { margin: 0 0 1pt 0; }
+    .row { margin-bottom: 8pt; }
+    a { color: inherit; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <header style="text-align: center; margin-bottom: 4pt;">
+    <h1>{{ resume.basics.name or "" }}</h1>
+    {% if resume.basics.label %}<div class="label">{{ resume.basics.label }}</div>{% endif %}
+    <div class="meta">{% if resume.basics.email %}{{ resume.basics.email }}{% endif %}</div>
+  </header>
+
+  {% if resume.basics.summary %}
+    <p class="summary" style="margin-top: 12pt;">{{ resume.basics.summary }}</p>
+  {% endif %}
+
+  {% if resume.work %}
+    <h2>{% if language == 'en' %}Experience{% else %}Experiencia{% endif %}</h2>
+    {% for w in resume.work %}
+      <div class="row">
+        <h3>{{ w.position or w.role or '' }}</h3>
+        <div>{{ w.name or w.company or '' }} <span class="dates">· {{ w.startDate or '' }} — {{ w.endDate or ('Actual' if language != 'en' else 'Present') }}</span></div>
+        {% if w.summary %}<div>{{ w.summary }}</div>{% endif %}
+        {% if w.highlights %}
+          <ul>
+            {% for h in w.highlights %}<li>{{ h }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  {% if resume.education %}
+    <h2>{% if language == 'en' %}Education{% else %}Educación{% endif %}</h2>
+    {% for e in resume.education %}
+      <div class="row">
+        <h3>{{ e.studyType or '' }}{% if e.area %} · {{ e.area }}{% endif %}</h3>
+        <div>{{ e.institution }} <span class="dates">· {{ e.startDate or '' }} — {{ e.endDate or '' }}</span></div>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  {% if resume.skills %}
+    <h2>{% if language == 'en' %}Skills{% else %}Competencias{% endif %}</h2>
+    <p>{{ resume.skills | map(attribute='name') | join(' · ') }}</p>
+  {% endif %}
+
+  {% if resume.languages %}
+    <h2>{% if language == 'en' %}Languages{% else %}Idiomas{% endif %}</h2>
+    <p>{% for lang in resume.languages %}{{ lang.language }} ({{ lang.fluency }}){% if not loop.last %}, {% endif %}{% endfor %}</p>
+  {% endif %}
+
+  {% if resume.projects %}
+    <h2>{% if language == 'en' %}Projects{% else %}Proyectos{% endif %}</h2>
+    {% for p in resume.projects %}
+      <div class="row">
+        <h3>{{ p.name }}</h3>
+        {% if p.description %}<div>{{ p.description }}</div>{% endif %}
+      </div>
+    {% endfor %}
+  {% endif %}
+</body>
+</html>

@@ -37,6 +37,7 @@ class GenerateCvRequest(BaseModel):
     language: str = Field(default="es", max_length=2)
     tone: str = "professional"
     length: str = "1-page"
+    kind: str = Field(default="cv", pattern="^(cv|cover_letter)$")
 
 
 def _generate_cv_dep(session: SessionDep) -> GenerateCv:
@@ -101,6 +102,7 @@ async def generate_cv(
                 language=body.language,
                 tone=body.tone,
                 length=body.length,
+                kind=body.kind,
             ),
             uow=uow,
         )
@@ -220,3 +222,51 @@ async def share_document(
             raise result.error  # type: ignore[union-attr]
         await uow.commit()
         return result.value  # type: ignore[union-attr, return-value]
+
+
+# Public router — no auth, resolves a share token to a document summary.
+# Mounted at /api/v1/share/{token} from main.py.
+public_router = APIRouter()
+
+
+@public_router.get("/{token}")
+async def resolve_share_token(token: str, session: SessionDep) -> dict[str, Any]:
+    from datetime import datetime, timezone
+
+    repo = SqlAlchemyDocumentRepository(session)
+    doc = await repo.get_by_share_token(token)
+    if doc is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
+    # Optional expiry — repository row also stores `share_expires_at`.
+    expires_raw = getattr(doc, "share_expires_at", None)
+    if expires_raw is not None:
+        try:
+            if isinstance(expires_raw, datetime) and expires_raw < datetime.now(timezone.utc):
+                raise HTTPException(status_code=status.HTTP_410_GONE, detail="expired")
+        except Exception:  # noqa: BLE001
+            pass
+    return {
+        "document_id": str(doc.id),
+        "kind": doc.kind,
+        "template": doc.template,
+        "language": doc.language,
+        "created_at": doc.created_at.isoformat() if doc.created_at else None,
+        "json_resume": doc.content_json,
+        "pdf_url": f"/api/v1/share/{token}/pdf" if doc.pdf_path else None,
+    }
+
+
+@public_router.get("/{token}/pdf")
+async def get_share_pdf(token: str, session: SessionDep) -> FileResponse:
+    repo = SqlAlchemyDocumentRepository(session)
+    doc = await repo.get_by_share_token(token)
+    if doc is None or not doc.pdf_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    path = Path(doc.pdf_path)
+    if not path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename=f"cv-{doc.id}.pdf",
+    )

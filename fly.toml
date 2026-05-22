@@ -1,0 +1,58 @@
+# Fly.io app config for the FastAPI backend.
+#
+# Deploy:
+#   flyctl deploy --config fly.toml --dockerfile docker/backend.Dockerfile
+#
+# Required secrets (set via `flyctl secrets set KEY=value`):
+#   TOKEN_ENCRYPTION_KEY, ANTHROPIC_API_KEY, BREVO_API_KEY,
+#   STRIPE_API_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_*,
+#   SENTRY_DSN (optional but recommended).
+#
+# Postgres + Redis are attached as Fly Postgres / Upstash Redis. Their
+# connection strings are auto-injected as DATABASE_URL / REDIS_URL.
+
+app = "cvs-saas-backend"
+primary_region = "mad"
+
+[build]
+  dockerfile = "docker/backend.Dockerfile"
+
+[env]
+  ENV = "production"
+  LOG_LEVEL = "INFO"
+  EMAIL_PROVIDER = "brevo"
+  STRIPE_PROVIDER = "real"
+  AGENTS_PROVIDER = "anthropic"
+  STORAGE_PROVIDER = "filesystem"
+  STORAGE_ROOT = "/app/var/documents"
+  JWT_PRIVATE_KEY_PATH = "/app/var/keys/jwt_private.pem"
+  JWT_PUBLIC_KEY_PATH = "/app/var/keys/jwt_public.pem"
+  AUTO_VERIFY_EMAILS_IN_DEV = "false"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "30s"
+    method = "GET"
+    path = "/readyz"
+
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[[mounts]]
+  source = "cvs_backend_var"
+  destination = "/app/var"
+  initial_size = "5gb"
+
+[processes]
+  app = "uvicorn src.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=*"

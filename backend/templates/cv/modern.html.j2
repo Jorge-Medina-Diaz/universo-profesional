@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="{{ language }}">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ resume.basics.name or "Curriculum Vitae" }}</title>
+  <style>
+    @page { size: A4; margin: 16mm 16mm 18mm 16mm; }
+    body {
+      font-family: "Helvetica", "Arial", "DejaVu Sans", sans-serif;
+      font-size: 10pt;
+      line-height: 1.4;
+      color: #1c1c1c;
+    }
+    .wrap { display: table; width: 100%; }
+    .left {
+      display: table-cell;
+      width: 32%;
+      vertical-align: top;
+      padding-right: 14pt;
+      border-right: 0.5pt solid #ddd;
+    }
+    .right {
+      display: table-cell;
+      vertical-align: top;
+      padding-left: 14pt;
+    }
+    h1 {
+      font-size: 22pt;
+      margin: 0 0 2pt 0;
+      letter-spacing: -0.01em;
+    }
+    h2 {
+      font-size: 10pt;
+      margin: 14pt 0 5pt 0;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #555;
+    }
+    h3 { font-size: 10.5pt; margin: 6pt 0 1pt 0; }
+    .label {
+      color: #444;
+      font-size: 11pt;
+      margin-bottom: 8pt;
+    }
+    .summary { margin-bottom: 8pt; }
+    .meta { color: #666; font-size: 9pt; }
+    ul { margin: 2pt 0 6pt 14pt; padding: 0; }
+    li { margin: 0 0 1pt 0; }
+    .row { margin-bottom: 9pt; }
+    .dates { color: #777; font-size: 9pt; }
+    .pill {
+      display: inline-block;
+      background: #f1ede2;
+      color: #1c1c1c;
+      padding: 1pt 6pt;
+      border-radius: 6pt;
+      font-size: 8.5pt;
+      margin: 0 2pt 2pt 0;
+    }
+    a { color: inherit; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>{{ resume.basics.name or "" }}</h1>
+    {% if resume.basics.label %}<div class="label">{{ resume.basics.label }}</div>{% endif %}
+    {% if resume.basics.summary %}<p class="summary">{{ resume.basics.summary }}</p>{% endif %}
+    <div class="meta">
+      {% if resume.basics.email %}{{ resume.basics.email }}{% endif %}
+    </div>
+  </header>
+
+  <div class="wrap" style="margin-top: 14pt;">
+    <div class="left">
+      {% if resume.skills %}
+        <h2>{% if language == 'en' %}Skills{% else %}Competencias{% endif %}</h2>
+        <div>
+          {% for s in resume.skills %}<span class="pill">{{ s.name }}</span>{% endfor %}
+        </div>
+      {% endif %}
+
+      {% if resume.languages %}
+        <h2>{% if language == 'en' %}Languages{% else %}Idiomas{% endif %}</h2>
+        {% for lang in resume.languages %}
+          <div>{{ lang.language }} <span class="dates">· {{ lang.fluency }}</span></div>
+        {% endfor %}
+      {% endif %}
+
+      {% if resume.education %}
+        <h2>{% if language == 'en' %}Education{% else %}Educación{% endif %}</h2>
+        {% for e in resume.education %}
+          <div class="row">
+            <h3>{{ e.studyType or '' }}{% if e.area %} · {{ e.area }}{% endif %}</h3>
+            <div>{{ e.institution }}</div>
+            <div class="dates">{{ e.startDate or '' }} — {{ e.endDate or '' }}</div>
+          </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+
+    <div class="right">
+      {% if resume.work %}
+        <h2>{% if language == 'en' %}Experience{% else %}Experiencia{% endif %}</h2>
+        {% for w in resume.work %}
+          <div class="row">
+            <h3>{{ w.position or w.role or '' }} — {{ w.name or w.company or '' }}</h3>
+            <div class="dates">{{ w.startDate or '' }} — {{ w.endDate or ('Actual' if language != 'en' else 'Present') }}</div>
+            {% if w.summary %}<div>{{ w.summary }}</div>{% endif %}
+            {% if w.highlights %}
+              <ul>
+                {% for h in w.highlights %}<li>{{ h }}</li>{% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      {% if resume.projects %}
+        <h2>{% if language == 'en' %}Projects{% else %}Proyectos{% endif %}</h2>
+        {% for p in resume.projects %}
+          <div class="row">
+            <h3>{{ p.name }}</h3>
+            {% if p.description %}<div>{{ p.description }}</div>{% endif %}
+            {% if p.keywords %}
+              <div>
+                {% for k in p.keywords %}<span class="pill">{{ k }}</span>{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,13 @@
+# Robots policy for universo.pro
+
+User-agent: *
+Allow: /
+
+# Public marketing + auth + share — fine to index.
+Disallow: /api/
+Disallow: /agui/
+Disallow: /mcp/
+Disallow: /auth/oauth/
+
+# Sitemap pointer.
+Sitemap: https://universo.pro/sitemap.xml

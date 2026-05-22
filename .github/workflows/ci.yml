@@ -61,7 +61,7 @@ jobs:
         working-directory: backend
         run: uv run mypy src
         continue-on-error: true  # MVP: strict mypy may require further tuning
-      - name: Pytest
+      - name: Pytest with coverage
         working-directory: backend
         env:
           DATABASE_URL: postgresql+asyncpg://cvs:cvs_dev_password@localhost:5432/cvs
@@ -77,7 +77,16 @@ jobs:
           EMAIL_PORT: "1025"
         run: |
           mkdir -p /tmp/cvs-docs
-          uv run pytest -q
+          # Coverage threshold is intentionally permissive on the first
+          # production push — we'll ratchet it up sprint by sprint.
+          uv run pytest -q --cov=src --cov-report=xml --cov-report=term --cov-fail-under=40
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+          retention-days: 14
 
   frontend:
     name: frontend lint + typecheck + test
@@ -92,9 +101,31 @@ jobs:
       - name: Install
         working-directory: frontend
         run: npm install --include=dev
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
       - name: Typecheck
         working-directory: frontend
         run: npm run typecheck
       - name: Test
         working-directory: frontend
         run: npm test -- --run
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  security:
+    name: trivy + secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+        continue-on-error: true  # First push: warn-only; flip to hard-fail later.

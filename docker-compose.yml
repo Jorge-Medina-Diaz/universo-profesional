@@ -2,8 +2,12 @@ name: cvs-saas
 
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    build:
+      context: ./docker
+      dockerfile: postgres.Dockerfile
+    image: cvs-saas/postgres-age:pg16
     container_name: cvs-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: cvs
       POSTGRES_PASSWORD: cvs_dev_password
@@ -14,6 +18,12 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    # AGE requires being preloaded; pass the flag directly so it survives
+    # docker-compose overriding the image's default CMD.
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=age
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U cvs -d cvs"]
       interval: 5s
@@ -23,6 +33,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: cvs-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
@@ -36,6 +47,7 @@ services:
   mailhog:
     image: mailhog/mailhog:latest
     container_name: cvs-mailhog
+    restart: unless-stopped
     ports:
       - "1025:1025"  # SMTP
       - "8025:8025"  # Web UI
@@ -49,6 +61,8 @@ services:
     build:
       context: ./backend
       dockerfile: ../docker/backend.Dockerfile
+      target: runtime
+    restart: unless-stopped
     container_name: cvs-backend
     environment:
       DATABASE_URL: postgresql+asyncpg://cvs:cvs_dev_password@postgres:5432/cvs
@@ -56,18 +70,50 @@ services:
       REDIS_URL: redis://redis:6379/0
       EMAIL_HOST: mailhog
       EMAIL_PORT: 1025
-      EMAIL_FROM: no-reply@cvs-saas.local
       JWT_PRIVATE_KEY_PATH: /app/var/keys/jwt_private.pem
       JWT_PUBLIC_KEY_PATH: /app/var/keys/jwt_public.pem
       STORAGE_ROOT: /app/var/documents
       CANONICAL_BASE_URL: http://localhost:8000
       FRONTEND_BASE_URL: http://localhost:5173
-      LLM_PROVIDER: mock
-      EMBEDDINGS_PROVIDER: deterministic
-      STRIPE_PROVIDER: mock
       PYTHONUNBUFFERED: "1"
       PYTHONDONTWRITEBYTECODE: "1"
-      ENV: development
+      # Providers — overridable from .env. Defaults keep dev offline. With the
+      # unified resolution, a bare ANTHROPIC_API_KEY/OPENAI_API_KEY already
+      # upgrades agents+llm+embeddings even if these stay at their defaults.
+      ENV: ${ENV:-development}
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER:-deterministic}
+      AGENTS_PROVIDER: ${AGENTS_PROVIDER:-mock}
+      AGENTS_COORDINATOR_MODEL: ${AGENTS_COORDINATOR_MODEL:-claude-sonnet-4-6}
+      AGENTS_SPECIALIST_MODEL: ${AGENTS_SPECIALIST_MODEL:-claude-haiku-4-5-20251001}
+      AUTO_VERIFY_EMAILS_IN_DEV: ${AUTO_VERIFY_EMAILS_IN_DEV:-false}
+      # Secrets pulled from .env (raíz del repo, gitignored). Empty string when
+      # not set, which keeps the *_configured flags `false` in the status probe.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-}
+      # Email (real provider when EMAIL_PROVIDER=brevo|postmark)
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-mock}
+      EMAIL_FROM: ${EMAIL_FROM:-no-reply@cvs-saas.local}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Universo Profesional}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      POSTMARK_SERVER_TOKEN: ${POSTMARK_SERVER_TOKEN:-}
+      # Stripe (real when STRIPE_PROVIDER=real)
+      STRIPE_PROVIDER: ${STRIPE_PROVIDER:-mock}
+      STRIPE_API_KEY: ${STRIPE_API_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_PREMIUM_MONTHLY: ${STRIPE_PRICE_PREMIUM_MONTHLY:-}
+      STRIPE_PRICE_PRO_MONTHLY: ${STRIPE_PRICE_PRO_MONTHLY:-}
+      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-}
+      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:-}
+      # Integrations (OAuth + scraping)
+      BRIGHTDATA_API_KEY: ${BRIGHTDATA_API_KEY:-}
+      BRIGHTDATA_DATASET_ID: ${BRIGHTDATA_DATASET_ID:-gd_l1viktl72bvl7bjuj0}
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
+      LINKEDIN_DMA_ENABLED: ${LINKEDIN_DMA_ENABLED:-false}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
     ports:
       - "8000:8000"
     volumes:
@@ -86,16 +132,39 @@ services:
     build:
       context: ./backend
       dockerfile: ../docker/worker.Dockerfile
+      target: runtime
+    restart: unless-stopped
     container_name: cvs-worker
     environment:
       DATABASE_URL: postgresql+asyncpg://cvs:cvs_dev_password@postgres:5432/cvs
       REDIS_URL: redis://redis:6379/0
       STORAGE_ROOT: /app/var/documents
       CANONICAL_BASE_URL: http://localhost:8000
-      LLM_PROVIDER: mock
-      EMBEDDINGS_PROVIDER: deterministic
       PYTHONUNBUFFERED: "1"
-      ENV: development
+      ENV: ${ENV:-development}
+      # The worker runs LLM extraction, embedding refresh, OAuth-token-
+      # decrypting syncs and email sends — so it needs the SAME secrets as
+      # the backend (it had none before, silently no-op'ing those tasks).
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER:-deterministic}
+      AGENTS_PROVIDER: ${AGENTS_PROVIDER:-mock}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-}
+      EMAIL_HOST: mailhog
+      EMAIL_PORT: 1025
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-mock}
+      EMAIL_FROM: ${EMAIL_FROM:-no-reply@cvs-saas.local}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Universo Profesional}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      POSTMARK_SERVER_TOKEN: ${POSTMARK_SERVER_TOKEN:-}
+      BRIGHTDATA_API_KEY: ${BRIGHTDATA_API_KEY:-}
+      BRIGHTDATA_DATASET_ID: ${BRIGHTDATA_DATASET_ID:-gd_l1viktl72bvl7bjuj0}
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
+      LINKEDIN_DMA_ENABLED: ${LINKEDIN_DMA_ENABLED:-false}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
     volumes:
       - ./backend:/app
       - backend_var:/app/var
@@ -106,36 +175,14 @@ services:
         condition: service_healthy
     command: arq src.shared.worker.WorkerSettings
 
-  copilotkit-runtime:
-    build:
-      context: ./copilotkit-runtime
-      dockerfile: ../docker/copilotkit.Dockerfile
-    container_name: cvs-copilotkit-runtime
-    environment:
-      PORT: "4000"
-      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      MCP_ENDPOINT: http://backend:8000/mcp
-      BACKEND_BASE: http://backend:8000
-      NODE_ENV: development
-    ports:
-      - "4000:4000"
-    volumes:
-      - ./copilotkit-runtime:/app
-      - copilotkit_node_modules:/app/node_modules
-    depends_on:
-      backend:
-        condition: service_started
-
   frontend:
     build:
       context: ./frontend
       dockerfile: ../docker/frontend.Dockerfile
+    restart: unless-stopped
     container_name: cvs-frontend
     environment:
       VITE_API_BASE_URL: http://localhost:8000
-      VITE_COPILOTKIT_RUNTIME_URL: http://localhost:4000/copilotkit
       NODE_ENV: development
     ports:
       - "5173:5173"
@@ -145,7 +192,6 @@ services:
     command: npm run dev -- --host 0.0.0.0
 
 volumes:
-  copilotkit_node_modules:
   postgres_data:
   redis_data:
   backend_var:

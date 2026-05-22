@@ -29,6 +29,7 @@ class GenerateCvInput:
     language: str = "es"
     tone: str = "professional"
     length: str = "1-page"
+    kind: str = "cv"  # "cv" | "cover_letter"
 
 
 @dataclass(frozen=True)
@@ -95,18 +96,26 @@ class GenerateCv:
             user_id=uid, embedding=jd_vec, top_k=30
         )
 
-        # 4) LLM (mock) — produces JSON Resume
-        content = await self._llm.generate_cv_bullets(
-            job_summary=parsed,
-            retrieved=retrieved,
-            language=payload.language,
-            tone=payload.tone,
-        )
+        # 4) LLM (mock) — produces JSON Resume (or cover-letter body for kind=cover_letter)
+        if payload.kind == "cover_letter":
+            content = await self._llm.generate_cover_letter(
+                job_summary=parsed,
+                retrieved=retrieved,
+                language=payload.language,
+                tone=payload.tone,
+            )
+        else:
+            content = await self._llm.generate_cv_bullets(
+                job_summary=parsed,
+                retrieved=retrieved,
+                language=payload.language,
+                tone=payload.tone,
+            )
 
         # 5) Persist document
         document = Document.create(
             user_id=uid,
-            kind="cv",
+            kind=payload.kind if payload.kind in ("cv", "cover_letter") else "cv",
             template=payload.template,
             language=payload.language,
             tone=payload.tone,
@@ -124,16 +133,19 @@ class GenerateCv:
         )
         await self._docs.add(document)
 
-        # 6) Render
+        # 6) Render. Cover letters get a different template + simpler DOCX.
+        render_template = (
+            "cover-letter-classic" if payload.kind == "cover_letter" else payload.template
+        )
         pdf_path = await self._renderer.render_pdf(
             content_json=content,
-            template=payload.template,
+            template=render_template,
             language=payload.language,
             user_id=uid,
         )
         docx_path = await self._renderer.render_docx(
             content_json=content,
-            template=payload.template,
+            template=render_template,
             language=payload.language,
             user_id=uid,
         )

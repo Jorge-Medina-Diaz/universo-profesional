@@ -89,10 +89,12 @@ def import_all_models() -> None:
     """
     # noqa: F401 — imports for side effects (table registration)
     from src.billing.infrastructure import orm as _billing  # noqa: F401
+    from src.coherence.infrastructure import orm as _coherence  # noqa: F401
     from src.documents.infrastructure import orm as _documents  # noqa: F401
     from src.identity.infrastructure import orm as _identity  # noqa: F401
     from src.integrations.infrastructure import orm as _integrations  # noqa: F401
     from src.mcp_server.infrastructure import orm as _mcp  # noqa: F401
+    from src.notes.infrastructure import orm as _notes  # noqa: F401
     from src.universe.infrastructure import orm as _universe  # noqa: F401
 
 

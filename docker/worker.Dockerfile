@@ -1,4 +1,4 @@
-FROM python:3.13-slim-bookworm
+FROM python:3.13-slim-bookworm AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -6,18 +6,27 @@ ENV PYTHONUNBUFFERED=1 \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
     PATH="/opt/venv/bin:/root/.local/bin:${PATH}"
 
-# Same system deps as backend (worker also renders PDFs)
+# Same runtime libs as the backend so the worker can render WeasyPrint PDFs.
+# `procps` provides `pgrep`, used by the HEALTHCHECK below.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
     curl \
+    procps \
     libcairo2 \
     libpango-1.0-0 \
     libpangoft2-1.0-0 \
     libgdk-pixbuf-2.0-0 \
-    libffi-dev \
+    libffi8 \
     shared-mime-info \
     fonts-dejavu \
     fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
+
+
+FROM base AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libffi-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
@@ -29,8 +38,25 @@ COPY pyproject.toml uv.lock* ./
 RUN uv venv /opt/venv && \
     uv sync --frozen --no-install-project || uv sync --no-install-project
 
-COPY . /app
 
-RUN mkdir -p /app/var/keys /app/var/documents
+FROM base AS runtime
+
+RUN groupadd --system --gid 1001 app && \
+    useradd --system --uid 1001 --gid 1001 --home-dir /app --shell /usr/sbin/nologin app
+
+COPY --from=builder /opt/venv /opt/venv
+
+WORKDIR /app
+COPY --chown=app:app . /app
+
+RUN mkdir -p /app/var/keys /app/var/documents && chown -R app:app /app/var
+
+USER app
+
+# Best-effort liveness: arq's queue health file exists when the worker is
+# running. If we ever need a stronger probe, expose a tiny aiohttp /health
+# endpoint inside the worker process.
+HEALTHCHECK --interval=60s --timeout=5s --start-period=30s --retries=3 \
+    CMD pgrep -f "arq src.shared.worker" >/dev/null || exit 1
 
 CMD ["arq", "src.shared.worker.WorkerSettings"]

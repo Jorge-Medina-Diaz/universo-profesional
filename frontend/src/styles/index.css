@@ -1,45 +1,399 @@
+/* DM Sans loaded via @fontsource (see main entry import) so we don't depend on Google. */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ---------------------------------------------------------------- *
+ * Design tokens — Pirsch-inspired warm, grounded SaaS palette.
+ * Single source of truth: edit here to retheme the whole product.
+ * ---------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  --primary-color-bg: red;
+
+  /* Colors — base palette */
+  --color-midnight-ink: #0a0a0a;
+  --color-ghostly-gray: #f8f5ed;
+  --color-muted-stone: #707070;
+  --color-sunbeam-yellow: #ffda6e;
+  --color-sunbeam-soft: #fff4d1;
+  --color-sunbeam-ink: #5a4500;
+  --color-leafy-green: #6ece9d;
+  --color-leaf-soft: #e0f2e7;
+  --color-leaf-ink: #1f5238;
+
+  /* Surfaces */
+  --surface-canvas: #ffffff;
+  --surface-card-surface: #f8f5ed;
+  --surface-overlay: rgba(10, 10, 10, 0.4);
+
+  /* Typography — scale */
+  --font-dm-sans: "DM Sans", Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --text-body: 16px;
+  --leading-body: 1.5;
+  --tracking-body: -0.016em;
+  --text-display: 64px;
+
+  /* Spacing — 8px base */
+  --spacing-unit: 8px;
+  --spacing-8: 8px;
+  --spacing-16: 16px;
+  --spacing-24: 24px;
+  --spacing-32: 32px;
+  --spacing-48: 48px;
+  --spacing-64: 64px;
+  --spacing-128: 128px;
+  --spacing-192: 192px;
+
+  /* Layout rhythm */
+  --section-gap: 48px;
+  --card-padding: 32px;
+  --element-gap: 16px;
+
+  /* Radii */
+  --radius-input: 6px;
+  --radius-btn: 12px;
+  --radius-card: 24px;
+  --radius-tag: 24px;
+
+  /* Motion */
+  --ease-pirsch: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration-micro: 180ms;
+  --duration-enter: 280ms;
+  --duration-modal: 420ms;
+}
+
+
+/* ---------------------------------------------------------------- *
+ * Dark theme — inversion of the light tokens.
+ * Activated by adding `data-theme="dark"` to <html>. The toggle
+ * component (ThemeToggle) handles persistence in localStorage.
+ * ---------------------------------------------------------------- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-midnight-ink: #f3efe6;
+  --color-ghostly-gray: #16140f;
+  --color-muted-stone: #9c9389;
+  --color-sunbeam-yellow: #f1c84b;
+  --color-sunbeam-soft: #3a2f10;
+  --color-sunbeam-ink: #f3efe6;
+  --color-leafy-green: #5cc28d;
+  --color-leaf-soft: #163826;
+  --color-leaf-ink: #cdeedb;
+
+  --surface-canvas: #0c0b08;
+  --surface-card-surface: #16140f;
+  --surface-overlay: rgba(0, 0, 0, 0.6);
+}
+
+:root[data-theme="dark"] .copilotKitUserMessage {
+  background-color: var(--color-leafy-green) !important;
+  color: var(--surface-canvas) !important;
+}
+:root[data-theme="dark"] .copilotKitAssistantMessage,
+:root[data-theme="dark"] .copilotKitCustomAssistantMessage {
+  background-color: var(--surface-card-surface) !important;
+  color: var(--color-midnight-ink) !important;
+  border-color: rgba(255, 255, 255, 0.04) !important;
+}
+:root[data-theme="dark"] .copilotKitInput {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+:root[data-theme="dark"] .copilotKitInput:focus-within {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border-color: var(--color-midnight-ink) !important;
+}
+
+/* ---------------------------------------------------------------- *
+ * Base layer — typography, focus, scrollbar
+ * ---------------------------------------------------------------- */
 @layer base {
-  body {
-    @apply font-sans;
+  html {
+    background-color: var(--surface-canvas);
+    color: var(--color-midnight-ink);
+    font-feature-settings: "ss03", "ss04";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+
+  body {
+    font-family: var(--font-dm-sans);
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    letter-spacing: var(--tracking-body);
+    background-color: var(--surface-canvas);
+    color: var(--color-midnight-ink);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-dm-sans);
+    font-weight: 500;
+    letter-spacing: -0.018em;
+    color: var(--color-midnight-ink);
+  }
+
   :focus-visible {
-    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-white rounded;
+    outline: 2px solid var(--color-leafy-green);
+    outline-offset: 2px;
+    border-radius: var(--radius-input);
+  }
+
+  ::selection {
+    background: var(--color-sunbeam-yellow);
+    color: var(--color-midnight-ink);
   }
 }
 
+/* ---------------------------------------------------------------- *
+ * Components — legacy class layer.
+ * Pages still using `.btn-primary`, `.card`, `.input`, `.badge-*`
+ * automatically inherit the new look. New code should prefer the
+ * React primitives in `src/ui/`.
+ * ---------------------------------------------------------------- */
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed;
+    border-radius: var(--radius-btn);
+    transition-duration: var(--duration-micro);
+    transition-timing-function: var(--ease-pirsch);
   }
   .btn-primary {
-    @apply btn bg-brand-600 text-white hover:bg-brand-700;
+    @apply btn;
+    background-color: var(--color-sunbeam-yellow);
+    color: var(--color-midnight-ink);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background-color: #ffcf45;
+    transform: translateY(-1px);
   }
   .btn-secondary {
-    @apply btn bg-white text-gray-900 border border-gray-300 hover:bg-gray-50;
+    @apply btn;
+    background-color: var(--color-leafy-green);
+    color: var(--color-midnight-ink);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background-color: #5cc28d;
+    transform: translateY(-1px);
+  }
+  .btn-ghost {
+    @apply btn;
+    background-color: transparent;
+    color: var(--color-midnight-ink);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background-color: rgba(0, 0, 0, 0.04);
   }
   .btn-danger {
-    @apply btn bg-red-600 text-white hover:bg-red-700;
+    @apply btn;
+    background-color: #ef4444;
+    color: #ffffff;
   }
+  .btn-danger:hover:not(:disabled) {
+    background-color: #dc2626;
+  }
+
   .input {
-    @apply block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-brand-500 focus:ring-1 focus:ring-brand-500;
+    @apply block w-full text-sm transition-colors;
+    background-color: rgba(0, 0, 0, 0.04);
+    color: var(--color-midnight-ink);
+    border-radius: var(--radius-input);
+    padding: 10px 16px;
+    border: 1px solid transparent;
+    transition-duration: var(--duration-micro);
+    transition-timing-function: var(--ease-pirsch);
   }
+  .input::placeholder {
+    color: var(--color-muted-stone);
+  }
+  .input:focus {
+    outline: none;
+    background-color: rgba(0, 0, 0, 0.06);
+    border-color: var(--color-midnight-ink);
+  }
+
   .label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+    @apply block text-sm font-medium mb-2;
+    color: var(--color-midnight-ink);
   }
+
   .card {
-    @apply rounded-lg border border-gray-200 bg-white p-4 shadow-sm;
+    background-color: var(--surface-card-surface);
+    border-radius: var(--radius-card);
+    padding: var(--card-padding);
   }
+
   .badge {
-    @apply inline-flex items-center rounded-full px-2 py-1 text-xs font-medium;
+    @apply inline-flex items-center text-xs font-medium;
+    border-radius: var(--radius-tag);
+    padding: 4px 12px;
   }
   .badge-brand {
-    @apply badge bg-brand-50 text-brand-700;
+    @apply badge;
+    background-color: var(--color-leaf-soft);
+    color: var(--color-leaf-ink);
   }
   .badge-gray {
-    @apply badge bg-gray-100 text-gray-700;
+    @apply badge;
+    background-color: rgba(0, 0, 0, 0.04);
+    color: var(--color-muted-stone);
+  }
+  .badge-sunbeam {
+    @apply badge;
+    background-color: var(--color-sunbeam-soft);
+    color: var(--color-sunbeam-ink);
+  }
+  .badge-leaf {
+    @apply badge;
+    background-color: var(--color-leaf-soft);
+    color: var(--color-leaf-ink);
+  }
+}
+
+/* ---------------------------------------------------------------- *
+ * CopilotKit theming — override the library's CSS vars so the chat
+ * inherits our palette without forking the component.
+ *
+ * NOTE: CopilotKit react-ui v1.7 prefixes its vars with `--copilot-kit-`.
+ * The exact list is small; we cover primary + background + separator.
+ * If a future minor version renames any var, audit
+ * node_modules/@copilotkit/react-ui/styles.css and update here.
+ * ---------------------------------------------------------------- */
+:root {
+  /* Verified against node_modules/@copilotkit/react-ui/src/css/colors.css */
+  --copilot-kit-primary-color: var(--color-midnight-ink);
+  --copilot-kit-contrast-color: var(--surface-canvas);
+  --copilot-kit-background-color: var(--surface-canvas);
+  --copilot-kit-input-background-color: rgba(0, 0, 0, 0.04);
+  --copilot-kit-secondary-color: var(--surface-card-surface);
+  --copilot-kit-secondary-contrast-color: var(--color-midnight-ink);
+  --copilot-kit-separator-color: rgba(0, 0, 0, 0.06);
+  --copilot-kit-muted-color: var(--color-muted-stone);
+  --copilot-kit-error-background: #fff1f0;
+  --copilot-kit-error-border: #ffd6d1;
+  --copilot-kit-error-text: #b42318;
+  --copilot-kit-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+}
+
+/* Make CopilotKit chat surfaces match canvas + DM Sans. */
+.copilotKitWindow,
+.copilotKitChatBody,
+.copilotKitMessages,
+.copilotKitMessagesContainer,
+.copilotKitInput {
+  font-family: var(--font-dm-sans) !important;
+}
+
+.copilotKitWindow,
+.copilotKitChatBody {
+  background-color: var(--surface-canvas) !important;
+}
+
+/* User bubble — ink solid, slightly larger + bolder so the conversation
+ * has a clear "I said" vs "AI replied" hierarchy. */
+.copilotKitUserMessage {
+  background-color: var(--color-midnight-ink) !important;
+  color: var(--surface-canvas) !important;
+  border-radius: 18px 18px 4px 18px !important;
+  padding: 12px 16px !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+  max-width: 78% !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Assistant bubble — airier, more "card", subtle border + shadow. */
+.copilotKitAssistantMessage,
+.copilotKitCustomAssistantMessage {
+  background-color: rgba(255, 255, 255, 0.65) !important;
+  color: var(--color-midnight-ink) !important;
+  border-radius: 18px 18px 18px 4px !important;
+  padding: 12px 14px !important;
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+  max-width: 86% !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  backdrop-filter: blur(2px);
+}
+
+.copilotKitMessage {
+  margin: 10px 0 !important;
+  letter-spacing: -0.005em !important;
+}
+
+/* Center the message stream and cap its width so the chat feels
+ * conversational instead of stretching wall-to-wall. The composer mirrors
+ * the same width below. Scoped to `.chat-surface-area` so embedded chats
+ * (e.g. OnboardingChatPage) keep their original full-width layout. */
+.chat-surface-area .copilotKitMessagesContainer {
+  padding: 16px 16px 24px !important;
+  gap: 4px !important;
+  max-width: 720px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  width: 100% !important;
+}
+
+/* Input — pill-ish, soft, deferred to canvas. Same max-width as messages. */
+.copilotKitInputContainer {
+  background-color: transparent !important;
+  border-top: 0 !important;
+  padding: 12px 16px 16px !important;
+}
+.chat-surface-area .copilotKitInputContainer {
+  max-width: 720px;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  width: 100% !important;
+}
+.copilotKitInput {
+  border-radius: var(--radius-card) !important;
+  background-color: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+  transition: border-color var(--duration-micro) var(--ease-pirsch),
+    box-shadow var(--duration-micro) var(--ease-pirsch),
+    background-color var(--duration-micro) var(--ease-pirsch) !important;
+}
+.copilotKitInput:focus-within {
+  border-color: var(--color-midnight-ink) !important;
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Send / control buttons. */
+.copilotKitInputControlButton {
+  border-radius: 999px !important;
+  transition: background-color var(--duration-micro) var(--ease-pirsch),
+    transform var(--duration-micro) var(--ease-pirsch) !important;
+}
+.copilotKitInputControlButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+/* Activity dots — match leaf. */
+.copilotKitActivityDot {
+  background-color: var(--color-leafy-green) !important;
+}
+
+/* ---------------------------------------------------------------- *
+ * Utility helpers
+ * ---------------------------------------------------------------- */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Honour reduced-motion globally. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }

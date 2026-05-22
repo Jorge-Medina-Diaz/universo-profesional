@@ -84,9 +84,17 @@ class RegisterUser:
             locale=locale,
             now=now,
         )
+
+        settings = get_settings()
+        # Dev/test: auto-verify so the user can log in immediately. Saves a trip
+        # to Mailhog / hunting for the verification_link in the response.
+        if (settings.is_dev or settings.is_test) and settings.auto_verify_emails_in_dev:
+            user.mark_verified(now=now)
+
         await self._users.save(user)
 
-        # Email verification token (24h, single use)
+        # Email verification token (24h, single use) — always create one so the
+        # link is available for QA, even if auto-verify is on.
         token = generate_token()
         token_h = hash_token(token)
         await self._email_tokens.create(
@@ -96,9 +104,11 @@ class RegisterUser:
             expires_at=utc_in(hours=24),
         )
 
-        settings = get_settings()
-        link = f"{settings.frontend_base_url}/auth/verify?token={token}"
-        await self._emailer.send_verification(to=str(user.email), link=link, locale=locale)
+        link = f"{settings.frontend_base_url}/#/auth/verify?token={token}"
+        # Only send the email when we haven't already verified the user; cuts
+        # the Mailhog spam in dev to actual auth flows (password reset, etc).
+        if not user.is_verified:
+            await self._emailer.send_verification(to=str(user.email), link=link, locale=locale)
 
         uow.add_events(user.pop_events())
         return ok(
@@ -135,9 +145,23 @@ class VerifyEmail:
         user = await self._users.get_by_id(user_id)
         if user is None:
             return err(NotFoundError("User no longer exists"))
+        was_unverified = not user.is_verified
         user.mark_verified(now=now)
         await self._users.save(user)
         uow.add_events(user.pop_events())
+
+        # Send the welcome email exactly once — when a user transitions from
+        # unverified → verified. We swallow errors here so verification itself
+        # always succeeds; the email worker handles retries.
+        if was_unverified:
+            try:
+                from src.identity.infrastructure.tasks import enqueue_transactional_email
+
+                await enqueue_transactional_email(
+                    user_id=user.id, template="welcome", context=None
+                )
+            except Exception:  # noqa: BLE001
+                pass
         return ok(True)
 
 
@@ -408,6 +432,8 @@ class CurrentUserDto:
     email_verified: bool
     mfa_enabled: bool
     created_at: str
+    tier: str = "free"
+    tier_updated_at: str | None = None
 
 
 class GetCurrentUser:
@@ -429,5 +455,46 @@ class GetCurrentUser:
                 email_verified=user.is_verified,
                 mfa_enabled=user.mfa_enabled,
                 created_at=user.created_at.isoformat(),
+                tier=user.tier,
+                tier_updated_at=(
+                    user.tier_updated_at.isoformat() if user.tier_updated_at else None
+                ),
+            )
+        )
+
+
+class SetUserTier:
+    """Set the subscription tier directly (dev/admin use; in prod this is
+    driven by Stripe webhooks). Idempotent."""
+
+    def __init__(self, users: UserRepository) -> None:
+        self._users = users
+
+    async def execute(
+        self, *, user_id: str, tier: str, uow: UnitOfWork
+    ) -> Result[CurrentUserDto, NotFoundError | ValidationError]:
+        from uuid import UUID
+
+        if tier not in ("free", "pro"):
+            return err(ValidationError(f"Unsupported tier: {tier}"))
+        user = await self._users.get_by_id(UUID(user_id))
+        if user is None or user.is_deleted:
+            return err(NotFoundError("User not found"))
+        user.set_tier(tier, now=utc_now())
+        await self._users.save(user)
+        uow.add_events(user.pop_events())
+        return ok(
+            CurrentUserDto(
+                user_id=str(user.id),
+                email=str(user.email),
+                display_name=user.display_name,
+                locale=user.locale,
+                email_verified=user.is_verified,
+                mfa_enabled=user.mfa_enabled,
+                created_at=user.created_at.isoformat(),
+                tier=user.tier,
+                tier_updated_at=(
+                    user.tier_updated_at.isoformat() if user.tier_updated_at else None
+                ),
             )
         )

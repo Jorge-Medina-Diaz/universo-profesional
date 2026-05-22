@@ -10,6 +10,7 @@ import structlog
 
 from src.integrations.application.ports import (
     ExternalAccountRepository,
+    OperationCancelledError,
     SyncRunsRepository,
 )
 from src.integrations.domain.external_account import IntegrationSynced
@@ -62,13 +63,19 @@ class SyncGithub:
         items_updated = 0
         errors: list[str] = []
 
+        async def _bail_if_cancelled(stage: str) -> None:
+            if await self._runs.is_cancelled(run_id):
+                raise OperationCancelledError(f"cancelled at {stage}")
+
         try:
             gh = GithubClient(account.access_token)
             me = await gh.get_authenticated_user()
             login = me["login"]
 
             repos = await gh.list_repos()
+            await _bail_if_cancelled("after_list_repos")
             orgs = await gh.list_orgs()
+            await _bail_if_cancelled("after_list_orgs")
             try:
                 graphql_data = await gh.pinned_and_contributions(login)
             except Exception as exc:  # noqa: BLE001
@@ -100,7 +107,11 @@ class SyncGithub:
 
             # --- Aggregated language bytes across all repos ---
             language_bytes: dict[str, int] = {}
-            for r in top_repos:
+            for idx, r in enumerate(top_repos):
+                # Cooperative cancel: this is the most expensive loop (N API
+                # calls), so we check before each one rather than only once.
+                if idx % 3 == 0:
+                    await _bail_if_cancelled(f"during_langs[{idx}]")
                 try:
                     langs = await gh.get_repo_languages(r["owner"]["login"], r["name"])
                     for k, v in langs.items():
@@ -108,6 +119,7 @@ class SyncGithub:
                 except Exception as exc:  # noqa: BLE001
                     errors.append(f"langs_{r['name']}: {exc}")
 
+            await _bail_if_cancelled("before_projects_upsert")
             for r in top_repos:
                 description = r.get("description") or ""
                 # Optional README enrichment (skip if too big)
@@ -156,6 +168,7 @@ class SyncGithub:
                     await self._projects.update(existing)
                     items_updated += 1
 
+            await _bail_if_cancelled("before_skills_upsert")
             # --- Skills from languages aggregated ---
             existing_skills_by_name = {
                 s.name.lower(): s for s in await self._skills.list(uid)
@@ -199,6 +212,7 @@ class SyncGithub:
                 await self._interests.add(interest)
                 items_created += 1
 
+            await _bail_if_cancelled("before_experiences_upsert")
             # --- Experiences from orgs (member of) ---
             existing_exp_keys = {
                 (e.organization.lower(), e.role.lower()) for e in await self._experiences.list(uid)
@@ -252,6 +266,33 @@ class SyncGithub:
             )
             return {
                 "ok": True,
+                "items_created": items_created,
+                "items_updated": items_updated,
+            }
+        except OperationCancelledError as exc:
+            # Soft-cancel requested by the user. Mark the run as cancelled
+            # (not a real failure) and preserve whatever we managed to upsert
+            # before the checkpoint kicked in.
+            logger.info(
+                "github_sync_cancelled",
+                items_created=items_created,
+                items_updated=items_updated,
+                stage=str(exc),
+            )
+            await self._accounts.touch_sync(
+                uid, "github", ok=False, error="cancelled", when=utc_now()
+            )
+            await self._runs.finish(
+                run_id,
+                ok=False,
+                items_created=items_created,
+                items_updated=items_updated,
+                error="cancelled",
+                summary={"errors": errors, "cancelled_stage": str(exc)},
+            )
+            return {
+                "ok": False,
+                "error": "cancelled",
                 "items_created": items_created,
                 "items_updated": items_updated,
             }

@@ -41,6 +41,20 @@ class LlmClient(Protocol):
         """Return a JSON Resume v1.0.0-shaped object."""
         ...
 
+    async def generate_cover_letter(
+        self,
+        *,
+        job_summary: dict[str, Any],
+        retrieved: list[dict[str, Any]],
+        language: str,
+        tone: str | None,
+    ) -> dict[str, Any]:
+        """Return a JSON Resume-shaped object whose `basics.summary` is the
+        cover-letter body. Renderer can pick this up via a dedicated template
+        in the future; for now the body is also exposed at top-level
+        `cover_letter_body` so the frontend can display it directly."""
+        ...
+
 
 class Renderer(Protocol):
     async def render_pdf(

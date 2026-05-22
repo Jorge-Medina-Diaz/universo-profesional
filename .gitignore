@@ -54,6 +54,17 @@ data/
 # Docker volumes (when bind-mounted)
 docker-data/
 
+# Tooling / agent / test artifacts (never commit)
+.claude/
+.playwright-mcp/
+backups/
+backend/.cache/
+backend/nul
+# Screenshots dropped at repo root during UI testing
+/universe-graph.png
+/universe-panel-*.png
+/page-*.png
+
 # Secrets / keys
 *.pem
 *.key

@@ -2,13 +2,72 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- Basic SEO ------------------------------------------------------- -->
+    <title>Universo Profesional — Tu carrera, viva</title>
+    <meta name="description" content="El compañero agéntico que entiende, estructura y mantiene tu universo profesional. Genera CVs adaptados a cada oferta, da seguimiento a tus candidaturas y aprende contigo." />
+    <meta name="theme-color" content="#ffda6e" />
+    <link rel="canonical" href="https://universo.pro/" />
+
+    <!-- Icons / PWA ----------------------------------------------------- -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Tu universo profesional, vivo y al servicio de tu carrera" />
-    <title>Universo Profesional</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Open Graph ------------------------------------------------------ -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://universo.pro/" />
+    <meta property="og:site_name" content="Universo Profesional" />
+    <meta property="og:title" content="Universo Profesional — Tu carrera, viva" />
+    <meta property="og:description" content="Genera CVs adaptados con un agente que conoce tu trayectoria. Sigue candidaturas, importa de LinkedIn/GitHub, habla con tu universo." />
+    <meta property="og:image" content="https://universo.pro/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="es_ES" />
+    <meta property="og:locale:alternate" content="en_US" />
+
+    <!-- Twitter / X ----------------------------------------------------- -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Universo Profesional — Tu carrera, viva" />
+    <meta name="twitter:description" content="El compañero agéntico que entiende, estructura y mantiene tu universo profesional." />
+    <meta name="twitter:image" content="https://universo.pro/og.png" />
+
+    <!-- JSON-LD structured data ---------------------------------------- -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Universo Profesional",
+        "url": "https://universo.pro/",
+        "description": "El compañero agéntico que entiende, estructura y mantiene tu universo profesional.",
+        "inLanguage": ["es", "en"],
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://universo.pro/?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Universo Profesional",
+        "url": "https://universo.pro/",
+        "logo": "https://universo.pro/og.png",
+        "sameAs": []
+      }
+    </script>
   </head>
-  <body class="bg-gray-50 text-gray-900 antialiased">
+  <body class="bg-canvas text-ink antialiased">
     <div id="root"></div>
+    <noscript>
+      <p style="padding:24px;font-family:system-ui;text-align:center;">
+        Esta aplicación necesita JavaScript activado.
+      </p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

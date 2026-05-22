@@ -1,6 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import { auth, useAuthStore } from "@/shared/api";
+import { integrations } from "@/shared/api-extra";
+import { Button, Card, Field, Input, Reveal, Stagger } from "@/ui";
+import { AuthHero } from "./_auth/AuthHero";
 
 export function LoginPage() {
   const { t } = useTranslation();
@@ -9,6 +13,22 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
+
+  const linkedinProbe = useQuery({
+    queryKey: ["linkedin-probe"],
+    queryFn: () => integrations.linkedin.oidcAuthorize(),
+    staleTime: 60_000,
+  });
+  const linkedinAvailable = linkedinProbe.data?.configured ?? false;
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    const q = hash.includes("?") ? hash.split("?")[1] : "";
+    const p = new URLSearchParams(q);
+    const e = p.get("oauth_error");
+    if (e) setOauthError(decodeURIComponent(e));
+  }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +42,7 @@ export function LoginPage() {
         userId: tokens.user_id,
         email: tokens.email,
       });
-      window.location.hash = "#/universe";
+      window.location.hash = "#/";
     } catch (e: unknown) {
       setError((e as Error).message);
     } finally {
@@ -30,27 +50,108 @@ export function LoginPage() {
     }
   };
 
+  const onLinkedIn = async () => {
+    try {
+      const r = await integrations.linkedin.oidcAuthorize();
+      window.location.href = r.authorize_url;
+    } catch (e: unknown) {
+      setError((e as Error).message);
+    }
+  };
+
   return (
-    <div className="max-w-sm mx-auto py-12 px-4">
-      <h1 className="text-2xl font-bold mb-6">{t("auth.login")}</h1>
-      <form onSubmit={onSubmit} className="space-y-4">
-        <div>
-          <label className="label" htmlFor="email">{t("auth.email")}</label>
-          <input id="email" type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+    <div className="min-h-[calc(100vh-4rem)] grid lg:grid-cols-2 bg-canvas">
+      <div className="hidden lg:block bg-surface">
+        <AuthHero
+          title="Bienvenido de vuelta."
+          subtitle="Tu universo profesional te espera. Sigue donde lo dejaste."
+        />
+      </div>
+
+      <div className="flex items-center justify-center px-4 py-12 md:py-16">
+        <div className="w-full max-w-md">
+          <Reveal>
+            <h1 className="text-heading md:text-[34px] font-medium tracking-tight text-ink mb-2">
+              {t("auth.login")}
+            </h1>
+            <p className="text-stone mb-8">Entra con tu cuenta para continuar.</p>
+          </Reveal>
+
+          {linkedinAvailable && (
+            <Reveal delay={0.06}>
+              <button
+                type="button"
+                onClick={onLinkedIn}
+                className="w-full h-12 rounded-btn bg-[#0a66c2] hover:bg-[#004182] text-white font-medium text-sm transition-colors duration-180 inline-flex items-center justify-center gap-2"
+              >
+                <span aria-hidden className="text-base font-bold">in</span>
+                Continuar con LinkedIn
+              </button>
+              {oauthError && (
+                <p role="alert" className="text-sm text-red-600 mt-3">
+                  LinkedIn sign-in falló: {oauthError}
+                </p>
+              )}
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center" aria-hidden>
+                  <div className="w-full border-t border-ink/10" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-canvas px-3 text-xs text-stone uppercase tracking-wider">
+                    o con email
+                  </span>
+                </div>
+              </div>
+            </Reveal>
+          )}
+
+          <form onSubmit={onSubmit}>
+            <Stagger className="space-y-4" delayStep={0.04} initialDelay={linkedinAvailable ? 0.16 : 0.06}>
+              <Field label={t("auth.email")} required>
+                {(p) => (
+                  <Input
+                    {...p}
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                    placeholder="tu@email.com"
+                  />
+                )}
+              </Field>
+              <Field label={t("auth.password")} required>
+                {(p) => (
+                  <Input
+                    {...p}
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                  />
+                )}
+              </Field>
+              {error && (
+                <Card tone="canvas" bordered padding="sm" className="border-red-200 bg-red-50/60">
+                  <p role="alert" className="text-sm text-red-700">{error}</p>
+                </Card>
+              )}
+              <Button type="submit" fullWidth size="lg" loading={loading}>
+                {loading ? t("common.loading") : t("auth.loginCta")}
+              </Button>
+              <div className="text-sm flex justify-between pt-2">
+                <a href="#/register" className="text-stone hover:text-ink transition-colors">
+                  {t("auth.noAccount")} →
+                </a>
+                <a href="#/auth/verify" className="text-stone hover:text-ink transition-colors">
+                  {t("auth.forgot")}
+                </a>
+              </div>
+            </Stagger>
+          </form>
         </div>
-        <div>
-          <label className="label" htmlFor="password">{t("auth.password")}</label>
-          <input id="password" type="password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
-        </div>
-        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-        <button type="submit" className="btn-primary w-full" disabled={loading}>
-          {loading ? t("common.loading") : t("auth.loginCta")}
-        </button>
-        <div className="text-sm text-gray-600 flex justify-between">
-          <a href="#/register" className="hover:underline">{t("auth.noAccount")} →</a>
-          <a href="#/auth/verify" className="hover:underline">{t("auth.forgot")}</a>
-        </div>
-      </form>
+      </div>
     </div>
   );
 }

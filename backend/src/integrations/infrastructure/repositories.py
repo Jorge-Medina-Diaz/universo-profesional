@@ -188,23 +188,78 @@ class SqlSyncRunsRepository(SyncRunsRepository):
             select(IntegrationSyncRunOrm)
             .where(IntegrationSyncRunOrm.user_id == user_id)
             .order_by(desc(IntegrationSyncRunOrm.started_at))
-            .limit(limit)
+            .limit(limit * 2)  # over-fetch to account for cancelled-dismissed rows
         )
         rows = (await self._session.execute(stmt)).scalars().all()
-        return [
-            {
-                "id": str(r.id),
-                "provider": r.provider,
-                "started_at": r.started_at.isoformat(),
-                "finished_at": r.finished_at.isoformat() if r.finished_at else None,
-                "ok": r.ok,
-                "items_created": r.items_created,
-                "items_updated": r.items_updated,
-                "error": r.error,
-                "summary": r.summary,
-            }
-            for r in rows
-        ]
+        out: list[dict[str, Any]] = []
+        for r in rows:
+            summary = r.summary or {}
+            # Cancel-dismiss is a soft flag we stamp in `summary._cancelled_requested_at`.
+            # Hidden rows still exist in the DB for audit but disappear from the UI tray.
+            if isinstance(summary, dict) and summary.get("_cancelled_requested_at"):
+                continue
+            out.append(
+                {
+                    "id": str(r.id),
+                    "provider": r.provider,
+                    "started_at": r.started_at.isoformat(),
+                    "finished_at": r.finished_at.isoformat() if r.finished_at else None,
+                    "ok": r.ok,
+                    "items_created": r.items_created,
+                    "items_updated": r.items_updated,
+                    "error": r.error,
+                    "summary": summary,
+                }
+            )
+            if len(out) >= limit:
+                break
+        return out
+
+    async def is_cancelled(self, run_id: UUID) -> bool:
+        """Return True if a soft-cancel has been requested for this run.
+
+        Reads `summary._cancelled_requested_at` written by `request_cancel`
+        in a parallel transaction (the cancel endpoint). We bypass the
+        SQLAlchemy identity map with `populate_existing=True` because the
+        row was inserted earlier in *this* session by `start()` and would
+        otherwise be served stale from the cache.
+        """
+        stmt = (
+            select(IntegrationSyncRunOrm.summary)
+            .where(IntegrationSyncRunOrm.id == run_id)
+            .execution_options(populate_existing=True)
+        )
+        row = (await self._session.execute(stmt)).first()
+        if row is None:
+            return False
+        summary = row[0] or {}
+        if not isinstance(summary, dict):
+            return False
+        return bool(summary.get("_cancelled_requested_at"))
+
+    async def request_cancel(self, run_id: UUID, user_id: UUID) -> bool:
+        """Mark a sync run as cancel-requested. Returns False if not found.
+
+        Sprint F: this is a *soft* cancel. The flag is persisted to
+        `summary._cancelled_requested_at` so the row stays out of the user's
+        tray, and future sync implementations can poll for it to abort
+        mid-flight. The current sync code does NOT honour it — runs in
+        progress will still complete in the background.
+        """
+        from datetime import datetime, timezone
+
+        stmt = select(IntegrationSyncRunOrm).where(
+            IntegrationSyncRunOrm.id == run_id,
+            IntegrationSyncRunOrm.user_id == user_id,
+        )
+        row = (await self._session.execute(stmt)).scalar_one_or_none()
+        if row is None:
+            return False
+        summary = dict(row.summary or {})
+        if not summary.get("_cancelled_requested_at"):
+            summary["_cancelled_requested_at"] = datetime.now(timezone.utc).isoformat()
+            row.summary = summary
+        return True
 
 
 class SqlImportSessionRepository(ImportSessionRepository):

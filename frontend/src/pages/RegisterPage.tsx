@@ -1,9 +1,20 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { auth } from "@/shared/api";
+import { useQuery } from "@tanstack/react-query";
+import { auth, useAuthStore } from "@/shared/api";
+import { integrations } from "@/shared/api-extra";
+import { Button, Card, Field, Input, Reveal, Stagger } from "@/ui";
+import { AuthHero } from "./_auth/AuthHero";
 
 export function RegisterPage() {
   const { t, i18n } = useTranslation();
+  const setTokens = useAuthStore((s) => s.setTokens);
+  const linkedinProbe = useQuery({
+    queryKey: ["linkedin-probe"],
+    queryFn: () => integrations.linkedin.oidcAuthorize(),
+    staleTime: 60_000,
+  });
+  const linkedinAvailable = linkedinProbe.data?.configured ?? false;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -22,7 +33,19 @@ export function RegisterPage() {
         display_name: displayName || undefined,
         locale: i18n.resolvedLanguage === "en" ? "en-US" : "es-ES",
       });
-      setVerificationLink(r.verification_link ?? null);
+      try {
+        const tokens = await auth.login({ email, password });
+        setTokens({
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token,
+          userId: tokens.user_id,
+          email: tokens.email,
+        });
+        window.location.hash = "#/";
+        return;
+      } catch {
+        setVerificationLink(r.verification_link ?? null);
+      }
     } catch (e: unknown) {
       setError((e as Error).message);
     } finally {
@@ -32,43 +55,148 @@ export function RegisterPage() {
 
   if (verificationLink !== null) {
     return (
-      <div className="max-w-sm mx-auto py-12 px-4">
-        <h1 className="text-2xl font-bold mb-3">{t("auth.verify")}</h1>
-        <p className="text-sm text-gray-600 mb-4">{t("auth.verifyHint")}</p>
-        {verificationLink && (
-          <a className="btn-primary w-full mb-3" href={verificationLink}>
-            Verificar ahora (dev)
-          </a>
-        )}
-        <a href="#/login" className="btn-secondary w-full">{t("auth.login")}</a>
+      <div className="max-w-md mx-auto py-16 px-4">
+        <Reveal>
+          <Card padding="lg" tone="surface" className="space-y-4">
+            <h1 className="text-heading-sm font-medium tracking-tight">{t("auth.verify")}</h1>
+            <p className="text-sm text-stone">{t("auth.verifyHint")}</p>
+            <div className="flex flex-col gap-2 pt-2">
+              {verificationLink && (
+                <Button fullWidth size="lg" onClick={() => (window.location.href = verificationLink)}>
+                  Verificar ahora (dev)
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                fullWidth
+                size="lg"
+                onClick={() => (window.location.hash = "#/login")}
+              >
+                {t("auth.login")}
+              </Button>
+            </div>
+          </Card>
+        </Reveal>
       </div>
     );
   }
 
+  const onLinkedIn = async () => {
+    try {
+      const r = await integrations.linkedin.oidcAuthorize();
+      window.location.href = r.authorize_url;
+    } catch (e: unknown) {
+      setError((e as Error).message);
+    }
+  };
+
   return (
-    <div className="max-w-sm mx-auto py-12 px-4">
-      <h1 className="text-2xl font-bold mb-6">{t("auth.register")}</h1>
-      <form onSubmit={onSubmit} className="space-y-4">
-        <div>
-          <label className="label" htmlFor="display_name">Nombre</label>
-          <input id="display_name" className="input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} autoComplete="name" />
+    <div className="min-h-[calc(100vh-4rem)] grid lg:grid-cols-2 bg-canvas">
+      <div className="hidden lg:block bg-surface">
+        <AuthHero
+          title="Tu carrera, un universo vivo."
+          subtitle="Crea tu cuenta y empieza a hablar con tu agente personal en segundos."
+        />
+      </div>
+
+      <div className="flex items-center justify-center px-4 py-12 md:py-16">
+        <div className="w-full max-w-md">
+          <Reveal>
+            <h1 className="text-heading md:text-[34px] font-medium tracking-tight text-ink mb-2">
+              {t("auth.register")}
+            </h1>
+            <p className="text-stone mb-8">
+              Sin tarjeta. En menos de 5 minutos tendrás tu universo montado.
+            </p>
+          </Reveal>
+
+          {linkedinAvailable && (
+            <Reveal delay={0.06}>
+              <button
+                type="button"
+                onClick={onLinkedIn}
+                className="w-full h-12 rounded-btn bg-[#0a66c2] hover:bg-[#004182] text-white font-medium text-sm transition-colors duration-180 inline-flex items-center justify-center gap-2"
+              >
+                <span aria-hidden className="text-base font-bold">in</span>
+                Continuar con LinkedIn
+              </button>
+              <p className="text-xs text-stone text-center mt-2">
+                Sin contraseña. Tu universo arranca con tu LinkedIn ya sincronizado.
+              </p>
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center" aria-hidden>
+                  <div className="w-full border-t border-ink/10" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-canvas px-3 text-xs text-stone uppercase tracking-wider">
+                    o con email
+                  </span>
+                </div>
+              </div>
+            </Reveal>
+          )}
+
+          <form onSubmit={onSubmit}>
+            <Stagger
+              className="space-y-4"
+              delayStep={0.04}
+              initialDelay={linkedinAvailable ? 0.16 : 0.06}
+            >
+              <Field label="Nombre" hint="Cómo quieres que te llame el agente">
+                {(p) => (
+                  <Input
+                    {...p}
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    autoComplete="name"
+                    placeholder="Tu nombre"
+                  />
+                )}
+              </Field>
+              <Field label={t("auth.email")} required>
+                {(p) => (
+                  <Input
+                    {...p}
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                    placeholder="tu@email.com"
+                  />
+                )}
+              </Field>
+              <Field label={`${t("auth.password")} (mín. 10)`} required>
+                {(p) => (
+                  <Input
+                    {...p}
+                    type="password"
+                    minLength={10}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                  />
+                )}
+              </Field>
+              {error && (
+                <Card tone="canvas" bordered padding="sm" className="border-red-200 bg-red-50/60">
+                  <p role="alert" className="text-sm text-red-700">{error}</p>
+                </Card>
+              )}
+              <Button type="submit" fullWidth size="lg" loading={loading}>
+                {loading ? t("common.loading") : t("auth.registerCta")}
+              </Button>
+              <p className="text-sm text-stone text-center pt-2">
+                {t("auth.haveAccount")}{" "}
+                <a href="#/login" className="text-ink underline-offset-2 hover:underline">
+                  {t("auth.login")}
+                </a>
+              </p>
+            </Stagger>
+          </form>
         </div>
-        <div>
-          <label className="label" htmlFor="email">{t("auth.email")}</label>
-          <input id="email" type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-        </div>
-        <div>
-          <label className="label" htmlFor="password">{t("auth.password")} (min 10)</label>
-          <input id="password" type="password" minLength={10} className="input" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="new-password" />
-        </div>
-        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-        <button type="submit" className="btn-primary w-full" disabled={loading}>
-          {loading ? t("common.loading") : t("auth.registerCta")}
-        </button>
-        <p className="text-sm text-gray-600 text-center">
-          {t("auth.haveAccount")} <a href="#/login" className="text-brand-600 hover:underline">{t("auth.login")}</a>
-        </p>
-      </form>
+      </div>
     </div>
   );
 }

@@ -35,13 +35,16 @@ from src.identity.interfaces.api.schemas import (
     VerifyEmailRequest,
 )
 from src.shared.config import get_settings
+from src.shared.rate_limit import limiter
 from src.shared.uow import unit_of_work
 
 router = APIRouter()
 
 
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/hour")
 async def register(
+    request: Request,
     body: RegisterRequest,
     uc: Annotated[RegisterUser, Depends(register_user_dep)],
     session: SessionDep,
@@ -83,9 +86,10 @@ async def verify_email(
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("10/15minutes")
 async def login(
-    body: LoginRequest,
     request: Request,
+    body: LoginRequest,
     uc: Annotated[Login, Depends(login_dep)],
     session: SessionDep,
 ) -> TokenResponse:
@@ -137,7 +141,9 @@ async def refresh(
 
 
 @router.post("/password-reset", response_model=GenericOkResponse)
+@limiter.limit("3/hour")
 async def password_reset_request(
+    request: Request,
     body: PasswordResetRequest,
     uc: Annotated[RequestPasswordReset, Depends(request_password_reset_dep)],
     session: SessionDep,

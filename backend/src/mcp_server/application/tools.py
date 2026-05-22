@@ -518,6 +518,142 @@ async def _h_import_pdf_cv(*, session, user_id, client_id, args):
     return {"session_id": str(sid), "parsed": parsed}
 
 
+async def _h_sync_linkedin_dma(*, session, user_id, client_id, args):
+    from src.integrations.application.linkedin_sync import SyncLinkedinDma
+    from src.integrations.infrastructure.repositories import (
+        SqlExternalAccountRepository,
+        SqlImportSessionRepository,
+        SqlSyncRunsRepository,
+    )
+
+    uc = SyncLinkedinDma(
+        SqlExternalAccountRepository(session),
+        SqlImportSessionRepository(session),
+        SqlSyncRunsRepository(session),
+    )
+    uow = _new_uow(session)
+    return await uc.execute(user_id=str(user_id), uow=uow)
+
+
+async def _h_sync_linkedin_brightdata(*, session, user_id, client_id, args):
+    # PRO gating: enforce here (MCP doesn't pass through FastAPI deps)
+    from src.identity.infrastructure.repositories import SqlAlchemyUserRepository
+    from src.integrations.application.linkedin_sync import SyncLinkedinBrightdata
+    from src.integrations.infrastructure.repositories import (
+        SqlExternalAccountRepository,
+        SqlImportSessionRepository,
+        SqlSyncRunsRepository,
+    )
+
+    users = SqlAlchemyUserRepository(session)
+    user = await users.get_by_id(UUID(str(user_id)))
+    if user is None:
+        raise PermissionError("User not found")
+    if not user.is_pro:
+        raise PermissionError("PRO tier required for Bright Data LinkedIn sync")
+
+    uc = SyncLinkedinBrightdata(
+        SqlExternalAccountRepository(session),
+        SqlImportSessionRepository(session),
+        SqlSyncRunsRepository(session),
+    )
+    uow = _new_uow(session)
+    return await uc.execute(
+        user_id=str(user_id),
+        linkedin_url=args.get("linkedin_url"),
+        fresh=bool(args.get("fresh")),
+        uow=uow,
+    )
+
+
+async def _h_commit_import_session(*, session, user_id, client_id, args):
+    """Commit a previously-opened import session (LinkedIn DMA / Bright Data / PDF / ZIP).
+
+    Args: { session_id, selection? }
+    """
+    from src.integrations.application.linkedin_csv_deep import commit_parsed
+    from src.integrations.application.pdf_cv_parser import commit_selection
+    from src.integrations.infrastructure.repositories import SqlImportSessionRepository
+    from src.universe.interfaces.api.deps import (
+        achievement_crud,
+        certification_crud,
+        course_crud,
+        education_crud,
+        experience_crud,
+        language_crud,
+        project_crud,
+        skill_crud,
+    )
+
+    sessions = SqlImportSessionRepository(session)
+    sid_str = args["session_id"]
+    sess = await sessions.get(UUID(str(user_id)), UUID(sid_str))
+    if sess is None:
+        raise ValueError("Import session not found")
+
+    selection = args.get("selection")
+    uow = _new_uow(session)
+    if selection:
+        summary = await commit_selection(
+            user_id=str(user_id),
+            parsed=sess["parsed"],
+            selection=selection,
+            edu_uc=education_crud(session),
+            exp_uc=experience_crud(session),
+            skill_uc=skill_crud(session),
+            lang_uc=language_crud(session),
+            cert_uc=certification_crud(session),
+            project_uc=project_crud(session),
+            achievement_uc=achievement_crud(session),
+            uow=uow,
+        )
+    else:
+        summary = await commit_parsed(
+            user_id=str(user_id),
+            parsed=sess["parsed"],
+            edu_uc=education_crud(session),
+            exp_uc=experience_crud(session),
+            skill_uc=skill_crud(session),
+            lang_uc=language_crud(session),
+            cert_uc=certification_crud(session),
+            achievement_uc=achievement_crud(session),
+            project_uc=project_crud(session),
+            course_uc=course_crud(session),
+            uow=uow,
+        )
+    await sessions.mark_committed(UUID(sid_str))
+    return {"committed": summary}
+
+
+async def _h_set_user_tier(*, session, user_id, client_id, args):
+    from src.identity.application.use_cases import SetUserTier
+    from src.identity.infrastructure.repositories import SqlAlchemyUserRepository
+
+    uc = SetUserTier(SqlAlchemyUserRepository(session))
+    uow = _new_uow(session)
+    r = await uc.execute(user_id=str(user_id), tier=args["tier"], uow=uow)
+    if r.is_failure:
+        raise r.error  # type: ignore[union-attr]
+    return {
+        "tier": r.value.tier,
+        "tier_updated_at": r.value.tier_updated_at,
+    }
+
+
+async def _h_get_user_tier(*, session, user_id, client_id, args):
+    from src.identity.infrastructure.repositories import SqlAlchemyUserRepository
+
+    users = SqlAlchemyUserRepository(session)
+    user = await users.get_by_id(UUID(str(user_id)))
+    if user is None:
+        raise ValueError("User not found")
+    return {
+        "tier": user.tier,
+        "is_pro": user.is_pro,
+        "tier_updated_at": user.tier_updated_at.isoformat() if user.tier_updated_at else None,
+    }
+
+
 # --- Suggestions + Reminders ----------------------------------------------
 
 
@@ -1117,6 +1253,81 @@ _OTHER_TOOLS: dict[str, ToolSpec] = {
         input_schema={"type": "object", "properties": {}},
         handler=_h_get_avatar_url,
         required_scope="universe:read",
+    ),
+    "sync_linkedin_dma": ToolSpec(
+        name="sync_linkedin_dma",
+        description=(
+            "Pull profile data via LinkedIn DMA 3rd-party API (EEA users, free) "
+            "and open an import session. Returns the parsed payload — review and "
+            "commit via `commit_import_session`. Uses a deterministic fixture in "
+            "dev when `LINKEDIN_DMA_ENABLED=false`."
+        ),
+        input_schema={"type": "object", "properties": {}},
+        handler=_h_sync_linkedin_dma,
+        required_scope="integrations:write",
+    ),
+    "sync_linkedin_brightdata": ToolSpec(
+        name="sync_linkedin_brightdata",
+        description=(
+            "Pull profile data via Bright Data LinkedIn People Profile API "
+            "(global, paid). PRO tier required. Returns parsed payload — "
+            "review and commit via `commit_import_session`. `fresh=true` "
+            "forces a non-cached lookup (more expensive, ~$0.50-1)."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "linkedin_url": {"type": "string", "description": "Public LinkedIn profile URL"},
+                "fresh": {"type": "boolean", "default": False},
+            },
+        },
+        handler=_h_sync_linkedin_brightdata,
+        required_scope="integrations:write",
+    ),
+    "commit_import_session": ToolSpec(
+        name="commit_import_session",
+        description=(
+            "Commit a previously-opened import session (linkedin_dma, "
+            "linkedin_brightdata, linkedin_zip, pdf). Optional `selection` to "
+            "commit only a subset of items per section."
+        ),
+        input_schema={
+            "type": "object",
+            "required": ["session_id"],
+            "properties": {
+                "session_id": {"type": "string", "format": "uuid"},
+                "selection": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                    },
+                },
+            },
+        },
+        handler=_h_commit_import_session,
+        required_scope="universe:write",
+    ),
+    "set_user_tier": ToolSpec(
+        name="set_user_tier",
+        description=(
+            "Set the user's subscription tier (free | pro). In production this "
+            "is driven by Stripe webhooks; today it's exposed for dev/admin use."
+        ),
+        input_schema={
+            "type": "object",
+            "required": ["tier"],
+            "properties": {"tier": {"type": "string", "enum": ["free", "pro"]}},
+        },
+        handler=_h_set_user_tier,
+        required_scope="account:write",
+    ),
+    "get_user_tier": ToolSpec(
+        name="get_user_tier",
+        description="Return current subscription tier.",
+        input_schema={"type": "object", "properties": {}},
+        handler=_h_get_user_tier,
+        required_scope="account:read",
     ),
 }
 

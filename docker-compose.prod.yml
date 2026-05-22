@@ -1,0 +1,132 @@
+# Production-flavoured compose file. Drop-in alternative to `docker-compose.yml`
+# when you don't want to use Fly.io / managed services.
+#
+# Differences vs the dev file:
+#   * No source bind-mounts — images are immutable.
+#   * No MailHog — emails go through the configured provider (Brevo by default).
+#   * `restart: unless-stopped` everywhere so we recover from OOM kills, etc.
+#   * Frontend served by nginx on port 8080 (not Vite dev server).
+#   * postgres + redis kept here for simplicity; on Fly.io / Railway you'd
+#     use the managed offerings and remove these services.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+#
+# Required env vars are documented in `.env.example`. The compose file
+# fails loud on missing required ones (`${VAR:?message}` syntax).
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: cvs-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      POSTGRES_DB: ${POSTGRES_DB:-cvs}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: cvs-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    image: ${BACKEND_IMAGE:-cvs-saas-backend:latest}
+    container_name: cvs-backend
+    restart: unless-stopped
+    environment:
+      ENV: production
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL required}
+      DATABASE_URL_SYNC: ${DATABASE_URL_SYNC}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL required}
+      CANONICAL_BASE_URL: ${CANONICAL_BASE_URL:?CANONICAL_BASE_URL required}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL required}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS required}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:?TOKEN_ENCRYPTION_KEY required}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:?EMAIL_PROVIDER required}
+      EMAIL_FROM: ${EMAIL_FROM:?EMAIL_FROM required}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Universo Profesional}
+      BREVO_API_KEY: ${BREVO_API_KEY}
+      AGENTS_PROVIDER: ${AGENTS_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      STRIPE_PROVIDER: ${STRIPE_PROVIDER:-real}
+      STRIPE_API_KEY: ${STRIPE_API_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_PRICE_PREMIUM_MONTHLY: ${STRIPE_PRICE_PREMIUM_MONTHLY}
+      STRIPE_PRICE_PRO_MONTHLY: ${STRIPE_PRICE_PRO_MONTHLY}
+      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL}
+      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL}
+      SENTRY_DSN: ${SENTRY_DSN}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      AUTO_VERIFY_EMAILS_IN_DEV: "false"
+      DATABASE_ECHO: "false"
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - backend_var:/app/var
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    image: ${BACKEND_IMAGE:-cvs-saas-backend:latest}
+    container_name: cvs-worker
+    restart: unless-stopped
+    environment:
+      ENV: production
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL required}
+      DATABASE_URL_SYNC: ${DATABASE_URL_SYNC}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL required}
+      CANONICAL_BASE_URL: ${CANONICAL_BASE_URL:?CANONICAL_BASE_URL required}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL required}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:?EMAIL_PROVIDER required}
+      EMAIL_FROM: ${EMAIL_FROM:?EMAIL_FROM required}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Universo Profesional}
+      BREVO_API_KEY: ${BREVO_API_KEY}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:?TOKEN_ENCRYPTION_KEY required}
+      AGENTS_PROVIDER: ${AGENTS_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      SENTRY_DSN: ${SENTRY_DSN}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - backend_var:/app/var
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["arq", "src.shared.worker.WorkerSettings"]
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-cvs-saas-frontend:latest}
+    container_name: cvs-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_var:

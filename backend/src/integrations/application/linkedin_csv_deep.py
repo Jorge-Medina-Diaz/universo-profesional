@@ -288,7 +288,15 @@ async def commit_parsed(
     course_uc: Any,
     uow: Any,
 ) -> dict[str, int]:
-    """Helper to commit the parsed payload via the existing universe CRUDs."""
+    """Helper to commit the parsed payload via the existing universe CRUDs.
+
+    Each item is committed inside a savepoint so a single bad row doesn't
+    poison the rest of the transaction. We also coerce date strings to
+    `datetime.date` (importers emit ISO strings to stay JSON-friendly inside
+    `import_sessions.parsed`, but the universe entities expect real dates).
+    """
+    from src.integrations.application.linkedin_mapper import coerce_dates_in_payload
+
     summary = {
         "experiences": 0,
         "educations": 0,
@@ -299,6 +307,7 @@ async def commit_parsed(
         "projects": 0,
         "courses": 0,
     }
+    session = getattr(uow, "_session", None) or getattr(uow, "session", None)
     for item, uc, key in [
         ("experiences", exp_uc, "experiences"),
         ("educations", edu_uc, "educations"),
@@ -310,10 +319,17 @@ async def commit_parsed(
         ("courses", course_uc, "courses"),
     ]:
         for payload in parsed.get(item, []):
+            clean = coerce_dates_in_payload(dict(payload))
             try:
-                r = await uc.add(user_id=user_id, payload=payload, uow=uow)
-                if r.is_success:
-                    summary[key] += 1
+                if session is not None:
+                    async with session.begin_nested():
+                        r = await uc.add(user_id=user_id, payload=clean, uow=uow)
+                        if r.is_success:
+                            summary[key] += 1
+                else:
+                    r = await uc.add(user_id=user_id, payload=clean, uow=uow)
+                    if r.is_success:
+                        summary[key] += 1
             except Exception as exc:  # noqa: BLE001
                 logger.warning("li_csv_commit_failed", item=item, error=str(exc))
     return summary

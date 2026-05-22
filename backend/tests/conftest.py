@@ -10,7 +10,12 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
-os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://cvs:cvs_dev_password@postgres:5432/cvs")
+# Default to a DEDICATED test database. The autouse fixture below TRUNCATEs
+# every table between tests — pointing this at the shared dev DB (`cvs`) would
+# wipe real data, which has bitten us before. Create it once with:
+#   docker exec cvs-postgres createdb -U cvs cvs_test
+#   DATABASE_URL=...cvs_test alembic upgrade head
+os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://cvs:cvs_dev_password@postgres:5432/cvs_test")
 os.environ.setdefault("REDIS_URL", "redis://redis:6379/1")
 os.environ.setdefault("ENV", "test")
 
@@ -40,9 +45,28 @@ async def client(_app) -> AsyncIterator[AsyncClient]:
         yield ac
 
 
+def _assert_test_database() -> None:
+    """Hard guard: never TRUNCATE a database that isn't clearly a test DB.
+
+    A misconfigured DATABASE_URL pointing at dev/prod would otherwise be
+    silently wiped by the autouse fixture. We refuse loudly instead.
+    """
+    from src.shared.config import get_settings
+
+    db_name = get_settings().database_url.rsplit("/", 1)[-1].split("?")[0]
+    if "test" not in db_name.lower():
+        msg = (
+            f"Refusing to TRUNCATE database {db_name!r}: it does not look like a "
+            "test database. Point DATABASE_URL at a dedicated DB whose name "
+            "contains 'test' (e.g. cvs_test) before running the suite."
+        )
+        raise RuntimeError(msg)
+
+
 @pytest_asyncio.fixture(autouse=True)
 async def _clean_db() -> AsyncIterator[None]:
     """TRUNCATE every table between tests to keep them isolated."""
+    _assert_test_database()
     factory = get_session_factory()
     async with factory() as session:
         # The order doesn't matter with CASCADE.

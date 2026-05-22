@@ -81,6 +81,33 @@ class WeasyPrintRenderer(Renderer):
             styles["Normal"].font.size = Pt(11)
 
         basics = content_json.get("basics", {}) or {}
+
+        # Cover letter: just header + body paragraphs. Skip CV sections.
+        is_cover_letter = (
+            template.startswith("cover-letter")
+            or (content_json.get("meta", {}) or {}).get("kind") == "cover_letter"
+        )
+        if is_cover_letter:
+            if basics.get("name"):
+                doc.add_heading(basics["name"], level=1)
+            if basics.get("label"):
+                doc.add_paragraph(basics["label"])
+            if basics.get("email"):
+                doc.add_paragraph(basics["email"])
+            meta = content_json.get("meta", {}) or {}
+            if meta.get("target_company") or meta.get("target_title"):
+                line = "Para: " + " · ".join(
+                    filter(None, [meta.get("target_company"), meta.get("target_title")])
+                )
+                doc.add_paragraph(line)
+            body = content_json.get("cover_letter_body") or basics.get("summary") or ""
+            for para in body.split("\n\n"):
+                doc.add_paragraph(para.strip())
+            out_dir = _ensure_user_dir(user_id)
+            out_path = out_dir / f"{_uuid4_short()}.docx"
+            doc.save(str(out_path))
+            return str(out_path)
+
         if basics.get("name"):
             doc.add_heading(basics["name"], level=1)
         if basics.get("label"):

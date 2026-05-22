@@ -24,15 +24,45 @@ export const integrations = {
     api<{ runs: Array<Record<string, unknown>> }>(
       `/api/v1/integrations/sync-runs?limit=${limit}`,
     ),
+  cancelSyncRun: (id: string) =>
+    api<{ ok: boolean; error?: string }>(
+      `/api/v1/integrations/sync-runs/${id}/cancel`,
+      { method: "POST" },
+    ),
   github: {
     authorizeUrl: () =>
       api<{ authorize_url: string }>("/api/v1/integrations/github/authorize"),
     sync: () =>
       api<Record<string, unknown>>("/api/v1/integrations/github/sync", { method: "POST" }),
+    /** Fire-and-forget: enqueues the sync on the Arq worker. Returns
+     *  immediately with `{queued, job_id, mode}`. UI shows progress through
+     *  the existing `SyncTaskTray` polling — no need to await this. */
+    syncAsync: () =>
+      api<{ queued: boolean; job_id: string | null; mode: string }>(
+        "/api/v1/integrations/github/sync-async",
+        { method: "POST" },
+      ),
     disconnect: () =>
       api("/api/v1/integrations/github", { method: "DELETE" }),
   },
   linkedin: {
+    // --- OIDC sign-in (also usable to link an existing user) ---
+    // Backend returns { configured: false, authorize_url: "" } when LinkedIn
+    // credentials aren't set — callers must check `configured` before redirecting.
+    oidcAuthorize: (linkUserId?: string) =>
+      api<{ authorize_url: string; state: string; configured: boolean }>(
+        `/api/v1/auth/linkedin/authorize${linkUserId ? `?link=${linkUserId}` : ""}`,
+        { authRequired: false },
+      ),
+    // --- Status probe: tells UI which LinkedIn paths use fixtures vs real APIs ---
+    status: () =>
+      api<{
+        oidc: { configured: boolean };
+        dma: { configured: boolean; enabled: boolean; uses_fixture: boolean };
+        brightdata: { configured: boolean; uses_fixture: boolean };
+        zip: { configured: boolean; uses_fixture: boolean };
+      }>("/api/v1/integrations/linkedin/status"),
+    // --- ZIP fallback (free, offline-friendly) ---
     parseZip: async (file: File) => {
       const fd = new FormData();
       fd.append("file", file);
@@ -45,11 +75,52 @@ export const integrations = {
       });
       return resp.json();
     },
+    commitZip: (session_id: string) =>
+      api<Record<string, unknown>>("/api/v1/integrations/linkedin/zip/commit", {
+        method: "POST",
+        body: JSON.stringify({ session_id }),
+      }),
+    // Legacy alias for older callers
     commit: (session_id: string) =>
       api<Record<string, unknown>>("/api/v1/integrations/linkedin/zip/commit", {
         method: "POST",
         body: JSON.stringify({ session_id }),
       }),
+    // --- DMA 3rd-party API (EEA users, free, requires approval) ---
+    dma: {
+      authorizeUrl: () =>
+        api<{ authorize_url: string; dma_enabled: string }>(
+          "/api/v1/integrations/linkedin/dma/authorize",
+        ),
+      sync: () =>
+        api<{ session_id: string; parsed: Record<string, unknown> }>(
+          "/api/v1/integrations/linkedin/dma/sync",
+          { method: "POST" },
+        ),
+      commit: (session_id: string, selection?: Record<string, number[]>) =>
+        api<Record<string, unknown>>("/api/v1/integrations/linkedin/dma/commit", {
+          method: "POST",
+          body: JSON.stringify({ session_id, selection }),
+        }),
+      disconnect: () =>
+        api("/api/v1/integrations/linkedin/dma", { method: "DELETE" }),
+    },
+    // --- Bright Data 3rd-party (PRO tier, paid per lookup, works globally) ---
+    brightdata: {
+      sync: (body: { linkedin_url?: string; fresh?: boolean }) =>
+        api<{ session_id: string; parsed: Record<string, unknown> }>(
+          "/api/v1/integrations/linkedin/brightdata/sync",
+          { method: "POST", body: JSON.stringify(body) },
+        ),
+      commit: (session_id: string, selection?: Record<string, number[]>) =>
+        api<Record<string, unknown>>(
+          "/api/v1/integrations/linkedin/brightdata/commit",
+          {
+            method: "POST",
+            body: JSON.stringify({ session_id, selection }),
+          },
+        ),
+    },
   },
   pdf: {
     parse: async (file: File) => {

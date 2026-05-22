@@ -19,6 +19,13 @@ ENTITY_TABLES = {
     "language": ("languages", ["code", "name", "level"]),
     "achievement": ("achievements", ["title", "description"]),
     "interest": ("interests", ["name", "description"]),
+    # Sprint G — portfolio artifacts (github_repo|talk|blog_post|...)
+    "artifact": ("artifacts", ["type", "title", "url", "description"]),
+    # Sprint K — architecture decision records
+    "architecture_decision": (
+        "architecture_decisions",
+        ["title", "context", "decision", "consequences", "status"],
+    ),
 }
 
 

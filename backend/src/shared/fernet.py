@@ -22,6 +22,17 @@ from cryptography.fernet import Fernet
 def _get_fernet() -> Fernet:
     key = os.environ.get("TOKEN_ENCRYPTION_KEY")
     if not key:
+        # In production this MUST be configured. Falling back to a hardcoded
+        # constant would mean every install encrypts OAuth tokens with the
+        # same known key — a critical leak.
+        from src.shared.config import get_settings  # local import to avoid cycle
+
+        if get_settings().is_prod:
+            raise RuntimeError(
+                "TOKEN_ENCRYPTION_KEY is required in production. "
+                "Generate one with `python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'` "
+                "and set it as an environment variable."
+            )
         # Dev fallback: derive a stable key from a known constant so restarts
         # don't invalidate previously-stored tokens. NOT acceptable in prod.
         seed = b"cvs-saas-dev-token-encryption-key-do-not-use-in-prod-aaaaa"[:32]

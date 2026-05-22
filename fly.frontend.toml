@@ -1,0 +1,33 @@
+# Fly.io app config for the React SPA served by nginx.
+#
+# Deploy:
+#   flyctl deploy --config fly.frontend.toml --dockerfile docker/frontend.prod.Dockerfile \
+#     --build-arg VITE_API_BASE_URL=https://cvs-saas-backend.fly.dev \
+#     --build-arg VITE_SENTRY_DSN=... \
+#     --build-arg VITE_STRIPE_PUBLIC_KEY=pk_live_...
+
+app = "cvs-saas-frontend"
+primary_region = "mad"
+
+[build]
+  dockerfile = "docker/frontend.prod.Dockerfile"
+  [build.args]
+    VITE_API_BASE_URL = "https://cvs-saas-backend.fly.dev"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "3s"
+    method = "GET"
+    path = "/"
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1

@@ -32,6 +32,7 @@ from src.universe.application.ports import (
 )
 from src.universe.domain.entities import (
     Achievement,
+    ArchitectureDecision,
     CareerPreferences,
     Certification,
     Course,
@@ -572,6 +573,127 @@ class InterestCrud(_EntityCrud):
         return ok(_serialize(item))
 
 
+# --- ArchitectureDecision (ADR) -----------------------------------------
+
+
+class ArchitectureDecisionCrud(_EntityCrud):
+    entity_type = "architecture_decision"
+
+    async def add(
+        self, *, user_id: str, payload: dict[str, Any], uow: UnitOfWork
+    ) -> Result[dict[str, Any], ValidationError]:
+        from src.universe.domain.entities import ArchitectureDecision
+
+        # related_project_id / superseded_by are no longer ADR columns
+        # (migration 0017) — they flow to the graph as edges via the
+        # coherence engine, so we don't pass them to the entity here.
+        try:
+            entity = ArchitectureDecision.create(
+                user_id=UUID(user_id),
+                title=payload.get("title", ""),
+                context=payload.get("context"),
+                decision=payload.get("decision"),
+                consequences=payload.get("consequences"),
+                status=payload.get("status", "proposed"),
+                tags=payload.get("tags") or [],
+                source=payload.get("source", "manual"),
+            )
+        except ValidationError as e:
+            return err(e)
+        await self._repo.add(entity)
+        await self._scheduler.enqueue(
+            entity_type="architecture_decision", entity_id=entity.id
+        )
+        uow.add_event(
+            EntryAdded(
+                user_id=UUID(user_id),
+                entity_type="architecture_decision",
+                entity_id_str=str(entity.id),
+            )
+        )
+        return ok(_serialize(entity))
+
+    async def update(
+        self, *, user_id: str, entity_id: str, patch: dict[str, Any], uow: UnitOfWork
+    ) -> Result[dict[str, Any], NotFoundError | ValidationError]:
+        item = await self._repo.get(UUID(user_id), UUID(entity_id))
+        if item is None:
+            return err(NotFoundError("ArchitectureDecision not found"))
+        for k, v in patch.items():
+            if hasattr(item, k):
+                setattr(item, k, v)
+        await self._repo.update(item)
+        await self._scheduler.enqueue(
+            entity_type="architecture_decision", entity_id=item.id
+        )
+        uow.add_event(
+            EntryUpdated(
+                user_id=UUID(user_id),
+                entity_type="architecture_decision",
+                entity_id_str=str(item.id),
+            )
+        )
+        return ok(_serialize(item))
+
+
+# --- Artifacts (portfolio first-class citizens) --------------------------
+
+
+class ArtifactCrud(_EntityCrud):
+    entity_type = "artifact"
+
+    async def add(
+        self, *, user_id: str, payload: dict[str, Any], uow: UnitOfWork
+    ) -> Result[dict[str, Any], ValidationError]:
+        from src.universe.domain.entities import Artifact
+
+        # linked_skill_ids / linked_project_id are no longer artifact
+        # columns (migration 0017) — they flow to the graph as :USES_TECH
+        # / :PART_OF edges via the coherence engine, not the entity here.
+        try:
+            entity = Artifact.create(
+                user_id=UUID(user_id),
+                type=payload.get("type", "other"),
+                title=payload.get("title", ""),
+                url=payload.get("url", ""),
+                year=payload.get("year"),
+                description=payload.get("description"),
+                venue=payload.get("venue"),
+                metrics=payload.get("metrics"),
+                source=payload.get("source", "manual"),
+            )
+        except ValidationError as e:
+            return err(e)
+        await self._repo.add(entity)
+        uow.add_event(
+            EntryAdded(
+                user_id=UUID(user_id),
+                entity_type="artifact",
+                entity_id_str=str(entity.id),
+            )
+        )
+        return ok(_serialize(entity))
+
+    async def update(
+        self, *, user_id: str, entity_id: str, patch: dict[str, Any], uow: UnitOfWork
+    ) -> Result[dict[str, Any], NotFoundError | ValidationError]:
+        item = await self._repo.get(UUID(user_id), UUID(entity_id))
+        if item is None:
+            return err(NotFoundError("Artifact not found"))
+        for k, v in patch.items():
+            if hasattr(item, k):
+                setattr(item, k, v)
+        await self._repo.update(item)
+        uow.add_event(
+            EntryUpdated(
+                user_id=UUID(user_id),
+                entity_type="artifact",
+                entity_id_str=str(item.id),
+            )
+        )
+        return ok(_serialize(item))
+
+
 # --- CareerPreferences -----------------------------------------------------
 
 
@@ -676,6 +798,9 @@ class MarkReviewed:
         "language": "languages",
         "achievement": "achievements",
         "interest": "interests",
+        # Sprint G/K
+        "artifact": "artifacts",
+        "architecture_decision": "architecture_decisions",
     }
 
     def __init__(self, session: Any) -> None:

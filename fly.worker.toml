@@ -1,0 +1,34 @@
+# Fly.io app config for the Arq background worker.
+#
+# Deploy:
+#   flyctl deploy --config fly.worker.toml --dockerfile docker/worker.Dockerfile
+#
+# This runs as a separate Fly app from the backend so we can scale them
+# independently (CPU-bound long jobs vs latency-sensitive HTTP). Shares the
+# same Postgres + Redis attachments via `flyctl postgres attach` /
+# `flyctl redis attach`.
+
+app = "cvs-saas-worker"
+primary_region = "mad"
+
+[build]
+  dockerfile = "docker/worker.Dockerfile"
+
+[env]
+  ENV = "production"
+  LOG_LEVEL = "INFO"
+  EMAIL_PROVIDER = "brevo"
+  AGENTS_PROVIDER = "anthropic"
+
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[[mounts]]
+  source = "cvs_worker_var"
+  destination = "/app/var"
+  initial_size = "5gb"
+
+[processes]
+  worker = "arq src.shared.worker.WorkerSettings"

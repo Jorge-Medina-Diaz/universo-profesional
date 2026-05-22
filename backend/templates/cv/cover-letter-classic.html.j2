@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="{{ language }}">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ resume.basics.name or "Cover letter" }}</title>
+  <style>
+    @page { size: A4; margin: 22mm 22mm 24mm 22mm; }
+    body {
+      font-family: "Helvetica", "Arial", "DejaVu Sans", sans-serif;
+      font-size: 11pt;
+      line-height: 1.55;
+      color: #1f1f1f;
+    }
+    header { margin-bottom: 24pt; }
+    h1 {
+      font-size: 18pt;
+      margin: 0 0 4pt 0;
+      letter-spacing: -0.01em;
+    }
+    .label { color: #555; font-size: 10.5pt; }
+    .email { color: #555; font-size: 10pt; margin-top: 2pt; }
+    .meta {
+      margin-top: 18pt;
+      font-size: 9.5pt;
+      color: #555;
+    }
+    .body {
+      white-space: pre-wrap;
+      font-size: 11pt;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    {% if resume.basics.name %}<h1>{{ resume.basics.name }}</h1>{% endif %}
+    {% if resume.basics.label %}<div class="label">{{ resume.basics.label }}</div>{% endif %}
+    {% if resume.basics.email %}<div class="email">{{ resume.basics.email }}</div>{% endif %}
+    <div class="meta">
+      {% if resume.meta.target_company %}Para: {{ resume.meta.target_company }}{% endif %}
+      {% if resume.meta.target_title %}{% if resume.meta.target_company %} · {% endif %}{{ resume.meta.target_title }}{% endif %}
+    </div>
+  </header>
+
+  <div class="body">{{ resume.cover_letter_body or resume.basics.summary or "" }}</div>
+</body>
+</html>

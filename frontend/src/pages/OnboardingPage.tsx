@@ -1,65 +1,164 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { motion } from "motion/react";
+import { ArrowRight, Sparkles, Upload, Wand2, Plug, CheckCircle2 } from "lucide-react";
 import { universe } from "@/shared/api";
+import {
+  Badge,
+  Button,
+  Card,
+  DropZone,
+  Field,
+  Input,
+  PageHeader,
+  Reveal,
+  Surface,
+  Textarea,
+  cn,
+  toast,
+} from "@/ui";
 
 const STEPS = ["welcome", "import", "headline", "preferences", "first-cv", "mcp", "done"] as const;
 type Step = (typeof STEPS)[number];
 
+const STEP_LABELS: Record<Step, string> = {
+  welcome: "Bienvenida",
+  import: "Importar",
+  headline: "Titular",
+  preferences: "Preferencias",
+  "first-cv": "Tu primer CV",
+  mcp: "Agente IA",
+  done: "Listo",
+};
+
 export function OnboardingPage() {
   const [step, setStep] = useState<Step>("welcome");
   return (
-    <div className="max-w-2xl mx-auto py-12 px-4">
+    <Surface width="md" spacing="md">
       <Progress step={step} />
+
       {step === "welcome" && (
-        <Stage title="¡Bienvenido!" body="Vamos a montar tu Universo Profesional en 7 pasos. <10 minutos.">
-          <button className="btn-primary" onClick={() => setStep("import")}>Empezar</button>
+        <Stage
+          icon={<Sparkles size={20} />}
+          eyebrow={STEP_LABELS.welcome}
+          title="¡Bienvenido!"
+          body="Vamos a montar tu Universo Profesional en 7 pasos. Menos de 10 minutos."
+        >
+          <Button size="lg" onClick={() => setStep("import")} trailingIcon={<ArrowRight size={14} />}>
+            Empezar
+          </Button>
         </Stage>
       )}
       {step === "import" && <ImportStage onNext={() => setStep("headline")} />}
       {step === "headline" && <HeadlineStage onNext={() => setStep("preferences")} />}
       {step === "preferences" && <PreferencesStage onNext={() => setStep("first-cv")} />}
       {step === "first-cv" && (
-        <Stage title="Tu primer CV" body="Vamos a generarlo con una oferta de muestra.">
-          <a className="btn-primary" href="#/cv/new">Generar mi primer CV →</a>
-          <button className="btn-secondary ml-2" onClick={() => setStep("mcp")}>Saltar</button>
+        <Stage
+          icon={<Wand2 size={20} />}
+          eyebrow={STEP_LABELS["first-cv"]}
+          title="Tu primer CV"
+          body="Vamos a generarlo con una oferta de muestra."
+        >
+          <Button size="lg" onClick={() => (window.location.hash = "#/cv/new")}>
+            Generar mi primer CV
+          </Button>
+          <Button size="lg" variant="ghost" onClick={() => setStep("mcp")}>
+            Saltar
+          </Button>
         </Stage>
       )}
       {step === "mcp" && (
-        <Stage title="Conecta tu agente IA" body="Si usas Claude Code, Codex o Cursor, accede a tu universo desde el editor.">
-          <a className="btn-primary" href="#/mcp">Ver instrucciones</a>
-          <button className="btn-secondary ml-2" onClick={() => setStep("done")}>Finalizar</button>
+        <Stage
+          icon={<Plug size={20} />}
+          eyebrow={STEP_LABELS.mcp}
+          title="Conecta tu agente IA"
+          body="Si usas Claude Code, Codex o Cursor, accede a tu universo desde el editor."
+        >
+          <Button size="lg" onClick={() => (window.location.hash = "#/mcp")}>
+            Ver instrucciones
+          </Button>
+          <Button size="lg" variant="ghost" onClick={() => setStep("done")}>
+            Finalizar
+          </Button>
         </Stage>
       )}
       {step === "done" && (
-        <Stage title="¡Listo!" body="Tu universo está creado. Edítalo en cualquier momento.">
-          <a className="btn-primary" href="#/universe">Ir a Mi Universo</a>
+        <Stage
+          icon={<CheckCircle2 size={20} />}
+          eyebrow={STEP_LABELS.done}
+          title="¡Listo!"
+          body="Tu universo está creado. Edítalo en cualquier momento."
+          tone="leaf"
+        >
+          <Button size="lg" onClick={() => (window.location.hash = "#/universe")} trailingIcon={<ArrowRight size={14} />}>
+            Ir a mi universo
+          </Button>
         </Stage>
       )}
-    </div>
+    </Surface>
   );
 }
 
 function Progress({ step }: { step: Step }) {
   const idx = STEPS.indexOf(step);
+  const pct = ((idx + 1) / STEPS.length) * 100;
   return (
-    <div className="flex gap-1 mb-8">
-      {STEPS.map((s, i) => (
-        <div
-          key={s}
-          className={`flex-1 h-1 rounded ${i <= idx ? "bg-brand-500" : "bg-gray-200"}`}
-        />
-      ))}
-    </div>
+    <Reveal>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-xs text-stone">
+          <span>
+            Paso {idx + 1} de {STEPS.length}
+          </span>
+          <span className="font-medium text-ink">{STEP_LABELS[step]}</span>
+        </div>
+        <div className="relative h-1.5 bg-surface rounded-full overflow-hidden">
+          <motion.div
+            className="absolute inset-y-0 left-0 bg-leaf rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: `${pct}%` }}
+            transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
+          />
+        </div>
+      </div>
+    </Reveal>
   );
 }
 
-function Stage({ title, body, children }: { title: string; body: string; children: React.ReactNode }) {
+function Stage({
+  icon,
+  eyebrow,
+  title,
+  body,
+  children,
+  tone = "sunbeam",
+}: {
+  icon: React.ReactNode;
+  eyebrow: string;
+  title: string;
+  body: string;
+  children: React.ReactNode;
+  tone?: "sunbeam" | "leaf";
+}) {
+  const ringClass =
+    tone === "leaf"
+      ? "bg-leaf-soft text-leaf-ink"
+      : "bg-sunbeam-soft text-sunbeam-ink";
   return (
-    <div className="space-y-3">
-      <h1 className="text-2xl font-bold">{title}</h1>
-      <p className="text-gray-600">{body}</p>
-      <div className="pt-4 flex flex-wrap">{children}</div>
-    </div>
+    <Reveal>
+      <Card padding="lg" className="space-y-5">
+        <span
+          aria-hidden
+          className={cn(
+            "inline-flex items-center justify-center w-12 h-12 rounded-full",
+            ringClass,
+          )}
+        >
+          {icon}
+        </span>
+        <PageHeader eyebrow={eyebrow} title={title} subtitle={body} />
+        <div className="flex flex-wrap gap-2 pt-2">{children}</div>
+      </Card>
+    </Reveal>
   );
 }
 
@@ -71,24 +170,33 @@ function ImportStage({ onNext }: { onNext: () => void }) {
   });
   return (
     <Stage
+      icon={<Upload size={20} />}
+      eyebrow={STEP_LABELS.import}
       title="Importar datos"
       body="Sube tu export ZIP de LinkedIn (Get a copy of your data) o empieza de cero."
     >
-      <input
-        type="file"
-        accept=".zip"
-        className="block mb-3"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) upload.mutate(f);
-        }}
-      />
-      {upload.data && (
-        <p className="text-sm text-green-700 mr-3">
-          Importado: {upload.data.experiences} experiencias, {upload.data.educations} estudios, {upload.data.skills} skills.
-        </p>
-      )}
-      <button className="btn-primary" onClick={onNext}>Continuar →</button>
+      <div className="w-full space-y-3">
+        <DropZone
+          accept=".zip"
+          label="Arrastra tu ZIP de LinkedIn o haz clic"
+          hint="Settings → Get a copy of your data en LinkedIn"
+          loading={upload.isPending}
+          maxBytes={50 * 1024 * 1024}
+          onFiles={(files) => upload.mutate(files[0])}
+          onError={(msg) => toast.error("Archivo no aceptado", msg)}
+        />
+        {upload.data && (
+          <Badge tone="leaf" dot>
+            Importado: {upload.data.experiences} experiencias · {upload.data.educations} estudios ·{" "}
+            {upload.data.skills} skills
+          </Badge>
+        )}
+        <div className="flex gap-2">
+          <Button onClick={onNext} trailingIcon={<ArrowRight size={14} />}>
+            Continuar
+          </Button>
+        </div>
+      </div>
     </Stage>
   );
 }
@@ -101,23 +209,47 @@ function HeadlineStage({ onNext }: { onNext: () => void }) {
   });
   return (
     <Stage
+      icon={<Sparkles size={20} />}
+      eyebrow={STEP_LABELS.headline}
       title="Tu titular"
       body="Define tu identidad profesional en una frase."
     >
       <div className="w-full space-y-3">
-        <input className="input" placeholder="ej. Senior Backend Engineer · Python · MCP" value={headline} onChange={(e) => setHeadline(e.target.value)} />
-        <textarea rows={3} className="input" placeholder="Resumen profesional (1-2 frases)" value={summary} onChange={(e) => setSummary(e.target.value)} />
-        <div className="flex gap-2">
-          <button
-            className="btn-primary"
+        <Field label="Titular">
+          {(p) => (
+            <Input
+              {...p}
+              placeholder="ej. Senior Backend Engineer · Python · MCP"
+              value={headline}
+              onChange={(e) => setHeadline(e.target.value)}
+            />
+          )}
+        </Field>
+        <Field label="Resumen">
+          {(p) => (
+            <Textarea
+              {...p}
+              rows={3}
+              placeholder="Resumen profesional (1-2 frases)"
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
+            />
+          )}
+        </Field>
+        <div className="flex gap-2 pt-1">
+          <Button
+            loading={save.isPending}
             onClick={async () => {
               await save.mutateAsync();
               onNext();
             }}
+            trailingIcon={<ArrowRight size={14} />}
           >
-            Guardar y continuar →
-          </button>
-          <button className="btn-secondary" onClick={onNext}>Saltar</button>
+            Guardar y continuar
+          </Button>
+          <Button variant="ghost" onClick={onNext}>
+            Saltar
+          </Button>
         </div>
       </div>
     </Stage>
@@ -127,11 +259,22 @@ function HeadlineStage({ onNext }: { onNext: () => void }) {
 function PreferencesStage({ onNext }: { onNext: () => void }) {
   return (
     <Stage
+      icon={<Sparkles size={20} />}
+      eyebrow={STEP_LABELS.preferences}
       title="Preferencias de carrera"
-      body="Cuéntanos qué buscas para que adaptemos mejor tus CVs."
+      body="Cuéntanos qué buscas (rol, salario, remoto, perks…) para que el agente adapte mejor cada CV."
     >
-      <p className="text-sm text-gray-500 mr-3">(omitido en este MVP — disponible en /universe → preferences)</p>
-      <button className="btn-primary" onClick={onNext}>Continuar →</button>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          onClick={() => (window.location.hash = "#/preferences")}
+          leadingIcon={<Sparkles size={14} />}
+        >
+          Definir preferencias
+        </Button>
+        <Button variant="ghost" onClick={onNext} trailingIcon={<ArrowRight size={14} />}>
+          Saltar de momento
+        </Button>
+      </div>
     </Stage>
   );
 }

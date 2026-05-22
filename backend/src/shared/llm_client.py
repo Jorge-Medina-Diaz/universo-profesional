@@ -192,15 +192,14 @@ def get_llm_client() -> LlmClient:
     if _client is not None:
         return _client
     settings = get_settings()
-    if settings.llm_provider == "mock":
-        _client = MockLlmClient()
-    elif settings.llm_provider == "anthropic":
+    provider = settings.llm_provider_resolved
+    if provider == "anthropic":
         try:
             _client = AnthropicLlmClient()
         except Exception as exc:  # noqa: BLE001
             logger.warning("anthropic_init_failed_falling_back_to_mock", error=str(exc))
             _client = MockLlmClient()
-    elif settings.llm_provider == "openai":
+    elif provider == "openai":
         try:
             _client = OpenAiLlmClient()
         except Exception as exc:  # noqa: BLE001

@@ -10,6 +10,8 @@ from src.shared.db import get_session_factory
 from src.shared.embeddings import get_embeddings_service
 from src.universe.domain.entities import (
     Achievement,
+    ArchitectureDecision,
+    Artifact,
     Certification,
     Course,
     Education,
@@ -21,6 +23,8 @@ from src.universe.domain.entities import (
 )
 from src.universe.infrastructure.orm import (
     AchievementOrm,
+    ArchitectureDecisionOrm,
+    ArtifactOrm,
     CertificationOrm,
     CourseOrm,
     EducationOrm,
@@ -43,17 +47,41 @@ _ENTITY_MAP: dict[str, tuple[Any, Any]] = {
     "language": (LanguageOrm, Language),
     "achievement": (AchievementOrm, Achievement),
     "interest": (InterestOrm, Interest),
+    # Sprint G — portfolio artifacts
+    "artifact": (ArtifactOrm, Artifact),
+    # Sprint K — architecture decision records
+    "architecture_decision": (ArchitectureDecisionOrm, ArchitectureDecision),
 }
 
 
+def _is_note(entity_type: str) -> bool:
+    return entity_type == "note"
+
+
 async def refresh_embedding(ctx: dict[str, Any], *, entity_type: str, entity_id: str) -> None:
+    embedder = get_embeddings_service()
+    factory = get_session_factory()
+
+    if _is_note(entity_type):
+        from src.notes.infrastructure.orm import NoteOrm
+
+        async with factory() as session:
+            row = await session.get(NoteOrm, UUID(entity_id))
+            if row is None:
+                return
+            parts = [p for p in [row.title, row.body_md, " ".join(row.tags or [])] if p]
+            text = " — ".join(parts)
+            vec = await embedder.embed(text)
+            row.embedding = vec
+            await session.commit()
+            logger.debug("embedding_refreshed", entity_type=entity_type, entity_id=entity_id)
+        return
+
     if entity_type not in _ENTITY_MAP:
         logger.warning("refresh_embedding_unknown_type", entity_type=entity_type)
         return
     orm_cls, entity_cls = _ENTITY_MAP[entity_type]
-    embedder = get_embeddings_service()
 
-    factory = get_session_factory()
     async with factory() as session:
         row = await session.get(orm_cls, UUID(entity_id))
         if row is None:

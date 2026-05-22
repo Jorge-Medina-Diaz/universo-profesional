@@ -30,6 +30,14 @@ SCOPES: dict[str, Scope] = {
     "preferences:read": Scope("preferences:read", "Leer tus preferencias de carrera"),
     "preferences:write": Scope("preferences:write", "Modificar tus preferencias de carrera"),
     "evidence:write": Scope("evidence:write", "Vincular skills con evidencias (experiencias, proyectos…)"),
+    "notes:read": Scope("notes:read", "Leer tus notas (capa narrativa)"),
+    "notes:write": Scope("notes:write", "Crear y editar notas narrativas"),
+    "knowledge:read": Scope(
+        "knowledge:read", "Buscar en tus documentos y papers (base de conocimiento)"
+    ),
+    "knowledge:write": Scope(
+        "knowledge:write", "Subir documentos a tu base de conocimiento"
+    ),
     "integrations:read": Scope("integrations:read", "Ver tus cuentas externas conectadas (GitHub, LinkedIn…)"),
     "integrations:write": Scope(
         "integrations:write",
@@ -39,6 +47,8 @@ SCOPES: dict[str, Scope] = {
     "suggestions:write": Scope("suggestions:write", "Generar y aplicar sugerencias automáticas"),
     "reminders:read": Scope("reminders:read", "Ver recordatorios (certificados expirando, etc.)"),
     "reminders:write": Scope("reminders:write", "Crear, dispatch y dismiss recordatorios"),
+    "account:read": Scope("account:read", "Ver tier de suscripción y datos de cuenta"),
+    "account:write": Scope("account:write", "Cambiar tier de suscripción (gestionado vía Stripe en prod)"),
 }
 
 DEFAULT_SCOPES = (
@@ -49,12 +59,17 @@ DEFAULT_SCOPES = (
     "preferences:read",
     "preferences:write",
     "evidence:write",
+    "notes:read",
+    "notes:write",
+    "knowledge:read",
+    "knowledge:write",
     "integrations:read",
     "integrations:write",
     "suggestions:read",
     "suggestions:write",
     "reminders:read",
     "reminders:write",
+    "account:read",
 )
 
 

@@ -1,4 +1,9 @@
-"""Mock Stripe-like payments provider."""
+"""Stripe-like payments provider — mock + factory for the real one.
+
+The factory `get_payments_provider(session)` picks between the mock and
+the real Stripe provider based on `settings.stripe_provider`. Callers don't
+need to know which one they got — both implement `PaymentsProvider`.
+"""
 from __future__ import annotations
 
 from uuid import UUID
@@ -13,6 +18,23 @@ from src.shared.config import get_settings
 from src.shared.security import utc_in, utc_now
 
 logger = structlog.get_logger(__name__)
+
+
+def get_payments_provider(session: AsyncSession) -> PaymentsProvider:
+    """Return the configured Stripe provider.
+
+    Real provider requires STRIPE_API_KEY; if `stripe_provider=real` but the
+    key is missing we explicitly fall back to mock (with a warning) so dev
+    work doesn't break when someone half-configures Stripe.
+    """
+    settings = get_settings()
+    if settings.stripe_provider == "real" and settings.stripe_api_key:
+        from src.billing.infrastructure.stripe_provider import StripeProvider
+
+        return StripeProvider(session)
+    if settings.stripe_provider == "real":
+        logger.warning("stripe_real_no_key", message="falling back to mock")
+    return MockStripeProvider(session)
 
 
 class MockStripeProvider(PaymentsProvider):

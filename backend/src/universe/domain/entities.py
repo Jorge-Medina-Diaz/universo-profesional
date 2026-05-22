@@ -26,6 +26,8 @@ EntityType = Literal[
     "language",
     "achievement",
     "interest",
+    "artifact",
+    "architecture_decision",
 ]
 
 
@@ -120,6 +122,8 @@ class Experience(_Base):
     highlights: list[str] = field(default_factory=list)
     competences: list[str] = field(default_factory=list)
     url: str | None = None
+    industry_sector: str | None = None  # finance, healthcare, ecommerce, govtech, …
+    seniority_level: str | None = None  # junior|mid|senior|staff|principal|exec
 
     @classmethod
     def create(cls, *, user_id: UUID, organization: str, role: str, **kw: Any) -> "Experience":
@@ -161,6 +165,7 @@ class Project(_Base):
     impact: str | None = None
     status: str | None = None
     url: str | None = None
+    domain_tags: list[str] = field(default_factory=list)  # fintech, healthtech, ecommerce…
 
     @classmethod
     def create(cls, *, user_id: UUID, name: str, **kw: Any) -> "Project":
@@ -191,7 +196,8 @@ class Skill(_Base):
     level: str | None = None
     years: int | None = None
     last_used_year: int | None = None
-    evidence_refs: list[str] = field(default_factory=list)
+    # evidence_refs dropped in migration 0017 — skill→evidence relations
+    # live as :DEMONSTRATES edges in the AGE graph.
 
     @classmethod
     def create(cls, *, user_id: UUID, name: str, category: str = "hard", **kw: Any) -> "Skill":
@@ -343,6 +349,267 @@ class Interest(_Base):
 
 
 # --- CareerPreferences (singleton per user) ------------------------------
+
+
+# --- AreaStrength (one row per user × canonical area) --------------------
+
+
+CANONICAL_AREAS = (
+    "backend",
+    "frontend",
+    "fullstack",
+    "devops",
+    "mobile",
+    "ai_ml",
+    "data_eng",
+    "security",
+    "llm_agents",
+    "cloud",
+    "platform",
+    "other",
+)
+
+ShapeType = Literal["I", "T", "π", "M", "none"]
+
+
+@dataclass
+class AreaStrength:
+    id: UUID
+    user_id: UUID
+    area: str
+    depth_years: float = 0.0
+    breadth_count: int = 0
+    recency_months: int | None = None
+    confidence: float = 0.0
+    is_primary: bool = False
+    computed_at: datetime = field(default_factory=lambda: datetime.utcnow())
+
+    @classmethod
+    def create(cls, *, user_id: UUID, area: str, **kw: Any) -> "AreaStrength":
+        if area not in CANONICAL_AREAS:
+            from src.shared.errors import ValidationError
+
+            raise ValidationError(
+                f"Invalid area {area!r}",
+                details={"allowed": list(CANONICAL_AREAS)},
+            )
+        return cls(id=uuid4(), user_id=user_id, area=area, **kw)
+
+
+# --- Artifact (GitHub repos, talks, blog posts, OSS, papers, podcasts, …) --
+
+
+ArtifactType = Literal[
+    "github_repo",
+    "talk",
+    "blog_post",
+    "oss_contrib",
+    "paper",
+    "podcast",
+    "video",
+    "book",
+    "other",
+]
+
+_ARTIFACT_TYPES = {
+    "github_repo",
+    "talk",
+    "blog_post",
+    "oss_contrib",
+    "paper",
+    "podcast",
+    "video",
+    "book",
+    "other",
+}
+
+
+@dataclass
+class Artifact(_Base):
+    type: str = "other"
+    title: str = ""
+    url: str = ""
+    year: int | None = None
+    description: str | None = None
+    venue: str | None = None
+    # linked_skill_ids / linked_project_id dropped in migration 0017 —
+    # artifact relations live as :USES_TECH / :PART_OF edges in the graph.
+    metrics: dict[str, Any] | None = None
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        user_id: UUID,
+        type: str,
+        title: str,
+        url: str,
+        **kw: Any,
+    ) -> "Artifact":
+        from src.shared.errors import ValidationError
+
+        if type not in _ARTIFACT_TYPES:
+            raise ValidationError(
+                f"Invalid artifact type {type!r}",
+                details={"allowed": sorted(_ARTIFACT_TYPES)},
+            )
+        if not title.strip():
+            raise ValidationError("Artifact title is required")
+        if not url.strip():
+            raise ValidationError("Artifact url is required")
+        return cls(
+            id=uuid4(),
+            user_id=user_id,
+            type=type,
+            title=title.strip(),
+            url=url.strip(),
+            **kw,
+        )
+
+    def embedding_text(self) -> str:
+        return " — ".join(
+            p for p in [self.type, self.title, self.description, self.venue] if p
+        )
+
+
+# --- SkillStack (nameable cluster of related skills) ---------------------
+
+
+@dataclass
+class SkillStack:
+    id: UUID
+    user_id: UUID
+    name: str = ""
+    slug: str = ""
+    area: str = "other"
+    skill_ids: list[UUID] = field(default_factory=list)
+    description: str | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.utcnow())
+    updated_at: datetime = field(default_factory=lambda: datetime.utcnow())
+    deleted_at: datetime | None = None
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        user_id: UUID,
+        name: str,
+        slug: str,
+        area: str,
+        **kw: Any,
+    ) -> "SkillStack":
+        from src.shared.errors import ValidationError
+
+        if not name.strip():
+            raise ValidationError("SkillStack name is required")
+        if not slug.strip():
+            raise ValidationError("SkillStack slug is required")
+        if area not in CANONICAL_AREAS:
+            raise ValidationError(
+                f"Invalid area {area!r}",
+                details={"allowed": list(CANONICAL_AREAS)},
+            )
+        return cls(
+            id=uuid4(),
+            user_id=user_id,
+            name=name.strip(),
+            slug=slug.strip(),
+            area=area,
+            **kw,
+        )
+
+
+# --- UserRubricSignal (overlay personal sobre rúbricas globales) -----------
+
+
+SIGNAL_STATUSES = ("aspire", "practice", "own", "teach", "avoid")
+SIGNAL_SECTION_KINDS = ("criteria", "questions", "signals", "anti_patterns", "resources", "general")
+
+
+@dataclass
+class UserRubricSignal:
+    id: UUID
+    user_id: UUID
+    rubric_chunk_id: UUID
+    section_kind: str = "signals"
+    status: str = "aspire"
+    confidence: float = 0.0
+    evidence_entity_type: str | None = None
+    evidence_entity_ids: list[UUID] = field(default_factory=list)
+    notes: str | None = None
+    source: str = "auto"
+    last_reviewed_at: datetime | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.utcnow())
+    updated_at: datetime = field(default_factory=lambda: datetime.utcnow())
+    deleted_at: datetime | None = None
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        user_id: UUID,
+        rubric_chunk_id: UUID,
+        section_kind: str,
+        status: str,
+        **kw: Any,
+    ) -> "UserRubricSignal":
+        from src.shared.errors import ValidationError
+
+        if status not in SIGNAL_STATUSES:
+            raise ValidationError(
+                f"Invalid signal status {status!r}",
+                details={"allowed": list(SIGNAL_STATUSES)},
+            )
+        if section_kind not in SIGNAL_SECTION_KINDS:
+            raise ValidationError(
+                f"Invalid section_kind {section_kind!r}",
+                details={"allowed": list(SIGNAL_SECTION_KINDS)},
+            )
+        return cls(
+            id=uuid4(),
+            user_id=user_id,
+            rubric_chunk_id=rubric_chunk_id,
+            section_kind=section_kind,
+            status=status,
+            **kw,
+        )
+
+
+# --- ArchitectureDecision (ADR) -----------------------------------------
+
+
+ADR_STATUSES = ("proposed", "accepted", "superseded", "rejected")
+
+
+@dataclass
+class ArchitectureDecision(_Base):
+    title: str = ""
+    context: str | None = None
+    decision: str | None = None
+    consequences: str | None = None
+    status: str = "proposed"
+    tags: list[str] = field(default_factory=list)
+    # superseded_by / related_project_id dropped in migration 0017 — ADR
+    # relations live as :SUPERSEDES / :PART_OF edges in the graph.
+
+    @classmethod
+    def create(cls, *, user_id: UUID, title: str, **kw: Any) -> "ArchitectureDecision":
+        from src.shared.errors import ValidationError
+
+        if not title.strip():
+            raise ValidationError("ADR title is required")
+        status = kw.get("status", "proposed")
+        if status not in ADR_STATUSES:
+            raise ValidationError(
+                f"Invalid ADR status {status!r}",
+                details={"allowed": list(ADR_STATUSES)},
+            )
+        return cls(id=uuid4(), user_id=user_id, title=title.strip(), **kw)
+
+    def embedding_text(self) -> str:
+        return " — ".join(
+            p for p in [self.title, self.context, self.decision] if p
+        )
 
 
 @dataclass
