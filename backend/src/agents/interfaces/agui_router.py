@@ -42,11 +42,14 @@ logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 
-# Per-message rate limit for the chat endpoints. Chat is interactive (a few
-# messages/min for a human); 30/min per user blocks scripted abuse / cost
-# bombs while never getting in a real user's way. Keyed by JWT (see
-# rate_limit._key_func), so it's per-user and survives across replicas (Redis).
-_CHAT_RATE_LIMIT = "30/minute"
+# Per-RUN rate limit. Applied ONLY to actual agent generations (run /
+# run-multimodal), never to `connect` or `info`: CopilotKit keeps reopening
+# the passive `connect` SSE channel (reconnects, StrictMode, navigation), so
+# counting it against this budget produced a 429 storm in normal use. 60/min
+# of real generations is far beyond any human cadence while still capping
+# scripted cost bombs; the per-user concurrency cap below is the parallel
+# guard. Keyed by JWT (rate_limit._key_func) → per-user, cross-replica (Redis).
+_CHAT_RATE_LIMIT = "60/minute"
 
 # Per-user concurrent-stream cap. SSE chat streams are long-lived; without a
 # cap a single user could open dozens in parallel and exhaust the DB pool.
@@ -239,11 +242,13 @@ def _ts_to_iso(ts: Any) -> str | None:
 
 
 @router.post("/agui")
-@limiter.limit(_CHAT_RATE_LIMIT)
 async def agui_single_endpoint(
     request: Request,
     body: dict[str, Any] = Body(...),
 ) -> Any:
+    # NOTE: no blanket @limiter here — this envelope multiplexes info/connect/
+    # run, and only runs should be rate-limited. The run limit is enforced
+    # per-method below; connect/info pass through freely.
     method = body.get("method") if isinstance(body, dict) else None
 
     if method == "info":
@@ -254,12 +259,15 @@ async def agui_single_endpoint(
 
     if method in ("agent/connect", "agent/run"):
         inner = body.get("body") or {}
+        is_run = method == "agent/run"
         # Only bound actual RUNs; `connect` is a long-lived passive SSE
-        # channel CopilotKit keeps open and must not consume a slot.
+        # channel CopilotKit keeps open and must not consume a slot or quota.
+        # Run cost is capped per-user by the concurrency guard below (and, on
+        # the active REST transport, by the @limiter on /run).
         return await _stream_chat(
             request=request,
             run_body=inner,
-            guard_concurrency=(method == "agent/run"),
+            guard_concurrency=is_run,
         )
 
     # No envelope → treat as a raw RunAgentInput for backwards compat.
@@ -279,12 +287,13 @@ async def agui_single_endpoint(
 
 
 @router.post("/agui/agent/{agent_id}/connect")
-@limiter.limit(_CHAT_RATE_LIMIT)
 async def agui_agent_connect(
     agent_id: str, request: Request, body: dict[str, Any] = Body(...)
 ) -> StreamingResponse:
     _ensure_known_agent(agent_id)
-    # connect = passive SSE channel → don't consume a concurrency slot.
+    # connect = passive SSE channel CopilotKit reopens on every reconnect /
+    # remount → deliberately NOT rate-limited (counting it 429-stormed real
+    # users) and doesn't consume a concurrency slot.
     return await _stream_chat(request=request, run_body=body)
 
 
