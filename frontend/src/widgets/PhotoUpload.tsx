@@ -1,6 +1,6 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Trash2, Upload } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { Trash2, Upload, User } from "lucide-react";
 import { photo } from "@/shared/api-extra";
 import { Button, DropZone, toast } from "@/ui";
 import { PhotoCropper } from "./PhotoCropper";
@@ -10,6 +10,22 @@ export function PhotoUpload() {
   const [preview, setPreview] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [cropping, setCropping] = useState<File | null>(null);
+
+  // Authenticated avatar load (a plain <img> can't send the Bearer header).
+  const photoQuery = useQuery({
+    queryKey: ["me", "photo", refreshKey],
+    queryFn: () => photo.load(),
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  // Revoke the previous object URL when it changes / on unmount.
+  useEffect(() => {
+    const url = photoQuery.data;
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [photoQuery.data]);
 
   const upload = useMutation({
     mutationFn: (f: File) => photo.upload(f),
@@ -50,21 +66,26 @@ export function PhotoUpload() {
     upload.mutate(cropped);
   };
 
-  const src = preview ?? `${photo.url()}?v=${refreshKey}`;
+  const src = preview ?? photoQuery.data ?? null;
 
   return (
     <>
       <div className="flex flex-col sm:flex-row items-start gap-4">
         <div className="relative shrink-0">
-          <img
-            src={src}
-            alt="Foto de perfil"
-            className="h-24 w-24 rounded-full object-cover border border-ink/10 bg-surface"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src =
-                "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23bbb'><circle cx='12' cy='8' r='4'/><path d='M4 21c0-4 4-7 8-7s8 3 8 7'/></svg>";
-            }}
-          />
+          {src ? (
+            <img
+              src={src}
+              alt="Foto de perfil"
+              className="h-24 w-24 rounded-full object-cover border border-hairline bg-surface"
+            />
+          ) : (
+            <div
+              className="h-24 w-24 rounded-full grid place-items-center border border-hairline bg-surface text-stone"
+              aria-label="Sin foto de perfil"
+            >
+              <User size={32} />
+            </div>
+          )}
         </div>
         <div className="flex-1 w-full max-w-md space-y-2">
           <DropZone

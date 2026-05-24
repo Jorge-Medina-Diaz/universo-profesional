@@ -156,7 +156,9 @@ async def upload_photo(
 async def get_photo(user_id: CurrentUserId, session: SessionDep) -> Response:
     result = await load_avatar(session, UUID(user_id))
     if result is None:
-        raise HTTPException(status_code=404, detail="No avatar")
+        # 204 (not 404) so a missing avatar isn't logged as a console error
+        # by the browser; the client treats an empty body as "no photo".
+        return Response(status_code=204)
     data, mime = result
     return Response(content=data, media_type=mime)
 

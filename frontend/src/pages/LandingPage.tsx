@@ -11,9 +11,9 @@ export function LandingPage() {
           </Badge>
         </Reveal>
         <Reveal delay={0.06}>
-          <h1 className="text-[44px] md:text-[72px] font-medium leading-[1.02] tracking-tight max-w-3xl">
+          <h1 className="font-display text-display-lg text-ink max-w-3xl">
             Sustituye el CV en Word por un{" "}
-            <span className="bg-sunbeam px-3 rounded-[14px] inline-block leading-[1.05]">
+            <span className="bg-sunbeam text-ink px-3 rounded-[14px] inline-block leading-[1.05]">
               universo vivo
             </span>
           </h1>

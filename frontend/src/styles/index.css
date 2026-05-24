@@ -424,6 +424,10 @@
 .chat-collapsed .copilotKitInputContainer {
   padding-top: 16px !important;
 }
+/* The floating attach button only makes sense in the expanded chat. */
+.chat-collapsed .chat-attach-btn {
+  display: none !important;
+}
 
 /* Hide CopilotKit's "Powered by" tag — but NOT .poweredByContainer, which
  * is the input container itself (it would hide the composer). */

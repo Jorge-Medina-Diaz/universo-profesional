@@ -229,5 +229,27 @@ export const photo = {
     return resp.json();
   },
   url: () => "/api/v1/users/me/photo",
+  /**
+   * Load the avatar as an authenticated blob → object URL. A plain
+   * `<img src="/api/v1/users/me/photo">` can't send the Bearer header, so it
+   * always 401s and spams the console; this fetches with auth and returns a
+   * usable object URL, or null when there's no photo (so callers show a
+   * placeholder instead of a broken request).
+   */
+  load: async (): Promise<string | null> => {
+    const token = useAuthStore.getState().accessToken;
+    if (!token) return null;
+    try {
+      const resp = await fetch("/api/v1/users/me/photo", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!resp.ok) return null;
+      const blob = await resp.blob();
+      if (blob.size === 0) return null;
+      return URL.createObjectURL(blob);
+    } catch {
+      return null;
+    }
+  },
   remove: () => api("/api/v1/users/me/photo", { method: "DELETE" }),
 };

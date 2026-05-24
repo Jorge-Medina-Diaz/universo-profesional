@@ -326,7 +326,7 @@ function ChatDropTarget({ children }: { children: React.ReactNode }) {
             onClick={() => fileInputRef.current?.click()}
             aria-label="Adjuntar archivo"
             title="Adjuntar PDF o imagen (también puedes arrastrar o pegar)"
-            className="absolute bottom-24 right-4 md:bottom-20 md:right-6 z-20 inline-flex items-center justify-center w-11 h-11 rounded-full bg-canvas border border-ink/15 shadow-soft text-ink hover:bg-surface hover:-translate-y-[1px] active:translate-y-0 transition-all duration-180 ease-pirsch"
+            className="chat-attach-btn absolute bottom-24 right-4 md:bottom-20 md:right-6 z-20 inline-flex items-center justify-center w-11 h-11 rounded-full bg-canvas border border-hairline shadow-soft text-ink hover:bg-surface hover:-translate-y-[1px] active:translate-y-0 transition-all duration-180 ease-pirsch"
           >
             <Paperclip size={16} />
           </button>

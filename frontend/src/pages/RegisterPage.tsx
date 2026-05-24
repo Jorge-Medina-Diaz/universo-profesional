@@ -102,7 +102,7 @@ export function RegisterPage() {
       <div className="flex items-center justify-center px-4 py-12 md:py-16">
         <div className="w-full max-w-md">
           <Reveal>
-            <h1 className="text-heading md:text-[34px] font-medium tracking-tight text-ink mb-2">
+            <h1 className="font-display text-[34px] md:text-heading-lg leading-[1.05] text-ink mb-2">
               {t("auth.register")}
             </h1>
             <p className="text-stone mb-8">

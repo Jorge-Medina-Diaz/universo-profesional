@@ -30,6 +30,7 @@ import {
   NotebookIllustration,
   PageHeader,
   Reveal,
+  Skeleton,
   Stagger,
   Surface,
   cn,
@@ -227,9 +228,15 @@ export function NotesPage() {
       )}
 
       {query.isLoading && (
-        <Card padding="md">
-          <p className="text-sm text-stone">Cargando…</p>
-        </Card>
+        <div className="space-y-3">
+          {[0, 1, 2].map((i) => (
+            <Card key={i} padding="lg" className="space-y-3">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3.5 w-full" />
+              <Skeleton className="h-3.5" style={{ width: `${70 - i * 10}%` }} />
+            </Card>
+          ))}
+        </div>
       )}
 
       {!query.isLoading && (query.data ?? []).length === 0 && !isEditing && (

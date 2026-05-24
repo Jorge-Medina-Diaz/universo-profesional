@@ -454,7 +454,7 @@ function LinkedInCard() {
         <span aria-hidden className="text-2xl leading-none bg-[#0a66c2] text-white px-1.5 rounded font-bold">in</span>
         <div className="flex-1 min-w-0">
           <h2 className="font-semibold">LinkedIn</h2>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-stone">
             Trae tu experiencia, educación, skills, certificaciones y proyectos
             sin reescribir nada.
           </p>
@@ -466,16 +466,16 @@ function LinkedInCard() {
           role={liveStatus.tone === "error" ? "alert" : "status"}
           className={`mt-3 rounded-md px-3 py-2 text-xs flex items-start gap-2 ${
             liveStatus.tone === "error"
-              ? "bg-red-50 border border-red-200 text-red-800"
+              ? "bg-red-50 border border-red-200 text-red-700"
               : liveStatus.tone === "success"
-                ? "bg-green-50 border border-green-200 text-green-800"
-                : "bg-blue-50 border border-blue-200 text-blue-800"
+                ? "bg-leaf-soft border border-leaf/30 text-leaf-ink"
+                : "bg-sunbeam-soft border border-sunbeam/40 text-sunbeam-ink"
           }`}
         >
           {liveStatus.tone === "info" && (
             <span
               aria-hidden
-              className="inline-block w-3 h-3 rounded-full border-2 border-blue-500 border-r-transparent animate-spin"
+              className="inline-block w-3 h-3 rounded-full border-2 border-sunbeam-ink border-r-transparent animate-spin"
             />
           )}
           <span className="flex-1">{liveStatus.msg}</span>
@@ -500,7 +500,7 @@ function LinkedInCard() {
           <div className="flex items-center justify-between gap-2">
             <div>
               <p className="text-sm font-medium">Vincular cuenta</p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-stone">
                 Para auto-rellenar nombre, email y foto, y habilitar las
                 sincronizaciones avanzadas.
               </p>
@@ -528,15 +528,15 @@ function LinkedInCard() {
             <p className="text-sm font-medium">
               {dmaUsesFixture ? (
                 <>
-                  Probar el flujo con <span className="text-amber-700">datos de muestra</span>
+                  Probar el flujo con <span className="text-sunbeam-ink">datos de muestra</span>
                 </>
               ) : (
                 <>
-                  Sincronizar perfil completo · <span className="text-green-700">gratis · UE</span>
+                  Sincronizar perfil completo · <span className="text-leaf-ink">gratis · UE</span>
                 </>
               )}
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-stone">
               {dmaUsesFixture
                 ? "Hoy esto NO trae tu perfil real — devuelve datos de ejemplo para que veas cómo funciona la UI. Para datos reales, sube tu ZIP (abajo) o pásate a PRO."
                 : "Trae tu experiencia, educación, skills, certificaciones y proyectos directos desde LinkedIn (DMA oficial)."}
@@ -557,7 +557,7 @@ function LinkedInCard() {
           </button>
           {dmaConn && (
             <button
-              className="text-xs text-gray-500 hover:text-red-600 underline"
+              className="text-xs text-stone hover:text-red-600 underline"
               onClick={() => dmaDisconnect.mutate()}
             >
               Revocar
@@ -565,7 +565,7 @@ function LinkedInCard() {
           )}
         </div>
         {dmaConn?.last_synced_at && (
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-stone">
             Última sync: {new Date(dmaConn.last_synced_at).toLocaleString()}
           </p>
         )}
@@ -579,15 +579,15 @@ function LinkedInCard() {
             <p className="text-sm font-medium">
               {brightdataUsesFixture ? (
                 <>
-                  Bright Data <span className="text-amber-700">sin API key</span> · devuelve fixture
+                  Bright Data <span className="text-sunbeam-ink">sin API key</span> · devuelve fixture
                 </>
               ) : (
                 <>
-                  Sincronizar perfil completo · <span className="text-amber-700">PRO · global</span>
+                  Sincronizar perfil completo · <span className="text-sunbeam-ink">PRO · global</span>
                 </>
               )}
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-stone">
               {brightdataUsesFixture ? (
                 <>
                   Para perfiles reales necesitas una API key de Bright Data.
@@ -600,7 +600,7 @@ function LinkedInCard() {
                   >
                     brightdata.com/cp/signup
                   </a>{" "}
-                  y pasa la key al backend via <code className="bg-gray-100 px-1 rounded">BRIGHTDATA_API_KEY</code>.
+                  y pasa la key al backend via <code className="bg-surface px-1 rounded">BRIGHTDATA_API_KEY</code>.
                 </>
               ) : (
                 <>
@@ -646,7 +646,7 @@ function LinkedInCard() {
           )}
         </div>
         {isPro && (
-          <label className="text-xs text-gray-600 inline-flex items-center gap-1.5 cursor-pointer">
+          <label className="text-xs text-stone inline-flex items-center gap-1.5 cursor-pointer">
             <input
               type="checkbox"
               checked={brightdataFresh}
@@ -665,21 +665,21 @@ function LinkedInCard() {
           ONLY path that brings real user data, so we promote it visually. */}
       <div
         className={`mt-3 border-t pt-3 space-y-2 ${
-          dmaUsesFixture && brightdataUsesFixture ? "bg-green-50/40 -mx-4 px-4 py-3 rounded" : ""
+          dmaUsesFixture && brightdataUsesFixture ? "bg-leaf-soft/40 -mx-4 px-4 py-3 rounded" : ""
         }`}
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
             <p className="text-sm font-medium">
               {dmaUsesFixture && brightdataUsesFixture && (
-                <span className="inline-block bg-green-600 text-white text-[10px] px-1.5 py-0.5 rounded mr-2 uppercase">
+                <span className="inline-block bg-leaf text-ink text-[10px] px-1.5 py-0.5 rounded mr-2 uppercase font-medium">
                   Recomendado
                 </span>
               )}
               Subir ZIP de tu export de LinkedIn ·{" "}
-              <span className="text-green-700">gratis · datos reales</span>
+              <span className="text-leaf-ink">gratis · datos reales</span>
             </p>
-            <p className="text-xs text-gray-600 leading-relaxed">
+            <p className="text-xs text-stone leading-relaxed">
               <strong>Esta es la única forma de importar tu perfil real ahora mismo.</strong>
               {" "}Pide a LinkedIn una copia de tus datos en{" "}
               <a
