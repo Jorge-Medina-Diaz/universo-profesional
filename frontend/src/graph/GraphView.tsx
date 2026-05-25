@@ -34,7 +34,7 @@ import EdgeCurveProgram, { indexParallelEdgesIndex } from "@sigma/edge-curve";
 import { Plus, Minus, Maximize2 } from "lucide-react";
 import "@react-sigma/core/lib/style.css";
 import type { GraphSnapshot } from "./api";
-import { areaKey, colorForArea, labelForArea } from "@/shared/areaColors";
+import { areaKey, colorForArea, colorForPillar, labelForArea } from "@/shared/areaColors";
 import { iconFor, edgeLabel } from "./nodeIcons";
 
 // Built once: colored disc background + white pictogram drawn on top, clipped
@@ -104,6 +104,9 @@ export interface GraphSelection {
   label: string;
 }
 
+/** What drives node grouping/colour/region-labels: semantic area or career pillar. */
+export type GraphColorBy = "area" | "pillar";
+
 export interface GraphViewProps {
   snapshot: GraphSnapshot;
   kindsFilter?: string[];
@@ -113,14 +116,31 @@ export interface GraphViewProps {
   selectedId?: string | null;
   /** Fired on node click / stage click (null). Parent opens the inspector. */
   onSelectEntity?: (sel: GraphSelection | null) => void;
+  /** Group/colour the constellation by semantic area (default) or career pillar. */
+  colorBy?: GraphColorBy;
+}
+
+/** Resolve a node's group key, region label, and colour for the active lens. */
+function resolveGroup(
+  attrs: { area?: string | null; kind?: string; pillar?: string | null },
+  colorBy: GraphColorBy,
+): { key: string; label: string; color: string } {
+  if (colorBy === "pillar") {
+    const key = (attrs.pillar && attrs.pillar.trim()) || "Sin pilar";
+    return { key, label: key, color: colorForPillar(key === "Sin pilar" ? null : key) };
+  }
+  const key = areaKey(attrs.area, attrs.kind);
+  return { key, label: labelForArea(key), color: colorForArea(key) };
 }
 
 function GraphLoader({
   snapshot,
   kindsFilter,
+  colorBy,
 }: {
   snapshot: GraphSnapshot;
   kindsFilter?: string[];
+  colorBy: GraphColorBy;
 }) {
   const loadGraph = useLoadGraph();
 
@@ -130,24 +150,27 @@ function GraphLoader({
 
     const visible = snapshot.nodes.filter((n) => !filtered || filtered.has(n.attributes.kind));
 
-    // Group by SEMANTIC AREA so each area becomes a coherent, labeled island.
-    const byArea = new Map<string, typeof visible>();
+    // Group into islands by the active lens (semantic area OR career pillar);
+    // each group becomes a coherent, labeled, colour-coded island.
+    const byGroup = new Map<string, typeof visible>();
+    const groupMeta = new Map<string, { label: string; color: string }>();
     for (const n of visible) {
-      const ak = areaKey(n.attributes.area, n.attributes.kind);
-      const list = byArea.get(ak) ?? [];
+      const g0 = resolveGroup(n.attributes, colorBy);
+      const list = byGroup.get(g0.key) ?? [];
       list.push(n);
-      byArea.set(ak, list);
+      byGroup.set(g0.key, list);
+      if (!groupMeta.has(g0.key)) groupMeta.set(g0.key, { label: g0.label, color: g0.color });
     }
-    // Largest area is the core of the universe; the rest orbit it. This fills
+    // Largest group is the core of the universe; the rest orbit it. This fills
     // the centre (no empty donut) and reads as "this is what you're about".
-    const areas = Array.from(byArea.keys()).sort(
-      (a, b) => (byArea.get(b)?.length ?? 0) - (byArea.get(a)?.length ?? 0),
+    const groups = Array.from(byGroup.keys()).sort(
+      (a, b) => (byGroup.get(b)?.length ?? 0) - (byGroup.get(a)?.length ?? 0),
     );
     const islandRadius = (n: number) => 0.95 * Math.sqrt(Math.max(1, n));
 
-    const placeIsland = (ak: string, cx: number, cy: number) => {
-      const color = colorForArea(ak);
-      const nodes = byArea.get(ak) ?? [];
+    const placeIsland = (gkey: string, cx: number, cy: number) => {
+      const meta = groupMeta.get(gkey) ?? { label: gkey, color: colorForArea("general") };
+      const nodes = byGroup.get(gkey) ?? [];
       nodes.forEach((node, i) => {
         // Phyllotaxis spiral → even, organic packing; seeded jitter adds life.
         const a = i * 2.399963;
@@ -161,24 +184,26 @@ function GraphLoader({
           x: cx + Math.cos(a) * r + jx,
           y: cy + Math.sin(a) * r + jy,
           size: 16,
-          color,
+          color: meta.color,
           kind: node.attributes.kind,
-          areaKey: ak,
+          groupKey: gkey,
+          groupLabel: meta.label,
+          groupColor: meta.color,
           zIndex: 1,
         });
       });
     };
 
-    const coreCount = byArea.get(areas[0])?.length ?? 0;
-    const satellites = areas.slice(1);
+    const coreCount = byGroup.get(groups[0])?.length ?? 0;
+    const satellites = groups.slice(1);
     // Orbit distance: clear the core island + the biggest satellite + a gap.
-    const maxSatellite = Math.max(1, ...satellites.map((a) => byArea.get(a)?.length ?? 0));
+    const maxSatellite = Math.max(1, ...satellites.map((a) => byGroup.get(a)?.length ?? 0));
     const ring = islandRadius(coreCount) + islandRadius(maxSatellite) + 5.5;
 
-    if (areas.length > 0) placeIsland(areas[0], 0, 0);
-    satellites.forEach((ak, si) => {
+    if (groups.length > 0) placeIsland(groups[0], 0, 0);
+    satellites.forEach((gkey, si) => {
       const angle = (si / Math.max(1, satellites.length)) * Math.PI * 2 - Math.PI / 2;
-      placeIsland(ak, Math.cos(angle) * ring, Math.sin(angle) * ring);
+      placeIsland(gkey, Math.cos(angle) * ring, Math.sin(angle) * ring);
     });
 
     const edgeColor = cssVar("--hairline", "rgba(10,10,10,0.08)");
@@ -212,7 +237,7 @@ function GraphLoader({
 
     type LoadableGraph = Parameters<typeof loadGraph>[0];
     loadGraph(g as unknown as LoadableGraph);
-  }, [loadGraph, snapshot, kindsFilter]);
+  }, [loadGraph, snapshot, kindsFilter, colorBy]);
 
   return null;
 }
@@ -229,42 +254,52 @@ function ClusterLabels({ signature }: { signature: string }) {
 
     const els = new Map<string, HTMLDivElement>();
 
-    const centroids = (): { ak: string; x: number; y: number }[] => {
-      const acc = new Map<string, { x: number; y: number; n: number }>();
+    const centroids = (): { key: string; label: string; color: string; x: number; y: number }[] => {
+      const acc = new Map<
+        string,
+        { label: string; color: string; x: number; y: number; n: number }
+      >();
       graph.forEachNode((_node, attr) => {
-        const ak = (attr.areaKey as string) ?? "";
-        if (!ak) return;
-        const cur = acc.get(ak) ?? { x: 0, y: 0, n: 0 };
+        const key = (attr.groupKey as string) ?? "";
+        if (!key) return;
+        const cur =
+          acc.get(key) ?? {
+            label: (attr.groupLabel as string) ?? key,
+            color: (attr.groupColor as string) ?? "",
+            x: 0,
+            y: 0,
+            n: 0,
+          };
         cur.x += attr.x as number;
         cur.y += attr.y as number;
         cur.n += 1;
-        acc.set(ak, cur);
+        acc.set(key, cur);
       });
       return Array.from(acc.entries())
         .filter(([, v]) => v.n > 0)
-        .map(([ak, v]) => ({ ak, x: v.x / v.n, y: v.y / v.n }));
+        .map(([key, v]) => ({ key, label: v.label, color: v.color, x: v.x / v.n, y: v.y / v.n }));
     };
 
     const update = () => {
       const seen = new Set<string>();
       for (const c of centroids()) {
-        seen.add(c.ak);
-        let el = els.get(c.ak);
+        seen.add(c.key);
+        let el = els.get(c.key);
         if (!el) {
           el = document.createElement("div");
           el.className = "cluster-label";
-          el.textContent = labelForArea(c.ak);
-          el.style.setProperty("--cl-color", colorForArea(c.ak));
+          el.textContent = c.label;
+          el.style.setProperty("--cl-color", c.color);
           layer.appendChild(el);
-          els.set(c.ak, el);
+          els.set(c.key, el);
         }
         const p = sigma.graphToViewport({ x: c.x, y: c.y });
         el.style.transform = `translate(-50%, -50%) translate(${p.x}px, ${p.y}px)`;
       }
-      for (const [ak, el] of els) {
-        if (!seen.has(ak)) {
+      for (const [key, el] of els) {
+        if (!seen.has(key)) {
           el.remove();
-          els.delete(ak);
+          els.delete(key);
         }
       }
     };
@@ -490,10 +525,11 @@ export function GraphView({
   ambient = false,
   selectedId,
   onSelectEntity,
+  colorBy = "area",
 }: GraphViewProps) {
   const signature = useMemo(
-    () => `${snapshot.node_count}:${(kindsFilter ?? []).join(",")}`,
-    [snapshot.node_count, kindsFilter],
+    () => `${snapshot.node_count}:${(kindsFilter ?? []).join(",")}:${colorBy}`,
+    [snapshot.node_count, kindsFilter, colorBy],
   );
 
   const settings = useMemo(
@@ -535,7 +571,7 @@ export function GraphView({
         settings={settings}
         className={ambient ? "pointer-events-none opacity-70" : undefined}
       >
-        <GraphLoader snapshot={snapshot} kindsFilter={kindsFilter} />
+        <GraphLoader snapshot={snapshot} kindsFilter={kindsFilter} colorBy={colorBy} />
         {!ambient && (
           <>
             <ClusterLabels signature={signature} />

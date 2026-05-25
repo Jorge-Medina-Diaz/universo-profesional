@@ -35,7 +35,7 @@ import { NodeDetailDrawer } from "@/graph/NodeDetailDrawer";
 import { OutlineLens } from "./_universe/OutlineLens";
 import { TrajectoryLens } from "./_universe/TrajectoryLens";
 import { KIND_COLORS, KIND_LABELS } from "@/shared/kindColors";
-import { AREA_ORDER, areaKey, colorForArea, labelForArea } from "@/shared/areaColors";
+import { AREA_ORDER, areaKey, colorForArea, colorForPillar, labelForArea } from "@/shared/areaColors";
 import { FloatingChat } from "@/chat/FloatingChat";
 import { enableCopilot, useCopilotReady } from "@/app/CopilotProvider";
 import { SuggestionBar } from "@/widgets/SuggestionBar";
@@ -79,6 +79,7 @@ export function UniversePage() {
   const [overviewOpen, setOverviewOpen] = useState(false);
   const [, setChatExpanded] = useState(false);
   const [enriching, setEnriching] = useState(false);
+  const [colorBy, setColorBy] = useState<"area" | "pillar">("area");
   const setFocus = useChatState((s) => s.setFocus);
   const chatReady = useCopilotReady();
   const queryClient = useQueryClient();
@@ -197,15 +198,30 @@ export function UniversePage() {
     }
   }, [focusEntityId, lensRevision, baseSnapshot]);
 
-  // Legend: the distinct semantic areas present in the current view, ordered.
-  const presentAreas = useMemo(() => {
-    if (!filteredSnapshot) return [] as string[];
+  // Legend reflects the active lens: semantic areas or career pillars.
+  const legend = useMemo<{ key: string; label: string; color: string }[]>(() => {
+    if (!filteredSnapshot) return [];
+    if (colorBy === "pillar") {
+      const seen = new Map<string, { key: string; label: string; color: string }>();
+      for (const n of filteredSnapshot.nodes) {
+        const p = (n.attributes.pillar as string | null) || null;
+        const key = p || "Sin pilar";
+        if (!seen.has(key)) seen.set(key, { key, label: key, color: colorForPillar(p) });
+      }
+      return [...seen.values()];
+    }
     const set = new Set<string>();
     for (const n of filteredSnapshot.nodes) {
       set.add(areaKey(n.attributes.area, n.attributes.kind));
     }
-    return AREA_ORDER.filter((a) => set.has(a));
-  }, [filteredSnapshot]);
+    return AREA_ORDER.filter((a) => set.has(a)).map((a) => ({
+      key: a,
+      label: labelForArea(a),
+      color: colorForArea(a),
+    }));
+  }, [filteredSnapshot, colorBy]);
+
+  const hasPillars = (pillarsQuery.data?.items?.length ?? 0) > 0;
 
   const handleFocus = (id: string, kind: string, label: string) => {
     if (kind === "document") {
@@ -258,6 +274,7 @@ export function UniversePage() {
                 snapshot={filteredSnapshot}
                 selectedId={selectedNode?.id ?? null}
                 onSelectEntity={setSelectedNode}
+                colorBy={colorBy}
               />
             </motion.div>
           ) : lens === "outline" && filteredSnapshot ? (
@@ -340,15 +357,32 @@ export function UniversePage() {
         </div>
       ) : null}
 
-      {/* ===== Area legend + counts (graph lens) — bottom right ===== */}
-      {lens === "graph" && presentAreas.length > 0 && !isEmpty ? (
+      {/* ===== Legend + lens toggle + counts (graph lens) — bottom right ===== */}
+      {lens === "graph" && legend.length > 0 && !isEmpty ? (
         <div className="pointer-events-none absolute bottom-4 right-4 z-20 hidden md:block">
-          <div className="hud-strip pointer-events-auto flex max-w-[260px] flex-col gap-2">
+          <div className="hud-strip pointer-events-auto flex max-w-[280px] flex-col gap-2">
+            {hasPillars ? (
+              <div className="flex items-center gap-1 self-end rounded-full border border-hairline bg-canvas/60 p-0.5 text-[11px]">
+                {(["area", "pillar"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setColorBy(mode)}
+                    className={cn(
+                      "rounded-full px-2 py-0.5 transition-colors",
+                      colorBy === mode ? "bg-ink text-canvas" : "text-stone hover:text-ink",
+                    )}
+                  >
+                    {mode === "area" ? "Áreas" : "Pilares"}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-x-3 gap-y-1.5">
-              {presentAreas.map((a) => (
-                <span key={a} className="inline-flex items-center gap-1.5 text-[11px] text-ink/80">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colorForArea(a) }} />
-                  {labelForArea(a)}
+              {legend.map((g) => (
+                <span key={g.key} className="inline-flex items-center gap-1.5 text-[11px] text-ink/80">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: g.color }} />
+                  {g.label}
                 </span>
               ))}
             </div>

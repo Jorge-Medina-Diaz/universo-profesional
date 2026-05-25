@@ -401,7 +401,13 @@ def get_universe_team():  # type: ignore[no-untyped-def]
             set_chat_focus,
         ],
         instructions=instructions,
-        enable_agentic_memory=True,
+        # Memory best-practice (Agno): `enable_agentic_memory` runs a nested
+        # LLM call on EVERY memory op (token blow-up); `update_memory_on_run`
+        # does ONE consolidation pass after the turn — same user-memory value,
+        # far cheaper. Structured entities + change_log remain the source of
+        # truth; agno memory only holds light conversational facts.
+        enable_agentic_memory=False,
+        update_memory_on_run=True,
         add_history_to_context=True,
         num_history_runs=8,
         markdown=True,

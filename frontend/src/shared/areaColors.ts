@@ -76,3 +76,17 @@ export function colorForArea(area: string | null | undefined): string {
 export function labelForArea(area: string | null | undefined): string {
   return AREA_LABELS[area ?? DEFAULT_AREA] ?? AREA_LABELS[DEFAULT_AREA];
 }
+
+/** Stable palette for career pillars (arbitrary community labels). */
+const PILLAR_PALETTE: string[] = [
+  "#4f7cff", "#ec4899", "#14b8a6", "#f97316", "#a855f7", "#0ea5e9",
+  "#22c55e", "#eab308", "#d946ef", "#ef4444", "#8b5cf6", "#f43f5e",
+];
+
+/** Deterministic colour for a pillar label (hash → palette). */
+export function colorForPillar(label: string | null | undefined): string {
+  if (!label) return AREA_COLORS[DEFAULT_AREA];
+  let h = 0;
+  for (let i = 0; i < label.length; i++) h = (h * 31 + label.charCodeAt(i)) >>> 0;
+  return PILLAR_PALETTE[h % PILLAR_PALETTE.length];
+}
