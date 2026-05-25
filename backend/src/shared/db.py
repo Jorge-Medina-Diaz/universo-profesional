@@ -38,6 +38,21 @@ def get_engine() -> AsyncEngine:
     if _engine is not None:
         return _engine
     settings = get_settings()
+    if settings.is_test:
+        # Tests run each async test in its own event loop; a pooled connection
+        # created in one loop and closed at session teardown in another raises
+        # "Task got Future attached to a different loop". NullPool opens/closes
+        # a fresh connection per checkout within the same loop, eliminating the
+        # cross-loop teardown crash. (Pooling matters for prod, not tests.)
+        from sqlalchemy.pool import NullPool
+
+        _engine = create_async_engine(
+            settings.database_url,
+            echo=settings.database_echo,
+            poolclass=NullPool,
+            pool_pre_ping=True,
+        )
+        return _engine
     _engine = create_async_engine(
         settings.database_url,
         echo=settings.database_echo,

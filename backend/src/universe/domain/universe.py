@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import ClassVar
 from uuid import UUID
 
@@ -27,8 +27,8 @@ class Universe:
     photo_url: str | None = None
     current_status: str | None = None  # open_to_offers | searching_actively | not_available
     last_reviewed_at: datetime | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.utcnow())
-    updated_at: datetime = field(default_factory=lambda: datetime.utcnow())
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     _events: list[DomainEvent] = field(default_factory=list, repr=False, compare=False)
 
     @classmethod

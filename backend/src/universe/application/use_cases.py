@@ -703,14 +703,14 @@ class SetCareerPreferences:
 
     async def execute(self, *, user_id: str, patch: dict[str, Any]) -> dict[str, Any]:
         existing = await self._repo.get(UUID(user_id))
-        from datetime import datetime as _dt
+        from datetime import UTC as _UTC, datetime as _dt
 
         if existing is None:
             existing = CareerPreferences(user_id=UUID(user_id))
         for k, v in patch.items():
             if hasattr(existing, k):
                 setattr(existing, k, v)
-        existing.updated_at = _dt.utcnow()
+        existing.updated_at = _dt.now(_UTC)
         await self._repo.upsert(existing)
         return _serialize(existing)
 
@@ -734,7 +734,7 @@ class UpdateUniverseHeader:
     async def execute(
         self, *, user_id: str, patch: dict[str, Any], uow: UnitOfWork
     ) -> dict[str, Any]:
-        from datetime import datetime as _dt
+        from datetime import UTC as _UTC, datetime as _dt
 
         uid = UUID(user_id)
         universe = await self._repo.get(uid)
@@ -745,7 +745,7 @@ class UpdateUniverseHeader:
             summary=patch.get("summary", ...),
             photo_url=patch.get("photo_url", ...),
             current_status=patch.get("current_status", ...),
-            now=_dt.utcnow(),
+            now=_dt.now(_UTC),
         )
         await self._repo.save(universe)
         uow.add_events(universe.pop_events())

@@ -9,7 +9,7 @@ like skill evidence, currentness, etc., later in v1).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import Any, ClassVar, Literal
 from uuid import UUID, uuid4
 
@@ -64,8 +64,8 @@ class _Base:
     confidence: float | None = None
     source_metadata: dict[str, Any] | None = None
     last_reviewed_at: datetime | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.utcnow())
-    updated_at: datetime = field(default_factory=lambda: datetime.utcnow())
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     deleted_at: datetime | None = None
 
 
@@ -382,7 +382,7 @@ class AreaStrength:
     recency_months: int | None = None
     confidence: float = 0.0
     is_primary: bool = False
-    computed_at: datetime = field(default_factory=lambda: datetime.utcnow())
+    computed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @classmethod
     def create(cls, *, user_id: UUID, area: str, **kw: Any) -> "AreaStrength":
@@ -484,8 +484,8 @@ class SkillStack:
     area: str = "other"
     skill_ids: list[UUID] = field(default_factory=list)
     description: str | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.utcnow())
-    updated_at: datetime = field(default_factory=lambda: datetime.utcnow())
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     deleted_at: datetime | None = None
 
     @classmethod
@@ -539,8 +539,8 @@ class UserRubricSignal:
     notes: str | None = None
     source: str = "auto"
     last_reviewed_at: datetime | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.utcnow())
-    updated_at: datetime = field(default_factory=lambda: datetime.utcnow())
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     deleted_at: datetime | None = None
 
     @classmethod
@@ -630,4 +630,4 @@ class CareerPreferences:
     preferred_roles: list[str] = field(default_factory=list)
     discarded_roles: list[str] = field(default_factory=list)
     motivations: str | None = None
-    updated_at: datetime = field(default_factory=lambda: datetime.utcnow())
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
