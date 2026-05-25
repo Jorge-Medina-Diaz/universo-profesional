@@ -319,27 +319,44 @@ class UniverseGraphService:
             msg = "depth must be in [1, 4]"
             raise ValueError(msg)
         limit = max(1, min(limit, 2000))
-        edge_filter = ""
-        if edge_kinds:
-            kinds = "|".join(
-                k for k in edge_kinds if k.isidentifier() and k.isupper()
-            )
-            if kinds:
-                edge_filter = f":{kinds}"
-        active_filter = "" if include_expired else "WHERE ALL(r IN rels WHERE r.valid_to IS NULL)"
-        query = f"""
-        MATCH p = (e:Entity {{id: $id, user_id: $user_id}})
-                  -[{edge_filter}*1..{depth}]-(n:Entity)
-        WITH relationships(p) AS rels, n
-        {active_filter}
-        RETURN DISTINCT n
-        LIMIT {limit}
-        """
+        edge_kinds_list = (
+            [k for k in edge_kinds if k.isidentifier() and k.isupper()]
+            if edge_kinds
+            else []
+        )
+        params = {"id": str(entity_id), "user_id": str(user_id)}
+
+        # AGE 1.5 does NOT support `relationships(p)` / `ALL(...)` over a
+        # variable-length path (raises "syntax error at or near ("). So:
+        #  • depth 1 → direct pattern with a named edge var (lets us filter
+        #    active edges, and keeps the colon off `[` so SQLAlchemy's text()
+        #    doesn't mistake `:TYPE` for a bind param).
+        #  • depth >1 → variable-length over NODES, filtering the neighbour's
+        #    own validity (per-edge expiry can't be checked in AGE here).
+        if depth == 1:
+            edge_filter = f":{'|'.join(edge_kinds_list)}" if edge_kinds_list else ""
+            edge_active = "" if include_expired else "WHERE r.valid_to IS NULL"
+            query = f"""
+            MATCH (e:Entity {{id: $id, user_id: $user_id}})
+                  -[r{edge_filter}]-(n:Entity {{user_id: $user_id}})
+            {edge_active}
+            RETURN DISTINCT n
+            LIMIT {limit}
+            """
+        else:
+            node_active = "" if include_expired else "WHERE n.valid_to IS NULL"
+            query = f"""
+            MATCH (e:Entity {{id: $id, user_id: $user_id}})
+                  -[*1..{depth}]-(n:Entity {{user_id: $user_id}})
+            {node_active}
+            RETURN DISTINCT n
+            LIMIT {limit}
+            """
         rows = await cypher(
             session,
             schema.GRAPH_PERSONAL,
             query,
-            params={"id": str(entity_id), "user_id": str(user_id)},
+            params=params,
             column_defs="n agtype",
         )
         out: list[dict[str, Any]] = []

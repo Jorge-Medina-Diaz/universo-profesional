@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import asdict, dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID
 
@@ -37,6 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.graph.application.universe_graph import universe_graph_service
 from src.graph.domain import schema
+from src.graph.infrastructure.age_client import cypher as age_cypher
 from src.universe.infrastructure.orm import ExperienceOrm, ProjectOrm, SkillOrm
 from src.universe.infrastructure.tasks import _ENTITY_MAP, refresh_embedding
 
@@ -74,7 +75,7 @@ def _cosine(a: list[float], b: list[float]) -> float:
     dot = 0.0
     na = 0.0
     nb = 0.0
-    for x, y in zip(a, b):
+    for x, y in zip(a, b, strict=False):
         dot += x * y
         na += x * x
         nb += y * y
@@ -161,7 +162,91 @@ async def enrich_user_graph(
             elif isinstance(r, ExperienceOrm):
                 experiences.append(r)
 
-    # 3. Structural USES_TECH — tech_stack / competences → Skill.
+    # 3+4. Structural edges (USES_TECH / PART_OF).
+    await _infer_structural_edges(
+        session, user_id, projects=projects, experiences=experiences,
+        skills_by_norm=skills_by_norm, stats=stats,
+    )
+
+    # 5. Semantic RELATED_TO — cosine kNN web (undirected, deduped).
+    await _infer_semantic_edges(session, user_id, recs=recs, knn=knn, min_score=min_score, stats=stats)
+
+    # 6. Career pillars: detect + summarize communities over the now-connected
+    #    graph (best-effort — never fails the enrichment if the LLM is down).
+    if with_communities:
+        try:
+            from src.graph.application.communities import compute_communities
+
+            pillars = await compute_communities(session, user_id)
+            stats.communities = len(pillars)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("community_compute_failed", user_id=str(user_id), error=str(exc))
+
+    logger.info("universe_enriched", user_id=str(user_id), **stats.as_dict())
+    return stats
+
+
+async def _infer_semantic_edges(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    recs: list[tuple[UUID, str, list[float]]],
+    knn: int,
+    min_score: float,
+    stats: EnrichmentStats,
+) -> None:
+    """Cosine-kNN RELATED_TO web with bi-temporal maintenance.
+
+    Expire ALL prior inferred RELATED_TO first; the kNN MERGE below revives the
+    ones still nearest (valid_to=NULL again), leaving genuinely-stale links
+    expired (valid_to set) instead of lingering. HippoRAG synonym edges: very
+    high cosine ⇒ near-duplicate concept, labelled distinctly for weighting.
+    """
+    await age_cypher(
+        session,
+        schema.GRAPH_PERSONAL,
+        "MATCH (a:Entity {user_id: $uid})-[r:RELATED_TO]->(b:Entity {user_id: $uid}) "
+        "WHERE r.valid_to IS NULL AND r.source = 'inferred' SET r.valid_to = $now",
+        params={"uid": str(user_id), "now": datetime.now(UTC).isoformat()},
+    )
+    seen: set[tuple[str, str]] = set()
+    for i, (id_a, _ka, va) in enumerate(recs):
+        sims: list[tuple[float, UUID]] = []
+        for j, (id_b, _kb, vb) in enumerate(recs):
+            if i == j:
+                continue
+            s = _cosine(va, vb)
+            if s >= min_score:
+                sims.append((s, id_b))
+        sims.sort(key=lambda t: t[0], reverse=True)
+        for s, id_b in sims[:knn]:
+            key = tuple(sorted((str(id_a), str(id_b))))
+            if key in seen:
+                continue
+            seen.add(key)
+            if await universe_graph_service.upsert_edge(
+                session,
+                edge_type=schema.RELATED_TO,
+                source_id=UUID(key[0]),
+                target_id=UUID(key[1]),
+                user_id=user_id,
+                source="inferred",
+                confidence=round(s, 3),
+                properties={"relation_label": "synonym" if s >= 0.8 else "similar"},
+            ):
+                stats.related_to += 1
+
+
+async def _infer_structural_edges(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    projects: list[ProjectOrm],
+    experiences: list[ExperienceOrm],
+    skills_by_norm: dict[str, UUID],
+    stats: EnrichmentStats,
+) -> None:
+    """USES_TECH (tech_stack/competences → skill) + PART_OF (project↔experience)."""
     for p in projects:
         for tech in (p.tech_stack or []):
             sid = skills_by_norm.get(_norm(tech))
@@ -178,8 +263,6 @@ async def enrich_user_graph(
                 user_id=user_id, source="inferred", confidence=0.85,
             ):
                 stats.uses_tech += 1
-
-    # 4. Structural PART_OF — project nested in an overlapping experience.
     for p in projects:
         for e in experiences:
             if _date_overlap(p, e) and await universe_graph_service.upsert_edge(
@@ -187,51 +270,6 @@ async def enrich_user_graph(
                 user_id=user_id, source="inferred", confidence=0.6,
             ):
                 stats.part_of += 1
-
-    # 5. Semantic RELATED_TO — cosine kNN web (undirected, deduped).
-    seen: set[tuple[str, str]] = set()
-    for i, (id_a, _ka, va) in enumerate(recs):
-        sims: list[tuple[float, UUID]] = []
-        for j, (id_b, _kb, vb) in enumerate(recs):
-            if i == j:
-                continue
-            s = _cosine(va, vb)
-            if s >= min_score:
-                sims.append((s, id_b))
-        sims.sort(key=lambda t: t[0], reverse=True)
-        for s, id_b in sims[:knn]:
-            key = tuple(sorted((str(id_a), str(id_b))))
-            if key in seen:
-                continue
-            seen.add(key)
-            # HippoRAG synonym edges: very-high cosine = near-duplicate concepts;
-            # label them distinctly so retrieval can weight them as synonyms.
-            relation_label = "synonym" if s >= 0.8 else "similar"
-            if await universe_graph_service.upsert_edge(
-                session,
-                edge_type=schema.RELATED_TO,
-                source_id=UUID(key[0]),
-                target_id=UUID(key[1]),
-                user_id=user_id,
-                source="inferred",
-                confidence=round(s, 3),
-                properties={"relation_label": relation_label},
-            ):
-                stats.related_to += 1
-
-    # 6. Career pillars: detect + summarize communities over the now-connected
-    #    graph (best-effort — never fails the enrichment if the LLM is down).
-    if with_communities:
-        try:
-            from src.graph.application.communities import compute_communities
-
-            pillars = await compute_communities(session, user_id)
-            stats.communities = len(pillars)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("community_compute_failed", user_id=str(user_id), error=str(exc))
-
-    logger.info("universe_enriched", user_id=str(user_id), **stats.as_dict())
-    return stats
 
 
 async def infer_for_entity(

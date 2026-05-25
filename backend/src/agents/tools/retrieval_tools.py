@@ -23,10 +23,8 @@ import structlog
 from agno.run.base import RunContext
 from agno.tools import tool
 
-from src.graph.application.retrieval import hybrid_retrieve
+from src.graph.application.retrieval import _load_snapshot, hybrid_retrieve
 from src.graph.application.universe_graph import universe_graph_service
-from src.graph.domain import schema as graph_schema
-from src.graph.infrastructure.age_client import cypher, parse_agtype
 from src.shared.db import get_session_factory, set_rls_user
 
 logger = structlog.get_logger(__name__)
@@ -168,7 +166,20 @@ async def get_graph_neighbors(
             edge_kinds=edge_kinds_list,
             include_expired=include_expired,
         )
-    return {"ok": True, "items": items}
+        # AGE vertices don't store the human name — hydrate it from the
+        # snapshot so the agent gets useful labels, and slim the payload.
+        snap = await _load_snapshot(session, user_id)
+        name_by_id = {str(eid): name for eid, _kind, name in snap.idx_to_meta.values()}
+    slim = [
+        {
+            "id": str(it.get("id")),
+            "kind": it.get("kind"),
+            "name": name_by_id.get(str(it.get("id")), ""),
+        }
+        for it in items
+        if it.get("id")
+    ]
+    return {"ok": True, "items": slim}
 
 
 @tool(
@@ -192,30 +203,39 @@ async def explain_path(
     user_id = UUID(str(user_id_raw))
     if max_len < 1 or max_len > 6:
         return {"ok": False, "error": "max_len must be 1..6", "paths": []}
+    # AGE 1.5 lacks shortestPath()/relationships()/nodes(); compute over the
+    # in-memory igraph snapshot instead (per-user graphs are tiny, and the
+    # snapshot already carries names for a readable path).
     factory = get_session_factory()
     async with factory() as session:
         await set_rls_user(session, user_id)
-        rows = await cypher(
-            session,
-            graph_schema.GRAPH_PERSONAL,
-            (
-                f"MATCH p = shortestPath("
-                f"  (a:Entity {{id: $from_id, user_id: $uid}})-[*..{max_len}]-"
-                f"  (b:Entity {{id: $to_id, user_id: $uid}})) "
-                f"RETURN nodes(p), relationships(p)"
-            ),
-            params={
-                "from_id": from_entity_id,
-                "to_id": to_entity_id,
-                "uid": str(user_id),
-            },
-            column_defs="nodes agtype, rels agtype",
-        )
+        snap = await _load_snapshot(session, user_id)
+    try:
+        src = snap.id_to_idx.get(UUID(from_entity_id))
+        dst = snap.id_to_idx.get(UUID(to_entity_id))
+    except (ValueError, TypeError):
+        return {"ok": False, "error": "invalid entity id", "paths": []}
+    if src is None or dst is None:
+        return {"ok": True, "paths": []}
+    try:
+        idx_paths = snap.graph.get_shortest_paths(src, to=dst, mode="all")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("explain_path_failed", error=str(exc))
+        return {"ok": True, "paths": []}
     paths: list[dict[str, Any]] = []
-    for row in rows:
-        nodes = parse_agtype(row.get("nodes"))
-        rels = parse_agtype(row.get("rels"))
-        paths.append({"nodes": nodes, "edges": rels})
+    for p in idx_paths:
+        if not p or (len(p) - 1) > max_len:
+            continue
+        nodes = [
+            {
+                "id": str(snap.idx_to_meta[i][0]),
+                "kind": snap.idx_to_meta[i][1],
+                "name": snap.idx_to_meta[i][2],
+            }
+            for i in p
+            if i in snap.idx_to_meta
+        ]
+        paths.append({"nodes": nodes, "length": len(p) - 1})
     return {"ok": True, "paths": paths}
 
 
