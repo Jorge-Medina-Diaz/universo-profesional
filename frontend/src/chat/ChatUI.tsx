@@ -26,6 +26,7 @@ import {
   ArrowUp,
   Check,
   Copy,
+  FileText,
   Paperclip,
   RotateCcw,
   Sparkles,
@@ -38,7 +39,14 @@ import { cn } from "@/ui";
  * image/document parts). Older code assumed a string and rendered nothing for
  * arrays, which made user/assistant bubbles vanish. These helpers normalise it.
  */
-type ContentPart = { type?: string; text?: string; source?: ImageRendererProps["source"] };
+type ContentPart = {
+  type?: string;
+  text?: string;
+  source?: (ImageRendererProps["source"] & { mimeType?: string }) | undefined;
+  name?: string;
+  filename?: string;
+  metadata?: { name?: string; filename?: string } | undefined;
+};
 
 function messageText(content: unknown): string {
   if (typeof content === "string") return content;
@@ -56,6 +64,30 @@ function imageParts(content: unknown): ContentPart[] {
   return (content as ContentPart[]).filter(
     (p) => p && typeof p === "object" && p.type === "image" && !!p.source,
   );
+}
+
+/** Non-image, non-text attachment parts (PDFs, docs) so they show as chips. */
+function docParts(content: unknown): ContentPart[] {
+  if (!Array.isArray(content)) return [];
+  return (content as ContentPart[]).filter(
+    (p) =>
+      p &&
+      typeof p === "object" &&
+      !!p.source &&
+      p.type !== "image" &&
+      p.type !== "text",
+  );
+}
+
+/** Best-effort display name for an attachment chip. */
+function docLabel(p: ContentPart): string {
+  const name =
+    p.name ?? p.filename ?? p.metadata?.name ?? p.metadata?.filename ?? "";
+  if (name) return name;
+  const mime = p.source?.mimeType ?? "";
+  if (mime.includes("pdf")) return "Documento PDF";
+  if (mime) return mime.split("/").pop() || "Documento";
+  return "Documento adjunto";
 }
 
 /** The agent's avatar — a small glowing constellation orb. */
@@ -151,8 +183,9 @@ export function AgentMessage({
 export function PersonMessage({ message, ImageRenderer }: UserMessageProps) {
   const content = messageText(message?.content);
   const imgs = imageParts(message?.content);
+  const docs = docParts(message?.content);
   // Never render nothing for a real turn — attachments-only messages must show.
-  if (!content && imgs.length === 0) return null;
+  if (!content && imgs.length === 0 && docs.length === 0) return null;
   return (
     <div className="flex justify-end px-1 py-2">
       <div className="flex max-w-[85%] flex-col items-end gap-2">
@@ -164,6 +197,21 @@ export function PersonMessage({ message, ImageRenderer }: UserMessageProps) {
                 className="overflow-hidden rounded-card border border-hairline max-w-[220px]"
               >
                 {ImageRenderer ? <ImageRenderer source={p.source} /> : null}
+              </div>
+            ))}
+          </div>
+        )}
+        {docs.length > 0 && (
+          <div className="flex flex-wrap justify-end gap-2">
+            {docs.map((p, i) => (
+              <div
+                key={i}
+                className="inline-flex items-center gap-2 rounded-card border border-hairline bg-surface px-3 py-2 max-w-[260px]"
+              >
+                <span className="grid place-items-center w-7 h-7 shrink-0 rounded-md bg-canvas text-ink">
+                  <FileText size={15} strokeWidth={2} />
+                </span>
+                <span className="text-xs text-ink/80 truncate">{docLabel(p)}</span>
               </div>
             ))}
           </div>
