@@ -23,13 +23,21 @@ from __future__ import annotations
 
 import asyncio
 import re
+import uuid
 from typing import Any
 
 import structlog
-from ag_ui.core import EventType, RunAgentInput, RunErrorEvent
+from ag_ui.core import (
+    EventType,
+    RunAgentInput,
+    RunErrorEvent,
+    RunStartedEvent,
+    TextMessageContentEvent,
+    TextMessageEndEvent,
+    TextMessageStartEvent,
+)
 from ag_ui.encoder import EventEncoder
-from agno.os.interfaces.agui.router import run_team
-from fastapi import APIRouter, Body, File, Form, Query, Request, UploadFile
+from fastapi import APIRouter, Body, Query, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from jose import JWTError
 from sqlalchemy import text
@@ -309,258 +317,8 @@ async def agui_agent_run(
     )
 
 
-# ---------------------------------------------------------------------------
-# Multi-modal endpoint — bypass AG-UI to send images to the LLM directly.
-#
-# `ag_ui.core.UserMessage.content` is `str` only, so the AG-UI transport
-# can't carry images. We expose a parallel multipart endpoint that takes
-# (text, images[]) and calls `team.arun(input=text, images=[Image(...)])`
-# directly. The response is non-streaming (return the assistant text).
-#
-# The frontend uses this when the user drops an image into the chat: it
-# POSTs text + the image, gets back the assistant reply, and injects it
-# into the chat as a regular assistant message.
-# ---------------------------------------------------------------------------
-
-
-_ALLOWED_IMAGE_MIME = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-_MAX_IMAGE_BYTES = 8 * 1024 * 1024
-_MAX_IMAGES_PER_CALL = 3
-_MAX_USER_TEXT_CHARS = 10_000  # cap on a single multimodal/chat input
-
-
-@router.post("/agui/agent/{agent_id}/run-multimodal")
-@limiter.limit(_CHAT_RATE_LIMIT)
-async def agui_run_multimodal(
-    agent_id: str,
-    request: Request,
-    text: str = Form(...),
-    images: list[UploadFile] = File(default=[]),
-    stream: bool = Form(default=True),
-):
-    """Send a single turn (text + optional images) to the team.
-
-    Default behaviour is to stream the assistant reply as Server-Sent Events
-    (`data: {"type": "chunk", "content": "..."}\\n\\n` per delta + a final
-    `data: {"type": "done", "run_id": "…"}\\n\\n`). Pass `stream=false`
-    in the form data to get a single JSON response instead — useful for
-    quick scripts and tests.
-
-    Design decision (Sprint J): we DELIBERATELY do NOT relay
-    `external_execution=True` tool calls in this stream. The frontend wires
-    HITL cards (`propose_*`) through the CopilotKit AG-UI pipeline; that
-    machinery is not active here. The contract is therefore:
-
-      1. Multimodal turn → assistant responds in plain text (classifying,
-         extracting, suggesting next actions) WITHOUT firing propose_* tools.
-      2. Next regular AG-UI turn → if the user confirms, the agent emits
-         the matching `propose_*` HITL card normally.
-
-    The coordinator's system prompt enforces this split — see
-    `_agents_factory.py:instructions[FLUJO MULTIMODAL]`. The stream filter
-    below relays only text chunks + tool-use phase hints + errors.
-    """
-    _ensure_known_agent(agent_id)
-    try:
-        user_id = _extract_user_id_from_jwt(request)
-    except UnauthorizedError as exc:
-        return JSONResponse({"detail": str(exc)}, status_code=401)
-
-    if not (text or "").strip():
-        return JSONResponse({"detail": "text required"}, status_code=400)
-    if len(text) > _MAX_USER_TEXT_CHARS:
-        return JSONResponse(
-            {
-                "detail": (
-                    f"text exceeds {_MAX_USER_TEXT_CHARS} characters "
-                    f"(got {len(text)})"
-                )
-            },
-            status_code=400,
-        )
-    if len(images) > _MAX_IMAGES_PER_CALL:
-        return JSONResponse(
-            {"detail": f"max {_MAX_IMAGES_PER_CALL} images per call"},
-            status_code=400,
-        )
-
-    from agno.media import Image
-
-    img_objs: list[Image] = []
-    for f in images:
-        if not f.content_type or f.content_type not in _ALLOWED_IMAGE_MIME:
-            return JSONResponse(
-                {"detail": f"unsupported image mime: {f.content_type}"},
-                status_code=400,
-            )
-        data = await f.read()
-        if len(data) > _MAX_IMAGE_BYTES:
-            return JSONResponse(
-                {
-                    "detail": (
-                        f"{f.filename or 'image'} exceeds "
-                        f"{_MAX_IMAGE_BYTES // (1024 * 1024)} MB"
-                    )
-                },
-                status_code=413,
-            )
-        img_objs.append(Image(content=data, mime_type=f.content_type))
-
-    from src.agents.factory import get_universe_team
-
-    team = get_universe_team()
-    session_id = f"main-{user_id}"
-
-    # --- Non-streaming branch (kept for tests and scripts) -----------------
-    if not stream:
-        try:
-            result = await team.arun(
-                input=text,
-                images=img_objs if img_objs else None,
-                user_id=str(user_id),
-                session_id=session_id,
-                stream=False,
-            )
-        except Exception as exc:  # noqa: BLE001
-            from src.shared.metrics import agent_runs_total
-
-            agent_runs_total.labels(
-                agent="universe_coordinator", status="error"
-            ).inc()
-            logger.error(
-                "agui_multimodal_failed", user_id=str(user_id), error=str(exc)
-            )
-            return JSONResponse(
-                {"detail": f"agent error: {exc}"},
-                status_code=500,
-            )
-        from src.shared.metrics import agent_runs_total, record_agent_tokens
-
-        agent_runs_total.labels(
-            agent="universe_coordinator", status="completed"
-        ).inc()
-        toks = record_agent_tokens(
-            "universe_coordinator", getattr(result, "metrics", None)
-        )
-        logger.info("agui_multimodal_run", user_id=str(user_id), **toks)
-        reply = getattr(result, "content", None)
-        if not isinstance(reply, str):
-            reply = str(reply) if reply is not None else ""
-        if not reply.strip():
-            # Empty reply == silent provider failure (e.g. no credit). Never
-            # return a blank success — surface it as an error.
-            return JSONResponse(
-                {
-                    "detail": (
-                        "El agente no devolvió ninguna respuesta. El servicio de "
-                        "IA puede estar sin crédito o no disponible."
-                    )
-                },
-                status_code=502,
-            )
-        run_id = getattr(result, "run_id", None)
-        return JSONResponse({"response": reply, "run_id": run_id})
-
-    # --- Streaming branch (default) ----------------------------------------
-    async def event_stream():
-        import json as _json
-
-        try:
-            agen = team.arun(
-                input=text,
-                images=img_objs if img_objs else None,
-                user_id=str(user_id),
-                session_id=session_id,
-                stream=True,
-                stream_events=True,
-            )
-            run_id: str | None = None
-            got_content = False
-            async for event in agen:
-                # Capture run_id from any event that exposes it.
-                ev_run_id = getattr(event, "run_id", None)
-                if ev_run_id and run_id is None:
-                    run_id = ev_run_id
-
-                # We relay 3 event flavours and skip the rest (reasoning,
-                # memory, etc.) to keep the payload tight:
-                #   RunContentEvent           → text chunks
-                #   ToolCallStartedEvent      → "agent is using tool X" hint
-                #   ToolCallCompletedEvent    → tool finished
-                #   RunErrorEvent             → error frame
-                # Note: external_execution tool calls (propose_*) intentionally
-                # are NOT relayed; the multimodal turn is text-only by contract,
-                # HITL cards happen in the follow-up regular AG-UI turn.
-                event_name = type(event).__name__
-                if event_name == "RunContentEvent":
-                    delta = getattr(event, "content", None)
-                    if isinstance(delta, str) and delta:
-                        got_content = True
-                        yield (
-                            f"data: {_json.dumps({'type': 'chunk', 'content': delta})}\n\n"
-                        )
-                elif event_name in (
-                    "ToolCallStartedEvent",
-                    "RunToolCallStartedEvent",
-                ):
-                    tool_name = getattr(event, "tool_name", None) or getattr(
-                        event, "name", None
-                    )
-                    if tool_name:
-                        got_content = True
-                        yield (
-                            f"data: {_json.dumps({'type': 'tool-start', 'name': str(tool_name)})}\n\n"
-                        )
-                elif event_name in (
-                    "ToolCallCompletedEvent",
-                    "RunToolCallCompletedEvent",
-                ):
-                    tool_name = getattr(event, "tool_name", None) or getattr(
-                        event, "name", None
-                    )
-                    if tool_name:
-                        yield (
-                            f"data: {_json.dumps({'type': 'tool-end', 'name': str(tool_name)})}\n\n"
-                        )
-                elif event_name == "RunErrorEvent":
-                    msg = getattr(event, "content", "agent error")
-                    yield (
-                        f"data: {_json.dumps({'type': 'error', 'message': str(msg)})}\n\n"
-                    )
-                    return
-            if not got_content:
-                # Stream ended with no chunk and no error event — agno swallowed
-                # a provider failure (e.g. no credit). Never end silently.
-                yield (
-                    "data: "
-                    + _json.dumps(
-                        {
-                            "type": "error",
-                            "message": (
-                                "El agente no devolvió ninguna respuesta. El "
-                                "servicio de IA puede estar sin crédito o no "
-                                "disponible. Inténtalo de nuevo en unos minutos."
-                            ),
-                        }
-                    )
-                    + "\n\n"
-                )
-            else:
-                yield f"data: {_json.dumps({'type': 'done', 'run_id': run_id})}\n\n"
-        except Exception as exc:  # noqa: BLE001
-            yield (
-                f"data: {_json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
-            )
-
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
+# Cap on a single chat input (user message length).
+_MAX_USER_TEXT_CHARS = 10_000
 
 
 # ---------------------------------------------------------------------------
@@ -571,6 +329,15 @@ async def agui_run_multimodal(
 # It's framework plumbing, not something the user should read — strip it.
 _HITL_NOTICE_RE = re.compile(
     r"\s*Member '[^']+' requires human input before continuing\.?\s*"
+)
+
+# Shown in-thread when a real user turn produces no output (agno swallows some
+# provider failures, e.g. "credit balance too low"). Surfaced as a normal
+# assistant message so the user's own turn persists and the failure is visible.
+_AGENT_UNAVAILABLE_MSG = (
+    "⚠️ No pude responder ahora mismo: el servicio de IA no está disponible "
+    "(puede haberse quedado sin crédito o haber superado su límite). "
+    "Inténtalo de nuevo en unos minutos."
 )
 
 
@@ -595,11 +362,10 @@ async def _clean_event_stream(
     channel), we also guard against SILENT failures: agno swallows some provider
     errors (e.g. Anthropic "credit balance too low") and ends the run cleanly
     with no text and no tool call. A run that produced nothing is a failure from
-    the user's point of view, so we convert that `RUN_FINISHED` into an explicit
-    `RUN_ERROR` — the client must never see a dead-silent empty turn.
+    the user's point of view, so we inject a visible assistant message in-thread
+    (keeping the user's own turn) before letting `RUN_FINISHED` through — the
+    client must never see a dead-silent empty turn.
     """
-    from ag_ui.core import TextMessageContentEvent
-
     buffers: dict[str, dict[str, Any]] = {}
     emitted_concat = ""
     produced_output = False
@@ -612,7 +378,10 @@ async def _clean_event_stream(
             produced_output = True
         if etype == EventType.RUN_ERROR:
             error_seen = True
-        # Intercept a real run that finished without producing anything.
+        # Intercept a real run that finished without producing anything: surface
+        # a visible assistant message IN-THREAD (so the user's turn persists),
+        # then fall through to let RUN_FINISHED close the run normally. We do NOT
+        # emit RUN_ERROR here — that rolls back the optimistic user message.
         if (
             flag_empty_run
             and etype == EventType.RUN_FINISHED
@@ -620,17 +389,24 @@ async def _clean_event_stream(
             and not error_seen
         ):
             logger.error("agui_empty_run", reason="run finished with no output")
+            mid = f"err-{uuid.uuid4().hex}"
             yield encoder.encode(
-                RunErrorEvent(
-                    type=EventType.RUN_ERROR,
-                    message=(
-                        "El agente no devolvió ninguna respuesta. El servicio de IA "
-                        "puede estar sin crédito o no disponible. Inténtalo de nuevo "
-                        "en unos minutos."
-                    ),
+                TextMessageStartEvent(
+                    type=EventType.TEXT_MESSAGE_START, message_id=mid, role="assistant"
                 )
             )
-            return
+            yield encoder.encode(
+                TextMessageContentEvent(
+                    type=EventType.TEXT_MESSAGE_CONTENT,
+                    message_id=mid,
+                    delta=_AGENT_UNAVAILABLE_MSG,
+                )
+            )
+            yield encoder.encode(
+                TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=mid)
+            )
+            produced_output = True
+            # fall through → RUN_FINISHED is yielded at the bottom of the loop
         try:
             if etype == EventType.TEXT_MESSAGE_START:
                 buffers[event.message_id] = {"start": event, "text": ""}
@@ -665,6 +441,136 @@ async def _clean_event_stream(
     # Defensive: flush any unterminated buffers.
     for buf in buffers.values():
         yield encoder.encode(buf["start"])
+
+
+# ---------------------------------------------------------------------------
+# Multimodal extraction — native CopilotKit attachments arrive as InputContent
+# parts on the last user message. agno's stock `run_team` keeps only text, so we
+# run the team ourselves to also pass images (and inline PDF text) to the model.
+# ---------------------------------------------------------------------------
+
+_MAX_RUN_IMAGES = 3
+_MAX_PDF_CHARS = 8000
+
+
+def _decode_data_value(value: str) -> bytes:
+    """Decode an InputContentDataSource value (raw base64 or data: URL)."""
+    import base64
+
+    payload = value.split(",", 1)[1] if value.startswith("data:") else value
+    return base64.b64decode(payload)
+
+
+def _last_user_parts(messages: list[Any]) -> list[Any]:
+    """Return the content parts of the latest user message, or [] if text/none."""
+    for msg in reversed(messages):
+        if getattr(msg, "role", None) != "user":
+            continue
+        content = getattr(msg, "content", None)
+        return content if isinstance(content, list) else []
+    return []
+
+
+def _extract_agui_images(messages: list[Any]) -> list[Any]:
+    """Build agno Image objects from image InputContent parts (data or url)."""
+    from agno.media import Image
+
+    images: list[Any] = []
+    for part in _last_user_parts(messages):
+        if getattr(part, "type", None) != "image":
+            continue
+        source = getattr(part, "source", None)
+        if source is None:
+            continue
+        value = getattr(source, "value", None)
+        if not value:
+            continue
+        mime = getattr(source, "mime_type", None)
+        stype = getattr(source, "type", None)
+        try:
+            if stype == "url":
+                images.append(Image(url=value))
+            else:  # "data" (base64)
+                images.append(Image(content=_decode_data_value(value), mime_type=mime))
+        except Exception:  # skip an unreadable attachment
+            continue
+        if len(images) >= _MAX_RUN_IMAGES:
+            break
+    return images
+
+
+def _extract_agui_pdf_text(messages: list[Any]) -> str:
+    """Inline-parse text from attached PDF document parts (best-effort)."""
+    import io
+
+    chunks: list[str] = []
+    for part in _last_user_parts(messages):
+        source = getattr(part, "source", None)
+        if source is None:
+            continue
+        mime = getattr(source, "mime_type", None)
+        is_pdf = getattr(part, "type", None) == "document" or mime == "application/pdf"
+        if not is_pdf or getattr(source, "type", None) != "data":
+            continue
+        value = getattr(source, "value", None)
+        if not value:
+            continue
+        try:
+            from pypdf import PdfReader
+
+            reader = PdfReader(io.BytesIO(_decode_data_value(value)))
+            text = "\n".join((pg.extract_text() or "") for pg in reader.pages).strip()
+            if text:
+                chunks.append("[Documento adjunto]\n" + text[:_MAX_PDF_CHARS])
+        except Exception:  # skip an unreadable PDF
+            continue
+    return "\n\n".join(chunks)
+
+
+async def _run_team_with_attachments(team: Any, run_input: RunAgentInput) -> Any:
+    """Like agno's `run_team`, but also passes image attachments and inline PDF
+    text to `team.arun`. (agno's stock extractor keeps text only.)"""
+    from agno.os.interfaces.agui.utils import (
+        async_stream_agno_response_as_agui_events,
+        extract_agui_user_input,
+        validate_agui_state,
+    )
+
+    run_id = run_input.run_id or str(uuid.uuid4())
+    try:
+        messages = run_input.messages or []
+        user_input = extract_agui_user_input(messages)
+        images = _extract_agui_images(messages)
+        pdf_text = _extract_agui_pdf_text(messages)
+        if pdf_text:
+            user_input = f"{user_input}\n\n{pdf_text}".strip() if user_input else pdf_text
+
+        yield RunStartedEvent(
+            type=EventType.RUN_STARTED, thread_id=run_input.thread_id, run_id=run_id
+        )
+
+        user_id = None
+        if run_input.forwarded_props and isinstance(run_input.forwarded_props, dict):
+            user_id = run_input.forwarded_props.get("user_id")
+        session_state = validate_agui_state(run_input.state, run_input.thread_id)
+
+        response_stream = team.arun(
+            input=user_input,
+            images=images or None,
+            session_id=run_input.thread_id,
+            stream=True,
+            stream_events=True,
+            user_id=user_id,
+            session_state=session_state,
+            run_id=run_id,
+        )
+        async for event in async_stream_agno_response_as_agui_events(
+            response_stream=response_stream, thread_id=run_input.thread_id, run_id=run_id
+        ):
+            yield event
+    except Exception as exc:
+        logger.error("agui_run_failed", error=str(exc), exc_info=True)
+        yield RunErrorEvent(type=EventType.RUN_ERROR, message="internal error")
 
 
 # ---------------------------------------------------------------------------
@@ -761,7 +667,9 @@ async def _stream_chat(
         status = "completed"
         try:
             async for frame in _clean_event_stream(
-                run_team(team, run_input), encoder, flag_empty_run=flag_empty_run
+                _run_team_with_attachments(team, run_input),
+                encoder,
+                flag_empty_run=flag_empty_run,
             ):
                 yield frame
         except Exception as exc:  # noqa: BLE001

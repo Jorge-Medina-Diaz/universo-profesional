@@ -47,11 +47,12 @@ export function FloatingChat({ children, onExpandedChange }: FloatingChatProps) 
         )}
       />
 
-      {/* Floating panel */}
+      {/* Floating panel. Expansion is driven ONLY by focus entering the panel
+          (clicking/tapping the composer focuses it) — a broad onClick here used
+          to fight the inner controls (attach/send) and the composer. */}
       <div
         ref={panelRef}
         onFocusCapture={() => !expanded && set(true)}
-        onClick={() => !expanded && set(true)}
         className={cn(
           "fixed left-1/2 -translate-x-1/2 z-30 w-[calc(100%-2rem)] max-w-3xl",
           "rounded-card border border-hairline bg-canvas/95 backdrop-blur shadow-float",

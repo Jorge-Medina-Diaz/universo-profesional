@@ -18,9 +18,45 @@ import type {
   AssistantMessageProps,
   UserMessageProps,
   InputProps,
+  ErrorMessageProps,
+  ImageRendererProps,
 } from "@copilotkit/react-ui";
-import { ArrowUp, Check, Copy, RotateCcw, Sparkles, Square } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowUp,
+  Check,
+  Copy,
+  Paperclip,
+  RotateCcw,
+  Sparkles,
+  Square,
+} from "lucide-react";
 import { cn } from "@/ui";
+
+/**
+ * In CopilotKit 1.57 a message's `content` is `string | InputContent[]` (text +
+ * image/document parts). Older code assumed a string and rendered nothing for
+ * arrays, which made user/assistant bubbles vanish. These helpers normalise it.
+ */
+type ContentPart = { type?: string; text?: string; source?: ImageRendererProps["source"] };
+
+function messageText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return (content as ContentPart[])
+      .filter((p) => p && typeof p === "object" && p.type === "text")
+      .map((p) => p.text ?? "")
+      .join("");
+  }
+  return "";
+}
+
+function imageParts(content: unknown): ContentPart[] {
+  if (!Array.isArray(content)) return [];
+  return (content as ContentPart[]).filter(
+    (p) => p && typeof p === "object" && p.type === "image" && !!p.source,
+  );
+}
 
 /** The agent's avatar — a small glowing constellation orb. */
 function AgentOrb({ thinking = false }: { thinking?: boolean }) {
@@ -52,7 +88,7 @@ export function AgentMessage({
   isGenerating,
   onRegenerate,
 }: AssistantMessageProps) {
-  const raw = typeof message?.content === "string" ? message.content : "";
+  const raw = messageText(message?.content);
   const content = raw.trim() ? raw : "";
   const card = message?.generativeUI?.() ?? undefined;
   const thinking = !!isLoading && !content;
@@ -112,12 +148,67 @@ export function AgentMessage({
   );
 }
 
-export function PersonMessage({ message }: UserMessageProps) {
-  const content = typeof message?.content === "string" ? message.content : "";
-  if (!content) return null;
+export function PersonMessage({ message, ImageRenderer }: UserMessageProps) {
+  const content = messageText(message?.content);
+  const imgs = imageParts(message?.content);
+  // Never render nothing for a real turn — attachments-only messages must show.
+  if (!content && imgs.length === 0) return null;
   return (
     <div className="flex justify-end px-1 py-2">
-      <div className="person-bubble">{content}</div>
+      <div className="flex max-w-[85%] flex-col items-end gap-2">
+        {imgs.length > 0 && (
+          <div className="flex flex-wrap justify-end gap-2">
+            {imgs.map((p, i) => (
+              <div
+                key={i}
+                className="overflow-hidden rounded-card border border-hairline max-w-[220px]"
+              >
+                {ImageRenderer ? <ImageRenderer source={p.source} /> : null}
+              </div>
+            ))}
+          </div>
+        )}
+        {content && <div className="person-bubble">{content}</div>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Inline, in-thread error bubble for genuine run/transport failures (RUN_ERROR,
+ * connect failures). Agent "no output" failures (e.g. no credit) are surfaced by
+ * the backend as a normal assistant message instead, so the user's turn persists.
+ */
+export function ErrorMessage({ error }: ErrorMessageProps) {
+  const raw =
+    typeof error === "string"
+      ? error
+      : String((error as { message?: string } | undefined)?.message ?? "");
+  const lower = raw.toLowerCase();
+  let title = "El agente tuvo un problema";
+  let detail = raw.slice(0, 200) || "Inténtalo de nuevo en un momento.";
+  if (/credit|quota|rate.?limit|429|billing|overloaded|sin crédito|no disponible/.test(lower)) {
+    title = "El agente no está disponible ahora";
+    detail =
+      "El servicio de IA se quedó sin crédito o superó su límite. Inténtalo de nuevo en un rato.";
+  } else if (/failed to fetch|network|connect|timeout|econn/.test(lower)) {
+    title = "No pude conectar con tu agente";
+    detail = "Comprueba tu conexión o que el servidor esté activo, e inténtalo de nuevo.";
+  }
+  return (
+    <div className="agent-msg flex gap-3 px-1 py-2">
+      <span
+        aria-hidden
+        className="grid place-items-center w-7 h-7 shrink-0 rounded-full bg-red-50 text-red-700"
+      >
+        <AlertTriangle size={13} strokeWidth={2.25} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="rounded-card border border-red-200 bg-red-50/60 px-3.5 py-2.5">
+          <div className="text-sm font-medium text-red-800 leading-tight">{title}</div>
+          <div className="mt-0.5 text-xs leading-relaxed text-red-700/90">{detail}</div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -126,6 +217,7 @@ export function Composer({
   inProgress,
   onSend,
   onStop,
+  onUpload,
   hideStopButton,
   chatReady,
 }: InputProps) {
@@ -157,6 +249,18 @@ export function Composer({
   return (
     <div className="composer-wrap">
       <div className="composer group">
+        {onUpload && (
+          <button
+            type="button"
+            onClick={() => onUpload()}
+            disabled={disabled}
+            aria-label="Adjuntar imagen o PDF"
+            title="Adjuntar imagen o PDF"
+            className="composer-attach shrink-0 self-end inline-flex items-center justify-center w-9 h-9 rounded-full text-stone hover:text-ink hover:bg-surface/70 transition-colors duration-180 disabled:opacity-40 disabled:pointer-events-none"
+          >
+            <Paperclip size={16} />
+          </button>
+        )}
         <textarea
           ref={ref}
           rows={1}

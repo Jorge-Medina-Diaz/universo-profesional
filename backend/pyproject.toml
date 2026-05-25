@@ -44,6 +44,7 @@ dependencies = [
     "jsonschema>=4.23.0",
     # Files / parsing
     "pypdf>=5.1.0",
+    "filetype>=1.2.0",  # agno uses it to sniff media type for image/doc attachments
     # Graph / ontology / retrieval (Universe v2)
     "python-igraph>=0.11.6",  # Personalized PageRank snapshots (per-user)
     "scikit-learn>=1.5.2",    # PCA + IsolationForest + LOF outlier ensemble
