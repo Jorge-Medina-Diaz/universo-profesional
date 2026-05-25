@@ -17,6 +17,54 @@ import {
   type ReactNode,
 } from "react";
 import { useAuthStore } from "@/shared/api";
+import { toast } from "@/ui";
+
+/**
+ * Structural shape of CopilotKit's error event (from `@copilotkit/shared`'s
+ * `CopilotErrorEvent`). Typed locally to avoid importing a transitive package.
+ */
+type CopilotErrorLike = {
+  type?: string;
+  error?: { name?: string; message?: string } | unknown;
+  context?: { source?: string };
+};
+
+let lastErrorToastAt = 0;
+
+/**
+ * Single observability hook for the agent runtime. CopilotKit logs every error
+ * to the console itself; this handler decides what (if anything) the *user*
+ * sees, and silences benign noise.
+ *
+ *  - Aborts ("BodyStreamBuffer was aborted" / AbortError) happen whenever the
+ *    chat unmounts mid-stream — route change, React StrictMode's dev-only
+ *    double-mount, or HMR. That's correct cancellation, never a user problem.
+ *  - Connect/network failures (backend down, expired token) are otherwise
+ *    silent — the composer just appears to do nothing. Surface a toast so the
+ *    user knows to retry. Debounced because retries arrive in bursts.
+ */
+function handleCopilotError(event: CopilotErrorLike): void {
+  if (event?.type !== "error") return;
+  const err = event.error as { name?: string; message?: string } | undefined;
+  const message = String(err?.message ?? err ?? "");
+  if (err?.name === "AbortError" || /\babort(ed)?\b|BodyStreamBuffer/i.test(message)) {
+    return;
+  }
+  const now = Date.now();
+  if (now - lastErrorToastAt < 6000) return;
+  lastErrorToastAt = now;
+  const isConnect =
+    event.context?.source === "network" ||
+    /failed to fetch|network ?error|load failed|connect/i.test(message);
+  if (isConnect) {
+    toast.error(
+      "No pude conectar con tu agente",
+      "Comprueba tu conexión o que el servidor esté activo, e inténtalo de nuevo.",
+    );
+  } else {
+    toast.error("El agente tuvo un problema", message.slice(0, 160) || undefined);
+  }
+}
 
 const readyListeners = new Set<() => void>();
 let copilotReady = false;
@@ -69,9 +117,10 @@ type CopilotKitModule = typeof import("@copilotkit/react-core");
 type CopilotKitComponent = ComponentType<{
   runtimeUrl: string;
   agent: string;
-  headers?: Record<string, string>;
+  headers?: Record<string, string> | (() => Record<string, string>);
   showDevConsole?: boolean;
   enableInspector?: boolean;
+  onError?: (event: CopilotErrorLike) => void;
   children: ReactNode;
 }>;
 
@@ -86,9 +135,18 @@ export function enableCopilot() {
 }
 
 export function CopilotProvider({ children }: { children: ReactNode }) {
-  const { accessToken } = useAuthStore();
   const [enabled, setEnabled] = useState(false);
   const [mod, setMod] = useState<CopilotKitModule | null>(null);
+
+  // CopilotKit bypasses the REST client, so it can't reuse its 401→refresh
+  // retry. A header *function* (re-invoked per request) reads the latest token
+  // from the store at request time, so the chat always sends a fresh
+  // Authorization header — including right after the REST layer silently
+  // rotates an expired token.
+  const authHeaders = useCallback((): Record<string, string> => {
+    const token = useAuthStore.getState().accessToken;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }, []);
 
   const enable = useCallback(() => {
     if (enabled) return;
@@ -130,7 +188,8 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
         agent="universe_coordinator"
         showDevConsole={false}
         enableInspector={false}
-        headers={accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined}
+        onError={handleCopilotError}
+        headers={authHeaders}
       >
         {children}
       </CopilotKit>

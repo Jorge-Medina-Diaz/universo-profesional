@@ -177,6 +177,75 @@ async function doRefresh(): Promise<boolean> {
   }
 }
 
+// --- Proactive token refresh -------------------------------------------------
+// The reactive 401→refresh path above recovers an *expired* token, but only
+// after a request has already failed — a brief flash where a query (or the
+// CopilotKit chat, which reads the token per request) errors before recovering.
+// To keep long/idle sessions seamless we also refresh ~90s BEFORE the access
+// token's `exp`, and immediately when a backgrounded tab becomes visible near
+// or past expiry (timers are throttled while hidden). All paths funnel through
+// the single-flight `tryRefresh`, so the rotating refresh token is consumed once.
+
+const REFRESH_SKEW_MS = 90_000;
+let _refreshTimer: ReturnType<typeof setTimeout> | null = null;
+let _autoRefreshStarted = false;
+
+/** Read the `exp` (ms epoch) from a JWT without verifying it. Null if unparseable. */
+function decodeJwtExpMs(token: string): number | null {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    const json = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof json.exp === "number" ? json.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+function scheduleProactiveRefresh(): void {
+  if (_refreshTimer) {
+    clearTimeout(_refreshTimer);
+    _refreshTimer = null;
+  }
+  const { accessToken, refreshToken } = useAuthStore.getState();
+  if (!accessToken || !refreshToken) return;
+  const expMs = decodeJwtExpMs(accessToken);
+  if (expMs == null) return;
+  const delay = Math.max(0, expMs - Date.now() - REFRESH_SKEW_MS);
+  _refreshTimer = setTimeout(() => {
+    void tryRefresh();
+  }, delay);
+}
+
+function onVisibilityChange(): void {
+  if (document.visibilityState !== "visible") return;
+  const { accessToken, refreshToken } = useAuthStore.getState();
+  if (!accessToken || !refreshToken) return;
+  const expMs = decodeJwtExpMs(accessToken);
+  if (expMs == null) return;
+  if (expMs - Date.now() < REFRESH_SKEW_MS) void tryRefresh();
+  else scheduleProactiveRefresh();
+}
+
+/**
+ * Start proactive token refresh. Idempotent; call once at app startup. Reschedules
+ * whenever the access token changes (login, silent refresh, logout) and refreshes
+ * on tab re-focus when the token is near/past expiry. A proactive failure is left
+ * to the reactive 401 path (which clears the session) rather than logging out from
+ * a background timer.
+ */
+export function startTokenAutoRefresh(): void {
+  if (_autoRefreshStarted) return;
+  _autoRefreshStarted = true;
+  useAuthStore.subscribe((state, prev) => {
+    if (state.accessToken !== prev.accessToken) scheduleProactiveRefresh();
+  });
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", onVisibilityChange);
+  }
+  scheduleProactiveRefresh();
+}
+
 // --- Typed helpers ---
 
 export const auth = {
