@@ -446,6 +446,18 @@ async def agui_run_multimodal(
         reply = getattr(result, "content", None)
         if not isinstance(reply, str):
             reply = str(reply) if reply is not None else ""
+        if not reply.strip():
+            # Empty reply == silent provider failure (e.g. no credit). Never
+            # return a blank success — surface it as an error.
+            return JSONResponse(
+                {
+                    "detail": (
+                        "El agente no devolvió ninguna respuesta. El servicio de "
+                        "IA puede estar sin crédito o no disponible."
+                    )
+                },
+                status_code=502,
+            )
         run_id = getattr(result, "run_id", None)
         return JSONResponse({"response": reply, "run_id": run_id})
 
@@ -463,6 +475,7 @@ async def agui_run_multimodal(
                 stream_events=True,
             )
             run_id: str | None = None
+            got_content = False
             async for event in agen:
                 # Capture run_id from any event that exposes it.
                 ev_run_id = getattr(event, "run_id", None)
@@ -482,6 +495,7 @@ async def agui_run_multimodal(
                 if event_name == "RunContentEvent":
                     delta = getattr(event, "content", None)
                     if isinstance(delta, str) and delta:
+                        got_content = True
                         yield (
                             f"data: {_json.dumps({'type': 'chunk', 'content': delta})}\n\n"
                         )
@@ -493,6 +507,7 @@ async def agui_run_multimodal(
                         event, "name", None
                     )
                     if tool_name:
+                        got_content = True
                         yield (
                             f"data: {_json.dumps({'type': 'tool-start', 'name': str(tool_name)})}\n\n"
                         )
@@ -513,7 +528,25 @@ async def agui_run_multimodal(
                         f"data: {_json.dumps({'type': 'error', 'message': str(msg)})}\n\n"
                     )
                     return
-            yield f"data: {_json.dumps({'type': 'done', 'run_id': run_id})}\n\n"
+            if not got_content:
+                # Stream ended with no chunk and no error event — agno swallowed
+                # a provider failure (e.g. no credit). Never end silently.
+                yield (
+                    "data: "
+                    + _json.dumps(
+                        {
+                            "type": "error",
+                            "message": (
+                                "El agente no devolvió ninguna respuesta. El "
+                                "servicio de IA puede estar sin crédito o no "
+                                "disponible. Inténtalo de nuevo en unos minutos."
+                            ),
+                        }
+                    )
+                    + "\n\n"
+                )
+            else:
+                yield f"data: {_json.dumps({'type': 'done', 'run_id': run_id})}\n\n"
         except Exception as exc:  # noqa: BLE001
             yield (
                 f"data: {_json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
@@ -545,7 +578,9 @@ def _norm_text(text: str) -> str:
     return re.sub(r"\s+", "", text).lower()
 
 
-async def _clean_event_stream(events: Any, encoder: EventEncoder):
+async def _clean_event_stream(
+    events: Any, encoder: EventEncoder, *, flag_empty_run: bool = False
+):
     """Yield encoded AG-UI frames with two route-mode artefacts removed.
 
     In ``mode="route"`` agno streams the chosen member's reply AND then a
@@ -555,13 +590,47 @@ async def _clean_event_stream(events: Any, encoder: EventEncoder):
     strip the notice, and drop a message whose (normalised) text was already
     emitted this run. Tool-call and run-lifecycle events pass through untouched
     so HITL cards (propose_*, present_widget, …) keep rendering.
+
+    When ``flag_empty_run`` is set (a real user turn, not the passive connect
+    channel), we also guard against SILENT failures: agno swallows some provider
+    errors (e.g. Anthropic "credit balance too low") and ends the run cleanly
+    with no text and no tool call. A run that produced nothing is a failure from
+    the user's point of view, so we convert that `RUN_FINISHED` into an explicit
+    `RUN_ERROR` — the client must never see a dead-silent empty turn.
     """
     from ag_ui.core import TextMessageContentEvent
 
     buffers: dict[str, dict[str, Any]] = {}
     emitted_concat = ""
+    produced_output = False
+    error_seen = False
     async for event in events:
         etype = getattr(event, "type", None)
+        # A tool call (HITL card, present_widget, present_graph_view, …) counts
+        # as real output even when there's no assistant text.
+        if etype is not None and "TOOL_CALL" in str(etype):
+            produced_output = True
+        if etype == EventType.RUN_ERROR:
+            error_seen = True
+        # Intercept a real run that finished without producing anything.
+        if (
+            flag_empty_run
+            and etype == EventType.RUN_FINISHED
+            and not produced_output
+            and not error_seen
+        ):
+            logger.error("agui_empty_run", reason="run finished with no output")
+            yield encoder.encode(
+                RunErrorEvent(
+                    type=EventType.RUN_ERROR,
+                    message=(
+                        "El agente no devolvió ninguna respuesta. El servicio de IA "
+                        "puede estar sin crédito o no disponible. Inténtalo de nuevo "
+                        "en unos minutos."
+                    ),
+                )
+            )
+            return
         try:
             if etype == EventType.TEXT_MESSAGE_START:
                 buffers[event.message_id] = {"start": event, "text": ""}
@@ -579,6 +648,7 @@ async def _clean_event_stream(events: Any, encoder: EventEncoder):
                 # not a duplicate (empty/dup → no visible bubble).
                 yield encoder.encode(buf["start"])
                 if cleaned and not is_dup:
+                    produced_output = True
                     emitted_concat += norm
                     yield encoder.encode(
                         TextMessageContentEvent(
@@ -659,6 +729,17 @@ async def _stream_chat(
             )
         acquired = True
 
+    # Only a real run with a user message should be flagged as a silent failure
+    # when it produces nothing. The passive `connect` channel (and empty turns)
+    # legitimately finish without output and must not be turned into an error.
+    has_user_message = any(
+        getattr(m, "role", None) == "user"
+        and isinstance(getattr(m, "content", None), str)
+        and getattr(m, "content", "").strip()
+        for m in (run_input.messages or [])
+    )
+    flag_empty_run = guard_concurrency and has_user_message
+
     from src.agents.factory import get_universe_team
 
     team = get_universe_team()
@@ -679,7 +760,9 @@ async def _stream_chat(
         started = _time.monotonic()
         status = "completed"
         try:
-            async for frame in _clean_event_stream(run_team(team, run_input), encoder):
+            async for frame in _clean_event_stream(
+                run_team(team, run_input), encoder, flag_empty_run=flag_empty_run
+            ):
                 yield frame
         except Exception as exc:  # noqa: BLE001
             status = "error"

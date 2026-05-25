@@ -18,6 +18,7 @@ import {
 } from "react";
 import { useAuthStore } from "@/shared/api";
 import { toast } from "@/ui";
+import { AGENT_ERROR_EVENT, surfaceAgentError } from "./silenceBenignErrors";
 
 /**
  * Structural shape of CopilotKit's error event (from `@copilotkit/shared`'s
@@ -25,45 +26,37 @@ import { toast } from "@/ui";
  */
 type CopilotErrorLike = {
   type?: string;
-  error?: { name?: string; message?: string } | unknown;
+  error?: { name?: string; message?: string } | string | unknown;
+  message?: string;
   context?: { source?: string };
 };
 
-let lastErrorToastAt = 0;
-
 /**
- * Single observability hook for the agent runtime. CopilotKit logs every error
- * to the console itself; this handler decides what (if anything) the *user*
- * sees, and silences benign noise.
- *
- *  - Aborts ("BodyStreamBuffer was aborted" / AbortError) happen whenever the
- *    chat unmounts mid-stream — route change, React StrictMode's dev-only
- *    double-mount, or HMR. That's correct cancellation, never a user problem.
- *  - Connect/network failures (backend down, expired token) are otherwise
- *    silent — the composer just appears to do nothing. Surface a toast so the
- *    user knows to retry. Debounced because retries arrive in bursts.
+ * Backup observability hook for the agent runtime. The primary, reliable path
+ * is the `console.error` patch in `silenceBenignErrors` (CopilotKit always logs
+ * failures there); this `onError` prop is unreliable in v1.7 but kept as a
+ * second detector. Both funnel into the same deduped `surfaceAgentError`, so a
+ * single failure yields exactly one toast and is NEVER silent
+ * (see [[no-silent-errors]]). Pure cancellation (AbortError) is ignored.
  */
 function handleCopilotError(event: CopilotErrorLike): void {
-  if (event?.type !== "error") return;
-  const err = event.error as { name?: string; message?: string } | undefined;
-  const message = String(err?.message ?? err ?? "");
-  if (err?.name === "AbortError" || /\babort(ed)?\b|BodyStreamBuffer/i.test(message)) {
+  const rawErr = event?.error;
+  const errObj =
+    rawErr && typeof rawErr === "object"
+      ? (rawErr as { name?: string; message?: string })
+      : undefined;
+  const message = String(
+    errObj?.message ?? (typeof rawErr === "string" ? rawErr : "") ?? event?.message ?? "",
+  );
+
+  // Benign cancellation — not an error.
+  if (errObj?.name === "AbortError" || /\babort(ed)?\b|BodyStreamBuffer/i.test(message)) {
     return;
   }
-  const now = Date.now();
-  if (now - lastErrorToastAt < 6000) return;
-  lastErrorToastAt = now;
-  const isConnect =
-    event.context?.source === "network" ||
-    /failed to fetch|network ?error|load failed|connect/i.test(message);
-  if (isConnect) {
-    toast.error(
-      "No pude conectar con tu agente",
-      "Comprueba tu conexión o que el servidor esté activo, e inténtalo de nuevo.",
-    );
-  } else {
-    toast.error("El agente tuvo un problema", message.slice(0, 160) || undefined);
-  }
+  // Skip pure observability ticks (request/response/performance) with no error.
+  if (!rawErr && event?.type !== "error") return;
+
+  surfaceAgentError(message || "El agente tuvo un problema.");
 }
 
 const readyListeners = new Set<() => void>();
@@ -168,6 +161,21 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
       if (externalEnable === enable) externalEnable = null;
     };
   }, [enable]);
+
+  // Render agent/runtime failures surfaced by `surfaceAgentError` (from the
+  // console patch or the onError backup) as a toast, using the real registered
+  // toaster. Decoupled via a DOM event so the early-loaded error module never
+  // touches a stray toaster instance — guarantees no silent agent error.
+  useEffect(() => {
+    const onAgentError = (e: Event) => {
+      const detail = (e as CustomEvent).detail as
+        | { title?: string; description?: string }
+        | undefined;
+      toast.error(detail?.title || "El agente tuvo un problema", detail?.description);
+    };
+    window.addEventListener(AGENT_ERROR_EVENT, onAgentError);
+    return () => window.removeEventListener(AGENT_ERROR_EVENT, onAgentError);
+  }, []);
 
   if (!mod) {
     // Either not enabled yet, or enabled but not loaded — render children
