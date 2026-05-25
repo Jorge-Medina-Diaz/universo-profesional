@@ -70,14 +70,20 @@ def build_onboarding_specialist(*, db):  # type: ignore[no-untyped-def]
             "(recibes el resultado del import), no te limites a dar las gracias: "
             "indaga para AMPLIAR el contexto. Mira qué perfil se dibuja (p.ej. "
             "fullstack JS, cloud, data) y lanza UNA sola `present_questionnaire` "
-            "(3-5 preguntas, mezcla multi_choice + open) sobre lo RELEVANTE que "
-            "probablemente falte y encaje con su perfil/tecnología/puesto: "
-            "tecnologías adyacentes del stack (si hay React/Node → TypeScript, "
-            "testing, CI/CD, cloud), prácticas (testing, observabilidad), "
-            "proyectos/logros destacables no mencionados, idiomas o "
-            "certificaciones. Natural y útil, conectando con lo que ya tiene "
-            "('veo que…'), no un interrogatorio. Una sola tanda; luego resume y "
-            "devuelve el control.",
+            "(3-6 preguntas) sobre lo RELEVANTE que probablemente falte y encaje "
+            "con su perfil/tecnología/puesto: tecnologías adyacentes del stack "
+            "(si hay React/Node → TypeScript, testing, CI/CD, cloud), prácticas, "
+            "proyectos/logros no mencionados, idiomas o certificaciones. MEZCLA "
+            "tipos de pregunta: multi_choice CON `options` (lista de tecnologías "
+            "para marcar — es lo más cómodo), single_choice para uno-de, scale "
+            "para nivel/seniority, y `open` solo para texto libre. Usa la clave "
+            "`prompt` para el texto de cada pregunta. Natural y útil, conectando "
+            "con lo que ya tiene ('veo que…'), no un interrogatorio.",
+            "CAPTURA DE RESPUESTAS: cuando el usuario envíe el cuestionario "
+            "(recibes las answers), convierte lo marcado/escrito en entidades "
+            "(normalmente skills, a veces certificaciones/idiomas/proyectos) y "
+            "emite UNA `present_import_review` con ellas para que confirme "
+            "guardarlas en lote. Luego resume y devuelve el control.",
             "ONBOARDING (cuando el universo está vacío): activas en el primer "
             "turno real o cuando el coordinator detecta universo vacío "
             "(0 skills + 0 experience + 0 projects + headline vacío).",

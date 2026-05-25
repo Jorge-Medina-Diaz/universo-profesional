@@ -15,7 +15,14 @@ import { Button, Textarea, ChatMessageMotion, cn } from "@/ui";
 export interface QuestionnaireQuestion {
   id: string;
   kind: "single_choice" | "multi_choice" | "scale" | "open";
-  prompt: string;
+  // Canonical is `prompt`, but the model frequently emits `question` (and
+  // sometimes `label`/`text`/`title`). Accept all so the question text never
+  // renders blank.
+  prompt?: string;
+  question?: string;
+  label?: string;
+  text?: string;
+  title?: string;
   // The agent may emit plain strings OR { label, value } objects — both are
   // normalised at render so an object never reaches React as a child.
   options?: Array<string | { label?: string; value?: string }>;
@@ -23,6 +30,20 @@ export interface QuestionnaireQuestion {
   scale_max?: number;
   placeholder?: string;
   required?: boolean;
+}
+
+/** Resolve the question text across the field names the model may use. */
+function questionText(q: QuestionnaireQuestion): string {
+  return q.prompt ?? q.question ?? q.label ?? q.text ?? q.title ?? "";
+}
+
+/** Normalise a kind string the model may emit (e.g. "single", "multiple"). */
+function normKind(raw: unknown): QuestionnaireQuestion["kind"] {
+  const k = String(raw ?? "").toLowerCase();
+  if (k.includes("multi")) return "multi_choice";
+  if (k.includes("single") || k === "choice" || k === "radio") return "single_choice";
+  if (k.includes("scale") || k.includes("rating")) return "scale";
+  return "open";
 }
 
 interface NormOption {
@@ -81,9 +102,9 @@ export function QuestionnaireCard({
   }
 
   function missingRequired(): boolean {
-    return questions.some((q) => {
+    return questions.some((q, i) => {
       if (!q.required) return false;
-      const v = answers[q.id];
+      const v = answers[q.id || `q${i}`];
       if (v === undefined || v === null || v === "") return true;
       if (Array.isArray(v) && v.length === 0) return true;
       return false;
@@ -98,61 +119,75 @@ export function QuestionnaireCard({
           {intro && <p className="text-xs text-stone">{intro}</p>}
         </div>
         <div className="space-y-5">
-          {questions.map((q) => (
-            <div key={q.id} className="space-y-2">
-              <p className="text-sm font-medium text-ink">
-                {q.prompt}
-                {q.required && <span className="text-red-500 ml-0.5">*</span>}
-              </p>
-              {q.kind === "single_choice" && (
-                <div className="flex flex-wrap gap-2">
-                  {normOptions(q.options).map((opt) => (
-                    <ChipOption
-                      key={opt.value}
-                      checked={answers[q.id] === opt.value}
-                      onChange={() => set(q.id, opt.value)}
-                      name={q.id}
-                      type="radio"
-                      label={opt.label}
-                    />
-                  ))}
-                </div>
-              )}
-              {q.kind === "multi_choice" && (
-                <div className="flex flex-wrap gap-2">
-                  {normOptions(q.options).map((opt) => {
-                    const checked = ((answers[q.id] as string[] | undefined) ?? []).includes(opt.value);
-                    return (
+          {questions.map((q, qi) => {
+            const qid = q.id || `q${qi}`;
+            const kind = normKind(q.kind);
+            const text = questionText(q);
+            const opts = normOptions(q.options);
+            // single/multi without options would render a blank row — fall back
+            // to a free-text box so the question is still answerable.
+            const effKind =
+              (kind === "single_choice" || kind === "multi_choice") && opts.length === 0
+                ? "open"
+                : kind;
+            return (
+              <div key={qid} className="space-y-2">
+                {text && (
+                  <p className="text-sm font-medium text-ink">
+                    {text}
+                    {q.required && <span className="text-red-500 ml-0.5">*</span>}
+                  </p>
+                )}
+                {effKind === "single_choice" && (
+                  <div className="flex flex-wrap gap-2">
+                    {opts.map((opt) => (
                       <ChipOption
                         key={opt.value}
-                        checked={checked}
-                        onChange={() => toggleMulti(q.id, opt.value)}
-                        name={q.id}
-                        type="checkbox"
+                        checked={answers[qid] === opt.value}
+                        onChange={() => set(qid, opt.value)}
+                        name={qid}
+                        type="radio"
                         label={opt.label}
                       />
-                    );
-                  })}
-                </div>
-              )}
-              {q.kind === "scale" && (
-                <ScaleInput
-                  value={(answers[q.id] as number | undefined) ?? 0}
-                  min={q.scale_min ?? 1}
-                  max={q.scale_max ?? 5}
-                  onChange={(v) => set(q.id, v)}
-                />
-              )}
-              {q.kind === "open" && (
-                <Textarea
-                  value={(answers[q.id] as string | undefined) ?? ""}
-                  onChange={(e) => set(q.id, e.target.value)}
-                  placeholder={q.placeholder}
-                  rows={3}
-                />
-              )}
-            </div>
-          ))}
+                    ))}
+                  </div>
+                )}
+                {effKind === "multi_choice" && (
+                  <div className="flex flex-wrap gap-2">
+                    {opts.map((opt) => {
+                      const checked = ((answers[qid] as string[] | undefined) ?? []).includes(opt.value);
+                      return (
+                        <ChipOption
+                          key={opt.value}
+                          checked={checked}
+                          onChange={() => toggleMulti(qid, opt.value)}
+                          name={qid}
+                          type="checkbox"
+                          label={opt.label}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+                {effKind === "scale" && (
+                  <ScaleInput
+                    value={(answers[qid] as number | undefined) ?? 0}
+                    min={q.scale_min ?? 1}
+                    max={q.scale_max ?? 5}
+                    onChange={(v) => set(qid, v)}
+                  />
+                )}
+                {effKind === "open" && (
+                  <Textarea
+                    value={(answers[qid] as string | undefined) ?? ""}
+                    onChange={(e) => set(qid, e.target.value)}
+                    placeholder={q.placeholder}
+                    rows={3}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
         <div className="flex gap-2 mt-6">
           <Button

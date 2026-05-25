@@ -222,11 +222,17 @@ def propose_interest(
 @tool(
     name="present_questionnaire",
     description=(
-        "Show the user a batch of related questions in a single card. Use for "
-        "onboarding basics, periodic check-ins, or whenever you'd rather ask "
-        "3-5 connected questions at once than drag a conversation across turns. "
-        "Each question must declare its kind (single_choice, multi_choice, "
-        "scale, open) plus a stable `id` you'll receive back in the answers."
+        "Show the user a batch of 3-6 related questions in ONE card (onboarding, "
+        "check-ins, enrichment after an import). Each question is an object: "
+        "{id: str (stable, returned in answers), kind: 'single_choice'|"
+        "'multi_choice'|'scale'|'open', prompt: str (the question text — use the "
+        "key `prompt`)}. For single_choice/multi_choice you MUST include "
+        "`options: string[]`. For scale add `scale_min`/`scale_max` (default "
+        "1..5). MIX the kinds — don't make everything `open`: use multi_choice "
+        "(with options) to let the user tick known technologies/skills, "
+        "single_choice for one-of, scale for proficiency/seniority, and `open` "
+        "only for genuinely free text (e.g. 'anything else?'). Prefer offering "
+        "concrete options the user can tap over asking them to type."
     ),
     external_execution=True,
 )
