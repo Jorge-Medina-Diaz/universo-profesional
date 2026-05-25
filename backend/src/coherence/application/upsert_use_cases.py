@@ -272,6 +272,7 @@ class UpsertUniverseEntity:
             uow=uow,
             agent_run_id=agent_run_id,
             chat_session_id=chat_session_id,
+            match=match,
         )
 
     # ------------------------------------------------------------------
@@ -393,7 +394,15 @@ class UpsertUniverseEntity:
         uow: UnitOfWork,
         agent_run_id: str | None,
         chat_session_id: str | None = None,
+        match: MatchResult | None = None,
     ) -> UpsertOutcome:
+        # Audit basis: WHY did we merge (exact name vs semantic similarity)?
+        basis = ""
+        if match is not None:
+            basis = f" [{match.kind.value}"
+            if match.score is not None:
+                basis += f" {match.score:.2f}"
+            basis += "]"
         repo = config["repo"](self._session)
         existing = await repo.get(UUID(user_id), existing_id)
         if existing is None:
@@ -469,7 +478,7 @@ class UpsertUniverseEntity:
             entity_id=existing_id,
             diffs=plan.diffs,
             source=source,
-            reason="upsert: merged via rules",
+            reason=f"upsert: merged via rules{basis}",
             agent_run_id=agent_run_id,
         )
         graph_payload = {**payload, **plan.merged_payload}
@@ -482,7 +491,10 @@ class UpsertUniverseEntity:
             chat_session_id=chat_session_id,
         )
         return UpsertOutcome(
-            status=UpsertStatus.MERGED, entity_id=existing_id, diffs=plan.diffs
+            status=UpsertStatus.MERGED,
+            entity_id=existing_id,
+            diffs=plan.diffs,
+            reason=f"merged{basis}",
         )
 
     async def _mirror_entity_to_graph(

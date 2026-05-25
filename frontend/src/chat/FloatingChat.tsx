@@ -57,8 +57,8 @@ export function FloatingChat({ children, onExpandedChange }: FloatingChatProps) 
           "rounded-card border border-hairline bg-canvas/95 backdrop-blur shadow-float",
           "flex flex-col overflow-hidden transition-all duration-420 ease-pirsch",
           expanded
-            ? "bottom-20 md:bottom-6 h-[min(74vh,760px)]"
-            : "bottom-24 md:bottom-12 h-[104px] cursor-text hover:shadow-lift hover:-translate-y-[1px]",
+            ? "bottom-20 md:bottom-6 h-[min(76vh,820px)]"
+            : "bottom-24 md:bottom-12 h-[88px] cursor-text hover:shadow-lift hover:-translate-y-[1px]",
           !expanded && "chat-collapsed",
         )}
       >

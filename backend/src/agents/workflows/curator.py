@@ -162,14 +162,15 @@ async def _open_merge_suggestion(
 
 
 async def _clean_orphan_graph_vertices(session: AsyncSession, *, user_id: str) -> int:
-    """DETACH DELETE :Entity graph vertices whose backing SQL row is gone.
+    """Invalidate (not delete) :Entity vertices whose backing SQL row is gone.
 
-    Evidence used to live in the `evidences` SQL table (dropped in the
-    Sprint R cutover, migration 0017); relations now live in the AGE
-    personal graph. The only orphan scenario left is a graph vertex whose
-    SQL row was hard-deleted (e.g. a manual delete during data migration).
-    We remove those so retrieval / PPR never seeds from a dangling node.
+    Bi-temporal principle (Graphiti/Zep): we *invalidate* — set `valid_to`
+    on the vertex and its incident edges — instead of `DETACH DELETE`, so
+    the node drops out of retrieval/PPR (which filter `valid_to IS NULL`)
+    while history stays queryable. The only orphan scenario left is a graph
+    vertex whose SQL row was hard-deleted (e.g. a manual data migration).
     """
+    from src.graph.application.universe_graph import universe_graph_service
     graph_rows = await cypher(
         session,
         schema.GRAPH_PERSONAL,
@@ -186,7 +187,7 @@ async def _clean_orphan_graph_vertices(session: AsyncSession, *, user_id: str) -
     if not graph_ids_by_kind:
         return 0
 
-    deleted = 0
+    invalidated = 0
     for kind, graph_ids in graph_ids_by_kind.items():
         table = TABLE_BY_ENTITY.get(kind)
         if table is None:
@@ -201,14 +202,13 @@ async def _clean_orphan_graph_vertices(session: AsyncSession, *, user_id: str) -
         ).all()
         sql_ids = {r.id for r in sql_rows}
         for orphan_id in graph_ids - sql_ids:
-            await cypher(
-                session,
-                schema.GRAPH_PERSONAL,
-                "MATCH (e:Entity {id: $id, user_id: $uid}) DETACH DELETE e",
-                params={"id": orphan_id, "uid": user_id},
+            # Invalidate (valid_to=now) the vertex + its incident edges,
+            # instead of hard-deleting — preserves history, drops from reads.
+            await universe_graph_service.soft_delete_entity(
+                session, entity_id=UUID(orphan_id), user_id=UUID(user_id)
             )
-            deleted += 1
-    return deleted
+            invalidated += 1
+    return invalidated
 
 
 async def _decay_unreviewed(session: AsyncSession, *, user_id: str) -> int:

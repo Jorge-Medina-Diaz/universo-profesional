@@ -15,6 +15,7 @@ import { useCopilotChat } from "@copilotkit/react-core";
 import { FileUp, Loader2, Paperclip } from "lucide-react";
 import { api, useAuthStore } from "@/shared/api";
 import { toast } from "@/ui";
+import { AgentMessage, PersonMessage, Composer } from "@/chat/ChatUI";
 import { UniverseActions } from "@/chat/actions";
 import { UniverseReadable } from "@/chat/readables";
 import { SyncTaskTray } from "@/chat/SyncTaskTray";
@@ -38,6 +39,9 @@ export function CopilotSurface({ instructions, title, initial }: Props) {
         <CopilotChat
           instructions={instructions}
           labels={{ title, initial, placeholder: "Escribe a tu agente…" }}
+          AssistantMessage={AgentMessage}
+          UserMessage={PersonMessage}
+          Input={Composer}
         />
       </ChatDropTarget>
       <SyncTaskTray />

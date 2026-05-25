@@ -31,6 +31,7 @@ from src.universe.application.area_keywords import (
     SOFTWARE_AREA_KEYWORDS,
     area_hits_per_kw,
     collect_text_blob,
+    primary_area,
     score_areas,
 )
 from src.universe.domain.entities import AreaStrength, ShapeType
@@ -306,6 +307,41 @@ async def compute_area_strengths(
         shape_type=shape_type,
         computed_at=now,
     )
+
+
+async def classify_entities_by_area(
+    session: AsyncSession, user_id: UUID
+) -> dict[str, str]:
+    """Map each skill/project/experience to its single primary area.
+
+    Reuses the same text blobs as `compute_area_strengths`, but resolves
+    one cluster membership per entity (argmax) instead of aggregating.
+    The graph snapshot uses this to colour and group nodes by coherent
+    area (backend / frontend / cloud / ai_ml / …). Returns
+    ``{str(entity_id): area}`` for entities that match at least one area.
+    """
+    skills, projects, experiences = await _load_universe_blob(session, user_id)
+    out: dict[str, str] = {}
+
+    for s in skills:
+        area = primary_area(collect_text_blob([s.name, s.category]))
+        if area:
+            out[str(s.id)] = area
+
+    for p in projects:
+        stack = " ".join(str(x) for x in (p.tech_stack or []))
+        area = primary_area(collect_text_blob([p.name, p.description, stack]))
+        if area:
+            out[str(p.id)] = area
+
+    for e in experiences:
+        comp = " ".join(str(c) for c in (e.competences or []))
+        hl = " ".join(str(h) for h in (e.highlights or []))
+        area = primary_area(collect_text_blob([e.role, e.description, comp, hl]))
+        if area:
+            out[str(e.id)] = area
+
+    return out
 
 
 async def load_area_strengths(

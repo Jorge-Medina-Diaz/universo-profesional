@@ -18,7 +18,7 @@ import { toast } from "@/ui";
 import { useChatState, type FocusEntity, type WidgetKind } from "./state";
 import { useGraphLensState, type GraphLensMode } from "@/graph/lensState";
 import { DiffCard } from "./cards/DiffCard";
-import { EntryCard } from "./cards/EntryCard";
+import { EntryCard, ResolvedEntryChip } from "./cards/EntryCard";
 import { QuestionnaireCard, type QuestionnaireQuestion } from "./cards/QuestionnaireCard";
 import { TimelineCard } from "./cards/TimelineCard";
 import { SkillChipsCard, type SkillProposal } from "./cards/SkillChipsCard";
@@ -111,10 +111,26 @@ function useEntityAction<TArgs extends Record<string, unknown>>(
     renderAndWaitForResponse: ({
       args,
       respond,
+      status,
+      result,
     }: {
       args: Record<string, unknown>;
       respond?: (s: string) => void;
+      status?: string;
+      result?: unknown;
     }) => {
+      // Once the tool call is resolved, show a terminal confirmation instead of
+      // the interactive card — otherwise a confirmed card keeps its buttons (or
+      // a stuck "Guardando" spinner when a follow-up run fails).
+      if (status === "complete") {
+        return (
+          <ResolvedEntryChip
+            kind={config.entityKind}
+            title={config.cardTitle(args as TArgs)}
+            result={typeof result === "string" ? result : undefined}
+          />
+        );
+      }
       const pending = saving === config.entityKind;
       const onConfirm = async () => {
         setSaving(config.entityKind);

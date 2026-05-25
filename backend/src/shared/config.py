@@ -197,6 +197,19 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
 
+    # --- Retrieval reranking (cross-encoder stage after RRF) ---
+    # Retrieve a wider candidate pool cheaply (BM25+dense+PPR+RRF), then
+    # rerank the top-N against the query for a precision lift. Default uses
+    # an LLM listwise reranker on the existing Anthropic provider (no new
+    # dependency/key); set RERANK_PROVIDER=cohere|voyage + RERANK_API_KEY to
+    # use a hosted cross-encoder. RERANK_PROVIDER=none (or RERANK_ENABLED=false)
+    # preserves the pure-RRF order.
+    rerank_enabled: bool = True
+    rerank_provider: Literal["llm", "cohere", "voyage", "none"] = "llm"
+    rerank_api_key: str | None = None
+    rerank_model: str | None = None  # provider-specific; LLM falls back to specialist model
+    rerank_candidate_pool: int = 40
+
     # --- Observability ---
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     sentry_dsn: str | None = None

@@ -40,6 +40,13 @@ def _build_model(tier: ModelTier = "coordinator"):  # type: ignore[no-untyped-de
     if provider == "anthropic":
         from agno.models.anthropic import Claude
 
+        # Repair empty content blocks before they reach Anthropic (see module
+        # docstring): agno's formatter can emit empty text blocks during route
+        # hand-offs, which 400s the whole request.
+        from src.agents.infra.anthropic_sanitize import install_anthropic_sanitizer
+
+        install_anthropic_sanitizer()
+
         model_id = (
             settings.agents_coordinator_model
             if tier == "coordinator"
@@ -161,7 +168,9 @@ def get_universe_team():  # type: ignore[no-untyped-def]
     )
     # Sprint O — hybrid graph retrieval (BM25 + dense + PPR + RRF).
     from src.agents.tools.retrieval_tools import (
+        enrich_universe,
         explain_path,
+        get_career_pillars,
         get_graph_neighbors,
         universe_retrieve,
     )
@@ -278,6 +287,10 @@ def get_universe_team():  # type: ignore[no-untyped-def]
         "vecindario; explain_path(from,to) para relaciones. Para '¿cuándo cambié X?'/'¿qué "
         "dije sobre Y?' usa get_change_history o list_notes; para '¿qué hicimos esta "
         "semana?'/'¿en qué hemos estado?' usa get_recent_activity. No inventes.",
+        # Enrichment
+        "ENRIQUECER: si el usuario pide 'conecta/enriquece mi universo' o el grafo se ve "
+        "disperso, llama enrich_universe (infiere relaciones entre entidades). Después "
+        "resume cuántas relaciones nuevas se crearon por tipo.",
         # Polyglot + area awareness
         "POLYGLOT: en turnos sobre perfil/área/gaps llama get_universe_shape una vez. Si "
         "shape ∈ {T, π, M} el usuario es polyglot — tenlo en cuenta en tu razonamiento (no "
@@ -336,6 +349,9 @@ def get_universe_team():  # type: ignore[no-untyped-def]
             universe_retrieve,
             get_graph_neighbors,
             explain_path,
+            # Universe enrichment — infer relationships on request.
+            enrich_universe,
+            get_career_pillars,
             # Universe reads (orientation). `search_universe` removed —
             # superseded by `universe_retrieve`. Product reads (jobs,
             # documents, preferences, reminders, integrations, tier) removed

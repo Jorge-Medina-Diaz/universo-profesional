@@ -108,6 +108,23 @@ async def post_upsert(
             "edge_materialisation_failed", entity_id=str(entity_id), error=str(exc)
         )
 
+    # 2b. Agentic enrichment (additive, best-effort) — infer structural edges
+    #     from the freshly-captured payload (tech_stack/competences → skills).
+    #     Wrapped so an inference failure never rolls back the upsert.
+    try:
+        from src.universe.application.enrichment import infer_for_entity
+
+        async with session.begin_nested():
+            await infer_for_entity(
+                session,
+                user_id=user_id,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                payload=payload,
+            )
+    except Exception as exc:
+        logger.warning("enrichment_infer_failed", entity_id=str(entity_id), error=str(exc))
+
     # 3. Invalidate the PPR snapshot — next retrieve rebuilds with the
     #    new vertex/edges in place. Cheap.
     await invalidate_snapshot(user_id)

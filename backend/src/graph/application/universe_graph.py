@@ -237,6 +237,41 @@ class UniverseGraphService:
         """
         await cypher(session, schema.GRAPH_PERSONAL, query, params=params)
 
+    async def invalidate_contradicting_edges(
+        self,
+        session: AsyncSession,
+        *,
+        edge_type: str,
+        source_id: UUID,
+        user_id: UUID,
+        keep_target_id: UUID,
+    ) -> None:
+        """Expire active edges of a *single-valued* type from `source` to any
+        target other than `keep_target_id`.
+
+        Implements the Graphiti/Zep rule: a new single-valued fact
+        *invalidates* the prior one (`valid_to = now`) rather than deleting
+        it, so history is preserved and "true at time T" stays queryable.
+        Call this just before `upsert_edge` for relations where a source may
+        only point at one target at a time.
+        """
+        if not edge_type.isidentifier() or not edge_type.isupper():
+            msg = f"edge_type must be an UPPER_SNAKE identifier: {edge_type!r}"
+            raise ValueError(msg)
+        params = {
+            "src": str(source_id),
+            "keep": str(keep_target_id),
+            "user_id": str(user_id),
+            "now": _iso(_now()),
+        }
+        query = f"""
+        MATCH (a:Entity {{id: $src, user_id: $user_id}})-[r:{edge_type}]->
+              (b:Entity {{user_id: $user_id}})
+        WHERE r.valid_to IS NULL AND b.id <> $keep
+        SET r.valid_to = $now
+        """
+        await cypher(session, schema.GRAPH_PERSONAL, query, params=params)
+
     # ------------------------------------------------------------------
     # Read helpers
     # ------------------------------------------------------------------

@@ -89,6 +89,56 @@ export function EntryCard({
   );
 }
 
+/**
+ * Terminal state for an entity card once its tool call is `complete`.
+ *
+ * CopilotKit keeps rendering an action after the user responds, so without a
+ * resolved view a confirmed card would otherwise sit on its interactive
+ * buttons (or a stuck "Guardando" spinner if a follow-up run failed). We read
+ * the tool-call `result` to show the right outcome.
+ */
+export function ResolvedEntryChip({
+  kind,
+  title,
+  result,
+}: {
+  kind?: string;
+  title: string;
+  result?: string;
+}) {
+  const rejected = !!result && /rejected/i.test(result);
+  const errored = !!result && /^error/i.test(result.trim());
+  const kindMeta = kind ? KIND_LABEL[kind] : undefined;
+  const tone = errored ? "stone" : rejected ? "stone" : "leaf";
+  const Icon = errored || rejected ? X : Check;
+  const label = errored ? "No se pudo guardar" : rejected ? "Descartado" : "Añadido";
+  return (
+    <ChatMessageMotion>
+      <div className="rounded-card bg-surface/60 px-4 py-3 my-3 max-w-md border border-ink/[0.05] flex items-center gap-2.5">
+        <span
+          className={cn(
+            "grid place-items-center h-6 w-6 rounded-full shrink-0",
+            tone === "leaf" ? "bg-leaf/15 text-leaf-ink" : "bg-ink/[0.06] text-stone",
+          )}
+        >
+          <Icon size={13} strokeWidth={2.5} />
+        </span>
+        <div className="min-w-0">
+          <span className="text-xs text-stone">{label}</span>
+          {!errored && !rejected && (
+            <span className="text-sm text-ink font-medium truncate"> · {title}</span>
+          )}
+        </div>
+        {kindMeta && !errored && !rejected && (
+          <Badge tone={kindMeta.tone} size="sm" className="ml-auto shrink-0">
+            {kindMeta.label}
+          </Badge>
+        )}
+      </div>
+    </ChatMessageMotion>
+  );
+}
+
 function DefRow({ k, v }: { k: string; v: unknown }) {
   let display: string;
   if (Array.isArray(v)) display = v.join(", ");

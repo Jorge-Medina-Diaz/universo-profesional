@@ -8,6 +8,8 @@ export interface GraphNode {
   attributes: {
     kind: string;
     label: string;
+    /** Semantic area (backend/frontend/cloud/ai_ml/…); null if unmatched. */
+    area?: string | null;
     [k: string]: unknown;
   };
 }
@@ -64,4 +66,7 @@ export const graphApi = {
     if (opts.includeExpired) params.set("include_expired", "true");
     return api(`/api/v1/graph/entity/${entityId}/neighbors?${params}`);
   },
+
+  enrich: async (): Promise<{ status: string; stats: Record<string, number> }> =>
+    api("/api/v1/graph/enrich", { method: "POST" }),
 };

@@ -124,22 +124,28 @@
     );
 }
 
-:root[data-theme="dark"] .copilotKitUserMessage {
-  background-color: var(--color-leafy-green) !important;
-  color: var(--surface-canvas) !important;
+/* Dark-mode overrides for the custom chat surface (see src/chat/ChatUI.tsx).
+ * Most colours come from theme tokens that flip automatically; these handle
+ * the few intentionally-hardcoded translucent fills. */
+:root[data-theme="dark"] .person-bubble {
+  background: var(--color-leafy-green);
+  color: var(--surface-canvas);
 }
-:root[data-theme="dark"] .copilotKitAssistantMessage,
-:root[data-theme="dark"] .copilotKitCustomAssistantMessage {
-  background-color: var(--surface-card-surface) !important;
-  color: var(--color-midnight-ink) !important;
-  border-color: rgba(255, 255, 255, 0.04) !important;
+:root[data-theme="dark"] .composer {
+  background: rgba(243, 239, 230, 0.05);
 }
-:root[data-theme="dark"] .copilotKitInput {
-  background-color: rgba(255, 255, 255, 0.04) !important;
+:root[data-theme="dark"] .composer:focus-within {
+  background: rgba(243, 239, 230, 0.09);
+  border-color: var(--hairline-strong);
 }
-:root[data-theme="dark"] .copilotKitInput:focus-within {
-  background-color: rgba(255, 255, 255, 0.06) !important;
-  border-color: var(--color-midnight-ink) !important;
+:root[data-theme="dark"] .agent-prose code,
+:root[data-theme="dark"] .agent-prose pre,
+:root[data-theme="dark"] .agent-prose th {
+  background: rgba(243, 239, 230, 0.07);
+}
+:root[data-theme="dark"] .agent-action-btn:hover,
+:root[data-theme="dark"] .composer-hint kbd {
+  background: rgba(243, 239, 230, 0.08);
 }
 
 /* ---------------------------------------------------------------- *
@@ -326,44 +332,188 @@
   background-color: var(--surface-canvas) !important;
 }
 
-/* User bubble — ink solid, slightly larger + bolder so the conversation
- * has a clear "I said" vs "AI replied" hierarchy. */
-.copilotKitUserMessage {
-  background-color: var(--color-midnight-ink) !important;
-  color: var(--surface-canvas) !important;
-  border-radius: 18px 18px 4px 18px !important;
-  padding: 12px 16px !important;
-  font-size: 15px !important;
-  font-weight: 500 !important;
-  line-height: 1.5 !important;
-  max-width: 78% !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06) !important;
-}
-
-/* Assistant bubble — airier, more "card", subtle border + shadow. */
-.copilotKitAssistantMessage,
-.copilotKitCustomAssistantMessage {
-  background-color: rgba(255, 255, 255, 0.65) !important;
-  color: var(--color-midnight-ink) !important;
-  border-radius: 18px 18px 18px 4px !important;
-  padding: 12px 14px !important;
-  font-size: 14px !important;
-  line-height: 1.55 !important;
-  max-width: 86% !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
-  border: 1px solid rgba(0, 0, 0, 0.06) !important;
-  backdrop-filter: blur(2px);
-}
-
+/* ── Custom chat surface — see src/chat/ChatUI.tsx ──────────────────────────
+ * We replace CopilotKit's default message + input renderers with our own
+ * components, so the default per-message chrome is neutralised and our classes
+ * own the look. */
 .copilotKitMessage {
-  margin: 10px 0 !important;
-  letter-spacing: -0.005em !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  max-width: none !important;
+  border-radius: 0 !important;
+  backdrop-filter: none !important;
 }
+
+/* Agent identity orb */
+.agent-orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 28px;
+  width: 28px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  border-radius: 999px;
+  background:
+    radial-gradient(120% 120% at 30% 22%, var(--color-sunbeam-soft) 0%, transparent 55%),
+    radial-gradient(120% 120% at 78% 82%, var(--color-leaf-soft) 0%, transparent 55%),
+    var(--surface-card-surface);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+.agent-orb::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  background: radial-gradient(closest-side, var(--color-leaf-soft), transparent);
+  opacity: 0;
+  z-index: -1;
+}
+.agent-orb__spark { color: var(--color-leaf-ink); position: relative; z-index: 1; }
+.agent-orb--thinking { animation: orb-pulse 1.6s var(--ease-pirsch) infinite; }
+.agent-orb--thinking::after { animation: orb-glow 1.6s ease-in-out infinite; }
+@keyframes orb-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+@keyframes orb-glow { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.85; } }
+
+/* Thinking dots */
+.thinking-dots { display: inline-flex; gap: 4px; align-items: center; }
+.thinking-dots i {
+  width: 5px; height: 5px; border-radius: 999px; display: inline-block;
+  background: var(--color-leafy-green);
+  animation: think-bounce 1.2s ease-in-out infinite;
+}
+.thinking-dots i:nth-child(2) { animation-delay: 0.15s; }
+.thinking-dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes think-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+  40% { transform: translateY(-3px); opacity: 1; }
+}
+
+/* Message entrance */
+.agent-msg, .person-bubble { animation: msg-rise 0.34s var(--ease-pirsch) both; }
+@keyframes msg-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* User turn — warm ink bubble, right aligned */
+.person-bubble {
+  max-width: 80%;
+  background: var(--color-midnight-ink);
+  color: var(--surface-canvas);
+  border-radius: 20px 20px 6px 20px;
+  padding: 10px 15px;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* Agent reply — editorial markdown prose, no box */
+.agent-prose {
+  color: var(--color-midnight-ink);
+  font-size: 15px;
+  line-height: 1.62;
+  letter-spacing: -0.003em;
+}
+.agent-prose > :first-child { margin-top: 0; }
+.agent-prose > :last-child { margin-bottom: 0; }
+.agent-prose p { margin: 0 0 0.6em; }
+.agent-prose strong { font-weight: 650; }
+.agent-prose ul, .agent-prose ol { margin: 0.4em 0 0.7em; padding-left: 1.25em; }
+.agent-prose li { margin: 0.15em 0; }
+.agent-prose li::marker { color: var(--color-leaf-ink); }
+.agent-prose a {
+  color: var(--color-leaf-ink); text-decoration: underline; text-underline-offset: 2px;
+}
+.agent-prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.86em;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.1em 0.36em;
+  border-radius: 5px;
+}
+.agent-prose pre {
+  background: rgba(0, 0, 0, 0.045);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin: 0.6em 0;
+}
+.agent-prose pre code { background: transparent; padding: 0; font-size: 0.82em; }
+.agent-prose h1, .agent-prose h2, .agent-prose h3, .agent-prose h4 {
+  font-family: var(--font-display, serif);
+  font-weight: 600; letter-spacing: -0.01em; line-height: 1.2;
+  margin: 0.85em 0 0.35em;
+}
+.agent-prose h1 { font-size: 1.3em; }
+.agent-prose h2 { font-size: 1.18em; }
+.agent-prose h3 { font-size: 1.06em; }
+.agent-prose blockquote {
+  border-left: 2px solid var(--color-leafy-green);
+  padding-left: 0.9em; margin: 0.6em 0; color: var(--color-muted-stone);
+}
+.agent-prose table {
+  border-collapse: collapse; width: 100%; margin: 0.6em 0; font-size: 0.92em;
+}
+.agent-prose th, .agent-prose td {
+  border: 1px solid var(--hairline); padding: 6px 10px; text-align: left;
+}
+.agent-prose th { background: rgba(0, 0, 0, 0.03); font-weight: 600; }
+.agent-prose hr { border: 0; border-top: 1px solid var(--hairline); margin: 0.9em 0; }
+
+/* Streaming caret */
+.agent-prose--streaming > :last-child::after {
+  content: "";
+  display: inline-block;
+  width: 2px; height: 1.05em; margin-left: 2px; vertical-align: -0.18em;
+  background: var(--color-leaf-ink); border-radius: 1px;
+  animation: caret-blink 1s steps(2) infinite;
+}
+@keyframes caret-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* Hover actions under an agent reply */
+.agent-action-btn {
+  display: inline-grid; place-items: center;
+  width: 26px; height: 26px; border-radius: 7px;
+  color: var(--color-muted-stone);
+  transition: background-color var(--duration-micro) var(--ease-pirsch),
+    color var(--duration-micro) var(--ease-pirsch);
+}
+.agent-action-btn:hover { background: rgba(0, 0, 0, 0.05); color: var(--color-midnight-ink); }
 
 /* Center the message stream and cap its width so the chat feels
  * conversational instead of stretching wall-to-wall. The composer mirrors
  * the same width below. Scoped to `.chat-surface-area` so embedded chats
  * (e.g. OnboardingChatPage) keep their original full-width layout. */
+/* Height chain — constrain CopilotKit's chat to the floating panel so the
+ * message list scrolls inside it (and auto-scrolls to the newest turn) instead
+ * of overflowing and being clipped. */
+.chat-surface-area .copilotKitChat {
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+.chat-surface-area .copilotKitChatBody {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.chat-surface-area .copilotKitMessages {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+}
+
 .chat-surface-area .copilotKitMessagesContainer {
   padding: 16px 16px 24px !important;
   gap: 4px !important;
@@ -385,35 +535,49 @@
   margin-right: auto !important;
   width: 100% !important;
 }
-.copilotKitInput {
-  border-radius: var(--radius-card) !important;
-  background-color: rgba(255, 255, 255, 0.7) !important;
-  border: 1px solid rgba(0, 0, 0, 0.08) !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+/* Custom composer (see Composer in src/chat/ChatUI.tsx). */
+.composer-wrap { padding: 2px 0 6px; }
+.composer {
+  display: flex; align-items: flex-end; gap: 8px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(6px);
+  padding: 6px 6px 6px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   transition: border-color var(--duration-micro) var(--ease-pirsch),
     box-shadow var(--duration-micro) var(--ease-pirsch),
-    background-color var(--duration-micro) var(--ease-pirsch) !important;
+    background-color var(--duration-micro) var(--ease-pirsch);
 }
-.copilotKitInput:focus-within {
-  border-color: var(--color-midnight-ink) !important;
-  background-color: rgba(255, 255, 255, 0.95) !important;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06) !important;
+.composer:focus-within {
+  border-color: rgba(0, 0, 0, 0.28);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.07);
 }
-
-/* Send / control buttons. */
-.copilotKitInputControlButton {
-  border-radius: 999px !important;
-  transition: background-color var(--duration-micro) var(--ease-pirsch),
-    transform var(--duration-micro) var(--ease-pirsch) !important;
+.composer-input {
+  flex: 1; resize: none; border: 0; background: transparent; outline: none;
+  font-family: var(--font-dm-sans); font-size: 15px; line-height: 1.5;
+  color: var(--color-midnight-ink); padding: 8px 0; max-height: 160px;
 }
-.copilotKitInputControlButton:hover:not(:disabled) {
-  transform: translateY(-1px);
+.composer-input::placeholder { color: var(--color-muted-stone); }
+.composer-send, .composer-stop {
+  display: inline-grid; place-items: center; flex-shrink: 0;
+  width: 36px; height: 36px; border-radius: 999px;
+  background: var(--color-midnight-ink); color: var(--surface-canvas);
+  transition: transform var(--duration-micro) var(--ease-pirsch),
+    opacity var(--duration-micro) var(--ease-pirsch);
 }
-
-/* Activity dots — match leaf. */
-.copilotKitActivityDot {
-  background-color: var(--color-leafy-green) !important;
+.composer-send:hover:not(:disabled), .composer-stop:hover { transform: translateY(-1px); }
+.composer-send:disabled { opacity: 0.3; cursor: default; }
+.composer-hint {
+  margin: 8px 4px 0; font-size: 11px; text-align: center;
+  color: var(--color-muted-stone); opacity: 0.7;
 }
+.composer-hint kbd {
+  font-family: var(--font-dm-sans); font-size: 10px;
+  background: rgba(0, 0, 0, 0.05); border-radius: 4px; padding: 1px 4px;
+}
+.chat-collapsed .composer-hint { display: none; }
 
 /* Collapsed floating composer — hide the message stream so only the input
  * shows (Claude-style). The surface stays mounted; just visually clipped. */
@@ -422,16 +586,26 @@
   display: none !important;
 }
 .chat-collapsed .copilotKitInputContainer {
-  padding-top: 16px !important;
+  padding-top: 0 !important;
+}
+/* Collapsed: vertically centre the lone composer so the panel isn't
+ * top-weighted with dead space below it. */
+.chat-collapsed .copilotKitChat,
+.chat-collapsed .copilotKitChatBody {
+  justify-content: center !important;
 }
 /* The floating attach button only makes sense in the expanded chat. */
 .chat-collapsed .chat-attach-btn {
   display: none !important;
 }
 
-/* Hide CopilotKit's "Powered by" tag — but NOT .poweredByContainer, which
- * is the input container itself (it would hide the composer). */
-.poweredBy {
+/* Hide CopilotKit's "Powered by" tag. CopilotKit ships its own
+ * `.poweredBy { display: block !important }` that loads AFTER our stylesheet,
+ * so an equal-specificity `!important` loses the cascade. We win with a more
+ * specific selector. NOT `.poweredByContainer` — that's the input container
+ * itself (hiding it would kill the composer). */
+.copilotKitInputContainer .poweredBy,
+.copilotKitChatBody .poweredBy {
   display: none !important;
 }
 
@@ -492,6 +666,113 @@
 }
 .animate-drift {
   animation: constellation-drift 24s ease-in-out infinite;
+}
+
+/* ---------------------------------------------------------------- *
+ * Universe graph — cosmic backdrop + floating cluster-region labels
+ * ---------------------------------------------------------------- */
+
+/* A deeper nebula behind the graph hero (sits over .constellation-bg). */
+.graph-nebula {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 50% at 28% 30%, rgba(110, 206, 157, 0.1) 0%, transparent 60%),
+    radial-gradient(55% 45% at 78% 72%, rgba(241, 200, 75, 0.08) 0%, transparent 60%);
+  /* soft vignette to focus the eye toward the centre */
+  box-shadow: inset 0 0 140px 40px rgba(10, 10, 10, 0.04);
+}
+:root[data-theme="dark"] .graph-nebula {
+  background:
+    radial-gradient(60% 50% at 28% 30%, rgba(92, 194, 141, 0.16) 0%, transparent 60%),
+    radial-gradient(55% 45% at 78% 72%, rgba(241, 200, 75, 0.1) 0%, transparent 60%);
+  box-shadow: inset 0 0 160px 50px rgba(0, 0, 0, 0.45);
+}
+
+/* DOM layer holding kind-region labels, synced to the sigma camera. */
+.cluster-labels-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 5;
+}
+.cluster-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-family: var(--font-dm-sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  /* Ink flips to cream in dark mode → strong contrast on the nebula. */
+  color: var(--color-midnight-ink);
+  background: color-mix(in srgb, var(--surface-canvas) 88%, transparent);
+  border: 1px solid var(--hairline);
+  padding: 3px 9px 3px 8px;
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 10px -6px rgba(0, 0, 0, 0.4);
+  will-change: transform;
+}
+/* Colour swatch = the area hue (set inline via --cl-color). */
+.cluster-label::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--cl-color, var(--color-muted-stone));
+  box-shadow: 0 0 6px 0 var(--cl-color, transparent);
+}
+
+/* ---------------------------------------------------------------- *
+ * Immersive universe HUD — floating glass chrome over the canvas
+ * ---------------------------------------------------------------- */
+
+/* Pill button (overview toggle). */
+.hud-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--surface-canvas) 80%, transparent);
+  backdrop-filter: blur(10px);
+  color: var(--color-midnight-ink);
+  box-shadow: var(--shadow-soft, 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px -12px rgba(0, 0, 0, 0.08));
+  transition: background 180ms ease, transform 180ms ease;
+}
+.hud-chip:hover {
+  background: color-mix(in srgb, var(--surface-canvas) 92%, transparent);
+  transform: translateY(-1px);
+}
+
+/* Glass strip container (filters, legend). */
+.hud-strip {
+  border-radius: 16px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--surface-canvas) 78%, transparent);
+  backdrop-filter: blur(10px);
+  padding: 8px 12px;
+  box-shadow: 0 2px 10px -6px rgba(0, 0, 0, 0.35);
+}
+.hud-strip::-webkit-scrollbar {
+  height: 0;
+}
+
+/* Floating glass panel (node inspector + overview). No backdrop → the graph
+ * behind stays fully interactive and draggable. */
+.node-inspector {
+  background: color-mix(in srgb, var(--surface-canvas) 86%, transparent);
+  backdrop-filter: blur(16px) saturate(1.1);
 }
 
 /* ---------------------------------------------------------------- *

@@ -95,3 +95,31 @@ async def refresh_embedding(ctx: dict[str, Any], *, entity_type: str, entity_id:
         row.embedding = vec
         await session.commit()
         logger.debug("embedding_refreshed", entity_type=entity_type, entity_id=entity_id)
+
+
+async def enrich_universe_task(ctx: dict[str, Any], *, user_id: str) -> dict[str, int]:
+    """Background full-universe relationship enrichment for one user.
+
+    Infers semantic (RELATED_TO) + structural (USES_TECH/PART_OF) edges across
+    the user's entities and writes them via the graph layer. Idempotent.
+    """
+    from src.universe.application.enrichment import enrich_user_graph
+
+    factory = get_session_factory()
+    async with factory() as session:
+        stats = await enrich_user_graph(session, UUID(user_id))
+        await session.commit()
+        logger.info("enrich_universe_task_done", user_id=user_id, **stats.as_dict())
+        return stats.as_dict()
+
+
+async def compute_communities_task(ctx: dict[str, Any], *, user_id: str) -> dict[str, int]:
+    """Background community detection ("career pillars") for one user."""
+    from src.graph.application.communities import compute_communities
+
+    factory = get_session_factory()
+    async with factory() as session:
+        pillars = await compute_communities(session, UUID(user_id))
+        await session.commit()
+        logger.info("compute_communities_task_done", user_id=user_id, count=len(pillars))
+        return {"communities": len(pillars)}

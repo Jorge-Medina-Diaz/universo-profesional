@@ -48,6 +48,7 @@ const CompareDocumentsPage = lazyPage(
   () => import("@/pages/CompareDocumentsPage"),
   "CompareDocumentsPage",
 );
+const LegalPage = lazyPage(() => import("@/pages/LegalPage"), "LegalPage");
 
 function parseHash(): { path: string; query: URLSearchParams } {
   const raw = (window.location.hash || "#/").slice(1);
@@ -93,6 +94,9 @@ function resolveRoute(path: string, query: URLSearchParams, isAuthed: boolean) {
   if (path.startsWith("/share/")) {
     const token = path.slice("/share/".length);
     return <SharePage token={token} />;
+  }
+  if (path.startsWith("/legal/")) {
+    return <LegalPage doc={path.slice("/legal/".length)} />;
   }
 
   if (!isAuthed) {

@@ -1,0 +1,204 @@
+/**
+ * Custom chat surface for CopilotKit — replaces the default boxy message list
+ * with an editorial "conversation with your universe" treatment.
+ *
+ * These components are passed to `<CopilotChat AssistantMessage UserMessage
+ * Input />`, so ALL of CopilotKit's plumbing is preserved: token streaming,
+ * scroll-back, and — critically — HITL cards, which arrive via
+ * `message.generativeUI()` and are rendered inside {@link AgentMessage}.
+ *
+ * Design language: the agent is a distinct presence (a constellation orb), its
+ * replies flow as typographic prose on the canvas (no chat-bubble box), and the
+ * user's turns are warm ink bubbles on the right. Motion is restrained — one
+ * entrance rise per message, a calm thinking pulse.
+ */
+import { useRef, useState } from "react";
+import { Markdown } from "@copilotkit/react-ui";
+import type {
+  AssistantMessageProps,
+  UserMessageProps,
+  InputProps,
+} from "@copilotkit/react-ui";
+import { ArrowUp, Check, Copy, RotateCcw, Sparkles, Square } from "lucide-react";
+import { cn } from "@/ui";
+
+/** The agent's avatar — a small glowing constellation orb. */
+function AgentOrb({ thinking = false }: { thinking?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn("agent-orb", thinking && "agent-orb--thinking")}
+    >
+      <Sparkles size={12} strokeWidth={2.25} className="agent-orb__spark" />
+    </span>
+  );
+}
+
+/** Calm three-dot pulse shown while the agent is thinking (no content yet). */
+function ThinkingDots() {
+  return (
+    <div className="flex items-center gap-2 pt-1.5" aria-label="El agente está pensando">
+      <span className="thinking-dots">
+        <i /> <i /> <i />
+      </span>
+      <span className="text-xs text-stone/80">Pensando…</span>
+    </div>
+  );
+}
+
+export function AgentMessage({
+  message,
+  isLoading,
+  isGenerating,
+  onRegenerate,
+}: AssistantMessageProps) {
+  const raw = typeof message?.content === "string" ? message.content : "";
+  const content = raw.trim() ? raw : "";
+  const card = message?.generativeUI?.() ?? undefined;
+  const thinking = !!isLoading && !content;
+  const [copied, setCopied] = useState(false);
+
+  // Suppressed/empty assistant turns (e.g. route hand-offs) render nothing —
+  // no lone orb for a whitespace-only coordinator message.
+  if (!content && !card && !thinking) return null;
+
+  const copy = () => {
+    if (!content) return;
+    void navigator.clipboard?.writeText(content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <div className="agent-msg group flex gap-3 px-1 py-2">
+      <AgentOrb thinking={thinking} />
+      <div className="min-w-0 flex-1">
+        {thinking ? (
+          <ThinkingDots />
+        ) : (
+          <>
+            {content && (
+              <div className={cn("agent-prose", isGenerating && "agent-prose--streaming")}>
+                <Markdown content={content} />
+              </div>
+            )}
+            {card && <div className="mt-1.5">{card}</div>}
+            {content && !isGenerating && (
+              <div className="agent-actions mt-1 flex items-center gap-0.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100">
+                <button
+                  type="button"
+                  onClick={copy}
+                  aria-label="Copiar"
+                  className="agent-action-btn"
+                >
+                  {copied ? <Check size={13} /> : <Copy size={13} />}
+                </button>
+                {onRegenerate && (
+                  <button
+                    type="button"
+                    onClick={() => onRegenerate()}
+                    aria-label="Regenerar respuesta"
+                    className="agent-action-btn"
+                  >
+                    <RotateCcw size={13} />
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function PersonMessage({ message }: UserMessageProps) {
+  const content = typeof message?.content === "string" ? message.content : "";
+  if (!content) return null;
+  return (
+    <div className="flex justify-end px-1 py-2">
+      <div className="person-bubble">{content}</div>
+    </div>
+  );
+}
+
+export function Composer({
+  inProgress,
+  onSend,
+  onStop,
+  hideStopButton,
+  chatReady,
+}: InputProps) {
+  const [text, setText] = useState("");
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const disabled = chatReady === false;
+
+  const autoGrow = () => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  };
+
+  const reset = () => {
+    setText("");
+    requestAnimationFrame(() => {
+      if (ref.current) ref.current.style.height = "auto";
+    });
+  };
+
+  const send = () => {
+    const t = text.trim();
+    if (!t || inProgress || disabled) return;
+    reset();
+    void onSend(t);
+  };
+
+  return (
+    <div className="composer-wrap">
+      <div className="composer group">
+        <textarea
+          ref={ref}
+          rows={1}
+          value={text}
+          disabled={disabled}
+          placeholder={disabled ? "Conectando…" : "Escribe a tu agente…"}
+          onChange={(e) => {
+            setText(e.target.value);
+            autoGrow();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
+          className="composer-input"
+        />
+        {inProgress && !hideStopButton ? (
+          <button
+            type="button"
+            onClick={() => onStop?.()}
+            aria-label="Detener"
+            className="composer-stop"
+          >
+            <Square size={13} strokeWidth={2.5} className="fill-current" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={send}
+            disabled={!text.trim() || inProgress || disabled}
+            aria-label="Enviar"
+            className="composer-send"
+          >
+            <ArrowUp size={17} strokeWidth={2.5} />
+          </button>
+        )}
+      </div>
+      <p className="composer-hint">
+        <kbd>Enter</kbd> para enviar · <kbd>Shift</kbd>+<kbd>Enter</kbd> salto de línea
+      </p>
+    </div>
+  );
+}

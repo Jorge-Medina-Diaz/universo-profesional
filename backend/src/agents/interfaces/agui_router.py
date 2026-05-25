@@ -22,6 +22,7 @@ and pin `thread_id = main-<user_id>` ourselves).
 from __future__ import annotations
 
 import asyncio
+import re
 from typing import Any
 
 import structlog
@@ -530,6 +531,73 @@ async def agui_run_multimodal(
 
 
 # ---------------------------------------------------------------------------
+# Event-stream cleanup
+# ---------------------------------------------------------------------------
+
+# agno pauses a member for HITL by appending this notice to the streamed text.
+# It's framework plumbing, not something the user should read — strip it.
+_HITL_NOTICE_RE = re.compile(
+    r"\s*Member '[^']+' requires human input before continuing\.?\s*"
+)
+
+
+def _norm_text(text: str) -> str:
+    return re.sub(r"\s+", "", text).lower()
+
+
+async def _clean_event_stream(events: Any, encoder: EventEncoder):
+    """Yield encoded AG-UI frames with two route-mode artefacts removed.
+
+    In ``mode="route"`` agno streams the chosen member's reply AND then a
+    team-level summary that simply re-states it — so the same text renders
+    twice — and it leaks an internal "Member '…' requires human input…" notice
+    into the member's final text. We buffer each text message (START→…→END),
+    strip the notice, and drop a message whose (normalised) text was already
+    emitted this run. Tool-call and run-lifecycle events pass through untouched
+    so HITL cards (propose_*, present_widget, …) keep rendering.
+    """
+    from ag_ui.core import TextMessageContentEvent
+
+    buffers: dict[str, dict[str, Any]] = {}
+    emitted_concat = ""
+    async for event in events:
+        etype = getattr(event, "type", None)
+        try:
+            if etype == EventType.TEXT_MESSAGE_START:
+                buffers[event.message_id] = {"start": event, "text": ""}
+                continue
+            if etype == EventType.TEXT_MESSAGE_CONTENT and event.message_id in buffers:
+                buffers[event.message_id]["text"] += event.delta or ""
+                continue
+            if etype == EventType.TEXT_MESSAGE_END and event.message_id in buffers:
+                buf = buffers.pop(event.message_id)
+                cleaned = _HITL_NOTICE_RE.sub(" ", buf["text"]).strip()
+                norm = _norm_text(cleaned)
+                is_dup = len(norm) >= 24 and norm in emitted_concat
+                # Always re-emit START/END so a tool call parented to this
+                # message isn't orphaned; emit CONTENT only when it's real and
+                # not a duplicate (empty/dup → no visible bubble).
+                yield encoder.encode(buf["start"])
+                if cleaned and not is_dup:
+                    emitted_concat += norm
+                    yield encoder.encode(
+                        TextMessageContentEvent(
+                            type=EventType.TEXT_MESSAGE_CONTENT,
+                            message_id=buf["start"].message_id,
+                            delta=cleaned,
+                        )
+                    )
+                yield encoder.encode(event)
+                continue
+        except Exception:  # never let cleanup break the stream
+            pass
+        yield encoder.encode(event)
+    # Defensive: flush any unterminated buffers.
+    for buf in buffers.values():
+        yield encoder.encode(buf["start"])
+
+
+# ---------------------------------------------------------------------------
 # Shared streaming core
 # ---------------------------------------------------------------------------
 
@@ -611,8 +679,8 @@ async def _stream_chat(
         started = _time.monotonic()
         status = "completed"
         try:
-            async for event in run_team(team, run_input):
-                yield encoder.encode(event)
+            async for frame in _clean_event_stream(run_team(team, run_input), encoder):
+                yield frame
         except Exception as exc:  # noqa: BLE001
             status = "error"
             logger.error(

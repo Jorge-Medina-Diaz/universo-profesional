@@ -15,37 +15,59 @@
  * a graph node calls `setChatFocus()` so the user can ask "tell me
  * more about this" and the coordinator routes the next message.
  */
-import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Network,
   ListTree,
   GitBranch,
+  PanelLeftOpen,
+  Sparkles,
+  X,
 } from "lucide-react";
 import { universe, documents } from "@/shared/api";
 import { useChatState, type FocusEntity } from "@/chat/state";
 import { useGraphLensState } from "@/graph/lensState";
 import { graphApi, type GraphSnapshot } from "@/graph/api";
-import { GraphView } from "@/graph/GraphView";
+import { GraphView, type GraphSelection } from "@/graph/GraphView";
+import { NodeDetailDrawer } from "@/graph/NodeDetailDrawer";
+import { OutlineLens } from "./_universe/OutlineLens";
+import { TrajectoryLens } from "./_universe/TrajectoryLens";
 import { KIND_COLORS, KIND_LABELS } from "@/shared/kindColors";
+import { AREA_ORDER, areaKey, colorForArea, labelForArea } from "@/shared/areaColors";
+import { FloatingChat } from "@/chat/FloatingChat";
+import { enableCopilot, useCopilotReady } from "@/app/CopilotProvider";
 import { SuggestionBar } from "@/widgets/SuggestionBar";
 import { ProfileCompleteness } from "@/widgets/ProfileCompleteness";
 import {
-  Badge,
   Button,
   Card,
   GalaxyIllustration,
-  PageHeader,
   SectionLabel,
   Skeleton,
   cn,
 } from "@/ui";
 
+// Warm up the CopilotKit dynamic import as soon as the universe loads.
+enableCopilot();
+
+const CopilotSurface = lazy(() =>
+  import("./_chat/CopilotSurface").then((m) => ({ default: m.CopilotSurface })),
+);
+
+const UNIVERSE_CHAT_INSTRUCTIONS = `Eres el compañero agéntico del usuario, sobre su universo profesional en formato grafo navegable.
+Habla en español por defecto. Tu trabajo es ayudarle a EXPLORAR y MANTENER su universo.
+- Cuando quiera ver o explorar algo (sus skills, proyectos, experiencias, un área como backend/IA/cloud, o cómo se conectan), usa \`universe_retrieve\` para encontrar los nodos y luego \`present_graph_view(mode, focus_entity_id?)\` para pilotar el grafo (focus | cluster | timeline | ontology_overlay). El grafo de esta página reaccionará: enfoca el nodo y abre su ficha.
+- Coherencia primero: antes de crear algo nuevo, considera si es una actualización. Usa las propose_* tools (muestran cards) y nunca guardes sin confirmación.
+- Una pregunta por turno.`;
+
+const UNIVERSE_CHAT_INITIAL = `Este es tu universo. Pídeme que te enseñe un área ("muéstrame mi stack de backend"), que enfoque algo, o cuéntame algo nuevo para añadirlo.`;
+
 type Lens = "graph" | "outline" | "trajectory";
 
 const LENSES: { id: Lens; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: "graph", label: "Grafo", icon: Network },
+  { id: "graph", label: "Universo", icon: Network },
   { id: "outline", label: "Outline", icon: ListTree },
   { id: "trajectory", label: "Trayectoria", icon: GitBranch },
 ];
@@ -53,12 +75,19 @@ const LENSES: { id: Lens; label: string; icon: React.ComponentType<{ className?:
 export function UniversePage() {
   const [lens, setLens] = useState<Lens>("graph");
   const [activeKinds, setActiveKinds] = useState<Set<string>>(new Set());
+  const [selectedNode, setSelectedNode] = useState<GraphSelection | null>(null);
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  const [, setChatExpanded] = useState(false);
+  const [enriching, setEnriching] = useState(false);
   const setFocus = useChatState((s) => s.setFocus);
+  const chatReady = useCopilotReady();
+  const queryClient = useQueryClient();
 
   // React to the agent's `present_graph_view` tool: map its modes onto
   // our three lenses so a chat turn can pivot the visualisation.
   const lensMode = useGraphLensState((s) => s.mode);
   const lensRevision = useGraphLensState((s) => s.revision);
+  const focusEntityId = useGraphLensState((s) => s.focusEntityId);
   useEffect(() => {
     if (lensRevision === 0) return; // initial state, user hasn't been steered
     setLens(lensMode === "timeline" ? "trajectory" : "graph");
@@ -148,6 +177,30 @@ export function UniversePage() {
     };
   }, [baseSnapshot, activeKinds]);
 
+  // Chat → graph: when the agent focuses an entity via `present_graph_view`,
+  // select that node here so the camera animates to it and the inspector opens.
+  useEffect(() => {
+    if (lensRevision === 0 || !focusEntityId || !baseSnapshot) return;
+    const node = baseSnapshot.nodes.find((n) => n.key === focusEntityId);
+    if (node) {
+      setSelectedNode({
+        id: node.key,
+        kind: node.attributes.kind,
+        label: node.attributes.label,
+      });
+    }
+  }, [focusEntityId, lensRevision, baseSnapshot]);
+
+  // Legend: the distinct semantic areas present in the current view, ordered.
+  const presentAreas = useMemo(() => {
+    if (!filteredSnapshot) return [] as string[];
+    const set = new Set<string>();
+    for (const n of filteredSnapshot.nodes) {
+      set.add(areaKey(n.attributes.area, n.attributes.kind));
+    }
+    return AREA_ORDER.filter((a) => set.has(a));
+  }, [filteredSnapshot]);
+
   const handleFocus = (id: string, kind: string, label: string) => {
     if (kind === "document") {
       window.location.hash = `#/documents/${id.replace(/^doc-/, "")}`;
@@ -160,141 +213,222 @@ export function UniversePage() {
     });
   };
 
+  // Agentic enrichment: infer relationships across the universe, then refetch.
+  const handleEnrich = async () => {
+    if (enriching) return;
+    setEnriching(true);
+    try {
+      await graphApi.enrich();
+      await queryClient.invalidateQueries({ queryKey: ["graph", "snapshot"] });
+    } finally {
+      setEnriching(false);
+    }
+  };
+
   const isEmpty = !snapshotQuery.isLoading && (filteredSnapshot?.node_count ?? 0) === 0;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 lg:px-8 lg:py-10">
-      <PageHeader
-        eyebrow="Tu mapa profesional"
-        title="Tu universo"
-        subtitle="Skills, proyectos, experiencias y decisiones — todo conectado como un grafo navegable."
-      />
+    <div className="fixed inset-0 top-16 bottom-16 md:bottom-0 overflow-hidden constellation-bg">
+      {/* Cosmic backdrop (graph lens only) */}
+      {lens === "graph" && !isEmpty ? <div className="graph-nebula" aria-hidden /> : null}
 
-      {/* Toolbar: lens switcher + legend */}
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-        <LensSwitcher current={lens} onChange={setLens} />
-        {knownKinds.length > 0 ? (
-          <KindFilters
-            kinds={knownKinds}
-            active={activeKinds}
-            onToggle={(k) => {
-              setActiveKinds((prev) => {
-                const next = new Set(prev);
-                if (next.has(k)) next.delete(k);
-                else next.add(k);
-                return next;
-              });
-            }}
-            onClear={() => setActiveKinds(new Set())}
-          />
-        ) : null}
+      {/* ===== Lens surface — full bleed ===== */}
+      <div className="absolute inset-0">
+        <AnimatePresence mode="wait">
+          {snapshotQuery.isLoading ? (
+            <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
+              {lens === "graph" ? <GraphSkeleton /> : lens === "outline" ? <OutlineSkeleton /> : <TrajectorySkeleton />}
+            </motion.div>
+          ) : isEmpty ? (
+            <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
+              <UniverseEmptyState />
+            </motion.div>
+          ) : lens === "graph" && filteredSnapshot ? (
+            <motion.div key="graph" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
+              <GraphView
+                snapshot={filteredSnapshot}
+                selectedId={selectedNode?.id ?? null}
+                onSelectEntity={setSelectedNode}
+              />
+            </motion.div>
+          ) : lens === "outline" && filteredSnapshot ? (
+            <motion.div
+              key="outline"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="h-full overflow-y-auto px-4 pb-32 pt-24"
+            >
+              <div className="mx-auto max-w-3xl">
+                <OutlineLens snapshot={filteredSnapshot} onSelect={setSelectedNode} />
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="trajectory"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="h-full overflow-y-auto px-4 pb-32 pt-24"
+            >
+              <div className="mx-auto max-w-3xl">
+                <TrajectoryLens onSelect={setSelectedNode} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Hero graph */}
-      <div className="mt-4 relative overflow-hidden rounded-card border border-hairline constellation-bg">
-        <div className="relative h-[64vh] min-h-[460px]">
-          <AnimatePresence mode="wait">
-            {snapshotQuery.isLoading ? (
-              <motion.div
-                key="loading"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="h-full"
-              >
-                {lens === "graph" ? (
-                  <GraphSkeleton />
-                ) : lens === "outline" ? (
-                  <OutlineSkeleton />
-                ) : (
-                  <TrajectorySkeleton />
-                )}
-              </motion.div>
-            ) : isEmpty ? (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="h-full"
-              >
-                <UniverseEmptyState />
-              </motion.div>
-            ) : lens === "graph" && filteredSnapshot ? (
-              <motion.div
-                key="graph"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="h-full"
-              >
-                <GraphView snapshot={filteredSnapshot} onFocusEntity={handleFocus} />
-              </motion.div>
-            ) : lens === "outline" && filteredSnapshot ? (
-              <motion.div
-                key="outline"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="h-full overflow-y-auto p-6 md:p-8"
-              >
-                <OutlineLens snapshot={filteredSnapshot} onFocusEntity={handleFocus} />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="trajectory"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="h-full overflow-y-auto p-6 md:p-8"
-              >
-                <TrajectoryLens snapshot={filteredSnapshot} />
-              </motion.div>
-            )}
-          </AnimatePresence>
+      {/* ===== Top HUD: overview toggle · lens switcher ===== */}
+      <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex items-start justify-between gap-3 px-3">
+        <button
+          type="button"
+          onClick={() => setOverviewOpen(true)}
+          className="hud-chip pointer-events-auto"
+          aria-label="Abrir resumen del universo"
+        >
+          <PanelLeftOpen size={15} />
+          <span className="hidden sm:inline font-display text-[15px] leading-none">Tu universo</span>
+        </button>
+
+        <div className="pointer-events-auto">
+          <LensSwitcher current={lens} onChange={setLens} />
         </div>
+
+        <button
+          type="button"
+          onClick={handleEnrich}
+          disabled={enriching || isEmpty}
+          className="hud-chip pointer-events-auto disabled:opacity-50"
+          aria-label="Conectar universo (inferir relaciones)"
+          title="Inferir relaciones entre tus entidades"
+        >
+          <Sparkles size={15} className={enriching ? "animate-pulse" : undefined} />
+          <span className="hidden sm:inline text-[14px] leading-none">
+            {enriching ? "Conectando…" : "Conectar"}
+          </span>
+        </button>
       </div>
 
-      {filteredSnapshot && !isEmpty ? (
-        <p className="mt-3 px-1 text-xs text-stone">
-          {filteredSnapshot.node_count} nodos · {filteredSnapshot.edge_count} aristas
-          {activeKinds.size > 0
-            ? ` · filtrado: ${Array.from(activeKinds).map((k) => KIND_LABELS[k] ?? k).join(", ")}`
-            : ""}
-        </p>
+      {/* ===== Kind filters (graph lens) — scrollable strip under the switcher ===== */}
+      {lens === "graph" && knownKinds.length > 0 && !isEmpty ? (
+        <div className="pointer-events-none absolute inset-x-0 top-[3.6rem] z-20 flex justify-center px-3">
+          <div className="pointer-events-auto hud-strip max-w-[min(92vw,640px)] overflow-x-auto">
+            <KindFilters
+              kinds={knownKinds}
+              active={activeKinds}
+              onToggle={(k) => {
+                setActiveKinds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(k)) next.delete(k);
+                  else next.add(k);
+                  return next;
+                });
+              }}
+              onClear={() => setActiveKinds(new Set())}
+            />
+          </div>
+        </div>
       ) : null}
 
-      {/* Insight cards — full width below the hero so text never gets cramped */}
-      <div className="mt-8 grid gap-4 lg:grid-cols-3">
-        <ProfileCompleteness />
-        <SuggestionBar />
-        {summaryQuery.data ? (
-          <Card padding="lg" className="flex flex-col">
-            <SectionLabel index={3} tone="leaf">
-              Resumen
-            </SectionLabel>
-            <ul className="mt-4 space-y-2.5 text-sm">
-              {Object.entries(summaryQuery.data.counts ?? {}).map(([k, v]) => (
-                <li
-                  key={k}
-                  className="flex items-center justify-between border-b border-hairline pb-2 last:border-0 last:pb-0"
-                >
-                  <span className="flex items-center gap-2 text-stone">
-                    <span
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: KIND_COLORS[k] ?? "#94a3b8" }}
-                    />
-                    {KIND_LABELS[k] ?? k}
-                  </span>
-                  <span className="font-display text-[18px] tabular-nums text-ink">
-                    {v as number}
-                  </span>
-                </li>
+      {/* ===== Area legend + counts (graph lens) — bottom right ===== */}
+      {lens === "graph" && presentAreas.length > 0 && !isEmpty ? (
+        <div className="pointer-events-none absolute bottom-4 right-4 z-20 hidden md:block">
+          <div className="hud-strip pointer-events-auto flex max-w-[260px] flex-col gap-2">
+            <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+              {presentAreas.map((a) => (
+                <span key={a} className="inline-flex items-center gap-1.5 text-[11px] text-ink/80">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colorForArea(a) }} />
+                  {labelForArea(a)}
+                </span>
               ))}
-            </ul>
-          </Card>
+            </div>
+            {filteredSnapshot ? (
+              <p className="border-t border-hairline pt-1.5 text-[11px] text-stone">
+                {filteredSnapshot.node_count} nodos · {filteredSnapshot.edge_count} aristas
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/* ===== Floating glass inspector (no backdrop — graph stays live) ===== */}
+      <NodeDetailDrawer
+        selection={selectedNode}
+        snapshot={filteredSnapshot}
+        onClose={() => setSelectedNode(null)}
+        onNavigate={setSelectedNode}
+        onChatFocus={handleFocus}
+      />
+
+      {/* ===== Overview slide-over (left) — completeness · suggestions · summary ===== */}
+      <AnimatePresence>
+        {overviewOpen ? (
+          <motion.aside
+            key="overview"
+            initial={{ x: -28, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -28, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 420, damping: 40 }}
+            className="node-inspector pointer-events-auto absolute left-4 top-4 z-30 flex max-h-[calc(100%-2rem)] w-[min(94%,340px)] flex-col overflow-hidden rounded-card border border-hairline shadow-float"
+          >
+            <div className="flex items-center justify-between border-b border-hairline bg-canvas/70 px-5 py-3 backdrop-blur">
+              <p className="eyebrow">Resumen del universo</p>
+              <button
+                type="button"
+                aria-label="Cerrar"
+                onClick={() => setOverviewOpen(false)}
+                className="grid h-7 w-7 place-items-center rounded-full text-stone hover:bg-surface hover:text-ink transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="flex-1 space-y-4 overflow-y-auto p-4">
+              <ProfileCompleteness />
+              <SuggestionBar />
+              {summaryQuery.data ? (
+                <Card padding="lg" className="flex flex-col">
+                  <SectionLabel index={3} tone="leaf">Resumen</SectionLabel>
+                  <ul className="mt-4 space-y-2.5 text-sm">
+                    {Object.entries(summaryQuery.data.counts ?? {}).map(([k, v]) => (
+                      <li key={k} className="flex items-center justify-between border-b border-hairline pb-2 last:border-0 last:pb-0">
+                        <span className="flex items-center gap-2 text-stone">
+                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: KIND_COLORS[k] ?? "#94a3b8" }} />
+                          {KIND_LABELS[k] ?? k}
+                        </span>
+                        <span className="font-display text-[18px] tabular-nums text-ink">{v as number}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              ) : null}
+            </div>
+          </motion.aside>
         ) : null}
-      </div>
+      </AnimatePresence>
+
+      {/* ===== Floating chat — pilots the graph via present_graph_view ===== */}
+      <FloatingChat onExpandedChange={setChatExpanded}>
+        {chatReady ? (
+          <Suspense fallback={<ChatLoadingSkeleton />}>
+            <CopilotSurface
+              instructions={UNIVERSE_CHAT_INSTRUCTIONS}
+              title="Tu universo · chat"
+              initial={UNIVERSE_CHAT_INITIAL}
+            />
+          </Suspense>
+        ) : (
+          <ChatLoadingSkeleton />
+        )}
+      </FloatingChat>
+    </div>
+  );
+}
+
+function ChatLoadingSkeleton() {
+  return (
+    <div className="flex h-full w-full max-w-[680px] mx-auto flex-col justify-end gap-3 p-4">
+      <Skeleton shape="block" className="h-12" />
     </div>
   );
 }
@@ -518,100 +652,3 @@ function KindFilters({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Outline lens — Tana-style flat list grouped by kind
-// ---------------------------------------------------------------------------
-
-function OutlineLens({
-  snapshot,
-  onFocusEntity,
-}: {
-  snapshot: GraphSnapshot;
-  onFocusEntity: (id: string, kind: string, label: string) => void;
-}) {
-  const grouped = useMemo(() => {
-    const map = new Map<string, GraphSnapshot["nodes"]>();
-    for (const node of snapshot.nodes) {
-      const list = map.get(node.attributes.kind) ?? [];
-      list.push(node);
-      map.set(node.attributes.kind, list);
-    }
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [snapshot]);
-
-  if (grouped.length === 0) {
-    return (
-      <p className="text-sm text-ink/50 italic">
-        Aún no hay entradas. Empieza a conversar para construir tu universo.
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {grouped.map(([kind, items]) => (
-        <section key={kind}>
-          <header className="flex items-center gap-2 mb-2">
-            <span
-              className="w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: KIND_COLORS[kind] ?? "#94a3b8" }}
-            />
-            <h3 className="text-sm font-semibold text-ink">
-              {KIND_LABELS[kind] ?? kind}
-            </h3>
-            <Badge tone="stone" className="ml-auto text-xs">
-              {items.length}
-            </Badge>
-          </header>
-          <ul className="ml-4 space-y-1">
-            {items.map((item) => (
-              <li
-                key={item.key}
-                className="group flex items-center gap-2 py-0.5"
-              >
-                <button
-                  type="button"
-                  onClick={() =>
-                    onFocusEntity(item.key, kind, item.attributes.label)
-                  }
-                  className="text-left text-sm text-ink/80 hover:text-ink truncate"
-                >
-                  {item.attributes.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Trajectory lens — chronological placeholder (Sprint R adds the slider)
-// ---------------------------------------------------------------------------
-
-function TrajectoryLens({ snapshot }: { snapshot: GraphSnapshot | null }) {
-  if (!snapshot) {
-    return (
-      <p className="text-sm text-ink/50 italic">
-        Cargando trayectoria…
-      </p>
-    );
-  }
-  // Sprint Q ships a basic list; Sprint R wires it to the temporal
-  // valid_from/valid_to properties + the Episode nodes for a full
-  // timeline.
-  return (
-    <div className="space-y-3 text-sm text-ink/70">
-      <p>
-        Aquí aparecerá tu trayectoria temporal — episodios de chat,
-        skills adquiridos, hitos. (Sprint R completa la línea de tiempo
-        navegable.)
-      </p>
-      <p className="text-xs text-ink/50">
-        Snapshot actual: {snapshot.node_count} nodos · {snapshot.edge_count} aristas.
-      </p>
-    </div>
-  );
-}

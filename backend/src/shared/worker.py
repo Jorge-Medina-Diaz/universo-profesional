@@ -55,11 +55,15 @@ def _collect_functions() -> list[Any]:
         purge_expired_oauth_tokens,
     )
     from src.universe.infrastructure.tasks import (  # noqa: WPS433
+        compute_communities_task,
+        enrich_universe_task,
         refresh_embedding,
     )
 
     return [
         refresh_embedding,
+        enrich_universe_task,
+        compute_communities_task,
         render_document,
         send_email,
         hard_delete_expired_accounts,

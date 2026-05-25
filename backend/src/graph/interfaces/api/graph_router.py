@@ -180,6 +180,14 @@ async def snapshot(
     # include their typed labels.
     from src.graph.domain import schema as gschema
     from src.graph.infrastructure.age_client import cypher, parse_agtype
+    from src.universe.application.area_keywords import primary_area
+    from src.universe.application.shape_service import classify_entities_by_area
+
+    # Per-entity semantic area (backend/frontend/cloud/ai_ml/…) drives the
+    # frontend's clustered, colour-coded layout. Skills/projects/experiences
+    # are classified from their full text; everything else falls back to a
+    # name-only match (e.g. "AWS Certified …" → cloud).
+    area_by_entity = await classify_entities_by_area(session, UUID(user_id))
 
     edge_rows = await cypher(
         session,
@@ -202,12 +210,14 @@ async def snapshot(
         if not meta:
             continue
         entity_id, kind, name = meta
+        area = area_by_entity.get(str(entity_id)) or primary_area(str(name).lower())
         nodes_out.append(
             {
                 "key": str(entity_id),
                 "attributes": {
                     "kind": kind,
                     "label": name,
+                    "area": area,
                 },
             }
         )
@@ -291,6 +301,36 @@ async def retrieve(
         "count": len(items),
         "query": q,
     }
+
+
+@router.post("/enrich")
+async def enrich(
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> dict[str, Any]:
+    """Run agentic relationship enrichment over the user's whole universe.
+
+    Infers semantic (RELATED_TO) + structural (USES_TECH/PART_OF) edges and
+    writes them through the graph layer (source="inferred", refinable). Runs
+    synchronously so the freshly-connected graph is visible immediately.
+    """
+    from src.universe.application.enrichment import enrich_user_graph
+
+    stats = await enrich_user_graph(session, UUID(user_id))
+    await session.commit()
+    return {"status": "ok", "stats": stats.as_dict()}
+
+
+@router.get("/communities")
+async def communities(
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> dict[str, Any]:
+    """Return the user's "career pillars" — Leiden communities + LLM summaries."""
+    from src.graph.application.communities import get_communities
+
+    items = await get_communities(session, UUID(user_id))
+    return {"items": items, "count": len(items)}
 
 
 @router.post("/edges")

@@ -33,6 +33,58 @@ logger = structlog.get_logger(__name__)
 
 
 @tool(
+    name="enrich_universe",
+    description=(
+        "Enriquece el universo del usuario infiriendo relaciones entre sus "
+        "entidades y conectándolo como un grafo coherente: similitud semántica "
+        "→ RELATED_TO, stack de proyectos/experiencias → USES_TECH a skills, y "
+        "proyectos solapados con experiencias → PART_OF. Calcula embeddings que "
+        "falten. Las aristas se escriben con source='inferred' + confianza y son "
+        "refinables. Úsalo cuando el usuario pida 'conecta/enriquece mi universo' "
+        "o cuando veas el grafo disperso/pobre. Devuelve el conteo por tipo."
+    ),
+)
+async def enrich_universe(run_context: RunContext) -> dict[str, Any]:
+    user_id_raw = run_context.user_id
+    if not user_id_raw:
+        return {"ok": False, "error": "missing user_id"}
+    user_id = UUID(str(user_id_raw))
+    from src.universe.application.enrichment import enrich_user_graph
+
+    factory = get_session_factory()
+    async with factory() as session:
+        await set_rls_user(session, user_id)
+        stats = await enrich_user_graph(session, user_id)
+        await session.commit()
+    return {"ok": True, "stats": stats.as_dict()}
+
+
+@tool(
+    name="get_career_pillars",
+    description=(
+        "Devuelve los 'pilares de carrera' del usuario: las comunidades "
+        "(clusters Leiden) detectadas sobre su grafo, cada una con una etiqueta "
+        "y un resumen generado. Úsalo para preguntas globales/temáticas ('¿cuál "
+        "es mi narrativa profesional?', '¿cuáles son mis fortalezas?', 'resume mi "
+        "perfil') en vez de retrieval entidad a entidad. Si está vacío, sugiere "
+        "ejecutar enrich_universe primero."
+    ),
+)
+async def get_career_pillars(run_context: RunContext) -> dict[str, Any]:
+    user_id_raw = run_context.user_id
+    if not user_id_raw:
+        return {"ok": False, "error": "missing user_id", "pillars": []}
+    user_id = UUID(str(user_id_raw))
+    from src.graph.application.communities import get_communities
+
+    factory = get_session_factory()
+    async with factory() as session:
+        await set_rls_user(session, user_id)
+        items = await get_communities(session, user_id)
+    return {"ok": True, "pillars": items, "count": len(items)}
+
+
+@tool(
     name="universe_retrieve",
     description=(
         "Search the user's professional graph universe. Fuses three "
@@ -167,4 +219,10 @@ async def explain_path(
     return {"ok": True, "paths": paths}
 
 
-ALL_RETRIEVAL_TOOLS = [universe_retrieve, get_graph_neighbors, explain_path]
+ALL_RETRIEVAL_TOOLS = [
+    universe_retrieve,
+    get_graph_neighbors,
+    explain_path,
+    enrich_universe,
+    get_career_pillars,
+]

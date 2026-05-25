@@ -147,9 +147,30 @@ SOFTWARE_AREA_KEYWORDS: dict[str, list[str]] = {
         "fine-tuning",
         "fine tuning",
         "embedding",
+        "embeddings",
         "model serving",
         "vllm",
         "ollama",
+        # Retrieval / RAG / vector-search vocabulary
+        "retrieval",
+        "semantic search",
+        "vector search",
+        "vector database",
+        "pgvector",
+        "faiss",
+        "qdrant",
+        "milvus",
+        "weaviate",
+        "pinecone",
+        "bm25",
+        "reranking",
+        "rerank",
+        "cross-encoder",
+        "dense retrieval",
+        "sparse retrieval",
+        "hybrid search",
+        "ndcg",
+        "chunking",
     ],
     "llm_agents": [
         "langchain",
@@ -240,3 +261,17 @@ def area_hits_per_kw(blob: str, area: str) -> int:
     """For a single area, count how many of its keywords appear in blob."""
     kws = SOFTWARE_AREA_KEYWORDS.get(area, [])
     return sum(1 for kw in kws if kw in blob)
+
+
+def primary_area(blob: str) -> str | None:
+    """Return the single best-matching area for a text blob, or None.
+
+    Argmax over `score_areas`; ties broken by canonical definition order
+    (the first area declared in SOFTWARE_AREA_KEYWORDS wins). Used to give
+    each graph node ONE cluster membership.
+    """
+    scores = score_areas(blob)
+    if not scores:
+        return None
+    order = list(SOFTWARE_AREA_KEYWORDS.keys())
+    return max(scores, key=lambda a: (scores[a], -order.index(a)))

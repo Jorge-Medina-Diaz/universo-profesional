@@ -144,9 +144,6 @@ export function LoginPage() {
                 <a href="#/register" className="text-stone hover:text-ink transition-colors">
                   {t("auth.noAccount")} →
                 </a>
-                <a href="#/auth/verify" className="text-stone hover:text-ink transition-colors">
-                  {t("auth.forgot")}
-                </a>
               </div>
             </Stagger>
           </form>

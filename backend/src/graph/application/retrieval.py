@@ -31,6 +31,7 @@ protocol.
 from __future__ import annotations
 
 import asyncio
+import math
 import time
 from collections import OrderedDict, defaultdict
 from collections.abc import Iterable
@@ -411,12 +412,18 @@ class PPRRetriever:
             seeds = await _pick_seeds_via_dense(session, user_id, query)
         if not seeds:
             return []
+        # HippoRAG-style node specificity: weight each seed by INVERSE degree
+        # so generic, highly-connected hubs (e.g. a ubiquitous skill) don't
+        # dominate the random walk, while specific/rare seeds steer it.
+        # s(node) = 1 / ln(e + degree)  →  1.0 at degree 0, decaying for hubs.
+        # https://arxiv.org/abs/2405.14831
         personalization = [0.0] * snapshot.graph.vcount()
         weighted = 0
         for seed_id in seeds:
             idx = snapshot.id_to_idx.get(seed_id)
             if idx is not None:
-                personalization[idx] = 1.0
+                degree = snapshot.graph.degree(idx)
+                personalization[idx] = 1.0 / math.log(math.e + degree)
                 weighted += 1
         if weighted == 0:
             return []
@@ -516,11 +523,15 @@ async def hybrid_retrieve(
     kinds: Iterable[str] | None = None,
     k_rrf: int = 60,
 ) -> list[HybridResult]:
-    """Run BM25 + Dense + PPR in parallel and fuse with RRF.
+    """Run BM25 + Dense + PPR in parallel, fuse with RRF, then rerank.
 
     `kinds` filters all three lanes. None means every kind in
-    GRAPH_REGISTRY.
+    GRAPH_REGISTRY. A cross-encoder/LLM reranker reorders the fused
+    candidate pool against the query for a precision lift (no-op when
+    disabled — see `reranker.get_reranker`).
     """
+    from src.shared.config import get_settings
+
     bm25 = BM25Retriever()
     dense = DenseRetriever()
     ppr = PPRRetriever()
@@ -540,10 +551,43 @@ async def hybrid_retrieve(
         session, user_id, query, top_k=per_lane_k, kinds=kinds, seeds=seeds
     )
 
+    # Fuse a WIDER pool than top_k so the reranker has candidates to reorder.
+    pool = max(top_k, get_settings().rerank_candidate_pool)
     fused = reciprocal_rank_fusion(
-        [bm25_res, dense_res, ppr_res], k=k_rrf, top_k=top_k
+        [bm25_res, dense_res, ppr_res], k=k_rrf, top_k=pool
     )
-    return fused
+    return await _rerank(query, fused, top_k=top_k)
+
+
+async def _rerank(
+    query: str, fused: list[HybridResult], *, top_k: int
+) -> list[HybridResult]:
+    """Reorder the fused pool with the configured reranker (best-effort)."""
+    if len(fused) <= 1:
+        return fused[:top_k]
+    from src.graph.application.reranker import RerankCandidate, get_reranker
+
+    reranker = get_reranker()
+    candidates = [
+        RerankCandidate(id=str(r.entity_id), text=f"{r.kind} · {r.name}") for r in fused
+    ]
+    try:
+        ordered = await reranker.rerank(query, candidates, top_n=top_k)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("rerank_stage_failed", error=str(exc))
+        return fused[:top_k]
+    if not ordered:
+        return fused[:top_k]
+
+    by_id = {str(r.entity_id): r for r in fused}
+    out: list[HybridResult] = []
+    for rank, (cid, score) in enumerate(ordered, start=1):
+        item = by_id.get(cid)
+        if item is None:
+            continue
+        item.contributions["rerank"] = {"rank": float(rank), "score": round(score, 6)}
+        out.append(item)
+    return out[:top_k]
 
 
 # ---------------------------------------------------------------------------
