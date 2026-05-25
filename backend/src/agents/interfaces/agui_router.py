@@ -535,6 +535,58 @@ def _extract_agui_pdf_text(messages: list[Any]) -> str:
     return "\n\n".join(chunks)
 
 
+async def _surface_team_external_tools(raw: Any) -> Any:
+    """Make TEAM-level external-execution pauses visible to agno's AG-UI converter.
+
+    agno's `async_stream_agno_response_as_agui_events` emits the TOOL_CALL events
+    for an external-execution tool only when the paused chunk is an
+    `agno.run.agent.RunPausedEvent` AND its `tools_awaiting_external_execution`
+    is populated. When the COORDINATOR itself calls a `propose_*`/`present_*` card
+    the pause is an `agno.run.team.RunPausedEvent` (a DIFFERENT class — the
+    converter's `isinstance` check fails) and its external tools live in `.tools`
+    with `tools_awaiting_external_execution = None`. Result: the card never
+    reaches the client and the turn looks empty ("no disponible").
+
+    Two mismatches block a TEAM pause:
+      1. The converter's completion dispatch matches `chunk.event ==
+         RunEvent.run_paused` but NOT `TeamRunEvent.run_paused`, so a team pause
+         is never treated as a completion → its tool calls are never emitted.
+      2. The emit path then needs `isinstance(chunk, agent RunPausedEvent)`, and
+         the agent class exposes `tools_awaiting_external_execution` as a property
+         over `.tools`; the team class is a different dataclass with neither.
+
+    Both are dataclasses, so we re-tag the team pause as the agent class (copy +
+    swap `__class__`) AND set `.event = RunEvent.run_paused`, so the dispatch
+    routes it and the property yields the external tools. We blank the framework
+    "Team run paused…" notice so it never shows as chat text. This makes every
+    coordinator-emitted card (questionnaires, connection prompts, …) work.
+    """
+    import copy as _copy
+
+    from agno.run.agent import RunEvent as _RunEvent
+    from agno.run.agent import RunPausedEvent as _AgentRunPausedEvent
+
+    async for ev in raw:
+        try:
+            if getattr(ev, "is_paused", False) and not isinstance(
+                ev, _AgentRunPausedEvent
+            ):
+                has_ext = any(
+                    getattr(t, "external_execution_required", False)
+                    for t in (getattr(ev, "tools", None) or [])
+                )
+                if has_ext:
+                    conv = _copy.copy(ev)
+                    conv.__class__ = _AgentRunPausedEvent
+                    conv.event = _RunEvent.run_paused  # match completion dispatch
+                    conv.content = None  # drop "Team run paused…" plumbing text
+                    yield conv
+                    continue
+        except Exception:  # never let the bridge break the stream
+            pass
+        yield ev
+
+
 async def _run_team_with_attachments(team: Any, run_input: RunAgentInput) -> Any:
     """Like agno's `run_team`, but also passes image attachments and inline PDF
     text to `team.arun`. (agno's stock extractor keeps text only.)"""
@@ -573,7 +625,9 @@ async def _run_team_with_attachments(team: Any, run_input: RunAgentInput) -> Any
             run_id=run_id,
         )
         async for event in async_stream_agno_response_as_agui_events(
-            response_stream=response_stream, thread_id=run_input.thread_id, run_id=run_id
+            response_stream=_surface_team_external_tools(response_stream),
+            thread_id=run_input.thread_id,
+            run_id=run_id,
         ):
             yield event
     except Exception as exc:
