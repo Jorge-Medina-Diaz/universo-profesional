@@ -231,3 +231,101 @@ def kinds_with_ontology() -> list[str]:
 
 def kinds_with_evidence() -> list[str]:
     return [k for k, v in GRAPH_REGISTRY.items() if v.supports_evidence]
+
+
+# ---------------------------------------------------------------------------
+# Capture rubric — the "minimal things we must know" per entity kind.
+# ---------------------------------------------------------------------------
+#
+# `core` is the minimal RELEVANT set we always want captured (drives
+# completeness, gap detection and what the agent asks for). `recommended` is
+# useful-but-optional (the "puede haber mucha más info" the user mentioned).
+# Every field name here is a real column on the kind's `sql_table`, so the
+# gap scan can query it generically.
+#
+# References/evidence are NOT plain fields: a skill/experience is backed by
+# books/papers (artifact type=book|paper), courses, projects, certifications,
+# etc. via `derived_from_*` → :DERIVED_FROM / :DEMONSTRATES edges (see
+# coherence_v2). The agent links them; they don't count toward `core`.
+CAPTURE_RUBRIC: dict[str, dict[str, tuple[str, ...]]] = {
+    "experience": {
+        "core": ("organization", "role", "location", "start_date"),
+        "recommended": (
+            "end_date",
+            "is_current",
+            "description",
+            "highlights",
+            "competences",
+            "seniority_level",
+        ),
+    },
+    "skill": {
+        "core": ("name", "level", "years"),
+        "recommended": ("category", "last_used_year"),
+    },
+    "education": {
+        "core": ("institution", "degree", "field_of_study", "start_date"),
+        "recommended": ("end_date", "is_current", "description"),
+    },
+    "project": {
+        "core": ("name", "role", "tech_stack"),
+        "recommended": ("description", "impact", "url", "highlights"),
+    },
+    "certification": {
+        "core": ("name", "issuer", "issued_on"),
+        "recommended": ("expires_on", "credential_id", "verification_url"),
+    },
+    "course": {
+        "core": ("title", "platform", "completed_on"),
+        "recommended": ("started_on", "duration_hours", "certificate_url"),
+    },
+    "language": {
+        "core": ("code", "name", "level"),
+        "recommended": ("certification",),
+    },
+    "achievement": {
+        "core": ("title", "achieved_on"),
+        "recommended": ("description", "context", "evidence_url"),
+    },
+    "interest": {
+        "core": ("name",),
+        "recommended": ("description",),
+    },
+    "artifact": {
+        "core": ("type", "title", "url"),
+        "recommended": ("year", "description", "venue"),
+    },
+    "architecture_decision": {
+        "core": ("title", "decision"),
+        "recommended": ("context", "consequences", "status", "tags"),
+    },
+}
+
+
+def core_fields(kind: str) -> tuple[str, ...]:
+    """Minimal relevant fields for a kind (empty tuple if unknown)."""
+    return CAPTURE_RUBRIC.get(kind, {}).get("core", ())
+
+
+def _is_blank(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return not value.strip()
+    if isinstance(value, (list, tuple, set, dict)):
+        return len(value) == 0
+    return False
+
+
+def missing_core_fields(kind: str, payload: dict[str, Any]) -> list[str]:
+    """Core fields the payload is missing (per the capture rubric)."""
+    return [f for f in core_fields(kind) if _is_blank(payload.get(f))]
+
+
+def completeness(kind: str, payload: dict[str, Any]) -> float:
+    """Fraction (0..1) of core fields present. 1.0 when the kind has no rubric."""
+    core = core_fields(kind)
+    if not core:
+        return 1.0
+    present = sum(1 for f in core if not _is_blank(payload.get(f)))
+    return round(present / len(core), 2)

@@ -107,6 +107,70 @@ async def find_gaps(run_context: RunContext) -> dict[str, Any]:
 
 
 @tool(
+    name="find_incomplete_entities",
+    description=(
+        "List universe entities missing CORE fields per the capture rubric — the "
+        "minimal relevant info each kind should have. E.g. an experience needs "
+        "organization, role, location (city/country) and start_date; a skill "
+        "needs level and years. Use it to know exactly what to complete or ask "
+        "about. Optional `kind` scopes to one entity type. Returns each "
+        "incomplete entity with its id, name and which core fields are missing."
+    ),
+)
+async def find_incomplete_entities(
+    run_context: RunContext,
+    kind: str | None = None,
+) -> dict[str, Any]:
+    user_id = run_context.user_id
+    if not user_id:
+        return {"error": "missing user_id"}
+    from sqlalchemy import text
+
+    from src.graph.domain.registry import (
+        CAPTURE_RUBRIC,
+        GRAPH_REGISTRY,
+        missing_core_fields,
+    )
+
+    kinds = [kind] if kind else list(CAPTURE_RUBRIC.keys())
+    out: list[dict[str, Any]] = []
+    factory = get_session_factory()
+    async with factory() as session:
+        await set_rls_user(session, UUID(user_id))
+        for k in kinds:
+            spec = GRAPH_REGISTRY.get(k)
+            rub = CAPTURE_RUBRIC.get(k)
+            if spec is None or rub is None:
+                continue
+            name_field = spec.name_field
+            cols = sorted({*rub["core"], name_field})
+            collist = ", ".join(f'"{c}"' for c in cols)
+            # Identifiers come from the trusted registry, never user input.
+            sql = (
+                f"SELECT id, {collist} FROM {spec.sql_table} "
+                "WHERE user_id = :uid AND deleted_at IS NULL LIMIT 200"
+            )
+            try:
+                rows = (
+                    await session.execute(text(sql), {"uid": str(user_id)})
+                ).mappings().all()
+            except Exception:  # skip a kind whose table/columns differ
+                continue
+            for r in rows:
+                miss = missing_core_fields(k, dict(r))
+                if miss:
+                    out.append(
+                        {
+                            "kind": k,
+                            "id": str(r["id"]),
+                            "name": r.get(name_field),
+                            "missing_core": miss,
+                        }
+                    )
+    return {"count": len(out), "incomplete": out[:50]}
+
+
+@tool(
     name="search_universe",
     description=(
         "Semantic search across the user's universe. Useful to answer "

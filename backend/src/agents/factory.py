@@ -164,6 +164,7 @@ def get_universe_team():  # type: ignore[no-untyped-def]
     )
     from src.agents.tools.universe_reads import (
         find_gaps,
+        find_incomplete_entities,
         get_universe_summary,
     )
     # Sprint O — hybrid graph retrieval (BM25 + dense + PPR + RRF).
@@ -288,6 +289,25 @@ def get_universe_team():  # type: ignore[no-untyped-def]
         "vecindario; explain_path(from,to) para relaciones. Para '¿cuándo cambié X?'/'¿qué "
         "dije sobre Y?' usa get_change_history o list_notes; para '¿qué hicimos esta "
         "semana?'/'¿en qué hemos estado?' usa get_recent_activity. No inventes.",
+        # Capture rubric — minimal relevant fields per kind
+        "RÚBRICA DE CAPTURA (los mínimos que SIEMPRE intentas tener por entidad): "
+        "experiencia = empresa + puesto + lugar (ciudad/país) + fechas; "
+        "skill/lenguaje de programación = nombre + nivel + años; education = "
+        "institución + título + campo + fechas; project = nombre + rol + stack; "
+        "certification = nombre + emisor + fecha; course = título + plataforma + "
+        "fecha; language = idioma + nivel. Si al capturar o importar falta un "
+        "mínimo, PREGÚNTALO (en la misma card si se puede, o en el siguiente "
+        "turno) — no guardes a medias sin intentar completarlo. Usa "
+        "find_incomplete_entities para ver qué entidades existentes están "
+        "incompletas y proponer completarlas.",
+        # References / evidence — back claims with sources
+        "REFERENCIAS/EVIDENCIA: cuando algo se aprendió o se respalda con una "
+        "fuente (libro, paper, curso, proyecto, certificación), ENLÁZALO en vez "
+        "de perderlo: un libro/paper es un artifact (type=book|paper); para "
+        "respaldar un skill/experiencia pasa derived_from_course_id / "
+        "derived_from_project_id / derived_from_certification_id / "
+        "derived_from_artifact_id al upsert → se materializa como evidencia en "
+        "el grafo. Así un skill puede citar el curso o libro de donde viene.",
         # Enrichment + global/relational reasoning over the knowledge graph
         "CONOCIMIENTO: para preguntas GLOBALES o de identidad ('¿cuál es mi narrativa/"
         "perfil?', '¿mis fortalezas?', 'resúmeme', '¿en qué destaco?') usa "
@@ -391,6 +411,7 @@ def get_universe_team():  # type: ignore[no-untyped-def]
             # doesn't need the extra tool schemas.
             get_universe_summary,
             find_gaps,
+            find_incomplete_entities,
             find_existing,
             get_change_history,
             get_recent_activity,
