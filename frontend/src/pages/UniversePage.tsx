@@ -106,6 +106,12 @@ export function UniversePage() {
     queryFn: universe.summary,
   });
 
+  const pillarsQuery = useQuery({
+    queryKey: ["graph", "communities"],
+    queryFn: () => graphApi.communities(),
+    staleTime: 60_000,
+  });
+
   const documentsQuery = useQuery({
     queryKey: ["documents"],
     queryFn: () => documents.list(),
@@ -219,7 +225,10 @@ export function UniversePage() {
     setEnriching(true);
     try {
       await graphApi.enrich();
-      await queryClient.invalidateQueries({ queryKey: ["graph", "snapshot"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["graph", "snapshot"] }),
+        queryClient.invalidateQueries({ queryKey: ["graph", "communities"] }),
+      ]);
     } finally {
       setEnriching(false);
     }
@@ -384,6 +393,22 @@ export function UniversePage() {
               </button>
             </div>
             <div className="flex-1 space-y-4 overflow-y-auto p-4">
+              {(pillarsQuery.data?.items?.length ?? 0) > 0 ? (
+                <Card padding="lg" className="flex flex-col">
+                  <SectionLabel index={1} tone="leaf">Pilares de carrera</SectionLabel>
+                  <ul className="mt-4 space-y-3">
+                    {pillarsQuery.data!.items.map((p) => (
+                      <li key={p.id} className="border-b border-hairline pb-3 last:border-0 last:pb-0">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="font-display text-[15px] text-ink">{p.label}</span>
+                          <span className="text-[11px] tabular-nums text-stone">{p.size}</span>
+                        </div>
+                        <p className="mt-1 text-xs leading-snug text-stone">{p.summary}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              ) : null}
               <ProfileCompleteness />
               <SuggestionBar />
               {summaryQuery.data ? (

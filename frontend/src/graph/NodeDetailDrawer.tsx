@@ -231,6 +231,14 @@ export function NodeDetailDrawer({
     return out;
   }, [id, snapshot]);
 
+  // Career pillar (Leiden community) the node belongs to, from the snapshot.
+  const pillar = useMemo<string | null>(() => {
+    if (!id || !snapshot) return null;
+    const node = snapshot.nodes.find((n) => n.key === id);
+    const p = node?.attributes.pillar;
+    return typeof p === "string" && p ? p : null;
+  }, [id, snapshot]);
+
   // Esc closes the inspector without blocking the graph (no backdrop).
   useEffect(() => {
     if (!open) return;
@@ -279,8 +287,9 @@ export function NodeDetailDrawer({
 
             <div className="px-5 py-4 space-y-5">
               {/* Meta chips */}
-              {(confidence !== null || Boolean(row?.source) || Boolean(row?.is_current)) && (
+              {(confidence !== null || Boolean(row?.source) || Boolean(row?.is_current) || pillar) && (
                 <div className="flex flex-wrap gap-1.5">
+                  {pillar ? <Badge tone="leaf" size="sm">◆ {pillar}</Badge> : null}
                   {row?.is_current ? <Badge tone="leaf" size="sm">Actual</Badge> : null}
                   {confidence !== null ? (
                     <Badge tone="stone" size="sm">{confidence}% confianza</Badge>

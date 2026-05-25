@@ -10,8 +10,18 @@ export interface GraphNode {
     label: string;
     /** Semantic area (backend/frontend/cloud/ai_ml/…); null if unmatched. */
     area?: string | null;
+    /** Career pillar (Leiden community label); null until communities computed. */
+    pillar?: string | null;
     [k: string]: unknown;
   };
+}
+
+export interface CareerPillar {
+  id: string;
+  label: string;
+  summary: string;
+  size: number;
+  members: string[];
 }
 
 export interface GraphEdge {
@@ -69,4 +79,7 @@ export const graphApi = {
 
   enrich: async (): Promise<{ status: string; stats: Record<string, number> }> =>
     api("/api/v1/graph/enrich", { method: "POST" }),
+
+  communities: async (): Promise<{ items: CareerPillar[]; count: number }> =>
+    api("/api/v1/graph/communities"),
 };

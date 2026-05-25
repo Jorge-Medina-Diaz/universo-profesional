@@ -189,6 +189,30 @@ async def snapshot(
     # name-only match (e.g. "AWS Certified …" → cloud).
     area_by_entity = await classify_entities_by_area(session, UUID(user_id))
 
+    # Career-pillar (Leiden community) membership per entity, so the UI can
+    # surface which pillar each node belongs to. Named edge var `m:` avoids
+    # the SQLAlchemy `:TYPE` bind-param trap.
+    pillar_by_entity: dict[str, str] = {}
+    try:
+        pillar_rows = await cypher(
+            session,
+            gschema.GRAPH_PERSONAL,
+            """
+            MATCH (e:Entity {user_id: $uid})-[m:MEMBER_OF]->
+                  (c:Community {user_id: $uid})
+            RETURN e.id, c.label
+            """,
+            params={"uid": user_id},
+            column_defs="eid agtype, label agtype",
+        )
+        for row in pillar_rows:
+            eid = _parse_agtype_str(row.get("eid"))
+            label = _parse_agtype_str(row.get("label"))
+            if eid and label:
+                pillar_by_entity[eid] = label
+    except Exception:  # noqa: BLE001 — pillars are optional decoration
+        pillar_by_entity = {}
+
     edge_rows = await cypher(
         session,
         gschema.GRAPH_PERSONAL,
@@ -218,6 +242,7 @@ async def snapshot(
                     "kind": kind,
                     "label": name,
                     "area": area,
+                    "pillar": pillar_by_entity.get(str(entity_id)),
                 },
             }
         )

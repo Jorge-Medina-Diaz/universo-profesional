@@ -287,10 +287,16 @@ def get_universe_team():  # type: ignore[no-untyped-def]
         "vecindario; explain_path(from,to) para relaciones. Para '¿cuándo cambié X?'/'¿qué "
         "dije sobre Y?' usa get_change_history o list_notes; para '¿qué hicimos esta "
         "semana?'/'¿en qué hemos estado?' usa get_recent_activity. No inventes.",
-        # Enrichment
-        "ENRIQUECER: si el usuario pide 'conecta/enriquece mi universo' o el grafo se ve "
-        "disperso, llama enrich_universe (infiere relaciones entre entidades). Después "
-        "resume cuántas relaciones nuevas se crearon por tipo.",
+        # Enrichment + global/relational reasoning over the knowledge graph
+        "CONOCIMIENTO: para preguntas GLOBALES o de identidad ('¿cuál es mi narrativa/"
+        "perfil?', '¿mis fortalezas?', 'resúmeme', '¿en qué destaco?') usa "
+        "get_career_pillars (comunidades Leiden + resúmenes) y nárralo como pilares; si "
+        "viene vacío, sugiere enrich_universe primero. Para RELACIONES ('¿cómo conecta X "
+        "con Y?', '¿qué une esto?') usa explain_path / get_graph_neighbors. Para cosas "
+        "CONCRETAS usa universe_retrieve. Si el usuario pide 'conecta/enriquece mi "
+        "universo' o el grafo está disperso, llama enrich_universe y resume las "
+        "relaciones nuevas por tipo. No inventes pilares ni relaciones que no devuelvan "
+        "las tools.",
         # Polyglot + area awareness
         "POLYGLOT: en turnos sobre perfil/área/gaps llama get_universe_shape una vez. Si "
         "shape ∈ {T, π, M} el usuario es polyglot — tenlo en cuenta en tu razonamiento (no "

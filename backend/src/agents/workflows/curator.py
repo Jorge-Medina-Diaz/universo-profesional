@@ -247,6 +247,8 @@ async def run_curator_for_user(*, user_id: str) -> dict[str, Any]:
         "orphans_cleaned": 0,
         "confidence_decayed": 0,
         "outliers_flagged": 0,
+        "edges_inferred": 0,
+        "communities": 0,
     }
     async with factory() as session:
         await set_rls_user(session, UUID(user_id))
@@ -301,6 +303,24 @@ async def run_curator_for_user(*, user_id: str) -> dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "curator_decay_failed", user_id=user_id, error=str(exc)
+            )
+
+        # Sleep-time enrichment: re-infer relationships + recompute career
+        # pillars so the universe stays connected & clustered as it grows,
+        # without the user having to trigger "Conectar" manually. (cognee
+        # memify / Letta sleep-time pattern.)
+        try:
+            async with session.begin_nested():
+                from src.universe.application.enrichment import enrich_user_graph
+
+                stats = await enrich_user_graph(session, UUID(user_id))
+                summary["edges_inferred"] = (
+                    stats.related_to + stats.uses_tech + stats.part_of
+                )
+                summary["communities"] = stats.communities
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "curator_enrich_failed", user_id=user_id, error=str(exc)
             )
 
         # Sprint P: outlier sweep. Import lazily to avoid coupling curator
