@@ -331,6 +331,13 @@ _HITL_NOTICE_RE = re.compile(
     r"\s*Member '[^']+' requires human input before continuing\.?\s*"
 )
 
+# agno also leaks an English status line when a run pauses for an
+# external-execution tool (our HITL cards). Internal plumbing — strip it.
+_EXTERNAL_EXEC_NOTICE_RE = re.compile(
+    r"\s*I have tools to execute,? but (?:it|they) needs? external execution\.?\s*",
+    re.IGNORECASE,
+)
+
 # Shown in-thread when a real user turn produces no output (agno swallows some
 # provider failures, e.g. "credit balance too low"). Surfaced as a normal
 # assistant message so the user's own turn persists and the failure is visible.
@@ -416,7 +423,8 @@ async def _clean_event_stream(
                 continue
             if etype == EventType.TEXT_MESSAGE_END and event.message_id in buffers:
                 buf = buffers.pop(event.message_id)
-                cleaned = _HITL_NOTICE_RE.sub(" ", buf["text"]).strip()
+                cleaned = _HITL_NOTICE_RE.sub(" ", buf["text"])
+                cleaned = _EXTERNAL_EXEC_NOTICE_RE.sub(" ", cleaned).strip()
                 norm = _norm_text(cleaned)
                 is_dup = len(norm) >= 24 and norm in emitted_concat
                 # Always re-emit START/END so a tool call parented to this
@@ -616,6 +624,41 @@ async def _stream_chat(
         **(run_input.forwarded_props or {}),
         "user_id": str(user_id),
     }
+
+    # PASSIVE CONNECT CHANNEL — never execute the team, never emit run events.
+    #
+    # CopilotKit opens `agent/connect` (guard_concurrency=False) on every mount /
+    # reconnect / StrictMode pass to REPLAY an existing thread, not to generate
+    # (see @copilotkit/core: "connectAgent … to replay historical messages for an
+    # existing thread"). It reopens this channel many times per session.
+    #
+    # Two failure modes we must avoid:
+    #   1. Running the team here → the coordinator "replies" to the loaded history
+    #      (phantom turns that look like the user wrote them) and re-emits an open
+    #      `propose_*` proposal on every reconnect (the confirm-loop).
+    #   2. Emitting RUN_STARTED/RUN_FINISHED here → each reconnect starts a NEW
+    #      run lifecycle on the client, which ABANDONS the paused HITL run and
+    #      makes an open confirmation card vanish.
+    #
+    # So connect must be an inert channel: stream zero events and close. The
+    # client keeps its in-memory messages (incl. any pending HITL card), and
+    # scroll-back history is served separately by GET /threads/{id}/messages.
+    # Only the active `/run` path (guard_concurrency=True) generates.
+    if not guard_concurrency:
+        async def passive_stream():
+            # Empty async generator: no run-lifecycle events, immediate close.
+            return
+            yield  # pragma: no cover — marks this a generator
+
+        return StreamingResponse(
+            passive_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     # Per-user concurrency guard — bounds simultaneous agent RUNS only.
     # The long-lived `connect` SSE channel (guard_concurrency=False) must NOT

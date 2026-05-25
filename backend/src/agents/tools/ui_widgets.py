@@ -425,6 +425,41 @@ def propose_pdf_import() -> str:
     return _client_only()
 
 
+@tool(
+    name="present_import_review",
+    description=(
+        "Show ONE batch-review card for a whole ingestion (an attached/pasted CV, "
+        "a LinkedIn dump, or a block of facts the user dictated). This is the "
+        "ONLY way to capture an import — NEVER drip one `propose_*` card per "
+        "entity for imported content. Imported/dictated content is TRUSTED: the "
+        "card defaults every item to selected; the user reviews the whole set at "
+        "once and may deselect or tweak parts before committing them together. "
+        "`groups` is a list of {kind, items}: kind ∈ experience|education|project|"
+        "skill|certification|course|language|achievement|interest|artifact; each "
+        "item is the same payload shape as the matching `propose_*`/`upsert_*` "
+        "tool (e.g. experience → {organization, role, start_date, end_date, "
+        "is_current, description, highlights, competences}). Extract EVERYTHING "
+        "you can from the source into the right groups. Returns "
+        "{committed: {<kind>: count}, total: int} after the user confirms — then "
+        "summarise briefly and move on to enrichment (do not re-propose what was "
+        "imported)."
+    ),
+    external_execution=True,
+)
+def present_import_review(
+    groups: list[dict[str, Any]],
+    title: str | None = None,
+    source: str | None = None,
+    intro: str | None = None,
+) -> str:
+    """`groups`: [{kind: str, items: [ {<entity payload>}, ... ]}, ...].
+
+    The card commits every selected item through the coherence engine (which
+    dedups/merges against what already exists), so re-importing is safe.
+    """
+    return _client_only()
+
+
 # --- Generic A2UI cards (selectors, list previews, confirm, progress, upload) --
 # These power the "100% chat-driven" experience: anything the user can do
 # navigating between pages should also be doable inside the chat through

@@ -44,6 +44,7 @@ import {
   EscoDisambigCard,
   type EscoCandidate,
 } from "./cards/EscoDisambigCard";
+import { ImportReviewCard, type ImportGroup } from "./cards/ImportReviewCard";
 
 interface UpsertResponse {
   status: "created" | "merged" | "noop" | "suggested";
@@ -51,6 +52,75 @@ interface UpsertResponse {
   diffs: { field: string; old: unknown; new: unknown }[];
   suggestion_id: string | null;
   reason: string | null;
+}
+
+// Field whitelist per entity kind — the canonical payload each entity accepts.
+// The batch-import card sends free-form LLM-extracted items, so a hallucinated
+// field name (e.g. `obtained_date` instead of `issued_on`) would 500 the
+// server-side `Entity.create(**payload)`. We normalise common aliases and drop
+// unknown keys so one bad field never breaks an import.
+const IMPORT_FIELDS: Record<string, string[]> = {
+  experience: ["organization", "role", "start_date", "end_date", "is_current", "description", "highlights", "competences"],
+  education: ["institution", "degree", "field_of_study", "start_date", "end_date", "is_current", "description", "highlights"],
+  project: ["name", "description", "role", "project_type", "tech_stack", "highlights", "impact", "url", "is_current"],
+  skill: ["name", "category", "level", "years", "last_used_year"],
+  certification: ["name", "issuer", "issued_on", "expires_on", "credential_id", "verification_url"],
+  course: ["title", "platform", "started_on", "completed_on", "duration_hours", "certificate_url"],
+  language: ["code", "name", "level", "certification"],
+  achievement: ["title", "achieved_on", "description", "context", "evidence_url"],
+  interest: ["name", "description"],
+  artifact: ["type", "title", "url", "year", "description", "venue", "linked_project_id"],
+};
+
+// Common field-name variants the model emits → canonical name.
+const IMPORT_ALIASES: Record<string, string> = {
+  obtained_date: "issued_on",
+  issue_date: "issued_on",
+  issued: "issued_on",
+  granted_on: "issued_on",
+  expiry_date: "expires_on",
+  expiration_date: "expires_on",
+  valid_until: "expires_on",
+  completed_date: "completed_on",
+  started_date: "started_on",
+  achieved_date: "achieved_on",
+  organisation: "organization",
+  company: "organization",
+};
+
+// Common language names (ES/EN) → ISO 639-1, to backfill the required `code`
+// when the model gives only the name.
+const LANG_CODE: Record<string, string> = {
+  español: "es", castellano: "es", spanish: "es",
+  inglés: "en", ingles: "en", english: "en",
+  francés: "fr", frances: "fr", french: "fr",
+  alemán: "de", aleman: "de", german: "de",
+  italiano: "it", italian: "it",
+  portugués: "pt", portugues: "pt", portuguese: "pt",
+  neerlandés: "nl", neerlandes: "nl", holandés: "nl", holandes: "nl", dutch: "nl",
+  catalán: "ca", catalan: "ca",
+  gallego: "gl", euskera: "eu", vasco: "eu",
+  chino: "zh", chinese: "zh", japonés: "ja", japones: "ja", japanese: "ja",
+  ruso: "ru", russian: "ru", árabe: "ar", arabe: "ar", arabic: "ar",
+};
+
+function normalizeImportItem(kind: string, raw: Record<string, unknown>): Record<string, unknown> {
+  const allowed = IMPORT_FIELDS[kind];
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (v === null || v === undefined || v === "") continue;
+    const key = IMPORT_ALIASES[k] ?? k;
+    if (!allowed || allowed.includes(key)) out[key] = v;
+  }
+  // Backfill required fields the model commonly omits.
+  if (kind === "course" && !out.title && (raw.name || raw.title)) {
+    out.title = (raw.name ?? raw.title) as string;
+  }
+  if (kind === "language" && !out.code && typeof out.name === "string") {
+    const code = LANG_CODE[out.name.toLowerCase().trim()];
+    if (code) out.code = code;
+  }
+  return out;
 }
 
 // Holder for the active chat thread id, updated by UniverseActions on
@@ -974,6 +1044,84 @@ export function UniverseActions() {
           respond?.("Redirected to /connections.");
         }}
         onReject={() => respond?.("Cancelled.")}
+      />
+    ),
+  });
+
+  // --- Batch import review (trusted ingestion: CV / LinkedIn / dictated) ----
+  // ONE card for the whole set. Every selected item is committed through the
+  // coherence engine (dedups/merges), so we never drip a propose_* per entity.
+  //
+  // NOTE: known issue — when the COORDINATOR emits this external_execution tool
+  // in agno's team/route mode, the run is not held open as a HITL pause the way
+  // specialist propose_* cards are, so the card can be pruned on RUN_FINISHED.
+  // Confirm quickly, or (follow-up) route this through a specialist agent.
+  const commitImport = async (selected: ImportGroup[]): Promise<{ committed: Record<string, number>; total: number }> => {
+    setSaving("import-review");
+    try {
+      const committed: Record<string, number> = {};
+      const failed: { kind: string; error: string }[] = [];
+      let total = 0;
+      let lastResp: UpsertResponse | null = null;
+      for (const g of selected) {
+        for (const item of g.items) {
+          try {
+            const clean = normalizeImportItem(g.kind, item as Record<string, unknown>);
+            const payload = g.kind === "skill" ? { category: "hard", ...clean } : clean;
+            const resp = await coherenceUpsert(g.kind, payload);
+            committed[g.kind] = (committed[g.kind] ?? 0) + 1;
+            total += 1;
+            lastResp = resp;
+          } catch (e) {
+            failed.push({ kind: g.kind, error: (e as Error).message });
+          }
+        }
+      }
+      qc.invalidateQueries({ queryKey: ["universe"] });
+      qc.invalidateQueries({ queryKey: ["coherence", "changes"] });
+      if (lastResp) setLastOutcome({ kind: "import", resp: lastResp });
+      if (failed.length) {
+        toast.error(
+          "Algunos elementos no se guardaron",
+          `${failed.length} de ${total + failed.length} fallaron al importar.`,
+        );
+      }
+      return { committed, total };
+    } finally {
+      setSaving(null);
+    }
+  };
+  useCopilotAction({
+    name: "present_import_review",
+    description:
+      "Show a single batch-review card for an imported/dictated set of entities. The user reviews the whole set, deselects parts, and commits them together.",
+    parameters: [
+      { name: "groups", type: "object[]", required: true } as any,
+      { name: "title", type: "string" },
+      { name: "source", type: "string" },
+      { name: "intro", type: "string" },
+    ] as any,
+    renderAndWaitForResponse: ({
+      args,
+      respond,
+    }: {
+      args: Record<string, unknown>;
+      respond?: (s: string) => void;
+    }) => (
+      <ImportReviewCard
+        title={args.title as string | undefined}
+        intro={args.intro as string | undefined}
+        source={args.source as string | undefined}
+        groups={(args.groups as ImportGroup[]) ?? []}
+        pending={saving === "import-review"}
+        onConfirm={async (selected) => {
+          const res = await commitImport(selected);
+          respond?.(JSON.stringify(res));
+          return res;
+        }}
+        onCancel={() =>
+          respond?.(JSON.stringify({ committed: {}, total: 0, cancelled: true }))
+        }
       />
     ),
   });
