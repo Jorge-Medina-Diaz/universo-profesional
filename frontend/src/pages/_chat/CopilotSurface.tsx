@@ -15,6 +15,10 @@
  */
 import { useEffect } from "react";
 import { CopilotChat } from "@copilotkit/react-ui";
+// Inline the CopilotKit CSS as a string so Vite does NOT extract it into a
+// separate stylesheet that gets hoisted into index.html. The styles are only
+// injected when this lazy chunk actually loads (~29 KB, gzipped ~6 KB).
+import copilotkitCss from "@copilotkit/react-ui/styles.css?inline";
 import { useCopilotChat, useCoAgentStateRender } from "@copilotkit/react-core";
 import { toast } from "@/ui";
 import { AgentMessage, PersonMessage, Composer, ErrorMessage } from "@/chat/ChatUI";
@@ -35,6 +39,16 @@ const ATTACH_ACCEPT = "image/jpeg,image/png,image/webp,image/gif,application/pdf
 const ATTACH_MAX_BYTES = 10 * 1024 * 1024;
 
 export function CopilotSurface({ instructions, title, initial }: Props) {
+  // Inject CopilotKit styles dynamically so they stay out of the entry HTML.
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.textContent = copilotkitCss;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
   // Real-time agent state rendering ( predictive state updates from the backend ).
   // Falls back to heuristic steps in AgentMessage when the backend does not emit
   // explicit agent-state messages.

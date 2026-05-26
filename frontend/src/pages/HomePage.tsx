@@ -10,21 +10,23 @@ import { Suspense, lazy, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import { PanelRightOpen, LayoutGrid } from "lucide-react";
-import { Drawer } from "vaul";
 import { UniverseDrawer } from "@/chat/UniverseDrawer";
-import { WidgetPane } from "@/chat/WidgetPane";
 import { FloatingChat } from "@/chat/FloatingChat";
 import { useChatState } from "@/chat/state";
 import { graphApi } from "@/graph/api";
-import { GraphView } from "@/graph/GraphView";
 import { Button, GalaxyIllustration, Skeleton } from "@/ui";
 import { tour } from "@/app/tour/TourProvider";
 import { firstRunTour } from "@/app/tour/tours";
 import { enableCopilot, useCopilotReady } from "@/app/CopilotProvider";
 import { queryKeys } from "@/shared/queryKeys";
 
-// Trigger CopilotKit dynamic import as soon as the chat surface is loaded.
-enableCopilot();
+const GraphView = lazy(() =>
+  import("@/graph/GraphView").then((m) => ({ default: m.GraphView })),
+);
+
+const WidgetsSheet = lazy(() =>
+  import("@/chat/WidgetsSheet").then((m) => ({ default: m.WidgetsSheet })),
+);
 
 const CopilotSurface = lazy(() =>
   import("./_chat/CopilotSurface").then((m) => ({ default: m.CopilotSurface })),
@@ -71,6 +73,11 @@ export function HomePage() {
     staleTime: 30_000,
   });
 
+  // Warm up CopilotKit only when this surface actually mounts.
+  useEffect(() => {
+    enableCopilot();
+  }, []);
+
   // First-run tour — only on the home surface, only once per user.
   useEffect(() => {
     if (!tour.isCompleted(firstRunTour.id)) {
@@ -86,7 +93,15 @@ export function HomePage() {
       {/* Constellation backdrop */}
       <div className="absolute inset-0 animate-drift">
         {hasNodes && snapshot.data ? (
-          <GraphView snapshot={snapshot.data} ambient />
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center opacity-40">
+                <GalaxyIllustration width={420} height={320} />
+              </div>
+            }
+          >
+            <GraphView snapshot={snapshot.data} ambient />
+          </Suspense>
         ) : (
           <div className="flex h-full items-center justify-center opacity-40">
             <GalaxyIllustration width={420} height={320} />
@@ -163,18 +178,9 @@ export function HomePage() {
       </div>
 
       {/* Widgets bottom-sheet (all sizes — widgets accumulate via present_widget) */}
-      <Drawer.Root open={widgetsSheetOpen} onOpenChange={(v: boolean) => setWidgetsSheetOpen(v)}>
-        <Drawer.Portal>
-          <Drawer.Overlay className="fixed inset-0 bg-ink/30 backdrop-blur-sm z-40" />
-          <Drawer.Content className="bg-canvas text-ink flex flex-col fixed bottom-0 left-0 right-0 z-50 h-[85vh] rounded-t-card shadow-lift">
-            <Drawer.Title className="sr-only">Widgets</Drawer.Title>
-            <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-ink/15" aria-hidden />
-            <div className="flex-1 min-h-0">
-              <WidgetPane compact />
-            </div>
-          </Drawer.Content>
-        </Drawer.Portal>
-      </Drawer.Root>
+      <Suspense fallback={null}>
+        <WidgetsSheet open={widgetsSheetOpen} onOpenChange={setWidgetsSheetOpen} />
+      </Suspense>
 
       <UniverseDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </div>

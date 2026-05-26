@@ -144,12 +144,7 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
   const enable = useCallback(() => {
     if (enabled) return;
     setEnabled(true);
-    void Promise.all([
-      import("@copilotkit/react-core"),
-      // CSS bundled with react-ui. Cast through `as string` to satisfy TS
-      // (there's no module declaration for the .css export).
-      import("@copilotkit/react-ui/styles.css" as never),
-    ]).then(([core]) => {
+    void import("@copilotkit/react-core").then((core) => {
       setMod(core);
       setCopilotReady();
     });

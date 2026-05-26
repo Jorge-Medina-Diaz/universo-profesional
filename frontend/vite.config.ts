@@ -24,6 +24,16 @@ export default defineConfig({
     // Heavy syntax-highlighter chunks (mermaid, shiki) live in their own
     // bundles below; raise the warning threshold accordingly.
     chunkSizeWarningLimit: 1000,
+    // Do not modulepreload chunks that are only needed inside lazy-loaded
+    // routes (copilotkit, syntax/GraphView, vaul). This saves ~6 MB of
+    // eager download for anonymous users who only see the landing page.
+    modulePreload: {
+      resolveDependencies(_url, deps) {
+        return deps.filter(
+          (d) => !/copilotkit|syntax|GraphView|vaul/.test(d),
+        );
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -43,17 +53,15 @@ export default defineConfig({
           if (id.includes("react-i18next") || id.includes("/i18next/")) {
             return "i18n";
           }
-          if (id.includes("/vaul/")) return "vaul";
+          // vaul is small (66 KB) and now lazy-loaded via WidgetsSheet.
+          // Forcing it into its own chunk creates a false circular-dep
+          // warning with the react chunk; let Rollup decide.
           if (id.includes("lucide-react")) return "icons";
           if (id.includes("@fontsource/")) return "fonts";
-          if (
-            id.includes("/shiki/") ||
-            id.includes("/mermaid/") ||
-            id.includes("/highlight.js/") ||
-            id.includes("/prismjs/")
-          ) {
-            return "syntax";
-          }
+          // shiki / mermaid / highlight deps are pulled in exclusively by
+          // CopilotKit. Forcing them into a separate "syntax" chunk creates a
+          // circular dependency (syntax -> copilotkit -> syntax). Let Rollup keep
+          // them inside the copilotkit lazy chunk instead.
           return undefined;
         },
       },

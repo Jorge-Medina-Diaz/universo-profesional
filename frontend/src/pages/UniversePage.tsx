@@ -30,7 +30,7 @@ import { universe, documents } from "@/shared/api";
 import { useChatState, type FocusEntity } from "@/chat/state";
 import { useGraphLensState } from "@/graph/lensState";
 import { graphApi, type GraphSnapshot } from "@/graph/api";
-import { GraphView, type GraphSelection } from "@/graph/GraphView";
+import type { GraphSelection } from "@/graph/GraphView";
 import { NodeDetailDrawer } from "@/graph/NodeDetailDrawer";
 import { OutlineLens } from "./_universe/OutlineLens";
 import { TrajectoryLens } from "./_universe/TrajectoryLens";
@@ -50,8 +50,9 @@ import {
   cn,
 } from "@/ui";
 
-// Warm up the CopilotKit dynamic import as soon as the universe loads.
-enableCopilot();
+const GraphView = lazy(() =>
+  import("@/graph/GraphView").then((m) => ({ default: m.GraphView })),
+);
 
 const CopilotSurface = lazy(() =>
   import("./_chat/CopilotSurface").then((m) => ({ default: m.CopilotSurface })),
@@ -74,6 +75,10 @@ const LENSES: { id: Lens; label: string; icon: React.ComponentType<{ className?:
 ];
 
 export function UniversePage() {
+  useEffect(() => {
+    enableCopilot();
+  }, []);
+
   const [lens, setLens] = useState<Lens>("graph");
   const [activeKinds, setActiveKinds] = useState<Set<string>>(new Set());
   const [selectedNode, setSelectedNode] = useState<GraphSelection | null>(null);
@@ -271,12 +276,14 @@ export function UniversePage() {
             </motion.div>
           ) : lens === "graph" && filteredSnapshot ? (
             <motion.div key="graph" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
-              <GraphView
-                snapshot={filteredSnapshot}
-                selectedId={selectedNode?.id ?? null}
-                onSelectEntity={setSelectedNode}
-                colorBy={colorBy}
-              />
+              <Suspense fallback={<GraphSkeleton />}>
+                <GraphView
+                  snapshot={filteredSnapshot}
+                  selectedId={selectedNode?.id ?? null}
+                  onSelectEntity={setSelectedNode}
+                  colorBy={colorBy}
+                />
+              </Suspense>
             </motion.div>
           ) : lens === "outline" && filteredSnapshot ? (
             <motion.div
