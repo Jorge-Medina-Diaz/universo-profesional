@@ -13,11 +13,11 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
     proxy: {
-      "/api": { target: "http://backend:8000", changeOrigin: true },
-      "/auth": { target: "http://backend:8000", changeOrigin: true },
-      "/mcp": { target: "http://backend:8000", changeOrigin: true },
-      "/agui": { target: "http://backend:8000", changeOrigin: true },
-      "/.well-known": { target: "http://backend:8000", changeOrigin: true },
+      "/api": { target: process.env.VITE_BACKEND_URL || "http://backend:8000", changeOrigin: true },
+      "/auth": { target: process.env.VITE_BACKEND_URL || "http://backend:8000", changeOrigin: true },
+      "/mcp": { target: process.env.VITE_BACKEND_URL || "http://backend:8000", changeOrigin: true },
+      "/agui": { target: process.env.VITE_BACKEND_URL || "http://backend:8000", changeOrigin: true },
+      "/.well-known": { target: process.env.VITE_BACKEND_URL || "http://backend:8000", changeOrigin: true },
     },
   },
   build: {
@@ -71,5 +71,6 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/__tests__/setup.ts"],
+    exclude: ["node_modules", "e2e", "dist"],
   },
 });

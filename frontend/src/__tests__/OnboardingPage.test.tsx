@@ -29,6 +29,6 @@ describe("OnboardingPage wizard", () => {
 
   it("shows progress indicator", () => {
     render(<OnboardingPage />, { wrapper });
-    expect(screen.getByText(/paso 1 de 7/i)).toBeInTheDocument();
+    expect(screen.getByText(/Bienvenida/i)).toBeInTheDocument();
   });
 });

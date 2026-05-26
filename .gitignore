@@ -85,3 +85,8 @@ frontend/playwright/.cache/
 /*.jpeg
 /*.jpg
 /*.webp
+
+# Playwright
+test-results/
+playwright-report/
+.auth/
