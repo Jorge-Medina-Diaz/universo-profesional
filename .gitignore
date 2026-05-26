@@ -82,3 +82,6 @@ backend/htmlcov/
 frontend/dist/
 frontend/.vite/
 frontend/playwright/.cache/
+/*.jpeg
+/*.jpg
+/*.webp
