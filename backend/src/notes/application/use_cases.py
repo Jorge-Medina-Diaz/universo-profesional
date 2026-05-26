@@ -43,9 +43,7 @@ def _serialize(note: Note) -> dict[str, Any]:
 
     d = asdict(note)
     for k, v in list(d.items()):
-        if isinstance(v, datetime):
-            d[k] = v.isoformat()
-        elif isinstance(v, date):
+        if isinstance(v, datetime) or isinstance(v, date):
             d[k] = v.isoformat()
         elif isinstance(v, _UUID):
             d[k] = str(v)

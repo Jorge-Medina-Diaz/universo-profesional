@@ -11,7 +11,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-
 # Default Content-Security-Policy. Tight by default; opens just what we need:
 #   - Anthropic API (multimodal endpoint may proxy through us, but the
 #     frontend talks to /agui not to api.anthropic.com directly — connect-src

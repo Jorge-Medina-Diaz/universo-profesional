@@ -10,7 +10,7 @@ from src.billing.application.ports import (
     QuotaRepository,
     SubscriptionRepository,
 )
-from src.billing.domain.entities import PLAN_LIMITS, Plan, Subscription
+from src.billing.domain.entities import Subscription
 from src.shared.errors import NotFoundError, QuotaExceededError
 from src.shared.result import Result, err, ok
 from src.shared.security import utc_now

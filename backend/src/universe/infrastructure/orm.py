@@ -7,7 +7,8 @@ from uuid import UUID
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import CHAR, Boolean, Date, Float, ForeignKey, Integer, Numeric, Text
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TIMESTAMP, UUID as PgUUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TIMESTAMP
+from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.shared.db import Base

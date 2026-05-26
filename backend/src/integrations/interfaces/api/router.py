@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import urllib.parse
 from datetime import timedelta
-from typing import Annotated, Any
-from uuid import UUID, uuid4
+from typing import Any
+from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Body, File, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
@@ -17,15 +17,10 @@ from src.integrations.application.connect_disconnect import (
     ListConnections,
 )
 from src.integrations.application.github_sync import SyncGithub
-from src.integrations.application.linkedin_brightdata_sync import (
-    BrightDataLinkedInProvider,
-)
 from src.integrations.application.linkedin_csv_deep import (
     commit_parsed,
     parse_linkedin_zip,
 )
-from src.integrations.application.linkedin_dma_sync import DmaLinkedInProvider
-from src.integrations.application.linkedin_mapper import profile_to_universe_payloads
 from src.integrations.application.linkedin_oidc import issue_state, parse_state
 from src.integrations.application.linkedin_sync import (
     SyncLinkedinBrightdata,
@@ -97,7 +92,7 @@ async def github_callback(
         try:
             await uc.execute(user_id=state, code=code, redirect_uri=redirect_uri, uow=uow)
             await uow.commit()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return RedirectResponse(
                 url=f"{s.frontend_base_url}/#/connections?error={urllib.parse.quote(str(exc))}",
                 status_code=302,

@@ -102,7 +102,7 @@ class LLMListwiseReranker:
                 system=system, prompt=prompt, schema=_RankOrder, max_tokens=512,
                 temperature=0.0,
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("llm_rerank_failed", error=str(exc))
             return _identity(candidates, top_n)
 
@@ -158,7 +158,7 @@ class HostedReranker:
                 )
                 resp.raise_for_status()
                 data = resp.json()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("hosted_rerank_failed", provider=self._provider, error=str(exc))
             return _identity(candidates, top_n)
 

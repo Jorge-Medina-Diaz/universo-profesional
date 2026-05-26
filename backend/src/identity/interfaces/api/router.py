@@ -35,6 +35,7 @@ from src.identity.interfaces.api.schemas import (
     VerifyEmailRequest,
 )
 from src.shared.config import get_settings
+from src.shared.metrics import logins_total
 from src.shared.rate_limit import limiter
 from src.shared.uow import unit_of_work
 
@@ -106,6 +107,7 @@ async def login(
             raise result.error  # type: ignore[union-attr]
         await uow.commit()
         tokens = result.value  # type: ignore[union-attr]
+    logins_total.inc()
     return TokenResponse(
         access_token=tokens.access_token,
         refresh_token=tokens.refresh_token,

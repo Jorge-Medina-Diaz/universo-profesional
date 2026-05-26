@@ -4,8 +4,9 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Boolean, CHAR, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import CITEXT, TIMESTAMP, UUID as PgUUID
+from sqlalchemy import Boolean, ForeignKey, Text
+from sqlalchemy.dialects.postgresql import CITEXT, TIMESTAMP
+from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.shared.db import Base

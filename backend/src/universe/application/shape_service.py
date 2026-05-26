@@ -19,7 +19,7 @@ over AreaStrength + UniverseOrm (the cached projection).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -29,7 +29,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.universe.application.area_keywords import (
     FRONT_BACK_PAIR,
     SOFTWARE_AREA_KEYWORDS,
-    area_hits_per_kw,
     collect_text_blob,
     primary_area,
     score_areas,
@@ -54,14 +53,14 @@ class ShapeResult:
     primary_areas: list[str] = field(default_factory=list)
     secondary_areas: list[str] = field(default_factory=list)
     shape_type: ShapeType = "none"
-    computed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    computed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
-CURRENT_YEAR = datetime.now(timezone.utc).year
+CURRENT_YEAR = datetime.now(UTC).year
 
 
 def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _months_since(year: int | None) -> int | None:
@@ -372,8 +371,8 @@ def primary_area_from_strengths(strengths: list[AreaStrength]) -> tuple[str, flo
 # Re-export for legacy modules that imported SOFTWARE_AREA_KEYWORDS from
 # `src.agents.tools.insights_tools` historically.
 __all__ = [
-    "ShapeResult",
     "SOFTWARE_AREA_KEYWORDS",
+    "ShapeResult",
     "compute_area_strengths",
     "load_area_strengths",
     "primary_area_from_strengths",

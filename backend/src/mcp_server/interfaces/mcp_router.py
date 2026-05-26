@@ -16,7 +16,7 @@ import time
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse
 from jose import JWTError
 
@@ -165,7 +165,7 @@ async def mcp_endpoint(
             payload = {"content": [{"type": "text", "text": json.dumps(result, default=str)}]}
             await session.commit()
             return JSONResponse(_ok_response(result=payload, request_id=rpc_id))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             ok = False
             error_code = type(exc).__name__
             return JSONResponse(
@@ -174,6 +174,12 @@ async def mcp_endpoint(
             )
         finally:
             latency = int((time.perf_counter() - start) * 1000)
+            mcp_invocations_total.labels(
+                tool=name or "unknown", ok=str(ok).lower()
+            ).inc()
+            mcp_latency_seconds.labels(tool=name or "unknown").observe(
+                latency / 1000.0
+            )
             try:
                 store = OAuthStore(session)
                 await store.log_invocation(
@@ -185,7 +191,7 @@ async def mcp_endpoint(
                     error_code=error_code,
                 )
                 await session.commit()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
 
     if method == "resources/list":

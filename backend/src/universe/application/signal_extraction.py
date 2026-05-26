@@ -14,16 +14,16 @@ Idempotent: running twice with the same universe produces the same signals.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from sqlalchemy import select, text as sql_text
+from sqlalchemy import select
+from sqlalchemy import text as sql_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.rubrics.infrastructure.orm import RubricChunkOrm
 from src.shared.embeddings import get_embeddings_service
-from src.universe.application.area_keywords import collect_text_blob, score_areas
 from src.universe.domain.entities import UserRubricSignal
 from src.universe.infrastructure.orm import (
     ArtifactOrm,
@@ -35,7 +35,6 @@ from src.universe.infrastructure.repositories import (
     SqlAlchemyUserRubricSignalRepository,
 )
 
-
 # Thresholds tuned for production embeddings (OpenAI text-embedding-3-small).
 # Deterministic embeddings (dev fallback) produce noise; we still upsert
 # in dev but scores are mostly < 0.6 (treated as 'aspire').
@@ -46,7 +45,7 @@ ANTI_PATTERN_WARN = 0.72
 
 
 def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 @dataclass
@@ -266,7 +265,7 @@ async def extract_user_signals(
     # sector that disappeared.
     chunks_in_scope = {c.id for c in chunks}
     to_remove = [
-        cid for cid in existing_by_chunk.keys()
+        cid for cid in existing_by_chunk
         if cid in chunks_in_scope and cid not in kept_chunk_ids
     ]
     if to_remove:
@@ -314,7 +313,7 @@ async def list_user_signals_with_chunk(
         JOIN rubric_documents rd ON rd.id = rc.document_id
         WHERE {where_sql}
         ORDER BY urs.confidence DESC, urs.updated_at DESC
-        """  # noqa: S608
+        """
     )
     rows = (await session.execute(stmt, params)).mappings().all()
     return [dict(r) for r in rows]

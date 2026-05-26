@@ -38,7 +38,6 @@ from src.integrations.domain.linkedin_profile import (
     LinkedInSkill,
 )
 from src.integrations.infrastructure.linkedin_brightdata_client import (
-    BrightDataError,
     scrape_profile,
 )
 from src.shared.config import get_settings

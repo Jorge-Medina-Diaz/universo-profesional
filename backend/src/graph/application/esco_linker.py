@@ -32,8 +32,8 @@ import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.shared.embeddings import get_embeddings_service
 from src.graph.domain import custom_skills_ontology as cso
+from src.shared.embeddings import get_embeddings_service
 
 logger = structlog.get_logger(__name__)
 

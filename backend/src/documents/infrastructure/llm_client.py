@@ -268,7 +268,7 @@ class MockLlmClient(LlmClient):
             row = (
                 await self._session.execute(text("SELECT current_setting('app.current_user_id', true)"))
             ).first()
-        except Exception:  # noqa: BLE001
+        except Exception:
             return None
         if row is None or not row[0]:
             return None
@@ -400,7 +400,7 @@ class AiLlmClient(LlmClient):
             tailored = await self._llm.structured(
                 system=system, prompt=prompt, schema=_TailoredCv, max_tokens=2048, temperature=0.4
             )
-        except Exception as exc:  # noqa: BLE001 — degrade to grounded base
+        except Exception as exc:
             logger.warning("cv_tailoring_failed_using_grounded", error=str(exc))
             return resume
 
@@ -457,7 +457,7 @@ class AiLlmClient(LlmClient):
                 max_tokens=1500,
                 temperature=0.5,
             )
-        except Exception as exc:  # noqa: BLE001 — degrade to grounded base
+        except Exception as exc:
             logger.warning("cover_letter_tailoring_failed_using_grounded", error=str(exc))
             return base
 

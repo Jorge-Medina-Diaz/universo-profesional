@@ -14,7 +14,7 @@ import asyncio
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, ClassVar
 from uuid import UUID, uuid4
 
@@ -32,7 +32,7 @@ class DomainEvent:
     """
 
     event_id: UUID = field(default_factory=uuid4)
-    occurred_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    occurred_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     user_id: UUID | None = None
     event_type: ClassVar[str] = "domain.event"
 
@@ -74,7 +74,7 @@ class EventBus:
     async def _safe_invoke(self, handler: EventHandler, event: DomainEvent) -> None:
         try:
             await handler(event)
-        except Exception as exc:  # noqa: BLE001 — handler errors must not break dispatch
+        except Exception as exc:
             logger.error(
                 "event_handler_failed",
                 event_type=event.event_type,

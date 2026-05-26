@@ -24,6 +24,7 @@ from src.shared.errors import DomainError
 from src.shared.events import get_event_bus
 from src.shared.logging import configure_logging, get_logger
 from src.shared.middleware import SecurityHeadersMiddleware
+from src.shared.metrics import errors_total
 from src.shared.rate_limit import limiter, rate_limit_exceeded_handler
 from src.shared.security import ensure_jwt_keys
 
@@ -63,7 +64,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         from src.shared.otel_setup import init_otel
 
         init_otel()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("otel_init_failed", error=str(exc))
 
     # Optional Sentry — only initializes if SENTRY_DSN is set.
@@ -71,7 +72,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         from src.shared.sentry_setup import init_sentry
 
         init_sentry()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("sentry_init_failed", error=str(exc))
 
     # 1. Register ORM models (otherwise lazy-imports may miss tables)
@@ -140,6 +141,9 @@ def create_app() -> FastAPI:
         start = time.perf_counter()
         try:
             response = await call_next(request)
+        except Exception as exc:
+            errors_total.labels(code=type(exc).__name__).inc()
+            raise
         finally:
             elapsed_ms = (time.perf_counter() - start) * 1000
             logger.info(
@@ -159,19 +163,19 @@ def create_app() -> FastAPI:
 
     # --- Routers -----------------------------------------------------------
     from src.billing.interfaces.api.router import router as billing_router
-    from src.documents.interfaces.api.router import router as documents_router
-    from src.documents.interfaces.api.router import public_router as documents_share_router
     from src.documents.interfaces.api.jobs_router import router as jobs_router
+    from src.documents.interfaces.api.router import public_router as documents_share_router
+    from src.documents.interfaces.api.router import router as documents_router
     from src.identity.interfaces.api.router import router as identity_router
     from src.identity.interfaces.api.users_router import router as users_router
+    from src.mcp_server.interfaces.mcp_router import router as mcp_router
     from src.mcp_server.interfaces.oauth_router import router as oauth_router
     from src.mcp_server.interfaces.well_known_router import router as well_known_router
-    from src.mcp_server.interfaces.mcp_router import router as mcp_router
-    from src.universe.interfaces.api.router import router as universe_router
-    from src.universe.interfaces.api.import_router import router as import_router
-    from src.universe.interfaces.api.goals_router import router as goals_router
-    from src.universe.interfaces.api.shape_router import router as shape_router
     from src.shared.legal_router import router as legal_router
+    from src.universe.interfaces.api.goals_router import router as goals_router
+    from src.universe.interfaces.api.import_router import router as import_router
+    from src.universe.interfaces.api.router import router as universe_router
+    from src.universe.interfaces.api.shape_router import router as shape_router
 
     app.include_router(identity_router, prefix="/api/v1/auth", tags=["auth"])
     app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
@@ -263,7 +267,7 @@ def create_app() -> FastAPI:
 
             await asyncio.wait_for(_ping_db(), timeout=2.0)
             results["database"] = "ok"
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             results["database"] = f"error: {exc}"
             overall_ok = False
 
@@ -285,7 +289,7 @@ def create_app() -> FastAPI:
 
             await asyncio.wait_for(_ping_redis(), timeout=2.0)
             results["redis"] = "ok"
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             results["redis"] = f"error: {exc}"
             overall_ok = False
 
@@ -296,7 +300,7 @@ def create_app() -> FastAPI:
             get_private_key()
             get_public_key()
             results["jwt_keys"] = "ok"
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             results["jwt_keys"] = f"error: {exc}"
             overall_ok = False
 
@@ -319,7 +323,7 @@ def create_app() -> FastAPI:
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
         FastAPIInstrumentor.instrument_app(app)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("otel_instrumentation_failed", error=str(exc))
 
     return app

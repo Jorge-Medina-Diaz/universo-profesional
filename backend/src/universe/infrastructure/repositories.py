@@ -15,22 +15,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.shared.security import utc_now
 from src.universe.application.ports import (
-    AchievementRepository,
     CareerPreferencesRepository,
-    CertificationRepository,
-    CourseRepository,
-    EducationRepository,
-    ExperienceRepository,
-    InterestRepository,
     LanguageRepository,
-    ProjectRepository,
     SkillRepository,
     UniverseRepository,
 )
 from src.universe.domain.entities import (
     Achievement,
-    AreaStrength,
     ArchitectureDecision,
+    AreaStrength,
     Artifact,
     CareerPreferences,
     Certification,
@@ -47,8 +40,8 @@ from src.universe.domain.entities import (
 from src.universe.domain.universe import Universe
 from src.universe.infrastructure.orm import (
     AchievementOrm,
-    AreaStrengthOrm,
     ArchitectureDecisionOrm,
+    AreaStrengthOrm,
     ArtifactOrm,
     CareerPreferencesOrm,
     CertificationOrm,
@@ -63,7 +56,6 @@ from src.universe.infrastructure.orm import (
     UniverseOrm,
     UserRubricSignalOrm,
 )
-
 
 # --- Universe --------------------------------------------------------------
 
@@ -142,12 +134,12 @@ def _orm_to_entity(row: Any, entity_cls: Any) -> Any:
 def _build_repo_methods(orm_cls: Any, entity_cls: Any) -> dict[str, Any]:
     """Return a dict of methods implementing the standard repo Protocol."""
 
-    async def list_(self: Any, user_id: UUID) -> list[Any]:  # noqa: ANN401
+    async def list_(self: Any, user_id: UUID) -> list[Any]:
         stmt = select(orm_cls).where(orm_cls.user_id == user_id).where(orm_cls.deleted_at.is_(None) if hasattr(orm_cls, "deleted_at") else True)  # type: ignore[arg-type]
         rows = (await self._session.execute(stmt)).scalars().all()
         return [_orm_to_entity(r, entity_cls) for r in rows]
 
-    async def get_(self: Any, user_id: UUID, entity_id: UUID) -> Any | None:  # noqa: ANN401
+    async def get_(self: Any, user_id: UUID, entity_id: UUID) -> Any | None:
         stmt = select(orm_cls).where(orm_cls.id == entity_id).where(orm_cls.user_id == user_id)
         row = (await self._session.execute(stmt)).scalar_one_or_none()
         if row is None:

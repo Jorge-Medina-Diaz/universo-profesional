@@ -11,7 +11,6 @@ from structlog.types import EventDict, Processor
 
 from .config import get_settings
 
-
 # Regexes for PII redaction. We hash emails (so we can still correlate
 # events from the same user without leaking the address) and replace token-
 # shaped strings outright.

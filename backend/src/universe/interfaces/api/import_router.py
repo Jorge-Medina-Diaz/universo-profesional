@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import csv
 import io
-import json
 import zipfile
 from typing import Any
 
@@ -142,7 +141,7 @@ async def import_linkedin_zip(
                             if r.is_success:
                                 summary["skills"] += 1
                 await uow.commit()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         summary["errors"].append(str(exc))
     return summary
 

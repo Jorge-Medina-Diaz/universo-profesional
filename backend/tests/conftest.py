@@ -15,9 +15,10 @@ from sqlalchemy import text
 # wipe real data, which has bitten us before. Create it once with:
 #   docker exec cvs-postgres createdb -U cvs cvs_test
 #   DATABASE_URL=...cvs_test alembic upgrade head
-os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://cvs:cvs_dev_password@postgres:5432/cvs_test")
-os.environ.setdefault("REDIS_URL", "redis://redis:6379/1")
+os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://cvs:cvs_dev_password@localhost:5432/cvs_test")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
 os.environ.setdefault("ENV", "test")
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 
 # Defer imports until env is set
 from src.main import app  # noqa: E402

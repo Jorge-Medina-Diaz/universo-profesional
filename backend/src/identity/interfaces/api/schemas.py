@@ -5,7 +5,6 @@ import re
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-
 # --- Password policy ---------------------------------------------------------
 # Enforced on register + password reset confirm. We deliberately keep the
 # minimum requirements modest (length + 1 digit + 1 uppercase + not a top-N

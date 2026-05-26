@@ -30,7 +30,7 @@ class ArqEmbeddingScheduler(EmbeddingRefreshScheduler):
                 self._pool = await create_pool(
                     RedisSettings.from_dsn(settings.redis_url)
                 )
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("arq_pool_unavailable", error=str(exc))
                 self._pool = None
         return self._pool
@@ -50,4 +50,4 @@ class ArqEmbeddingScheduler(EmbeddingRefreshScheduler):
         )
 
 
-from typing import Any  # noqa: E402, F401  (used in annotations above)
+from typing import Any  # noqa: E402  (used in annotations above)

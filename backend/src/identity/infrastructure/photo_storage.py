@@ -8,7 +8,6 @@ from uuid import UUID
 
 import structlog
 from PIL import Image
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.shared.config import get_settings
@@ -42,7 +41,7 @@ def _validate_and_normalize(data: bytes, mime: str | None) -> tuple[bytes, str, 
                 mime = "image/png"
             elif fmt == "webp":
                 mime = "image/webp"
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise ValueError(f"Unrecognised image: {exc}") from exc
     if mime not in ALLOWED_MIME:
         raise ValueError(f"Mime {mime} not allowed. Use JPG/PNG/WebP.")
@@ -79,7 +78,7 @@ async def save_avatar(
         if previous != path:
             try:
                 previous.unlink()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
     path.write_bytes(normalized)
 
@@ -109,7 +108,7 @@ async def save_avatar(
         "size_bytes": len(normalized),
         "width": w,
         "height": h,
-        "url": f"/api/v1/users/me/photo",
+        "url": "/api/v1/users/me/photo",
     }
 
 
@@ -131,7 +130,7 @@ async def delete_avatar(session: AsyncSession, user_id: UUID) -> bool:
     try:
         if path.exists():
             path.unlink()
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     await session.delete(row)
     await session.flush()

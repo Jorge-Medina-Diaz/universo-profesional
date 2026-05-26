@@ -5,7 +5,8 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import ForeignKey, Integer, PrimaryKeyConstraint, Text
-from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID as PgUUID
+from sqlalchemy.dialects.postgresql import TIMESTAMP
+from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.shared.db import Base

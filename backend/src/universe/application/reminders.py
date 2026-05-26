@@ -131,7 +131,6 @@ class ListReminders:
     async def execute(
         self, *, user_id: str, due_within_days: int | None = None, limit: int = 50
     ) -> list[dict[str, Any]]:
-        from datetime import datetime as _dt
 
         stmt = (
             select(ReminderOrm)

@@ -109,7 +109,7 @@ async def ingest_document(
     provider = get_embeddings_provider()
     try:
         embeddings = await provider.embed_batch(chunks)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("knowledge_embed_failed", error=str(exc))
         embeddings = [None] * len(chunks)  # type: ignore[list-item]
 
@@ -157,7 +157,7 @@ async def search_knowledge(
     provider = get_embeddings_provider()
     try:
         q_vec = await provider.embed(query)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("knowledge_query_embed_failed", error=str(exc))
         return []
 
@@ -183,7 +183,7 @@ async def search_knowledge(
                   {tag_filter}
                 ORDER BY c.embedding <=> CAST(:q AS vector)
                 LIMIT :k
-                """  # noqa: S608 — tag_filter is a fixed string, params bound
+                """
             ),
             params,
         )

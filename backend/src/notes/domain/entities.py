@@ -34,7 +34,7 @@ class Note:
         tags: list[str] | None = None,
         source: str = "agent_chat",
         source_metadata: dict[str, Any] | None = None,
-    ) -> "Note":
+    ) -> Note:
         if not (body_md or "").strip():
             raise ValidationError("Note body cannot be empty")
         cleaned_tags = [t.strip().lower() for t in (tags or []) if t.strip()]

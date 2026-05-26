@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 import pytest
-
 from src.identity.interfaces.api.schemas import _validate_password
-from src.shared.errors import ValidationError
 
 
 class TestPasswordPolicy:
@@ -37,10 +35,10 @@ class TestRegisterUserPasswordValidation:
         from src.identity.interfaces.api.schemas import RegisterRequest
 
         with pytest.raises(ValueError):
-            RegisterRequest(email="test@x.com", password="weak")
+            RegisterRequest(email="test@x.com", password="weak")  # noqa: S106
 
     def test_schema_accepts_strong_password(self) -> None:
         from src.identity.interfaces.api.schemas import RegisterRequest
 
-        req = RegisterRequest(email="test@x.com", password="S3cur3-Passw0rd!")
+        req = RegisterRequest(email="test@x.com", password="S3cur3-Passw0rd!")  # noqa: S106
         assert req.password == "S3cur3-Passw0rd!"

@@ -86,7 +86,7 @@ class Education(_Base):
     url: str | None = None
 
     @classmethod
-    def create(cls, *, user_id: UUID, institution: str, **kw: Any) -> "Education":
+    def create(cls, *, user_id: UUID, institution: str, **kw: Any) -> Education:
         if not institution.strip():
             from src.shared.errors import ValidationError
 
@@ -126,7 +126,7 @@ class Experience(_Base):
     seniority_level: str | None = None  # junior|mid|senior|staff|principal|exec
 
     @classmethod
-    def create(cls, *, user_id: UUID, organization: str, role: str, **kw: Any) -> "Experience":
+    def create(cls, *, user_id: UUID, organization: str, role: str, **kw: Any) -> Experience:
         from src.shared.errors import ValidationError
 
         if not organization.strip() or not role.strip():
@@ -168,7 +168,7 @@ class Project(_Base):
     domain_tags: list[str] = field(default_factory=list)  # fintech, healthtech, ecommerce…
 
     @classmethod
-    def create(cls, *, user_id: UUID, name: str, **kw: Any) -> "Project":
+    def create(cls, *, user_id: UUID, name: str, **kw: Any) -> Project:
         from src.shared.errors import ValidationError
 
         if not name.strip():
@@ -200,7 +200,7 @@ class Skill(_Base):
     # live as :DEMONSTRATES edges in the AGE graph.
 
     @classmethod
-    def create(cls, *, user_id: UUID, name: str, category: str = "hard", **kw: Any) -> "Skill":
+    def create(cls, *, user_id: UUID, name: str, category: str = "hard", **kw: Any) -> Skill:
         from src.shared.errors import ValidationError
 
         if not name.strip():
@@ -240,7 +240,7 @@ class Certification(_Base):
     verification_url: str | None = None
 
     @classmethod
-    def create(cls, *, user_id: UUID, name: str, **kw: Any) -> "Certification":
+    def create(cls, *, user_id: UUID, name: str, **kw: Any) -> Certification:
         from src.shared.errors import ValidationError
 
         if not name.strip():
@@ -264,7 +264,7 @@ class Course(_Base):
     certificate_url: str | None = None
 
     @classmethod
-    def create(cls, *, user_id: UUID, title: str, **kw: Any) -> "Course":
+    def create(cls, *, user_id: UUID, title: str, **kw: Any) -> Course:
         from src.shared.errors import ValidationError
 
         if not title.strip():
@@ -286,7 +286,7 @@ class Language(_Base):
     certification: str | None = None
 
     @classmethod
-    def create(cls, *, user_id: UUID, code: str, name: str, level: str, **kw: Any) -> "Language":
+    def create(cls, *, user_id: UUID, code: str, name: str, level: str, **kw: Any) -> Language:
         from src.shared.errors import ValidationError
 
         if len(code) != 2 or not code.isalpha():
@@ -317,7 +317,7 @@ class Achievement(_Base):
     evidence_url: str | None = None
 
     @classmethod
-    def create(cls, *, user_id: UUID, title: str, **kw: Any) -> "Achievement":
+    def create(cls, *, user_id: UUID, title: str, **kw: Any) -> Achievement:
         from src.shared.errors import ValidationError
 
         if not title.strip():
@@ -337,7 +337,7 @@ class Interest(_Base):
     description: str | None = None
 
     @classmethod
-    def create(cls, *, user_id: UUID, name: str, **kw: Any) -> "Interest":
+    def create(cls, *, user_id: UUID, name: str, **kw: Any) -> Interest:
         from src.shared.errors import ValidationError
 
         if not name.strip():
@@ -385,7 +385,7 @@ class AreaStrength:
     computed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @classmethod
-    def create(cls, *, user_id: UUID, area: str, **kw: Any) -> "AreaStrength":
+    def create(cls, *, user_id: UUID, area: str, **kw: Any) -> AreaStrength:
         if area not in CANONICAL_AREAS:
             from src.shared.errors import ValidationError
 
@@ -445,7 +445,7 @@ class Artifact(_Base):
         title: str,
         url: str,
         **kw: Any,
-    ) -> "Artifact":
+    ) -> Artifact:
         from src.shared.errors import ValidationError
 
         if type not in _ARTIFACT_TYPES:
@@ -497,7 +497,7 @@ class SkillStack:
         slug: str,
         area: str,
         **kw: Any,
-    ) -> "SkillStack":
+    ) -> SkillStack:
         from src.shared.errors import ValidationError
 
         if not name.strip():
@@ -552,7 +552,7 @@ class UserRubricSignal:
         section_kind: str,
         status: str,
         **kw: Any,
-    ) -> "UserRubricSignal":
+    ) -> UserRubricSignal:
         from src.shared.errors import ValidationError
 
         if status not in SIGNAL_STATUSES:
@@ -593,7 +593,7 @@ class ArchitectureDecision(_Base):
     # relations live as :SUPERSEDES / :PART_OF edges in the graph.
 
     @classmethod
-    def create(cls, *, user_id: UUID, title: str, **kw: Any) -> "ArchitectureDecision":
+    def create(cls, *, user_id: UUID, title: str, **kw: Any) -> ArchitectureDecision:
         from src.shared.errors import ValidationError
 
         if not title.strip():

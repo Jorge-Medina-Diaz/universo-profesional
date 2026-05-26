@@ -16,7 +16,7 @@ true Agno Workflow with parallel section drafts.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -55,7 +55,7 @@ async def _gather_universe(
         rows = (
             await session.execute(
                 text(
-                    f"SELECT * FROM {table} WHERE user_id = :uid "  # noqa: S608
+                    f"SELECT * FROM {table} WHERE user_id = :uid "
                     f"AND COALESCE(deleted_at::text, '') = '' "
                     f"ORDER BY updated_at DESC LIMIT 50"
                 ),
@@ -104,7 +104,7 @@ async def _gather_notes(session: Any, *, user_id: str) -> list[dict[str, Any]]:
 async def _gather_recent_changes(
     session: Any, *, user_id: str
 ) -> list[dict[str, Any]]:
-    cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+    cutoff = datetime.now(UTC) - timedelta(days=90)
     rows = (
         await session.execute(
             text(
@@ -141,7 +141,7 @@ async def gather(*, user_id: str, job_description: str | None) -> dict[str, Any]
 
 def _currently_learning_section(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Surface recent learning-tagged notes as a short list of items."""
-    recent_cutoff = datetime.now(timezone.utc) - timedelta(days=120)
+    recent_cutoff = datetime.now(UTC) - timedelta(days=120)
     items = []
     for n in notes:
         tags = list(n.get("tags") or [])
@@ -205,7 +205,7 @@ async def render_cv(
     if polish_enabled and job_description:
         try:
             cv_payload = await _llm_polish(cv_payload, job_description)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("cv_polish_failed", error=str(exc))
     return cv_payload
 
@@ -249,5 +249,5 @@ async def _llm_polish(payload: dict[str, Any], jd: str) -> dict[str, Any]:
         polished = json.loads(body)
         polished["polish_applied"] = True
         return polished
-    except Exception:  # noqa: BLE001
+    except Exception:
         return {**payload, "polish_applied": False}

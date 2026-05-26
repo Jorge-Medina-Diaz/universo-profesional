@@ -19,8 +19,8 @@ def build_job_strategist(*, db):  # type: ignore[no-untyped-def]
     from src.agents.tools.signal_tools import get_user_rubric_coverage
     from src.agents.tools.ui_widgets import (
         confirm_destructive,
-        preview_list,
         present_job_match,
+        preview_list,
         propose_autopilot_run,
         propose_cover_letter,
         propose_job_create,

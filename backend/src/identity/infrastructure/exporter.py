@@ -37,10 +37,10 @@ class SqlUserDataExporter(UserDataExporter):
     async def export_all(self, user_id: UUID) -> dict[str, Any]:
         out: dict[str, Any] = {"user_id": str(user_id), "tables": {}}
         for table in EXPORT_TABLES:
-            stmt = text(f"SELECT row_to_json(t) AS row FROM {table} t WHERE user_id = :uid OR id = :uid")  # noqa: S608
+            stmt = text(f"SELECT row_to_json(t) AS row FROM {table} t WHERE user_id = :uid OR id = :uid")
             try:
                 rows = (await self._session.execute(stmt, {"uid": str(user_id)})).all()
                 out["tables"][table] = [r[0] for r in rows]
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 out["tables"][table] = {"error": str(exc)}
         return out

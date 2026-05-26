@@ -112,7 +112,7 @@ def extract_pdf_text(pdf_bytes: bytes) -> tuple[str, list[str]]:
     for i, page in enumerate(reader.pages):
         try:
             pages.append(page.extract_text() or "")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("pdf_page_extract_failed", page=i, error=str(exc))
             pages.append("")
     full = "\n\n".join(pages)
@@ -180,7 +180,7 @@ async def parse_cv_pdf(pdf_bytes: bytes) -> ParsedCv:
 
     try:
         full_text, _ = extract_pdf_text(pdf_bytes)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("pdf_extract_failed", error=str(exc))
         return _CANNED_FOR_MOCK
 
@@ -199,7 +199,7 @@ async def parse_cv_pdf(pdf_bytes: bytes) -> ParsedCv:
             max_tokens=4096,
             temperature=0.0,
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("pdf_llm_parse_failed_falling_back_to_mock", error=str(exc))
         return _CANNED_FOR_MOCK
 
@@ -266,6 +266,6 @@ async def commit_selection(
                     r = await uc.add(user_id=user_id, payload=clean, uow=uow)
                     if r.is_success:
                         summary[name] += 1
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("pdf_commit_failed", section=name, error=str(exc))
     return summary

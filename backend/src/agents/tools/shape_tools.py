@@ -11,9 +11,9 @@ execution by the React layer).
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from agno.run.base import RunContext
 from agno.tools import tool
@@ -31,7 +31,7 @@ from src.universe.infrastructure.repositories import (
 
 
 def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 @tool(

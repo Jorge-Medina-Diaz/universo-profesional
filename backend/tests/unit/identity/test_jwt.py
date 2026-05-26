@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 import pytest
-
-from src.shared.security import decode_jwt, encode_jwt, ensure_jwt_keys, get_public_key
+from src.shared.security import decode_jwt, encode_jwt, ensure_jwt_keys
 
 
 class TestJwtEncodeDecode:
@@ -23,7 +22,7 @@ class TestJwtEncodeDecode:
         ensure_jwt_keys()
         token = encode_jwt({"sub": "user-123"})
         tampered = token[:-5] + "xxxxx"
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             decode_jwt(tampered)
 
     def test_audience_verification(self) -> None:
@@ -32,7 +31,7 @@ class TestJwtEncodeDecode:
         decoded = decode_jwt(token, audience="cvs-saas-api")
         assert decoded["sub"] == "user-123"
 
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             decode_jwt(token, audience="wrong-aud")
 
     def test_issuer_verification(self) -> None:
@@ -41,7 +40,7 @@ class TestJwtEncodeDecode:
         decoded = decode_jwt(token, issuer="https://api.test")
         assert decoded["sub"] == "user-123"
 
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             decode_jwt(token, issuer="https://other.test")
 
 

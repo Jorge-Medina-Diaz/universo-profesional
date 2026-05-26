@@ -14,7 +14,7 @@ and the agents share a single source of truth.
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -23,11 +23,6 @@ from agno.tools import tool
 from sqlalchemy import select
 
 from src.shared.db import with_user_session
-from src.universe.application.area_keywords import (
-    SOFTWARE_AREA_KEYWORDS,  # re-export for backwards compat
-    collect_text_blob,
-    score_areas,
-)
 from src.universe.application.shape_service import (
     compute_area_strengths,
     load_area_strengths,
@@ -64,7 +59,7 @@ STALE_DAYS = 90  # if nothing updated in 90d, freshness suffers
 
 
 def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 async def _count_rows(session, table, user_uuid: UUID) -> int:

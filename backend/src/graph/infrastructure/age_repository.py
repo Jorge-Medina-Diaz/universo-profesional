@@ -9,7 +9,6 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.graph.application.ports import GraphRepository
 from src.graph.infrastructure.age_client import cypher, ensure_age_loaded, parse_agtype
 
 

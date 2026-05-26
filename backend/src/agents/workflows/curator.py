@@ -100,7 +100,7 @@ async def _detect_duplicates(
                   AND b.embedding IS NOT NULL
                   AND 1 - (a.embedding <=> b.embedding) >= :th
                 ORDER BY score DESC LIMIT 20
-                """  # noqa: S608 — table comes from closed-set
+                """
             ),
             {"uid": user_id, "th": DUP_SIMILARITY_THRESHOLD},
         )
@@ -195,7 +195,7 @@ async def _clean_orphan_graph_vertices(session: AsyncSession, *, user_id: str) -
         sql_rows = (
             await session.execute(
                 text(
-                    f"SELECT id::text AS id FROM {table} WHERE user_id = :uid"  # noqa: S608
+                    f"SELECT id::text AS id FROM {table} WHERE user_id = :uid"
                 ),
                 {"uid": user_id},
             )
@@ -225,7 +225,7 @@ async def _decay_unreviewed(session: AsyncSession, *, user_id: str) -> int:
                   AND (last_reviewed_at IS NULL OR last_reviewed_at < now() - INTERVAL '365 days')
                   AND COALESCE(confidence, 1.0) > 0.3
                 RETURNING id
-                """  # noqa: S608
+                """
             ),
             {"uid": user_id},
         )
@@ -277,7 +277,7 @@ async def run_curator_for_user(*, user_id: str) -> dict[str, Any]:
                             pair=pair,
                         )
                         summary["merge_suggestions_opened"] += 1
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning(
                     "curator_dup_sweep_failed",
                     user_id=user_id,
@@ -290,7 +290,7 @@ async def run_curator_for_user(*, user_id: str) -> dict[str, Any]:
                 summary["orphans_cleaned"] = await _clean_orphan_graph_vertices(
                     session, user_id=user_id
                 )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(
                 "curator_orphan_sweep_failed", user_id=user_id, error=str(exc)
             )
@@ -300,7 +300,7 @@ async def run_curator_for_user(*, user_id: str) -> dict[str, Any]:
                 summary["confidence_decayed"] = await _decay_unreviewed(
                     session, user_id=user_id
                 )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(
                 "curator_decay_failed", user_id=user_id, error=str(exc)
             )
@@ -318,7 +318,7 @@ async def run_curator_for_user(*, user_id: str) -> dict[str, Any]:
                     stats.related_to + stats.uses_tech + stats.part_of
                 )
                 summary["communities"] = stats.communities
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(
                 "curator_enrich_failed", user_id=user_id, error=str(exc)
             )
@@ -335,7 +335,7 @@ async def run_curator_for_user(*, user_id: str) -> dict[str, Any]:
                 summary["outliers_flagged"] = await flag_outliers_for_user(
                     session, UUID(user_id)
                 )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(
                 "curator_outlier_sweep_failed", user_id=user_id, error=str(exc)
             )
@@ -390,7 +390,7 @@ async def run_curator_for_all_active_users() -> dict[str, Any]:
         # log it and keep going so every other user still gets curated.
         try:
             s = await run_curator_for_user(user_id=uid)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.error("curator_user_failed", user_id=uid, error=str(exc))
             out["users_failed"] += 1
             continue
@@ -421,6 +421,6 @@ async def curator_cron(ctx: dict[str, Any]) -> None:
         try:
             await redis.enqueue_job("curator_task", user_id=uid)
             enqueued += 1
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.error("curator_enqueue_failed", user_id=uid, error=str(exc))
     logger.info("curator_cron_dispatched", users=len(user_ids), enqueued=enqueued)

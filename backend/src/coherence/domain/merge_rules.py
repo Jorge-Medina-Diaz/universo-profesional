@@ -20,7 +20,6 @@ from typing import Any
 
 from .upsert_decision import FieldDiff, MergePlan
 
-
 _SKILL_LEVEL_RANK = {"basic": 1, "intermediate": 2, "high": 3, "expert": 4}
 _CEFR_RANK = {"A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6, "native": 7}
 

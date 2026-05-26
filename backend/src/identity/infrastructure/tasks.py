@@ -107,7 +107,7 @@ async def enqueue_transactional_email(
             )
         finally:
             await pool.aclose()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("email_enqueue_fallback_inline", error=str(exc))
         await send_email(
             {},

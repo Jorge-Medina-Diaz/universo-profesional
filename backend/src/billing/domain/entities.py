@@ -56,7 +56,7 @@ class Subscription:
         return PLAN_LIMITS[self.plan]
 
     @classmethod
-    def free_for(cls, user_id: UUID, now: datetime) -> "Subscription":
+    def free_for(cls, user_id: UUID, now: datetime) -> Subscription:
         return cls(
             user_id=user_id,
             plan="free",

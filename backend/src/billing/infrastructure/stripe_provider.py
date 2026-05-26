@@ -214,7 +214,7 @@ def verify_stripe_signature(
     current = now if now is not None else time.time()
     if abs(current - timestamp) > tolerance:
         return False
-    signed_payload = f"{timestamp}.{payload.decode('utf-8', errors='replace')}".encode("utf-8")
+    signed_payload = f"{timestamp}.{payload.decode('utf-8', errors='replace')}".encode()
     expected = hmac.new(secret.encode("utf-8"), signed_payload, hashlib.sha256).hexdigest()
     return any(hmac.compare_digest(expected, s) for s in sigs)
 

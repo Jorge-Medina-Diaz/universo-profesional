@@ -15,7 +15,6 @@ from typing import Any
 
 from src.shared.config import get_settings
 
-
 _TOKEN_RE = re.compile(r"(eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+)|(sk_[A-Za-z0-9]+)")
 
 

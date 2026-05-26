@@ -16,7 +16,6 @@ from src.coherence.application.ports import SemanticMatcher
 from src.shared.embeddings import get_embeddings_service
 from src.universe.infrastructure.semantic_search import ENTITY_TABLES
 
-
 # Cache of table → has-embedding-column, valid for the process lifetime
 # (schema only changes via migrations, which restart the workers).
 _HAS_EMBEDDING_CACHE: dict[str, bool] = {}
@@ -94,7 +93,7 @@ def _build_match_stmt(table: str):  # type: ignore[no-untyped-def]
         WHERE user_id = :uid AND embedding IS NOT NULL
         ORDER BY embedding <=> CAST(:emb AS vector)
         LIMIT :k
-        """  # noqa: S608
+        """
     )
 
 

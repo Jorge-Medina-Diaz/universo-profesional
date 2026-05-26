@@ -78,7 +78,7 @@ async def _recompute_shapes() -> int:
                 f"(primaries={result.primary_areas}, "
                 f"strengths={len(result.strengths)})"
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             errors += 1
             print(f"  ! {user_id} → ERROR: {exc}", file=sys.stderr)
     print(f"shapes done. processed={processed} errors={errors}")
@@ -104,7 +104,7 @@ async def _recompute_signals(sector: str | None) -> int:
                 f"updated={result.signals_updated} removed={result.signals_removed} "
                 f"by_status={result.by_status}"
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             errors += 1
             print(f"  ! {user_id} → ERROR: {exc}", file=sys.stderr)
     print(f"signals done. processed={processed} errors={errors}")

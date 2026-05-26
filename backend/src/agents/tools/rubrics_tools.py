@@ -60,7 +60,7 @@ async def search_rubrics(
     embedder = get_embeddings_provider()
     try:
         query_emb = await embedder.embed(query)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         return {"ok": False, "error": f"embedding failed: {e}"}
     async with with_user_session(None) as session:
         repo = RubricRepository(session)
@@ -71,7 +71,7 @@ async def search_rubrics(
                 section_kind=section_kind,
                 top_k=top_k,
             )
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             return {"ok": False, "error": f"search failed: {e}"}
     results = []
     for r in rows:

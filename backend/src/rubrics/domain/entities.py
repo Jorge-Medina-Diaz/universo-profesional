@@ -11,7 +11,6 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-
 # Canonical section kinds. Anything else falls into "general".
 SECTION_KINDS = {
     "criteria",

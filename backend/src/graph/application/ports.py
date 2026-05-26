@@ -7,7 +7,6 @@ infrastructure (AGE, Neo4j, etc.). Implementations live in
 from __future__ import annotations
 
 from typing import Any, Protocol
-from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

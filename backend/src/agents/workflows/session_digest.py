@@ -58,9 +58,9 @@ async def _llm_digest(messages: list[dict[str, Any]]) -> dict[str, Any]:
 
         try:
             return json.loads(body)
-        except Exception:  # noqa: BLE001
+        except Exception:
             return _fallback_digest(messages)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("session_digest_llm_failed", error=str(exc))
         return _fallback_digest(messages)
 
@@ -120,12 +120,12 @@ async def session_digest_cron(ctx: dict[str, Any]) -> None:
         for uid in user_ids:
             try:
                 await run_session_digest(user_id=uid)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.error("session_digest_failed", user_id=uid, error=str(exc))
         return
     for uid in user_ids:
         try:
             await redis.enqueue_job("session_digest_task", user_id=uid)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.error("session_digest_enqueue_failed", user_id=uid, error=str(exc))
     logger.info("session_digest_cron_dispatched", users=len(user_ids))

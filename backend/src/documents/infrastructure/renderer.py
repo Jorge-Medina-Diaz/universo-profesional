@@ -44,7 +44,7 @@ class WeasyPrintRenderer(Renderer):
         try:
             tmpl_path = f"{template}.html.j2"
             tmpl = self._env.get_template(tmpl_path)
-        except Exception:  # noqa: BLE001
+        except Exception:
             tmpl = self._env.get_template("ats-classic.html.j2")
 
         html = tmpl.render(resume=content_json, language=language)
@@ -53,10 +53,10 @@ class WeasyPrintRenderer(Renderer):
         out_path = out_dir / f"{_uuid4_short()}.pdf"
 
         try:
-            from weasyprint import HTML  # noqa: WPS433  (heavy import deferred)
+            from weasyprint import HTML
 
             HTML(string=html, base_url=str(_TEMPLATES_DIR)).write_pdf(str(out_path))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("pdf_render_failed_fallback_html", error=str(exc))
             # Fallback: persist HTML so the path is still meaningful
             out_path = out_path.with_suffix(".html")
@@ -71,7 +71,7 @@ class WeasyPrintRenderer(Renderer):
         language: str,
         user_id: UUID,
     ) -> str:
-        from docx import Document as DocxDocument  # noqa: WPS433
+        from docx import Document as DocxDocument
         from docx.shared import Pt
 
         doc = DocxDocument()

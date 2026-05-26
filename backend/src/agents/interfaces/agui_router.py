@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import re
 import uuid
+from datetime import UTC
 from typing import Any
 
 import structlog
@@ -238,10 +239,10 @@ def _ts_to_iso(ts: Any) -> str | None:
     if ts is None:
         return None
     try:
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        return datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat()
-    except Exception:  # noqa: BLE001
+        return datetime.fromtimestamp(int(ts), tz=UTC).isoformat()
+    except Exception:
         return None
 
 
@@ -658,7 +659,7 @@ async def _stream_chat(
 
     try:
         run_input = RunAgentInput.model_validate(run_body)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return JSONResponse(
             {"detail": f"Invalid AG-UI payload: {exc}"}, status_code=400
         )
@@ -780,7 +781,7 @@ async def _stream_chat(
                 flag_empty_run=flag_empty_run,
             ):
                 yield frame
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             status = "error"
             logger.error(
                 "agui_stream_failed",
@@ -796,7 +797,7 @@ async def _stream_chat(
                         message="internal error",
                     )
                 )
-            except Exception:  # noqa: BLE001
+            except Exception:
                 yield 'data: {"type":"RUN_ERROR","message":"internal error"}\n\n'
         finally:
             if acquired:
@@ -823,8 +824,8 @@ def _ensure_known_agent(agent_id: str) -> None:
     if agent_id not in _AGENT_DESCRIPTORS:
         # Don't 404 — CopilotKit caches agent IDs and a transient 404 makes
         # the React layer give up. Map any unknown id to the coordinator.
-        return None
-    return None
+        return
+    return
 
 
 def _extract_user_id_from_jwt(request: Request) -> str:

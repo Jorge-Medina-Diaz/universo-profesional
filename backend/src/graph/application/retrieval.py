@@ -38,7 +38,7 @@ from collections import OrderedDict, defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
-from uuid import UUID, NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 import igraph as ig
 import structlog
@@ -78,7 +78,7 @@ async def _get_redis() -> Any | None:
             settings = get_settings()
             _redis_client = Redis.from_url(settings.redis_url, decode_responses=False)
             await _redis_client.ping()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("redis_snapshot_unavailable", error=str(exc))
             _redis_client = None
     return _redis_client
@@ -88,18 +88,18 @@ def _redis_key(user_id: UUID) -> str:
     return f"{_REDIS_KEY_PREFIX}:{user_id}"
 
 
-async def _store_snapshot_redis(user_id: UUID, snapshot: "_UserSnapshot") -> None:
+async def _store_snapshot_redis(user_id: UUID, snapshot: _UserSnapshot) -> None:
     r = await _get_redis()
     if r is None:
         return
     try:
         payload = pickle.dumps(snapshot, protocol=pickle.HIGHEST_PROTOCOL)
         await r.setex(_redis_key(user_id), _REDIS_TTL_SECONDS, payload)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("redis_snapshot_store_failed", user_id=str(user_id), error=str(exc))
 
 
-async def _load_snapshot_redis(user_id: UUID) -> "_UserSnapshot | None":
+async def _load_snapshot_redis(user_id: UUID) -> _UserSnapshot | None:
     r = await _get_redis()
     if r is None:
         return None
@@ -111,7 +111,7 @@ async def _load_snapshot_redis(user_id: UUID) -> "_UserSnapshot | None":
         if not isinstance(snapshot, _UserSnapshot):
             return None
         return snapshot
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("redis_snapshot_load_failed", user_id=str(user_id), error=str(exc))
         return None
 
@@ -122,7 +122,7 @@ async def _delete_snapshot_redis(user_id: UUID) -> None:
         return
     try:
         await r.delete(_redis_key(user_id))
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("redis_snapshot_delete_failed", user_id=str(user_id), error=str(exc))
 
 
@@ -723,7 +723,7 @@ async def _rerank(
     ]
     try:
         ordered = await reranker.rerank(query, candidates, top_n=top_k)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("rerank_stage_failed", error=str(exc))
         return fused[:top_k]
     if not ordered:

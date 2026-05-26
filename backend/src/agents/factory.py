@@ -319,6 +319,15 @@ def get_universe_team():  # type: ignore[no-untyped-def]
     )
     from src.agents.tools.knowledge_tools import search_knowledge
     from src.agents.tools.notes_tools import list_notes
+
+    # Sprint O — hybrid graph retrieval (BM25 + dense + PPR + RRF).
+    from src.agents.tools.retrieval_tools import (
+        enrich_universe,
+        explain_path,
+        get_career_pillars,
+        get_graph_neighbors,
+        universe_retrieve,
+    )
     from src.agents.tools.rubrics_tools import list_rubric_sectors, search_rubrics
     from src.agents.tools.shape_tools import (
         get_universe_shape,
@@ -348,14 +357,6 @@ def get_universe_team():  # type: ignore[no-untyped-def]
         find_gaps,
         find_incomplete_entities,
         get_universe_summary,
-    )
-    # Sprint O — hybrid graph retrieval (BM25 + dense + PPR + RRF).
-    from src.agents.tools.retrieval_tools import (
-        enrich_universe,
-        explain_path,
-        get_career_pillars,
-        get_graph_neighbors,
-        universe_retrieve,
     )
 
     db = _build_db()

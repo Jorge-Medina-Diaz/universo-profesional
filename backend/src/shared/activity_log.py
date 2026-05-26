@@ -9,7 +9,6 @@ write amplification is bounded and downstream replay can use this table.
 from __future__ import annotations
 
 from typing import Any
-from uuid import uuid4
 
 import structlog
 from sqlalchemy import text
@@ -47,7 +46,7 @@ async def persist_event_handler(event: DomainEvent) -> None:
                 )
             )
             await session.commit()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning(
             "activity_log_persist_failed",
             event_type=event.event_type,

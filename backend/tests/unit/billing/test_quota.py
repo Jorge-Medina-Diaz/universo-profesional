@@ -1,25 +1,23 @@
 """Unit tests: billing quota enforcement."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-
 from src.billing.application.use_cases import CheckQuota
-from src.billing.domain.entities import PLAN_LIMITS, PlanLimits, Subscription
+from src.billing.domain.entities import PLAN_LIMITS, Subscription
 from src.shared.errors import QuotaExceededError
-from src.shared.result import Result
 
 
 class FakeSubscriptionRepository:
     def __init__(self, sub: Subscription | None) -> None:
         self._sub = sub
 
-    async def get(self, user_id):  # noqa: ANN001,ANN202
+    async def get(self, user_id):
         return self._sub
 
-    async def upsert(self, subscription):  # noqa: ANN001,ANN202
+    async def upsert(self, subscription):
         self._sub = subscription
 
 
@@ -27,18 +25,18 @@ class FakeQuotaRepository:
     def __init__(self, counter: int = 0) -> None:
         self._counter = counter
 
-    async def increment(self, user_id, resource, period):  # noqa: ANN001,ANN202
+    async def increment(self, user_id, resource, period):
         self._counter += 1
         return self._counter
 
-    async def current(self, user_id, resource, period):  # noqa: ANN001,ANN202
+    async def current(self, user_id, resource, period):
         return self._counter
 
 
 @pytest.mark.asyncio
 async def test_free_plan_cv_quota_enforced() -> None:
     uid = uuid4()
-    sub = Subscription.free_for(uid, datetime.now(timezone.utc))
+    sub = Subscription.free_for(uid, datetime.now(UTC))
     uc = CheckQuota(FakeSubscriptionRepository(sub), FakeQuotaRepository(counter=3))
     result = await uc.execute(user_id=str(uid), resource="cv_generated")
     assert result.is_failure
@@ -48,7 +46,7 @@ async def test_free_plan_cv_quota_enforced() -> None:
 @pytest.mark.asyncio
 async def test_free_plan_cv_under_quota_allowed() -> None:
     uid = uuid4()
-    sub = Subscription.free_for(uid, datetime.now(timezone.utc))
+    sub = Subscription.free_for(uid, datetime.now(UTC))
     uc = CheckQuota(FakeSubscriptionRepository(sub), FakeQuotaRepository(counter=2))
     result = await uc.execute(user_id=str(uid), resource="cv_generated")
     assert result.is_success
@@ -57,7 +55,7 @@ async def test_free_plan_cv_under_quota_allowed() -> None:
 @pytest.mark.asyncio
 async def test_premium_plan_unlimited_cv() -> None:
     uid = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     sub = Subscription(
         user_id=uid,
         plan="premium",
@@ -79,7 +77,7 @@ async def test_premium_plan_unlimited_cv() -> None:
 @pytest.mark.asyncio
 async def test_mcp_access_denied_for_free() -> None:
     uid = uuid4()
-    sub = Subscription.free_for(uid, datetime.now(timezone.utc))
+    sub = Subscription.free_for(uid, datetime.now(UTC))
     uc = CheckQuota(FakeSubscriptionRepository(sub), FakeQuotaRepository())
     result = await uc.execute(user_id=str(uid), resource="mcp_call")
     assert result.is_failure
@@ -90,7 +88,7 @@ async def test_mcp_access_denied_for_free() -> None:
 @pytest.mark.asyncio
 async def test_mcp_allowed_for_pro_within_limit() -> None:
     uid = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     sub = Subscription(
         user_id=uid,
         plan="pro",
@@ -112,7 +110,7 @@ async def test_mcp_allowed_for_pro_within_limit() -> None:
 @pytest.mark.asyncio
 async def test_unknown_resource_allowed() -> None:
     uid = uuid4()
-    sub = Subscription.free_for(uid, datetime.now(timezone.utc))
+    sub = Subscription.free_for(uid, datetime.now(UTC))
     uc = CheckQuota(FakeSubscriptionRepository(sub), FakeQuotaRepository())
     result = await uc.execute(user_id=str(uid), resource="unknown_thing")
     assert result.is_success

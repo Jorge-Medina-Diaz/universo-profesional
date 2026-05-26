@@ -8,7 +8,7 @@ Currently:
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -28,7 +28,7 @@ async def purge_expired_oauth_tokens(ctx: dict[str, Any]) -> dict[str, int]:
     log of token activity is in `mcp_invocations` (separate table).
     """
     factory = get_session_factory()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     async with factory() as session:
         stmt = delete(OAuthTokenOrm).where(OAuthTokenOrm.expires_at < now)
         result = await session.execute(stmt)

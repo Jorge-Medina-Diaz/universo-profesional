@@ -25,7 +25,6 @@ from typing import Any
 
 from src.integrations.domain.linkedin_profile import LinkedInProfile
 
-
 _DATE_KEYS = {
     "start_date",
     "end_date",

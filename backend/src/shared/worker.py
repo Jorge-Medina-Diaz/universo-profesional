@@ -38,23 +38,23 @@ def _build_redis_settings() -> RedisSettings:
 
 def _collect_functions() -> list[Any]:
     # Import lazily; tasks are wired here so the worker's task registry is complete.
-    from src.agents.workflows.curator import curator_task  # noqa: WPS433
-    from src.agents.workflows.session_digest import session_digest_task  # noqa: WPS433
-    from src.documents.infrastructure.tasks import render_document  # noqa: WPS433
-    from src.identity.infrastructure.tasks import (  # noqa: WPS433
+    from src.agents.workflows.curator import curator_task
+    from src.agents.workflows.session_digest import session_digest_task
+    from src.documents.infrastructure.tasks import render_document
+    from src.identity.infrastructure.tasks import (
         hard_delete_expired_accounts,
         send_email,
     )
-    from src.integrations.infrastructure.tasks import (  # noqa: WPS433
+    from src.integrations.infrastructure.tasks import (
         extract_knowledge_document,
         run_github_sync_task,
         run_linkedin_brightdata_sync_task,
         run_linkedin_dma_sync_task,
     )
-    from src.mcp_server.infrastructure.tasks import (  # noqa: WPS433
+    from src.mcp_server.infrastructure.tasks import (
         purge_expired_oauth_tokens,
     )
-    from src.universe.infrastructure.tasks import (  # noqa: WPS433
+    from src.universe.infrastructure.tasks import (
         compute_communities_task,
         enrich_universe_task,
         refresh_embedding,
@@ -78,11 +78,11 @@ def _collect_functions() -> list[Any]:
 
 
 def _collect_cron() -> list[Any]:
-    from src.agents.workflows.curator import curator_cron  # noqa: WPS433
-    from src.agents.workflows.session_digest import (  # noqa: WPS433
+    from src.agents.workflows.curator import curator_cron
+    from src.agents.workflows.session_digest import (
         session_digest_cron,
     )
-    from src.mcp_server.infrastructure.tasks import (  # noqa: WPS433
+    from src.mcp_server.infrastructure.tasks import (
         purge_expired_oauth_tokens,
     )
 

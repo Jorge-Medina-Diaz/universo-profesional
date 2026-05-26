@@ -5,8 +5,8 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-
 from src.documents.infrastructure.renderer import WeasyPrintRenderer, _ensure_user_dir
+from src.shared.config import get_settings
 
 
 @pytest.fixture
@@ -45,8 +45,6 @@ def sample_resume() -> dict:
 
 @pytest.mark.asyncio
 async def test_render_pdf_creates_file(sample_resume: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from src.shared.config import get_settings
-
     monkeypatch.setattr(get_settings(), "storage_root", tmp_path)
     renderer = WeasyPrintRenderer()
     user_id = uuid4()
@@ -56,14 +54,12 @@ async def test_render_pdf_creates_file(sample_resume: dict, tmp_path: Path, monk
         language="en",
         user_id=user_id,
     )
-    assert Path(path).exists()
+    assert Path(path).exists()  # noqa: ASYNC240
     assert Path(path).suffix in (".pdf", ".html")
 
 
 @pytest.mark.asyncio
 async def test_render_docx_creates_file(sample_resume: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from src.shared.config import get_settings
-
     monkeypatch.setattr(get_settings(), "storage_root", tmp_path)
     renderer = WeasyPrintRenderer()
     user_id = uuid4()
@@ -73,14 +69,12 @@ async def test_render_docx_creates_file(sample_resume: dict, tmp_path: Path, mon
         language="en",
         user_id=user_id,
     )
-    assert Path(path).exists()
+    assert Path(path).exists()  # noqa: ASYNC240
     assert Path(path).suffix == ".docx"
 
 
 @pytest.mark.asyncio
 async def test_render_cover_letter_docx(sample_resume: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from src.shared.config import get_settings
-
     monkeypatch.setattr(get_settings(), "storage_root", tmp_path)
     renderer = WeasyPrintRenderer()
     user_id = uuid4()
@@ -95,14 +89,12 @@ async def test_render_cover_letter_docx(sample_resume: dict, tmp_path: Path, mon
         language="en",
         user_id=user_id,
     )
-    assert Path(path).exists()
+    assert Path(path).exists()  # noqa: ASYNC240
     assert Path(path).suffix == ".docx"
 
 
 @pytest.mark.asyncio
 async def test_render_pdf_fallback_on_bad_template(sample_resume: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from src.shared.config import get_settings
-
     monkeypatch.setattr(get_settings(), "storage_root", tmp_path)
     renderer = WeasyPrintRenderer()
     user_id = uuid4()
@@ -112,12 +104,10 @@ async def test_render_pdf_fallback_on_bad_template(sample_resume: dict, tmp_path
         language="en",
         user_id=user_id,
     )
-    assert Path(path).exists()
+    assert Path(path).exists()  # noqa: ASYNC240
 
 
 def test_ensure_user_dir_creates_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from src.shared.config import get_settings
-
     monkeypatch.setattr(get_settings(), "storage_root", tmp_path)
     user_id = uuid4()
     d = _ensure_user_dir(user_id)

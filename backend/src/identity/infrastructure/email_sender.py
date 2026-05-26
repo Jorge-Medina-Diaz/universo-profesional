@@ -120,7 +120,7 @@ class MockEmailSender(_BaseEmailSender, EmailSender):
                 timeout=10,
             )
             logger.info("email_sent_mock", to=to, subject=subject, tags=tags)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("email_send_failed", to=to, error=str(exc))
             # We don't raise in dev — Mailhog being down shouldn't break
             # the local register flow (the verification link is still in

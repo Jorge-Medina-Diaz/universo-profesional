@@ -16,12 +16,12 @@ from src.identity.application.use_cases import (
     GetCurrentUser,
     SetUserTier,
 )
-from src.identity.infrastructure.repositories import SqlAlchemyUserRepository
 from src.identity.infrastructure.photo_storage import (
     delete_avatar,
     load_avatar,
     save_avatar,
 )
+from src.identity.infrastructure.repositories import SqlAlchemyUserRepository
 from src.identity.interfaces.api.deps import (
     CurrentUserId,
     SessionDep,

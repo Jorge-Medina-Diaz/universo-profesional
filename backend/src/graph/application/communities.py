@@ -71,7 +71,7 @@ async def _summarize(members: list[dict[str, str]]) -> tuple[str, str]:
         label = (result.label or "").strip() or fallback_label
         theme = (result.theme or "").strip() or fallback_summary
         return label[:64], theme[:280]
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("community_summary_failed", error=str(exc))
         return fallback_label, fallback_summary
 
@@ -97,10 +97,10 @@ async def compute_communities(
         membership = undirected.community_leiden(
             objective_function="modularity"
         ).membership
-    except Exception:  # noqa: BLE001
+    except Exception:
         try:
             membership = undirected.community_multilevel().membership
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("community_detection_failed", error=str(exc))
             return []
 
@@ -191,7 +191,7 @@ async def _persist_summaries(
         embed_text = f"{p.label}. {p.summary}"
         try:
             vec = await embedder.embed(embed_text)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("community_embed_failed", community_id=p.id, error=str(exc))
             vec = None
         vec_literal = None

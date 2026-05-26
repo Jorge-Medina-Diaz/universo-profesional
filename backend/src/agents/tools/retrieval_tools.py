@@ -219,7 +219,7 @@ async def explain_path(
         return {"ok": True, "paths": []}
     try:
         idx_paths = snap.graph.get_shortest_paths(src, to=dst, mode="all")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("explain_path_failed", error=str(exc))
         return {"ok": True, "paths": []}
     paths: list[dict[str, Any]] = []

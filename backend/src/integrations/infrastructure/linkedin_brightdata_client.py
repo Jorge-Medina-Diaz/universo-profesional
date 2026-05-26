@@ -104,7 +104,7 @@ async def scrape_profile(
             raise BrightDataError(r.status_code, r.text[:500])
         try:
             data = r.json()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise BrightDataError(r.status_code, f"Non-JSON response: {exc}") from exc
 
     # Bright Data's /scrape returns shape that varies by input cardinality:

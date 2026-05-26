@@ -5,11 +5,8 @@ from typing import Any
 
 from prometheus_client import Counter, Histogram
 
-registrations_total = Counter(
-    "cvs_registrations_total", "Total user registrations"
-)
 user_registered_total = Counter(
-    "cvs_user_registered_total", "Total user registrations (business metric)"
+    "cvs_user_registered_total", "Total user registrations"
 )
 logins_total = Counter("cvs_logins_total", "Total successful logins")
 cvs_generated_total = Counter(

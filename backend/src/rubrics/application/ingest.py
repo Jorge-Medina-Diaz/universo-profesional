@@ -92,7 +92,7 @@ async def ingest_rubrics(
                     chunks=len(doc.chunks),
                     created=was_created,
                 )
-            except Exception as e:  # noqa: BLE001 — surface everything in summary
+            except Exception as e:
                 await session.rollback()
                 summary.add_error(path, str(e))
                 logger.error("rubrics_ingest_error", path=str(path), error=str(e))

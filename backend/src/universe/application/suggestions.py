@@ -6,7 +6,7 @@ Future sprints add JobMatchProvider, SalaryBenchmarkProvider, etc.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date
 from typing import Any, Protocol
 from uuid import UUID, uuid4
 
@@ -17,7 +17,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.shared.errors import NotFoundError, ValidationError
 from src.shared.result import Result, err, ok
 from src.shared.security import utc_now
-from src.shared.uow import UnitOfWork
 from src.universe.application.ports import (
     CareerPreferencesRepository,
     CertificationRepository,
@@ -263,7 +262,7 @@ class GenerateSuggestions:
             try:
                 items = await provider.generate(ctx)
                 all_suggestions.extend(items)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("suggestion_provider_failed", provider=provider.name, error=str(exc))
 
         # De-duplicate by (kind, payload signature)

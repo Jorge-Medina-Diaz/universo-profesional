@@ -1,7 +1,7 @@
 """SQLAlchemy implementations of integrations ports."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -246,7 +246,7 @@ class SqlSyncRunsRepository(SyncRunsRepository):
         mid-flight. The current sync code does NOT honour it — runs in
         progress will still complete in the background.
         """
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         stmt = select(IntegrationSyncRunOrm).where(
             IntegrationSyncRunOrm.id == run_id,
@@ -257,7 +257,7 @@ class SqlSyncRunsRepository(SyncRunsRepository):
             return False
         summary = dict(row.summary or {})
         if not summary.get("_cancelled_requested_at"):
-            summary["_cancelled_requested_at"] = datetime.now(timezone.utc).isoformat()
+            summary["_cancelled_requested_at"] = datetime.now(UTC).isoformat()
             row.summary = summary
         return True
 

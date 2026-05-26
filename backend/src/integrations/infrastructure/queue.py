@@ -35,7 +35,7 @@ async def _get_pool() -> Any | None:
     settings = get_settings()
     try:
         _pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("arq_pool_unavailable", error=str(exc))
         _pool = None
     return _pool

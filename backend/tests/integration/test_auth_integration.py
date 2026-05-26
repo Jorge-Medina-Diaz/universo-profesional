@@ -14,7 +14,7 @@ async def test_register_verify_login_refresh_flow(client: AsyncClient) -> None:
     resp = await client.post(
         "/api/v1/auth/register",
         json={
-            "email": "authflow@test.local",
+            "email": "authflow@example.com",
             "password": "S3cur3-Passw0rd!",
             "display_name": "Auth Flow",
             "locale": "es-ES",
@@ -23,7 +23,7 @@ async def test_register_verify_login_refresh_flow(client: AsyncClient) -> None:
     assert resp.status_code == 201, resp.text
     payload = resp.json()
     assert payload["user_id"]
-    assert payload["email"] == "authflow@test.local"
+    assert payload["email"] == "authflow@example.com"
     link = payload["verification_link"]
     token = re.search(r"token=([\w-]+)", link).group(1)  # type: ignore[union-attr]
 
@@ -34,7 +34,7 @@ async def test_register_verify_login_refresh_flow(client: AsyncClient) -> None:
     # 3) Login
     resp = await client.post(
         "/api/v1/auth/login",
-        json={"email": "authflow@test.local", "password": "S3cur3-Passw0rd!"},
+        json={"email": "authflow@example.com", "password": "S3cur3-Passw0rd!"},
     )
     assert resp.status_code == 200, resp.text
     tokens = resp.json()
@@ -68,7 +68,7 @@ async def test_login_fails_before_verification(client: AsyncClient) -> None:
     resp = await client.post(
         "/api/v1/auth/register",
         json={
-            "email": "unverified@test.local",
+            "email": "unverified@example.com",
             "password": "S3cur3-Passw0rd!",
             "locale": "es-ES",
         },
@@ -77,7 +77,7 @@ async def test_login_fails_before_verification(client: AsyncClient) -> None:
 
     resp = await client.post(
         "/api/v1/auth/login",
-        json={"email": "unverified@test.local", "password": "S3cur3-Passw0rd!"},
+        json={"email": "unverified@example.com", "password": "S3cur3-Passw0rd!"},
     )
     assert resp.status_code == 401
 
@@ -88,7 +88,7 @@ async def test_refresh_with_revoked_token_fails(client: AsyncClient) -> None:
     resp = await client.post(
         "/api/v1/auth/register",
         json={
-            "email": "revoke@test.local",
+            "email": "revoke@example.com",
             "password": "S3cur3-Passw0rd!",
             "locale": "es-ES",
         },
@@ -99,7 +99,7 @@ async def test_refresh_with_revoked_token_fails(client: AsyncClient) -> None:
 
     login = await client.post(
         "/api/v1/auth/login",
-        json={"email": "revoke@test.local", "password": "S3cur3-Passw0rd!"},
+        json={"email": "revoke@example.com", "password": "S3cur3-Passw0rd!"},
     )
     refresh_token = login.json()["refresh_token"]
 

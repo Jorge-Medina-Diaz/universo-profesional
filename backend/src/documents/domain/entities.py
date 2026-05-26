@@ -49,7 +49,7 @@ class Document:
         generated_from: dict[str, Any],
         content_json: dict[str, Any],
         now: datetime,
-    ) -> "Document":
+    ) -> Document:
         doc = cls(
             id=uuid4(),
             user_id=user_id,
@@ -111,7 +111,7 @@ class Job:
         description_parsed: dict[str, Any] | None = None,
         ats_detected: str | None = None,
         now: datetime,
-    ) -> "Job":
+    ) -> Job:
         return cls(
             id=uuid4(),
             user_id=user_id,

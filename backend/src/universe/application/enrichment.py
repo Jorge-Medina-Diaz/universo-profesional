@@ -96,7 +96,7 @@ async def _ensure_embeddings(session: AsyncSession, user_id: UUID, stats: Enrich
             try:
                 await refresh_embedding({}, entity_type=kind, entity_id=str(rid))
                 stats.embeddings_computed += 1
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("enrich_embed_failed", kind=kind, id=str(rid), error=str(exc))
 
 
@@ -165,7 +165,7 @@ async def enrich_user_graph(
 
             pillars = await compute_communities(session, user_id)
             stats.communities = len(pillars)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("community_compute_failed", user_id=str(user_id), error=str(exc))
 
     logger.info("universe_enriched", user_id=str(user_id), **stats.as_dict())

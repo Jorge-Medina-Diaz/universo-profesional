@@ -15,7 +15,6 @@ from src.notes.application.use_cases import (
     UpdateNote,
 )
 from src.notes.infrastructure.repositories import SqlAlchemyNoteRepository
-from src.shared.errors import NotFoundError, ValidationError
 from src.shared.uow import unit_of_work
 from src.universe.infrastructure.scheduler import ArqEmbeddingScheduler
 

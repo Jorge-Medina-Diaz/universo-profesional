@@ -13,17 +13,13 @@ from typing import Any
 from uuid import UUID
 
 from src.shared.errors import ConflictError, NotFoundError, ValidationError
-from src.shared.result import Failure, Result, Success, err, ok
+from src.shared.result import Result, err, ok
 from src.shared.uow import UnitOfWork
 from src.universe.application.ports import (
-    AchievementRepository,
     CareerPreferencesRepository,
-    CertificationRepository,
-    CourseRepository,
     EducationRepository,
     EmbeddingRefreshScheduler,
     ExperienceRepository,
-    InterestRepository,
     LanguageRepository,
     ProjectRepository,
     SemanticSearchPort,
@@ -582,7 +578,6 @@ class ArchitectureDecisionCrud(_EntityCrud):
     async def add(
         self, *, user_id: str, payload: dict[str, Any], uow: UnitOfWork
     ) -> Result[dict[str, Any], ValidationError]:
-        from src.universe.domain.entities import ArchitectureDecision
 
         # related_project_id / superseded_by are no longer ADR columns
         # (migration 0017) — they flow to the graph as edges via the
@@ -703,7 +698,8 @@ class SetCareerPreferences:
 
     async def execute(self, *, user_id: str, patch: dict[str, Any]) -> dict[str, Any]:
         existing = await self._repo.get(UUID(user_id))
-        from datetime import UTC as _UTC, datetime as _dt
+        from datetime import UTC as _UTC
+        from datetime import datetime as _dt
 
         if existing is None:
             existing = CareerPreferences(user_id=UUID(user_id))
@@ -734,7 +730,8 @@ class UpdateUniverseHeader:
     async def execute(
         self, *, user_id: str, patch: dict[str, Any], uow: UnitOfWork
     ) -> dict[str, Any]:
-        from datetime import UTC as _UTC, datetime as _dt
+        from datetime import UTC as _UTC
+        from datetime import datetime as _dt
 
         uid = UUID(user_id)
         universe = await self._repo.get(uid)
@@ -815,7 +812,7 @@ class MarkReviewed:
         if table is None:
             return err(ValidationError(f"Unknown entity_type {entity_type!r}"))
         stmt = text(
-            f"UPDATE {table} SET last_reviewed_at = now() "  # noqa: S608
+            f"UPDATE {table} SET last_reviewed_at = now() "
             f"WHERE id = :eid AND user_id = :uid RETURNING id"
         )
         result = await self._session.execute(
@@ -920,7 +917,8 @@ class ListEvidence:
         self._session = session
 
     async def execute(self, *, user_id: str, skill_id: str | None = None) -> list[dict[str, Any]]:
-        from sqlalchemy import desc as sa_desc, select
+        from sqlalchemy import desc as sa_desc
+        from sqlalchemy import select
 
         from src.universe.infrastructure.orm import EvidenceOrm
 

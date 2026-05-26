@@ -8,8 +8,8 @@ already exists.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Annotated
+from datetime import UTC, datetime
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -114,7 +114,7 @@ async def create_job(
         title=body.title,
         url=body.url,
         description_parsed={"_tracker": {"status": body.status}},
-        now=datetime.now(timezone.utc),
+        now=datetime.now(UTC),
     )
     row = JobOrm(
         id=job.id,
@@ -150,7 +150,7 @@ async def patch_job(
     if body.status is not None:
         tracker["status"] = body.status
         if body.status == "applied" and not tracker.get("applied_at"):
-            tracker["applied_at"] = datetime.now(timezone.utc).isoformat()
+            tracker["applied_at"] = datetime.now(UTC).isoformat()
     if body.notes is not None:
         tracker["notes"] = body.notes
     if body.applied_at is not None:
@@ -215,7 +215,7 @@ async def reorder_jobs(
                 raise HTTPException(status_code=400, detail="invalid_status")
             tracker["status"] = new_status
             if new_status == "applied" and not tracker.get("applied_at"):
-                tracker["applied_at"] = datetime.now(timezone.utc).isoformat()
+                tracker["applied_at"] = datetime.now(UTC).isoformat()
         parsed["_tracker"] = tracker
         row.description_parsed = parsed
         updated += 1

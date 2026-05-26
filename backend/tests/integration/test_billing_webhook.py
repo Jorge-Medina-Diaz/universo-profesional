@@ -25,7 +25,7 @@ async def _register_and_login(client: AsyncClient, email: str) -> str:
 
 @pytest.mark.asyncio
 async def test_mock_checkout_upgrades_plan(client: AsyncClient) -> None:
-    access = await _register_and_login(client, "billing@test.local")
+    access = await _register_and_login(client, "billing@example.com")
     h = {"Authorization": f"Bearer {access}"}
 
     # Initial plan is free
@@ -52,7 +52,7 @@ async def test_mock_checkout_upgrades_plan(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_mock_cancel_downgrades_plan(client: AsyncClient) -> None:
-    access = await _register_and_login(client, "billing2@test.local")
+    access = await _register_and_login(client, "billing2@example.com")
     h = {"Authorization": f"Bearer {access}"}
 
     me = await client.get("/api/v1/users/me", headers=h)

@@ -149,7 +149,7 @@ async def run_extraction(user_id: str, document_id: str) -> dict[str, int]:
             max_tokens=1536,
             temperature=0.0,
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("knowledge_extraction_llm_failed", document_id=document_id, error=str(exc))
         await _mark_status(uid, did, "ingested")
         return {"skills_upserted": 0, "note_created": 0}
@@ -163,7 +163,7 @@ async def run_extraction(user_id: str, document_id: str) -> dict[str, int]:
                 uid, did, title=title, summary=summary, topics=extraction.topics or []
             )
             note_created = True
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(
                 "knowledge_summary_note_failed", document_id=document_id, error=str(exc)
             )
@@ -204,7 +204,7 @@ async def run_extraction(user_id: str, document_id: str) -> dict[str, int]:
                     )
                     await uow.commit()
                 upserted += 1
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning(
                     "knowledge_skill_upsert_failed",
                     document_id=document_id,

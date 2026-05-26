@@ -210,7 +210,7 @@ async def snapshot(
             label = _parse_agtype_str(row.get("label"))
             if eid and label:
                 pillar_by_entity[eid] = label
-    except Exception:  # noqa: BLE001 — pillars are optional decoration
+    except Exception:
         pillar_by_entity = {}
 
     edge_rows = await cypher(

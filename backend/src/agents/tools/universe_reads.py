@@ -87,7 +87,7 @@ async def find_gaps(run_context: RunContext) -> dict[str, Any]:
         )
         try:
             generated = await uc.execute(user_id=user_id)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return {"error": str(exc)}
         return {
             "count": len(generated or []),

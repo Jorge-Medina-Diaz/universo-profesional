@@ -83,7 +83,7 @@ async def _recompute_shape_safe(user_id: UUID) -> None:
             for area in primary_areas[:2]:
                 await extract_user_signals(session, user_id, sector=area)
             await session.commit()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning(
             "shape_signals_recompute_failed",
             user_id=str(user_id),

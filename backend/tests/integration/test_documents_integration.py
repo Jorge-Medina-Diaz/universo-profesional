@@ -25,7 +25,7 @@ async def _register_and_login(client: AsyncClient, email: str) -> str:
 
 @pytest.mark.asyncio
 async def test_generate_cv_with_mock_llm(client: AsyncClient) -> None:
-    access = await _register_and_login(client, "docs@test.local")
+    access = await _register_and_login(client, "docs@example.com")
     h = {"Authorization": f"Bearer {access}"}
 
     # Seed universe
@@ -78,7 +78,7 @@ async def test_generate_cv_with_mock_llm(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_generate_cover_letter_with_mock_llm(client: AsyncClient) -> None:
-    access = await _register_and_login(client, "cover@test.local")
+    access = await _register_and_login(client, "cover@example.com")
     h = {"Authorization": f"Bearer {access}"}
 
     r = await client.post(
@@ -99,8 +99,8 @@ async def test_generate_cover_letter_with_mock_llm(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_document_rls(client: AsyncClient) -> None:
-    alice = await _register_and_login(client, "alice_doc@test.local")
-    bob = await _register_and_login(client, "bob_doc@test.local")
+    alice = await _register_and_login(client, "alice_doc@example.com")
+    bob = await _register_and_login(client, "bob_doc@example.com")
 
     h_alice = {"Authorization": f"Bearer {alice}"}
     r = await client.post(

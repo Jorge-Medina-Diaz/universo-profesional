@@ -81,7 +81,7 @@ class GithubClient:
         if r.get("encoding") == "base64" and r.get("content"):
             try:
                 return base64.b64decode(r["content"]).decode("utf-8", errors="ignore")
-            except Exception:  # noqa: BLE001
+            except Exception:
                 return None
         return None
 

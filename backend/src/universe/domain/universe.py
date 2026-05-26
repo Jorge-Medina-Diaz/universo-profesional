@@ -32,7 +32,7 @@ class Universe:
     _events: list[DomainEvent] = field(default_factory=list, repr=False, compare=False)
 
     @classmethod
-    def for_user(cls, user_id: UUID) -> "Universe":
+    def for_user(cls, user_id: UUID) -> Universe:
         u = cls(user_id=user_id)
         u._events.append(UniverseCreated(user_id=user_id))
         return u

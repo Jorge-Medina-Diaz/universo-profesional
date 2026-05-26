@@ -187,7 +187,7 @@ async def mark_stale(
         table = reg.sql_table
         result = await session.execute(
             text(
-                f"UPDATE {table} SET confidence = 0.3, updated_at = now() "  # noqa: S608
+                f"UPDATE {table} SET confidence = 0.3, updated_at = now() "
                 f"WHERE id = :eid AND user_id = :uid "
                 f"RETURNING id"
             ),

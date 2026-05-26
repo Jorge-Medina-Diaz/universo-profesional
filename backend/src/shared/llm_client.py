@@ -17,7 +17,7 @@ in CI.
 from __future__ import annotations
 
 import json
-from typing import Any, Protocol, TypeVar
+from typing import Protocol, TypeVar
 
 import structlog
 from pydantic import BaseModel
@@ -81,7 +81,7 @@ class MockLlmClient:
 
 class AnthropicLlmClient:
     def __init__(self) -> None:
-        from anthropic import AsyncAnthropic  # noqa: WPS433 — lazy import
+        from anthropic import AsyncAnthropic
 
         self._client = AsyncAnthropic()
         self._model = "claude-sonnet-4-6"
@@ -132,7 +132,7 @@ class AnthropicLlmClient:
 
 class OpenAiLlmClient:
     def __init__(self) -> None:
-        from openai import AsyncOpenAI  # noqa: WPS433
+        from openai import AsyncOpenAI
 
         self._client = AsyncOpenAI()
         self._model = "gpt-4o-mini"
@@ -196,13 +196,13 @@ def get_llm_client() -> LlmClient:
     if provider == "anthropic":
         try:
             _client = AnthropicLlmClient()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("anthropic_init_failed_falling_back_to_mock", error=str(exc))
             _client = MockLlmClient()
     elif provider == "openai":
         try:
             _client = OpenAiLlmClient()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("openai_init_failed_falling_back_to_mock", error=str(exc))
             _client = MockLlmClient()
     else:

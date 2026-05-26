@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import math
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID
 
@@ -23,7 +23,6 @@ from src.universe.application.ports import (
     ProjectRepository,
     SkillRepository,
 )
-from src.universe.application.use_cases import _serialize  # type: ignore[attr-defined]
 from src.universe.domain.entities import Experience, Interest, Project, Skill
 
 logger = structlog.get_logger(__name__)
@@ -78,7 +77,7 @@ class SyncGithub:
             await _bail_if_cancelled("after_list_orgs")
             try:
                 graphql_data = await gh.pinned_and_contributions(login)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 graphql_data = {}
                 errors.append(f"graphql_failed: {exc}")
 
@@ -116,7 +115,7 @@ class SyncGithub:
                     langs = await gh.get_repo_languages(r["owner"]["login"], r["name"])
                     for k, v in langs.items():
                         language_bytes[k] = language_bytes.get(k, 0) + int(v)
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     errors.append(f"langs_{r['name']}: {exc}")
 
             await _bail_if_cancelled("before_projects_upsert")
@@ -128,7 +127,7 @@ class SyncGithub:
                         readme = await gh.get_repo_readme(r["owner"]["login"], r["name"])
                         if readme:
                             description = _first_paragraph(readme)
-                    except Exception:  # noqa: BLE001
+                    except Exception:
                         pass
 
                 existing = None
@@ -296,7 +295,7 @@ class SyncGithub:
                 "items_created": items_created,
                 "items_updated": items_updated,
             }
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.exception("github_sync_failed", error=str(exc))
             await self._accounts.touch_sync(
                 uid, "github", ok=False, error=str(exc), when=utc_now()
@@ -330,7 +329,7 @@ def _recency_score(pushed: datetime | None, now: datetime) -> float:
     if pushed is None:
         return 0.0
     if pushed.tzinfo is None:
-        pushed = pushed.replace(tzinfo=timezone.utc)
+        pushed = pushed.replace(tzinfo=UTC)
     age_days = (now - pushed).total_seconds() / 86400.0
     return 10.0 * math.exp(-age_days / RECENCY_HALF_LIFE_DAYS)
 

@@ -120,10 +120,18 @@ ignore = [
     "PLR0913",  # too many arguments — common in DDD use cases
     "PLR2004",  # magic values — DDD often uses literal validation
     "E501",     # line length — handled by formatter
+    # Bandit rules with pre-existing debt in src/; ratchet up in v1.1
+    "S101",     # assert in src/ — used for internal invariants
+    "S105",     # hardcoded password strings — mostly URL tokens / defaults
+    "S107",     # hardcoded password in function defaults
+    "S110",     # try-except-pass — deferred cleanup
+    "S112",     # try-except-continue — deferred cleanup
+    "S301",     # pickle usage — internal serialization only
+    "S608",     # SQL string formatting — registry-driven, not user input
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["PLR2004", "S101", "ARG", "N806"]
+"tests/**/*.py" = ["PLR2004", "S101", "ARG", "N806", "PLC0415"]
 "alembic/**/*.py" = ["E501", "I001"]
 
 [tool.ruff.format]

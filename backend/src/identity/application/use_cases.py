@@ -24,7 +24,7 @@ from src.shared.errors import (
     ValidationError,
 )
 from src.shared.metrics import user_registered_total
-from src.shared.result import Failure, Result, Success, err, ok
+from src.shared.result import Result, err, ok
 from src.shared.security import (
     encode_jwt,
     generate_token,
@@ -162,7 +162,7 @@ class VerifyEmail:
                 await enqueue_transactional_email(
                     user_id=user.id, template="welcome", context=None
                 )
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
         return ok(True)
 

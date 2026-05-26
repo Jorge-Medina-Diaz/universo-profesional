@@ -40,7 +40,7 @@ def _extract_text(contents: bytes, mime: str | None, filename: str) -> str:
     # text / markdown
     try:
         return contents.decode("utf-8", errors="replace")
-    except Exception:  # noqa: BLE001
+    except Exception:
         return ""
 
 
@@ -92,7 +92,7 @@ async def upload_document(
             "extract_knowledge_document", user_id=user_id, document_id=str(doc_id)
         )
         queued = True
-    except Exception:  # noqa: BLE001
+    except Exception:
         queued = False
 
     return {"document_id": str(doc_id), "extraction_queued": queued}

@@ -8,7 +8,7 @@ stale (computed_at older than `STALE_DAYS`) we recompute on-the-fly.
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Query
@@ -38,7 +38,7 @@ async def get_shape(
     force: bool = Query(default=False, description="Force recompute"),
 ) -> dict[str, Any]:
     strengths, primary, secondary_areas = await load_area_strengths(session, user_id)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     is_stale = True
     computed_at: datetime | None = None
     if strengths:

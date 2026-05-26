@@ -6,7 +6,6 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-
 RESOURCES = {
     "universe://summary": {
         "uri": "universe://summary",

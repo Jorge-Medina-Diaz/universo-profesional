@@ -30,7 +30,6 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-
 WINDOW_SIZE = 40
 DIGEST_THRESHOLD = WINDOW_SIZE + 20  # accumulate buffer before recomputing
 

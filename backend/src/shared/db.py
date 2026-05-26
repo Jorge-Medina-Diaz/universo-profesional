@@ -123,7 +123,7 @@ def import_all_models() -> None:
 
     Called by Alembic env and by the FastAPI lifespan.
     """
-    # noqa: F401 — imports for side effects (table registration)
+
     from src.billing.infrastructure import orm as _billing  # noqa: F401
     from src.coherence.infrastructure import orm as _coherence  # noqa: F401
     from src.documents.infrastructure import orm as _documents  # noqa: F401
@@ -137,7 +137,7 @@ def import_all_models() -> None:
 @event.listens_for(Base.metadata, "after_create")
 def _after_create(target: Any, connection: Any, **_kw: Any) -> None:  # pragma: no cover
     """Best-effort: in tests using `metadata.create_all` (rare; Alembic is canonical)."""
-    return None
+    return
 
 
 async def dispose_engine() -> None:

@@ -14,10 +14,10 @@ the same regardless of which path issued the state.
 """
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Any
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 
 from src.identity.infrastructure.repositories import (

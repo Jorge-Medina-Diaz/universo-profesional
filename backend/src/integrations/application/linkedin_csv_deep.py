@@ -4,9 +4,7 @@ from __future__ import annotations
 import csv
 import io
 import zipfile
-from collections.abc import Iterator
 from typing import Any
-from uuid import UUID
 
 import structlog
 
@@ -330,6 +328,6 @@ async def commit_parsed(
                     r = await uc.add(user_id=user_id, payload=clean, uow=uow)
                     if r.is_success:
                         summary[key] += 1
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("li_csv_commit_failed", item=item, error=str(exc))
     return summary

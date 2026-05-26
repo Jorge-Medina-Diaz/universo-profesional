@@ -88,7 +88,7 @@ class PgVectorSemanticSearch(SemanticSearchPort):
                   AND embedding IS NOT NULL
                 ORDER BY embedding <=> CAST(:emb AS vector)
                 LIMIT :k
-                """  # noqa: S608
+                """
             )
             rows = (
                 await self._session.execute(

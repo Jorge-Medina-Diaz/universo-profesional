@@ -6,7 +6,7 @@ as the *commit step* of an HITL flow; do not call them speculatively.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -114,7 +114,7 @@ async def set_job_status(
         tracker = dict(parsed.get("_tracker", {}) or {})
         tracker["status"] = new_status
         if new_status == "applied" and not tracker.get("applied_at"):
-            tracker["applied_at"] = datetime.now(timezone.utc).isoformat()
+            tracker["applied_at"] = datetime.now(UTC).isoformat()
         parsed["_tracker"] = tracker
         row.description_parsed = parsed
         return {

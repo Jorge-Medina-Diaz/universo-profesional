@@ -75,7 +75,7 @@ class User:
         display_name: str | None,
         locale: str,
         now: datetime,
-    ) -> "User":
+    ) -> User:
         user_id = uuid4()
         user = cls(
             id=user_id,

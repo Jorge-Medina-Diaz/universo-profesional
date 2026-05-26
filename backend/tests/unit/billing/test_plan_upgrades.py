@@ -1,11 +1,10 @@
 """Unit tests: billing plan upgrades / downgrades."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-
 from src.billing.application.use_cases import CancelSubscription
 from src.billing.domain.entities import Subscription
 from src.shared.errors import NotFoundError
@@ -15,13 +14,13 @@ class FakePaymentsProvider:
     def __init__(self) -> None:
         self.canceled = []
 
-    async def create_checkout(self, *, user_id, plan, return_url):  # noqa: ANN001,ANN202,ANN003
+    async def create_checkout(self, *, user_id, plan, return_url):
         return "https://checkout.test"
 
-    async def create_portal(self, *, user_id, return_url):  # noqa: ANN001,ANN202,ANN003
+    async def create_portal(self, *, user_id, return_url):
         return "https://portal.test"
 
-    async def cancel(self, *, user_id):  # noqa: ANN001,ANN202
+    async def cancel(self, *, user_id):
         self.canceled.append(user_id)
 
 
@@ -29,17 +28,17 @@ class FakeSubscriptionRepository:
     def __init__(self, sub: Subscription | None = None) -> None:
         self._sub = sub
 
-    async def get(self, user_id):  # noqa: ANN001,ANN202
+    async def get(self, user_id):
         return self._sub
 
-    async def upsert(self, subscription):  # noqa: ANN001,ANN202
+    async def upsert(self, subscription):
         self._sub = subscription
 
 
 @pytest.mark.asyncio
 async def test_cancel_existing_subscription() -> None:
     uid = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     sub = Subscription(
         user_id=uid,
         plan="premium",
@@ -79,7 +78,7 @@ async def test_cancel_missing_subscription_fails() -> None:
 class TestSubscriptionEntity:
     def test_free_for_creates_active_free(self) -> None:
         uid = uuid4()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         sub = Subscription.free_for(uid, now)
         assert sub.plan == "free"
         assert sub.status == "active"
@@ -87,19 +86,19 @@ class TestSubscriptionEntity:
 
     def test_is_active_for_active(self) -> None:
         uid = uuid4()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         sub = Subscription.free_for(uid, now)
         assert sub.is_active is True
 
     def test_is_paying_for_free(self) -> None:
         uid = uuid4()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         sub = Subscription.free_for(uid, now)
         assert sub.is_paying is False
 
     def test_is_paying_for_premium_active(self) -> None:
         uid = uuid4()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         sub = Subscription(
             user_id=uid,
             plan="premium",
@@ -117,6 +116,6 @@ class TestSubscriptionEntity:
 
     def test_limits_match_plan(self) -> None:
         uid = uuid4()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         sub = Subscription.free_for(uid, now)
         assert sub.limits.monthly_cv == 3

@@ -30,7 +30,6 @@ from src.integrations.application.ports import (
     OperationCancelledError,
     SyncRunsRepository,
 )
-from src.integrations.domain.external_account import IntegrationSynced
 from src.shared.security import utc_now
 from src.shared.uow import UnitOfWork
 
@@ -59,12 +58,12 @@ async def _run_with_cooperative_cancel(
     while True:
         try:
             return await asyncio.wait_for(asyncio.shield(task), timeout=poll_seconds)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             if await runs.is_cancelled(run_id):
                 task.cancel()
                 try:
                     await task
-                except (asyncio.CancelledError, Exception):  # noqa: BLE001
+                except (asyncio.CancelledError, Exception):
                     pass
                 raise OperationCancelledError(stage)
             # Not cancelled yet — keep waiting.
@@ -133,7 +132,7 @@ class SyncLinkedinDma:
                 summary={"cancelled_stage": str(exc)},
             )
             return {"ok": False, "error": "cancelled"}
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.exception("linkedin_dma_sync_failed", error=str(exc))
             await self._accounts.touch_sync(
                 uid, "linkedin_dma", ok=False, error=str(exc), when=utc_now()
@@ -224,7 +223,7 @@ class SyncLinkedinBrightdata:
                 },
             )
             return {"ok": False, "error": "cancelled"}
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.exception("linkedin_brightdata_sync_failed", error=str(exc))
             await self._runs.finish(
                 run_id,

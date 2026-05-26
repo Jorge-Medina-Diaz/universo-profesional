@@ -1,7 +1,7 @@
 """External account aggregate + events."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, ClassVar, Literal
 from uuid import UUID, uuid4
@@ -63,7 +63,7 @@ class ExternalAccount:
         scopes: list[str],
         metadata: dict[str, Any],
         now: datetime,
-    ) -> "ExternalAccount":
+    ) -> ExternalAccount:
         return cls(
             id=uuid4(),
             user_id=user_id,

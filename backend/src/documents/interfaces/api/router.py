@@ -1,6 +1,7 @@
 """Documents REST API: /api/v1/documents/*"""
 from __future__ import annotations
 
+from datetime import UTC
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -151,9 +152,11 @@ async def download_pdf(
     uc: GetDocDep,
     session: SessionDep,
 ) -> FileResponse:
-    from src.documents.infrastructure.orm import DocumentOrm
-    from sqlalchemy import select
     from uuid import UUID
+
+    from sqlalchemy import select
+
+    from src.documents.infrastructure.orm import DocumentOrm
 
     row = (
         await session.execute(
@@ -175,9 +178,11 @@ async def download_docx(
     user_id: CurrentUserId,
     session: SessionDep,
 ) -> FileResponse:
-    from src.documents.infrastructure.orm import DocumentOrm
-    from sqlalchemy import select
     from uuid import UUID
+
+    from sqlalchemy import select
+
+    from src.documents.infrastructure.orm import DocumentOrm
 
     row = (
         await session.execute(
@@ -233,7 +238,7 @@ public_router = APIRouter()
 
 @public_router.get("/{token}")
 async def resolve_share_token(token: str, session: SessionDep) -> dict[str, Any]:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     repo = SqlAlchemyDocumentRepository(session)
     doc = await repo.get_by_share_token(token)
@@ -243,9 +248,9 @@ async def resolve_share_token(token: str, session: SessionDep) -> dict[str, Any]
     expires_raw = getattr(doc, "share_expires_at", None)
     if expires_raw is not None:
         try:
-            if isinstance(expires_raw, datetime) and expires_raw < datetime.now(timezone.utc):
+            if isinstance(expires_raw, datetime) and expires_raw < datetime.now(UTC):
                 raise HTTPException(status_code=status.HTTP_410_GONE, detail="expired")
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
     return {
         "document_id": str(doc.id),

@@ -1,6 +1,7 @@
 """Billing API: /api/v1/billing/*"""
 from __future__ import annotations
 
+from datetime import UTC
 from typing import Any, Literal
 
 import structlog
@@ -18,10 +19,10 @@ from src.billing.infrastructure.payments import (
     MockStripeProvider,
     get_payments_provider,
 )
-from src.shared.metrics import stripe_conversion_total
 from src.billing.infrastructure.repositories import SqlAlchemySubscriptionRepository
 from src.identity.interfaces.api.deps import CurrentUserId, SessionDep
 from src.shared.config import get_settings
+from src.shared.metrics import stripe_conversion_total
 from src.shared.uow import unit_of_work
 
 logger = structlog.get_logger(__name__)
@@ -227,7 +228,7 @@ async def stripe_webhook(
                 await enqueue_transactional_email(
                     user_id=uid, template="payment_received", context={"plan": plan}
                 )
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("payment_email_enqueue_failed", error=str(exc))
 
         elif event_type == "customer.subscription.updated":
@@ -244,10 +245,10 @@ async def stripe_webhook(
             sub.status = status or sub.status
             period_end = data_object.get("current_period_end")
             if isinstance(period_end, int):
-                from datetime import datetime, timezone
+                from datetime import datetime
 
                 sub.current_period_end = datetime.fromtimestamp(
-                    period_end, tz=timezone.utc
+                    period_end, tz=UTC
                 )
             sub.updated_at = utc_now()
             await subs.upsert(sub)
@@ -269,7 +270,7 @@ async def stripe_webhook(
 
         # invoice.paid / invoice.payment_failed are observability-only today.
 
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("stripe_webhook_handler_failed", error=str(exc))
         # Return 200 anyway — Stripe retries with the SAME event id, and
         # we already logged it. Retrying buggy handlers just floods the log.
