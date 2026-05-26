@@ -58,6 +58,9 @@ export interface CommandPaletteHandle {
   close: () => void;
   isOpen: boolean;
   activeIndex: number;
+  moveDown: () => void;
+  moveUp: () => void;
+  selectActive: () => void;
 }
 
 interface Props {
@@ -85,32 +88,26 @@ export const CommandPalette = forwardRef<CommandPaletteHandle, Props>(
 
     const isOpen = filtered.length > 0 && query.startsWith("/");
 
-    useImperativeHandle(ref, () => ({ open: () => {}, close: onClose, isOpen, activeIndex }));
+    useImperativeHandle(ref, () => ({
+      open: () => {},
+      close: onClose,
+      isOpen,
+      activeIndex,
+      moveDown: () => setActiveIndex((i) => (i + 1) % filtered.length),
+      moveUp: () => setActiveIndex((i) => (i - 1 + filtered.length) % filtered.length),
+      selectActive: () => {
+        const cmd = filtered[activeIndex];
+        if (cmd) onSelect(cmd);
+      },
+    }));
 
     useEffect(() => {
       setActiveIndex(0);
     }, [query]);
 
-    useEffect(() => {
-      if (!isOpen) return;
-      const handler = (e: KeyboardEvent) => {
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          setActiveIndex((i) => (i + 1) % filtered.length);
-        } else if (e.key === "ArrowUp") {
-          e.preventDefault();
-          setActiveIndex((i) => (i - 1 + filtered.length) % filtered.length);
-        } else if (e.key === "Enter") {
-          e.preventDefault();
-          const cmd = filtered[activeIndex];
-          if (cmd) onSelect(cmd);
-        } else if (e.key === "Escape") {
-          onClose();
-        }
-      };
-      window.addEventListener("keydown", handler);
-      return () => window.removeEventListener("keydown", handler);
-    }, [isOpen, filtered, activeIndex, onSelect, onClose]);
+    // Keyboard navigation is now handled by the parent Composer via
+    // the imperative handle, avoiding a global window listener that
+    // could steal focus from modals or other inputs.
 
     useEffect(() => {
       const el = itemRefs.current[activeIndex];

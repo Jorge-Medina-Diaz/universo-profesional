@@ -20,7 +20,7 @@ from uuid import UUID
 
 from agno.run.base import RunContext
 from agno.tools import tool
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from src.shared.db import with_user_session
 from src.universe.application.shape_service import (
@@ -63,14 +63,13 @@ def _now_utc() -> datetime:
 
 
 async def _count_rows(session, table, user_uuid: UUID) -> int:
-    rows = (
-        await session.execute(
-            select(table).where(table.user_id == user_uuid)
-        )
-    ).scalars().all()
-    return sum(
-        1 for r in rows if getattr(r, "deleted_at", None) is None
+    result = await session.execute(
+        select(func.count())
+        .select_from(table)
+        .where(table.user_id == user_uuid)
+        .where(table.deleted_at.is_(None))
     )
+    return result.scalar_one()
 
 
 def _bonus(have: int, target: int) -> float:

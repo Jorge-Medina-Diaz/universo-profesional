@@ -31,6 +31,24 @@ from src.shared.security import ensure_jwt_keys
 logger = get_logger(__name__)
 
 
+async def _ensure_agno_indexes() -> None:
+    """Create runtime indexes on tables managed by Agno (not in Alembic)."""
+    from sqlalchemy import text
+
+    from src.shared.db import async_session_factory
+
+    try:
+        async with async_session_factory() as session:
+            await session.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_agno_messages_session ON agno_messages(session_id)"
+                )
+            )
+            await session.commit()
+    except Exception as exc:
+        logger.warning("agno_index_setup_failed", error=str(exc))
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Startup + shutdown hooks."""
@@ -84,10 +102,22 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # 3. Wire event subscribers
     _wire_event_subscribers()
 
+    # 4. Ensure Agno chat-history index exists (created by Agno at runtime,
+    #    not tracked by Alembic, so we guard it here to avoid seq-scans).
+    await _ensure_agno_indexes()
+
     yield
 
     logger.info("app_stopping")
     await dispose_engine()
+
+    # 5. Dispose shared Redis connection
+    try:
+        from src.shared.redis import dispose_redis
+
+        await dispose_redis()
+    except Exception as exc:
+        logger.warning("redis_dispose_failed", error=str(exc))
 
 
 def _wire_event_subscribers() -> None:

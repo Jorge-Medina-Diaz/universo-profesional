@@ -509,8 +509,9 @@ def _extract_agui_images(messages: list[Any]) -> list[Any]:
     return images
 
 
-def _extract_agui_pdf_text(messages: list[Any]) -> str:
+async def _extract_agui_pdf_text(messages: list[Any]) -> str:
     """Inline-parse text from attached PDF document parts (best-effort)."""
+    import asyncio
     import io
 
     chunks: list[str] = []
@@ -528,8 +529,11 @@ def _extract_agui_pdf_text(messages: list[Any]) -> str:
         try:
             from pypdf import PdfReader
 
-            reader = PdfReader(io.BytesIO(_decode_data_value(value)))
-            text = "\n".join((pg.extract_text() or "") for pg in reader.pages).strip()
+            def _parse() -> str:
+                reader = PdfReader(io.BytesIO(_decode_data_value(value)))
+                return "\n".join((pg.extract_text() or "") for pg in reader.pages).strip()
+
+            text = await asyncio.to_thread(_parse)
             if text:
                 chunks.append("[Documento adjunto]\n" + text[:_MAX_PDF_CHARS])
         except Exception:  # skip an unreadable PDF
@@ -613,7 +617,7 @@ async def _run_team_with_attachments(team: Any, run_input: RunAgentInput) -> Any
         messages = run_input.messages or []
         user_input = extract_agui_user_input(messages)
         images = _extract_agui_images(messages)
-        pdf_text = _extract_agui_pdf_text(messages)
+        pdf_text = await _extract_agui_pdf_text(messages)
         if pdf_text:
             user_input = f"{user_input}\n\n{pdf_text}".strip() if user_input else pdf_text
 

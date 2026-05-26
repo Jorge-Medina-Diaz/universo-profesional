@@ -361,7 +361,28 @@ export const Composer = memo(function Composer({
             autoGrow();
           }}
           onKeyDown={(e) => {
-            if (paletteRef.current?.isOpen) return; // Let palette handle navigation
+            if (paletteRef.current?.isOpen) {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                paletteRef.current.moveDown();
+                return;
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                paletteRef.current.moveUp();
+                return;
+              }
+              if (e.key === "Enter") {
+                e.preventDefault();
+                paletteRef.current.selectActive();
+                return;
+              }
+              if (e.key === "Escape") {
+                paletteRef.current.close();
+                return;
+              }
+              return;
+            }
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               send(text);
@@ -399,7 +420,7 @@ export const Composer = memo(function Composer({
           }}
         />
       </div>
-      <p className="composer-hint">
+      <p className="composer-hint hidden sm:block">
         <kbd>Enter</kbd> para enviar · <kbd>Shift</kbd>+<kbd>Enter</kbd> salto de línea · <kbd>/</kbd> comandos
       </p>
     </div>

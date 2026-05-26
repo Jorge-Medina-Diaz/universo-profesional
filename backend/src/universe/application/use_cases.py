@@ -13,6 +13,7 @@ from typing import Any
 from uuid import UUID
 
 from src.shared.errors import ConflictError, NotFoundError, ValidationError
+from src.shared.redis import get_redis
 from src.shared.result import Result, err, ok
 from src.shared.uow import UnitOfWork
 from src.universe.application.ports import (
@@ -95,6 +96,18 @@ class GetUniverseSummary:
         self._prefs = prefs
 
     async def execute(self, *, user_id: str) -> dict[str, Any]:
+        cache_key = f"universe:summary:{user_id}"
+        redis = get_redis()
+        try:
+            cached = await redis.get(cache_key)
+            if cached:
+                import json
+
+                return json.loads(cached)
+        except Exception:
+            # Cache miss or Redis unavailable — fall through to DB
+            pass
+
         uid = UUID(user_id)
         universe = await self._universes.get(uid)
         if universe is None:
@@ -106,7 +119,7 @@ class GetUniverseSummary:
         langs = await self._lang.list(uid)
         projs = await self._proj.list(uid)
         prefs = await self._prefs.get(uid)
-        return {
+        result = {
             "headline": universe.headline,
             "summary": universe.summary,
             "photo_url": universe.photo_url,
@@ -123,6 +136,15 @@ class GetUniverseSummary:
             "languages": [_serialize(lang) for lang in langs],
             "preferences": _serialize(prefs) if prefs else None,
         }
+
+        try:
+            import json
+
+            await redis.setex(cache_key, 30, json.dumps(result))
+        except Exception:
+            pass
+
+        return result
 
 
 # --- Generic CRUD factory --------------------------------------------------

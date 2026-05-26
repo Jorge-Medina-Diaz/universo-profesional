@@ -101,7 +101,25 @@ class CopilotErrorBoundary extends Component<
   }
 
   render() {
-    if (this.state.failed) return this.props.children;
+    if (this.state.failed) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-3 p-6 text-center">
+          <div className="rounded-card border border-red-200 bg-red-50/60 px-4 py-3 max-w-sm">
+            <p className="text-sm font-medium text-red-800">El chat no está disponible</p>
+            <p className="mt-0.5 text-xs text-red-700/90">
+              Algo salió mal al cargar el agente. Puedes seguir usando el resto de la app.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => this.setState({ failed: false })}
+            className="text-xs text-ink underline-offset-2 hover:underline"
+          >
+            Reintentar
+          </button>
+        </div>
+      );
+    }
     return this.props.children;
   }
 }

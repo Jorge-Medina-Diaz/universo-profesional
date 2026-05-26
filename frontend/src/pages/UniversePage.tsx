@@ -494,8 +494,30 @@ export function UniversePage() {
 
 function ChatLoadingSkeleton() {
   return (
-    <div className="flex h-full w-full max-w-[680px] mx-auto flex-col justify-end gap-3 p-4">
-      <Skeleton shape="block" className="h-12" />
+    <div className="flex h-full w-full max-w-[680px] mx-auto flex-col justify-end gap-4 p-4">
+      <div className="flex gap-3 animate-pulse">
+        <div className="w-7 h-7 rounded-full bg-black/10 shrink-0" />
+        <div className="flex-1 space-y-2">
+          <div className="h-3 rounded bg-black/10 w-3/4" />
+          <div className="h-3 rounded bg-black/10 w-1/2" />
+        </div>
+      </div>
+      <div className="flex gap-3 justify-end animate-pulse">
+        <div className="flex-1 space-y-2 max-w-[70%]">
+          <div className="h-3 rounded bg-black/10 w-full" />
+          <div className="h-3 rounded bg-black/10 w-2/3" />
+        </div>
+        <div className="w-7 h-7 rounded-full bg-black/10 shrink-0" />
+      </div>
+      <div className="flex gap-3 animate-pulse">
+        <div className="w-7 h-7 rounded-full bg-black/10 shrink-0" />
+        <div className="flex-1 space-y-2">
+          <div className="h-3 rounded bg-black/10 w-5/6" />
+          <div className="h-3 rounded bg-black/10 w-4/5" />
+          <div className="h-3 rounded bg-black/10 w-1/3" />
+        </div>
+      </div>
+      <div className="mt-2 h-10 rounded-xl bg-black/8" />
     </div>
   );
 }

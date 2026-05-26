@@ -9,6 +9,7 @@ all section headers as actual <h2> tags so parsers recognize structure.
 """
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -55,12 +56,14 @@ class WeasyPrintRenderer(Renderer):
         try:
             from weasyprint import HTML
 
-            HTML(string=html, base_url=str(_TEMPLATES_DIR)).write_pdf(str(out_path))
+            await asyncio.to_thread(
+                lambda: HTML(string=html, base_url=str(_TEMPLATES_DIR)).write_pdf(str(out_path))
+            )
         except Exception as exc:
             logger.warning("pdf_render_failed_fallback_html", error=str(exc))
             # Fallback: persist HTML so the path is still meaningful
             out_path = out_path.with_suffix(".html")
-            out_path.write_text(html, encoding="utf-8")
+            await asyncio.to_thread(out_path.write_text, html, encoding="utf-8")
         return str(out_path)
 
     async def render_docx(
@@ -105,7 +108,7 @@ class WeasyPrintRenderer(Renderer):
                 doc.add_paragraph(para.strip())
             out_dir = _ensure_user_dir(user_id)
             out_path = out_dir / f"{_uuid4_short()}.docx"
-            doc.save(str(out_path))
+            await asyncio.to_thread(doc.save, str(out_path))
             return str(out_path)
 
         if basics.get("name"):
@@ -172,7 +175,7 @@ class WeasyPrintRenderer(Renderer):
 
         out_dir = _ensure_user_dir(user_id)
         out_path = out_dir / f"{_uuid4_short()}.docx"
-        doc.save(str(out_path))
+        await asyncio.to_thread(doc.save, str(out_path))
         return str(out_path)
 
 
