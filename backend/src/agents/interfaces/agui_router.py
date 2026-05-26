@@ -808,6 +808,13 @@ async def _stream_chat(
             agent_run_seconds.labels(agent="universe_coordinator").observe(
                 _time.monotonic() - started
             )
+            # Post-run usage tracking — fire-and-forget so we never block the stream.
+            try:
+                asyncio.create_task(
+                    _persist_agno_usage(enforced_thread_id, str(user_id))
+                )
+            except Exception:
+                pass
 
     return StreamingResponse(
         event_stream(),
@@ -841,3 +848,54 @@ def _extract_user_id_from_jwt(request: Request) -> str:
     if not uid:
         raise UnauthorizedError("Token missing sub")
     return str(uid)
+
+
+async def _persist_agno_usage(session_id: str, user_id: str) -> None:
+    """Query ai.agno_sessions and persist usage metrics into llm_usage_logs.
+
+    Called fire-and-forget from the streaming finally block so it never
+    blocks the SSE connection.
+    """
+    try:
+        from uuid import UUID
+
+        from sqlalchemy import text
+
+        from src.llm_tracking.application.tracker import log_agno_run
+        from src.shared.db import with_user_session
+
+        uid = UUID(user_id)
+        async with with_user_session(uid) as session:
+            # Agno stores each turn as a run inside ai.agno_sessions.runs (JSONB).
+            # We grab the latest run for this session.
+            result = await session.execute(
+                text(
+                    """
+                    SELECT runs
+                    FROM ai.agno_sessions
+                    WHERE session_id = :sid
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                    """
+                ),
+                {"sid": session_id},
+            )
+            row = result.fetchone()
+            if not row or not row.runs:
+                return
+            runs = row.runs
+            if not isinstance(runs, list) or len(runs) == 0:
+                return
+            last_run = runs[-1]
+            metrics = last_run.get("metrics") or {}
+            run_id = last_run.get("run_id")
+            await log_agno_run(
+                session,
+                user_id=uid,
+                run_id=run_id,
+                session_id=session_id,
+                metrics=metrics,
+            )
+            await session.commit()
+    except Exception as exc:
+        logger.warning("persist_agno_usage_failed", error=str(exc))

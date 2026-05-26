@@ -361,10 +361,30 @@ def _job_for_prompt(job_summary: dict[str, Any]) -> str:
 class AiLlmClient(LlmClient):
     """Grounded-tailoring client: real entities for structure, LLM for prose."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, user_id: UUID | None = None) -> None:
         self._session = session
+        self._user_id = user_id
         self._grounded = MockLlmClient(session)
         self._llm = get_llm_client()
+
+    async def _log_usage(self, provider: str, model: str) -> None:
+        """Persist usage from the last LLM call if metadata is available."""
+        if not self._user_id:
+            return
+        usage = getattr(self._llm, "last_usage", None)
+        if not usage:
+            return
+        from src.llm_tracking.application.tracker import log_document_llm_call
+        await log_document_llm_call(
+            self._session,
+            user_id=self._user_id,
+            provider=provider,
+            model=model,
+            input_tokens=usage.get("input_tokens", 0),
+            output_tokens=usage.get("output_tokens", 0),
+            cache_read_tokens=usage.get("cache_read_tokens", 0),
+            cache_write_tokens=usage.get("cache_write_tokens", 0),
+        )
 
     async def generate_cv_bullets(
         self,
@@ -400,6 +420,7 @@ class AiLlmClient(LlmClient):
             tailored = await self._llm.structured(
                 system=system, prompt=prompt, schema=_TailoredCv, max_tokens=2048, temperature=0.4
             )
+            await self._log_usage(get_settings().llm_provider_resolved, getattr(self._llm, "_model", "unknown"))
         except Exception as exc:
             logger.warning("cv_tailoring_failed_using_grounded", error=str(exc))
             return resume
@@ -457,6 +478,7 @@ class AiLlmClient(LlmClient):
                 max_tokens=1500,
                 temperature=0.5,
             )
+            await self._log_usage(get_settings().llm_provider_resolved, getattr(self._llm, "_model", "unknown"))
         except Exception as exc:
             logger.warning("cover_letter_tailoring_failed_using_grounded", error=str(exc))
             return base
@@ -472,13 +494,13 @@ class AiLlmClient(LlmClient):
         return base
 
 
-def build_document_llm_client(session: AsyncSession) -> LlmClient:
+def build_document_llm_client(session: AsyncSession, user_id: UUID | None = None) -> LlmClient:
     """Pick the real grounded-tailoring client when a provider is configured,
     else the deterministic mock. Mirrors the provider-resolution pattern used
     across the codebase (a single key auto-activates real generation)."""
     if get_settings().llm_provider_resolved == "mock":
         return MockLlmClient(session)
-    return AiLlmClient(session)
+    return AiLlmClient(session, user_id=user_id)
 
 
 from datetime import date as _date  # noqa: E402

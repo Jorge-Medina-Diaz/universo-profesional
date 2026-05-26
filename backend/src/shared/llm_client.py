@@ -56,9 +56,12 @@ class LlmClient(Protocol):
 class MockLlmClient:
     """Deterministic mock useful for tests and offline development."""
 
+    last_usage: dict[str, int] | None = None
+
     async def complete_text(
         self, *, system: str, prompt: str, max_tokens: int = 1024, temperature: float = 0.4
     ) -> str:
+        self.last_usage = None
         return (
             "[mock-llm] " + prompt[:200] + ("…" if len(prompt) > 200 else "")
         )
@@ -72,6 +75,7 @@ class MockLlmClient:
         max_tokens: int = 4096,
         temperature: float = 0.0,
     ) -> T:
+        self.last_usage = None
         # Build the laziest possible instance — useful only to verify wiring
         return schema.model_construct()
 
@@ -85,6 +89,18 @@ class AnthropicLlmClient:
 
         self._client = AsyncAnthropic()
         self._model = "claude-sonnet-4-6"
+        self.last_usage: dict[str, int] | None = None
+
+    def _extract_usage(self, resp: Any) -> dict[str, int]:
+        usage = getattr(resp, "usage", None) or {}
+        return {
+            "input_tokens": int(getattr(usage, "input_tokens", 0) or 0),
+            "output_tokens": int(getattr(usage, "output_tokens", 0) or 0),
+            "cache_read_tokens": int(getattr(usage, "cache_read_input_tokens", 0) or 0),
+            "cache_write_tokens": int(getattr(usage, "cache_creation_input_tokens", 0) or 0),
+            "total_tokens": int(getattr(usage, "input_tokens", 0) or 0)
+            + int(getattr(usage, "output_tokens", 0) or 0),
+        }
 
     async def complete_text(
         self, *, system: str, prompt: str, max_tokens: int = 1024, temperature: float = 0.4
@@ -96,6 +112,7 @@ class AnthropicLlmClient:
             system=system,
             messages=[{"role": "user", "content": prompt}],
         )
+        self.last_usage = self._extract_usage(resp)
         return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
 
     async def structured(
@@ -121,6 +138,7 @@ class AnthropicLlmClient:
             tool_choice={"type": "tool", "name": "emit_structured"},
             messages=[{"role": "user", "content": prompt}],
         )
+        self.last_usage = self._extract_usage(resp)
         for block in resp.content:
             if getattr(block, "type", "") == "tool_use" and block.name == "emit_structured":
                 return schema.model_validate(block.input)
@@ -136,6 +154,17 @@ class OpenAiLlmClient:
 
         self._client = AsyncOpenAI()
         self._model = "gpt-4o-mini"
+        self.last_usage: dict[str, int] | None = None
+
+    def _extract_usage(self, resp: Any) -> dict[str, int]:
+        usage = getattr(resp, "usage", None) or {}
+        return {
+            "input_tokens": int(getattr(usage, "prompt_tokens", 0) or 0),
+            "output_tokens": int(getattr(usage, "completion_tokens", 0) or 0),
+            "cache_read_tokens": int(getattr(usage, "prompt_tokens_details", {}).get("cached_tokens", 0) or 0),
+            "cache_write_tokens": 0,
+            "total_tokens": int(getattr(usage, "total_tokens", 0) or 0),
+        }
 
     async def complete_text(
         self, *, system: str, prompt: str, max_tokens: int = 1024, temperature: float = 0.4
@@ -149,6 +178,7 @@ class OpenAiLlmClient:
                 {"role": "user", "content": prompt},
             ],
         )
+        self.last_usage = self._extract_usage(resp)
         return resp.choices[0].message.content or ""
 
     async def structured(
@@ -177,6 +207,7 @@ class OpenAiLlmClient:
                 {"role": "user", "content": prompt},
             ],
         )
+        self.last_usage = self._extract_usage(resp)
         content = resp.choices[0].message.content or "{}"
         return schema.model_validate(json.loads(content))
 

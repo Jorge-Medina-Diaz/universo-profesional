@@ -83,6 +83,7 @@ dev = [
     "schemathesis>=3.39.0",
     "import-linter>=2.1",
     "freezegun>=1.5.1",
+    "locust>=2.32.0",
 ]
 
 [build-system]

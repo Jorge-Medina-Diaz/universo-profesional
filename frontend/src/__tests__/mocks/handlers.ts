@@ -41,7 +41,7 @@ export const handlers = [
 
   http.post("/api/v1/import/linkedin", async ({ request }) => {
     const form = await request.formData();
-    const file = form.get("file");
+    void form.get("file");
     return HttpResponse.json({
       experiences: 3,
       educations: 2,

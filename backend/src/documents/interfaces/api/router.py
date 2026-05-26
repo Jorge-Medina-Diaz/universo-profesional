@@ -23,7 +23,7 @@ from src.documents.infrastructure.repositories import (
     SqlAlchemyDocumentRepository,
     SqlAlchemyJobRepository,
 )
-from src.identity.interfaces.api.deps import CurrentUserId, SessionDep
+from src.identity.interfaces.api.deps import CurrentUserId, SessionDep, current_user_id
 from src.shared.embeddings import get_embeddings_service
 from src.shared.metrics import cv_generated_total
 from src.shared.uow import unit_of_work
@@ -42,14 +42,17 @@ class GenerateCvRequest(BaseModel):
     kind: str = Field(default="cv", pattern="^(cv|cover_letter)$")
 
 
-def _generate_cv_dep(session: SessionDep) -> GenerateCv:
+def _generate_cv_dep(
+    session: SessionDep,
+    user_id: str = Depends(current_user_id),
+) -> GenerateCv:
     return GenerateCv(
         documents=SqlAlchemyDocumentRepository(session),
         jobs=SqlAlchemyJobRepository(session),
         parser=MockJobParser(),
         embedder=get_embeddings_service(),
         search=PgVectorSemanticSearch(session),
-        llm=build_document_llm_client(session),
+        llm=build_document_llm_client(session, user_id=UUID(user_id)),
         renderer=WeasyPrintRenderer(),
     )
 
