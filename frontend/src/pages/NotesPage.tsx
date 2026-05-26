@@ -17,18 +17,20 @@ import {
   X,
   Save,
   Search,
+  RefreshCw,
 } from "lucide-react";
 import { notes, type NoteRow } from "@/shared/api";
+import { usePullToRefresh } from "@/shared/usePullToRefresh";
 import { queryKeys } from "@/shared/queryKeys";
 import {
   Badge,
   Button,
   Card,
   ChipInput,
+  EmptyState,
   Field,
   Input,
   MarkdownEditor,
-  NotebookIllustration,
   PageHeader,
   Reveal,
   Skeleton,
@@ -113,8 +115,25 @@ export function NotesPage() {
     else patch.mutate();
   };
 
+  const { pulling, progress } = usePullToRefresh(() => {
+    qc.invalidateQueries({ queryKey: queryKeys.notes.all });
+  });
+
   return (
     <Surface width="md" spacing="md">
+      {pulling && (
+        <div className="fixed top-0 inset-x-0 z-50 flex justify-center pointer-events-none">
+          <div
+            className="bg-canvas border border-hairline shadow-soft rounded-full p-2 mt-2"
+            style={{ transform: `translateY(${Math.min(progress * 40, 40)}px)` }}
+          >
+            <RefreshCw
+              size={16}
+              className={progress >= 1 ? "animate-spin text-leaf" : "text-stone"}
+            />
+          </div>
+        </div>
+      )}
       <PageHeader
         eyebrow="Narrativa"
         title="Notas"
@@ -241,20 +260,17 @@ export function NotesPage() {
       )}
 
       {!query.isLoading && (query.data ?? []).length === 0 && !isEditing && (
-        <Reveal>
-          <Card padding="lg" className="text-center space-y-4">
-            <NotebookIllustration className="mx-auto" />
-            <h3 className="text-heading-sm font-medium tracking-tight">
-              Todavía no hay notas
-            </h3>
-            <p className="text-sm text-stone max-w-md mx-auto">
-              Cuéntale al agente algo como "estas semanas he estado investigando
-              RAG" y se creará la primera nota automáticamente. O créala tú aquí.
-            </p>
-            <div className="flex justify-center gap-2 pt-2">
+        <Card padding="lg">
+          <EmptyState
+            icon={<MessageSquare size={24} />}
+            title="Todavía no hay notas"
+            description='Cuéntale al agente algo como "estas semanas he estado investigando RAG" y se creará la primera nota automáticamente. O créala tú aquí.'
+            action={
               <Button onClick={startNew} leadingIcon={<Plus size={14} />}>
                 Crear primera nota
               </Button>
+            }
+            secondaryAction={
               <Button
                 variant="outline"
                 onClick={() => (window.location.hash = "#/")}
@@ -262,9 +278,9 @@ export function NotesPage() {
               >
                 Ir al chat
               </Button>
-            </div>
-          </Card>
-        </Reveal>
+            }
+          />
+        </Card>
       )}
 
       {items.length > 0 && (

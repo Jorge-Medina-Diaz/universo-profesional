@@ -2,11 +2,17 @@
  * Hash-based router — minimal, dependency-free.
  * Pages are lazy-loaded so the initial bundle stays tiny — only the auth
  * shell + landing page ship in the main chunk.
+ *
+ * Every route is wrapped in its own ErrorBoundary so a crash in one page
+ * does not kill the entire app.
  */
 import { Suspense, lazy, useEffect, useState, type ComponentType } from "react";
-import { useAuthStore } from "@/shared/api";
+import { useQuery } from "@tanstack/react-query";
+import { useAuthStore, universe } from "@/shared/api";
+import { queryKeys } from "@/shared/queryKeys";
 import { PageTransition } from "@/ui/motion";
 import { PageSkeleton } from "@/ui";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 // Public-facing lightweight pages stay eager — they're tiny and we want
 // the first paint to be instant for landing/login.
@@ -67,11 +73,47 @@ export function Router() {
   }, []);
 
   const { path, query } = route;
-  const node = resolveRoute(path, query, !!accessToken);
+
+  // Onboarding gate: if the user is authenticated and has no universe data,
+  // redirect them to the onboarding wizard (unless they're already there or
+  // on a public/legal page).
+  const summaryQuery = useQuery({
+    queryKey: queryKeys.universe.summary,
+    queryFn: () => universe.summary(),
+    enabled: !!accessToken,
+    staleTime: 5 * 60_000,
+  });
+
+  const isPublicOrOnboarding =
+    path === "/onboarding" ||
+    path === "/onboarding/chat" ||
+    path.startsWith("/legal/") ||
+    path.startsWith("/share/") ||
+    path.startsWith("/auth/");
+
+  const hasData = summaryQuery.data
+    ? summaryQuery.data.counts.experiences > 0 ||
+      summaryQuery.data.counts.educations > 0 ||
+      summaryQuery.data.counts.skills > 0
+    : true; // assume done while loading to avoid flashing redirect
+
+  useEffect(() => {
+    if (!accessToken) return;
+    if (isPublicOrOnboarding) return;
+    if (summaryQuery.isLoading) return;
+    if (!hasData) {
+      window.location.hash = "#/onboarding";
+    }
+  }, [accessToken, isPublicOrOnboarding, hasData, summaryQuery.isLoading]);
+
+  const page = resolveRoute(path, query, !!accessToken);
 
   return (
     <PageTransition routeKey={path}>
-      <Suspense fallback={<RouteFallback />}>{node}</Suspense>
+      {/* Per-route ErrorBoundary: a crash in one page does not kill the app. */}
+      <ErrorBoundary key={path}>
+        <Suspense fallback={<RouteFallback />}>{page}</Suspense>
+      </ErrorBoundary>
     </PageTransition>
   );
 }

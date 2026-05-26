@@ -20,6 +20,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { jobs, type JobRow, type JobStatus } from "@/shared/api";
+import { usePullToRefresh } from "@/shared/usePullToRefresh";
 import {
   Badge,
   Button,
@@ -194,6 +195,10 @@ export function JobsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.jobs.all }),
   });
 
+  const { pulling, progress } = usePullToRefresh(() => {
+    qc.invalidateQueries({ queryKey: queryKeys.jobs.all });
+  });
+
   const grouped = useMemo(() => {
     const items = query.data ?? [];
     const map: Record<JobStatus, JobRow[]> = {
@@ -257,6 +262,19 @@ export function JobsPage() {
 
   return (
     <Surface width="xl" spacing="md">
+      {pulling && (
+        <div className="fixed top-0 inset-x-0 z-50 flex justify-center pointer-events-none">
+          <div
+            className="bg-canvas border border-hairline shadow-soft rounded-full p-2 mt-2"
+            style={{ transform: `translateY(${Math.min(progress * 40, 40)}px)` }}
+          >
+            <RefreshCw
+              size={16}
+              className={progress >= 1 ? "animate-spin text-leaf" : "text-stone"}
+            />
+          </div>
+        </div>
+      )}
       <PageHeader
         eyebrow="Búsqueda"
         title="Ofertas que vas siguiendo"

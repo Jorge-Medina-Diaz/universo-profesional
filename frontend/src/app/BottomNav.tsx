@@ -10,27 +10,36 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { href: "#/", label: "Chat", Icon: MessageSquare, matches: (p) => p === "/" },
+  { href: "#/", label: "Chat", Icon: MessageSquare, matches: (p) => p === "/" || p.startsWith("/onboarding") },
   {
     href: "#/universe",
     label: "Universo",
     Icon: Sparkles,
-    matches: (p) => p.startsWith("/universe") || p.startsWith("/notes") || p.startsWith("/cv"),
+    matches: (p) =>
+      p.startsWith("/universe") || p.startsWith("/notes") || p.startsWith("/cv") || p.startsWith("/preferences"),
   },
   {
     href: "#/connections",
     label: "Conectar",
     Icon: Plug,
     matches: (p) =>
-      p.startsWith("/connections") || p.startsWith("/documents") || p.startsWith("/mcp"),
+      p.startsWith("/connections") || p.startsWith("/documents") || p.startsWith("/mcp") || p.startsWith("/compare"),
   },
   {
     href: "#/settings",
     label: "Ajustes",
     Icon: Settings,
-    matches: (p) => p.startsWith("/settings") || p.startsWith("/billing"),
+    matches: (p) => p.startsWith("/settings") || p.startsWith("/billing") || p.startsWith("/activity"),
   },
 ];
+
+function haptic() {
+  try {
+    if (navigator.vibrate) navigator.vibrate(10);
+  } catch {
+    /* ignore */
+  }
+}
 
 export function BottomNav() {
   const path = useHashRoute();
@@ -46,9 +55,10 @@ export function BottomNav() {
             <li key={href}>
               <a
                 href={href}
+                onClick={() => haptic()}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-1 py-2 rounded-btn transition-colors duration-180 ease-pirsch",
+                  "relative flex flex-col items-center justify-center gap-1 py-2 rounded-btn transition-colors duration-180 ease-pirsch select-none",
                   active ? "text-ink" : "text-stone hover:text-ink hover:bg-black/[0.03]",
                 )}
               >

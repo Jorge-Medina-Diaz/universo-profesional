@@ -185,6 +185,14 @@
     letter-spacing: var(--tracking-body);
     background-color: var(--surface-canvas);
     color: var(--color-midnight-ink);
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+
+  /* Prevent iOS zoom on input focus */
+  input, textarea, select {
+    font-size: 16px;
+    touch-action: manipulation;
   }
 
   h1, h2, h3, h4, h5, h6 {

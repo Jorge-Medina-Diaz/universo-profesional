@@ -1,18 +1,19 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Share2, FileDown, Sparkles, ArrowLeftRight } from "lucide-react";
+import { FileText, Share2, FileDown, Sparkles, ArrowLeftRight, RefreshCw } from "lucide-react";
 
 import { documents } from "@/shared/api";
 import { useChatState } from "@/chat/state";
+import { usePullToRefresh } from "@/shared/usePullToRefresh";
 import { queryKeys } from "@/shared/queryKeys";
 import {
   Badge,
   Button,
   Card,
   cn,
+  EmptyState,
   PageHeader,
-  PaperPlaneIllustration,
   Reveal,
   Stagger,
   Surface,
@@ -59,8 +60,25 @@ export function DocumentsPage() {
       toast.error("No pudimos generar el enlace", (e as Error).message),
   });
 
+  const { pulling, progress } = usePullToRefresh(() => {
+    qc.invalidateQueries({ queryKey: queryKeys.documents.all });
+  });
+
   return (
     <Surface width="lg" spacing="md">
+      {pulling && (
+        <div className="fixed top-0 inset-x-0 z-50 flex justify-center pointer-events-none">
+          <div
+            className="bg-canvas border border-hairline shadow-soft rounded-full p-2 mt-2"
+            style={{ transform: `translateY(${Math.min(progress * 40, 40)}px)` }}
+          >
+            <RefreshCw
+              size={16}
+              className={progress >= 1 ? "animate-spin text-leaf" : "text-stone"}
+            />
+          </div>
+        </div>
+      )}
       <PageHeader
         eyebrow="Histórico"
         title="Documentos"
@@ -95,22 +113,18 @@ export function DocumentsPage() {
       )}
 
       {list.data?.length === 0 && (
-        <Reveal>
-          <Card padding="lg" className="text-center space-y-4">
-            <PaperPlaneIllustration className="mx-auto" />
-            <h3 className="text-heading-sm font-medium tracking-tight">
-              Aún no has generado documentos
-            </h3>
-            <p className="text-sm text-stone max-w-md mx-auto">
-              Pega una oferta de trabajo y el agente genera un CV adaptado en segundos.
-            </p>
-            <div className="pt-2">
+        <Card padding="lg">
+          <EmptyState
+            icon={<FileText size={24} />}
+            title="Aún no has generado documentos"
+            description="Pega una oferta de trabajo y el agente genera un CV adaptado en segundos."
+            action={
               <Button onClick={() => (window.location.hash = "#/cv/new")}>
                 Generar mi primer CV
               </Button>
-            </div>
-          </Card>
-        </Reveal>
+            }
+          />
+        </Card>
       )}
 
       {list.data && list.data.length > 0 && (

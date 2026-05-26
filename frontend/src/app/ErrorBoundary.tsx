@@ -1,12 +1,16 @@
 /**
  * Catches React render errors and shows a useful message instead of leaving
- * the user staring at a blank page. The stack trace is dumped to the console
- * so we can debug from screenshots without needing the React DevTools.
+ * the user staring at a blank page. Supports a custom fallback UI and soft
+ * retry (no full reload) when used as a per-route wrapper.
  */
 import { Component, type ReactNode, type ErrorInfo } from "react";
 
 interface Props {
   children: ReactNode;
+  /** Optional contextual fallback rendered instead of the generic error card. */
+  fallback?: ReactNode;
+  /** Called when the boundary catches an error (e.g. log to Sentry). */
+  onError?: (error: Error, info: ErrorInfo) => void;
 }
 
 interface State {
@@ -22,19 +26,20 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-     
     console.error("[react] Uncaught render error:", error, info);
     this.setState({ info });
+    this.props.onError?.(error, info);
   }
 
   reset = () => {
     this.setState({ error: null, info: null });
-    // Soft reload to clear any half-broken hooks
-    window.location.reload();
   };
 
   render() {
     if (this.state.error) {
+      if (this.props.fallback != null) {
+        return this.props.fallback;
+      }
       return (
         <div className="max-w-2xl mx-auto py-12 px-4">
           <div className="rounded-lg border border-red-200 bg-red-50 p-5">

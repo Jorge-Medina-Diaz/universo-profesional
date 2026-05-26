@@ -47,3 +47,4 @@ export {
   type DropdownMenuProps,
   type DropdownMenuItemProps,
 } from "./DropdownMenu";
+export { EmptyState, type EmptyStateProps } from "./EmptyState";

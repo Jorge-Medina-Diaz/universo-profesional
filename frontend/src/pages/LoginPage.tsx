@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { auth, useAuthStore } from "@/shared/api";
+import { auth, universe, useAuthStore } from "@/shared/api";
 import { integrations } from "@/shared/api-extra";
 import { Button, Card, Field, Input, Reveal, Stagger } from "@/ui";
 import { AuthHero } from "./_auth/AuthHero";
@@ -43,7 +43,20 @@ export function LoginPage() {
         userId: tokens.user_id,
         email: tokens.email,
       });
-      window.location.hash = "#/";
+
+      // Route new users (empty universe) straight to onboarding.
+      let target = "#/";
+      try {
+        const summary = await universe.summary();
+        const hasData =
+          summary.counts.experiences > 0 ||
+          summary.counts.educations > 0 ||
+          summary.counts.skills > 0;
+        if (!hasData) target = "#/onboarding";
+      } catch {
+        /* ignore, default to home */
+      }
+      window.location.hash = target;
     } catch (e: unknown) {
       setError((e as Error).message);
     } finally {

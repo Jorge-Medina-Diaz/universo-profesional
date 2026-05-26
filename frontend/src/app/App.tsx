@@ -6,6 +6,7 @@ import { CopilotProvider } from "./CopilotProvider";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { CommandPalette } from "./CommandPalette";
 import { ShortcutsOverlay } from "./ShortcutsOverlay";
+import { NetworkStatus } from "./NetworkStatus";
 import { ToasterProvider } from "@/ui";
 import { TourProvider } from "./tour/TourProvider";
 
@@ -22,17 +23,18 @@ export function App() {
       <ToasterProvider>
         <TourProvider>
           <CopilotProvider>
+            <NetworkStatus />
             <Layout title={t("app.title")} isAuthed={!!accessToken}>
               <ErrorBoundary>
                 <Router />
               </ErrorBoundary>
             </Layout>
             {!!accessToken && (
-            <>
-              <CommandPalette />
-              <ShortcutsOverlay />
-            </>
-          )}
+              <>
+                <CommandPalette />
+                <ShortcutsOverlay />
+              </>
+            )}
           </CopilotProvider>
         </TourProvider>
       </ToasterProvider>

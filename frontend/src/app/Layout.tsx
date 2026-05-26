@@ -1,9 +1,11 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useAuthStore } from "@/shared/api";
+import { useQuery } from "@tanstack/react-query";
+import { useAuthStore, auth } from "@/shared/api";
 import { useHashRoute } from "@/shared/useHashRoute";
 import { useClickOutside } from "@/shared/useClickOutside";
 import { useEscapeKey } from "@/shared/useEscapeKey";
+import { queryKeys } from "@/shared/queryKeys";
 import { Search, LogOut, BookOpen, ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button, cn } from "@/ui";
@@ -37,6 +39,15 @@ const NAV_RIGHT: NavItem[] = [
 export function Layout({ title, isAuthed, children }: Props) {
   const { i18n } = useTranslation();
   const path = useHashRoute();
+
+  // Eagerly fetch the user profile so every page has it warm in the cache.
+  useQuery({
+    queryKey: queryKeys.me.all,
+    queryFn: () => auth.me(),
+    enabled: isAuthed,
+    staleTime: 5 * 60_000,
+    retry: 1,
+  });
 
   const isFullBleed = isAuthed && path === "/";
 
