@@ -77,6 +77,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       AUTO_VERIFY_EMAILS_IN_DEV: "false"
       DATABASE_ECHO: "false"
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:

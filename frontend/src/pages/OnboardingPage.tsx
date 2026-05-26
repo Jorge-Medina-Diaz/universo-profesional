@@ -17,6 +17,7 @@ import {
   cn,
   toast,
 } from "@/ui";
+import { queryKeys } from "@/shared/queryKeys";
 
 const STEPS = ["welcome", "import", "headline", "preferences", "first-cv", "mcp", "done"] as const;
 type Step = (typeof STEPS)[number];
@@ -166,7 +167,7 @@ function ImportStage({ onNext }: { onNext: () => void }) {
   const qc = useQueryClient();
   const upload = useMutation({
     mutationFn: (f: File) => universe.importLinkedIn(f),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["universe"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.universe.all }),
   });
   return (
     <Stage

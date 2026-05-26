@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Check, X, RefreshCw, Lightbulb, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { liveProfile } from "@/shared/api-extra";
+import { queryKeys } from "@/shared/queryKeys";
 import { Badge, Button, Card, cn } from "@/ui";
 
 interface SuggestionRow {
@@ -26,17 +27,17 @@ const KIND_LABEL: Record<string, string> = {
 export function SuggestionBar() {
   const qc = useQueryClient();
   const list = useQuery({
-    queryKey: ["suggestions"],
+    queryKey: queryKeys.suggestions.all,
     queryFn: () => liveProfile.suggestions.list("pending"),
   });
   const regen = useMutation({
     mutationFn: () => liveProfile.suggestions.regenerate(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["suggestions"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.suggestions.all }),
   });
   const act = useMutation({
     mutationFn: ({ id, action }: { id: string; action: "accept" | "reject" }) =>
       liveProfile.suggestions.act(id, action),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["suggestions"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.suggestions.all }),
   });
 
   const items = (list.data ?? []) as SuggestionRow[];

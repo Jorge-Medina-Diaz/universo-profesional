@@ -47,75 +47,26 @@ from src.coherence.domain.upsert_decision import (
 from src.graph.application.universe_graph import universe_graph_service
 from src.graph.domain.registry import GRAPH_REGISTRY
 from src.shared.uow import UnitOfWork
-from src.universe.application.use_cases import (
-    AchievementCrud,
-    ArchitectureDecisionCrud,
-    ArtifactCrud,
-    CertificationCrud,
-    CourseCrud,
-    EducationCrud,
-    ExperienceCrud,
-    InterestCrud,
-    LanguageCrud,
-    ProjectCrud,
-    SkillCrud,
-    _serialize,
-)
-from src.universe.infrastructure.repositories import (
-    SqlAlchemyAchievementRepository,
-    SqlAlchemyArchitectureDecisionRepository,
-    SqlAlchemyArtifactRepository,
-    SqlAlchemyCertificationRepository,
-    SqlAlchemyCourseRepository,
-    SqlAlchemyEducationRepository,
-    SqlAlchemyExperienceRepository,
-    SqlAlchemyInterestRepository,
-    SqlAlchemyLanguageRepository,
-    SqlAlchemyProjectRepository,
-    SqlAlchemySkillRepository,
-)
+from src.universe.application.registry import CrudRegistry
+from src.universe.application.use_cases import _serialize
 from src.universe.infrastructure.scheduler import ArqEmbeddingScheduler
 
 _log = structlog.get_logger(__name__)
 
 
-# CRUD + repository wiring per entity kind. This is the one piece of the
-# old `ENTITY_REGISTRY` that can't live in `graph.domain.registry`
-# (importing universe.application / .infrastructure from a domain module
-# would break the layering contract). Everything else — name_field,
-# embedding_text, table, supports_stale, … — now comes from the single
-# `GRAPH_REGISTRY` source of truth.
-_CRUD_WIRING: dict[str, tuple[Any, Any]] = {
-    "skill": (SkillCrud, SqlAlchemySkillRepository),
-    "experience": (ExperienceCrud, SqlAlchemyExperienceRepository),
-    "education": (EducationCrud, SqlAlchemyEducationRepository),
-    "project": (ProjectCrud, SqlAlchemyProjectRepository),
-    "certification": (CertificationCrud, SqlAlchemyCertificationRepository),
-    "course": (CourseCrud, SqlAlchemyCourseRepository),
-    "language": (LanguageCrud, SqlAlchemyLanguageRepository),
-    "achievement": (AchievementCrud, SqlAlchemyAchievementRepository),
-    "interest": (InterestCrud, SqlAlchemyInterestRepository),
-    "artifact": (ArtifactCrud, SqlAlchemyArtifactRepository),
-    "architecture_decision": (
-        ArchitectureDecisionCrud,
-        SqlAlchemyArchitectureDecisionRepository,
-    ),
-}
-
-
 # `_DISPATCH` is the per-upsert config: graph-registry metadata + the
-# crud/repo wiring above. Built once from `GRAPH_REGISTRY` so the two can
-# never drift.
+# CRUD/repo wiring from the central ``CrudRegistry``. Built once so the
+# two can never drift.
 _DISPATCH: dict[str, dict[str, Any]] = {
     kind: {
-        "crud": _CRUD_WIRING[kind][0],
-        "repo": _CRUD_WIRING[kind][1],
+        "crud": CrudRegistry.get_crud_class(kind),
+        "repo": CrudRegistry.get_repo_class(kind),
         "name_field": cfg.name_field,
         "table": cfg.sql_table,
         "embedding_text": cfg.embedding_text,
     }
     for kind, cfg in GRAPH_REGISTRY.items()
-    if kind in _CRUD_WIRING
+    if kind in CrudRegistry.kinds()
 }
 
 
@@ -175,6 +126,53 @@ def entities_supporting_stale() -> list[str]:
 # between AMBIGUOUS_LOW and AUTO_MERGE → suggestion; below → considered no match.
 AUTO_MERGE_THRESHOLD = 0.92
 AMBIGUOUS_LOW = 0.80
+
+
+async def _adaptive_ambiguous_low(session: AsyncSession, user_id: str) -> float:
+    """Lower AMBIGUOUS_LOW for users who historically accept many merges
+    in the 0.82-0.90 score band (read from universe_change_log).
+
+    This is a lightweight, privacy-preserving heuristic: we only look at
+    the *ratio* of recent merges whose reason contains a semantic score in
+    the band, not at the actual entity contents.
+    """
+    rows = await session.execute(
+        text(
+            """
+            SELECT reason FROM universe_change_log
+            WHERE user_id = :uid
+              AND change_type IN ('merge', 'create')
+              AND changed_at > now() - interval '30 days'
+            ORDER BY changed_at DESC
+            LIMIT 100
+            """
+        ),
+        {"uid": user_id},
+    )
+    scores: list[float] = []
+    for row in rows.all():
+        reason = row.reason or ""
+        if "[semantic " in reason:
+            try:
+                score_str = reason.split("[semantic ")[1].split("]")[0]
+                scores.append(float(score_str))
+            except (ValueError, IndexError):
+                continue
+
+    if not scores:
+        return AMBIGUOUS_LOW
+
+    band_scores = [s for s in scores if 0.82 <= s <= 0.90]
+    if not band_scores:
+        return AMBIGUOUS_LOW
+
+    # If >90 % of recent actions involve scores in the ambiguous-like band,
+    # the user is highly accepting — lower the floor so more candidates surface.
+    band_ratio = len(band_scores) / len(scores)
+    if band_ratio > 0.90:
+        return max(0.70, AMBIGUOUS_LOW - 0.05)
+
+    return AMBIGUOUS_LOW
 
 
 class UpsertUniverseEntity:
@@ -307,11 +305,12 @@ class UpsertUniverseEntity:
         emb_text = config["embedding_text"](payload).strip()
         if not emb_text:
             return MatchResult(kind=MatchKind.NONE)
+        ambiguous_low = await _adaptive_ambiguous_low(self._session, user_id)
         hits = await self._matcher.find_most_similar(
             user_id=UUID(user_id),
             entity_type=entity_type,
             text=emb_text,
-            threshold=AMBIGUOUS_LOW,
+            threshold=ambiguous_low,
             top_k=3,
         )
         if not hits:

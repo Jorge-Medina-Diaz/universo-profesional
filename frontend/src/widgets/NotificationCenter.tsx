@@ -28,6 +28,8 @@ import {
 import { universe, jobs, type ReminderRow, type JobRow } from "@/shared/api";
 import { liveProfile, type Suggestion } from "@/shared/api-extra";
 import { Badge, BellQuietIllustration, Button, cn } from "@/ui";
+import { queryKeys } from "@/shared/queryKeys";
+import { useEscapeKey } from "@/shared/useEscapeKey";
 
 type SectionKey = "reminders" | "suggestions" | "jobs";
 
@@ -87,19 +89,19 @@ export function NotificationCenter() {
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const reminders = useQuery({
-    queryKey: ["reminders"],
+    queryKey: queryKeys.reminders.all,
     queryFn: () => universe.reminders.list(),
     refetchOnWindowFocus: false,
     staleTime: 60_000,
   });
   const suggestions = useQuery({
-    queryKey: ["suggestions", "pending"],
+    queryKey: queryKeys.suggestions.pending,
     queryFn: () => liveProfile.suggestions.list("pending"),
     refetchOnWindowFocus: false,
     staleTime: 60_000,
   });
   const jobsQ = useQuery({
-    queryKey: ["jobs"],
+    queryKey: queryKeys.jobs.all,
     queryFn: () => jobs.list(),
     refetchOnWindowFocus: false,
     staleTime: 60_000,
@@ -111,16 +113,16 @@ export function NotificationCenter() {
 
   const dismissReminder = useMutation({
     mutationFn: (id: string) => universe.reminders.dismiss(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["reminders"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.reminders.all }),
   });
   const scanReminders = useMutation({
     mutationFn: () => universe.reminders.scan(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["reminders"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.reminders.all }),
   });
   const actSuggestion = useMutation({
     mutationFn: ({ id, action }: { id: string; action: "accept" | "reject" }) =>
       liveProfile.suggestions.act(id, action),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["suggestions"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.suggestions.all }),
   });
 
   useEffect(() => {
@@ -134,16 +136,11 @@ export function NotificationCenter() {
         setOpen(false);
       }
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
     document.addEventListener("mousedown", onClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onClick);
-      document.removeEventListener("keydown", onKey);
-    };
+    return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
+
+  useEscapeKey(() => setOpen(false), open);
 
   const counts = {
     reminders: reminders.data?.length ?? 0,

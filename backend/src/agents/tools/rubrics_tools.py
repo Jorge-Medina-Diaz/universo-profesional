@@ -18,7 +18,7 @@ from agno.run.base import RunContext
 from agno.tools import tool
 
 from src.rubrics.infrastructure.repository import RubricRepository
-from src.shared.db import get_session_factory
+from src.shared.db import with_user_session
 from src.shared.embeddings import get_embeddings_provider
 
 # Trim retrieved bodies so we don't blow up the context window.
@@ -62,8 +62,7 @@ async def search_rubrics(
         query_emb = await embedder.embed(query)
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": f"embedding failed: {e}"}
-    factory = get_session_factory()
-    async with factory() as session:
+    async with with_user_session(None) as session:
         repo = RubricRepository(session)
         try:
             rows = await repo.search_chunks(
@@ -102,8 +101,7 @@ async def search_rubrics(
     ),
 )
 async def list_rubric_sectors(run_context: RunContext) -> dict[str, Any]:
-    factory = get_session_factory()
-    async with factory() as session:
+    async with with_user_session(None) as session:
         repo = RubricRepository(session)
         sectors = await repo.list_sectors()
     return {"ok": True, "sectors": sectors, "total_sectors": len(sectors)}

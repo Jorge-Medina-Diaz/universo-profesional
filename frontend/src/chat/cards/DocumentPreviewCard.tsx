@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { documents } from "@/shared/api";
 import { Badge, Button, ChatMessageMotion, cn } from "@/ui";
+import { queryKeys } from "@/shared/queryKeys";
 
 export interface DocumentPreviewCardProps {
   documentId: string;
@@ -25,7 +26,7 @@ export interface DocumentPreviewCardProps {
 
 export function DocumentPreviewCard({ documentId, onRegenerate }: DocumentPreviewCardProps) {
   const query = useQuery({
-    queryKey: ["documents", documentId],
+    queryKey: queryKeys.documents.detail(documentId),
     queryFn: () => documents.get(documentId),
   });
   const [openSection, setOpenSection] = useState<string | null>("summary");

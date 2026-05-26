@@ -18,6 +18,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { universe } from "@/shared/api";
+import { queryKeys } from "@/shared/queryKeys";
 import { Badge, Card, Reveal, cn } from "@/ui";
 
 interface Check {
@@ -30,11 +31,11 @@ interface Check {
 
 export function ProfileCompleteness() {
   const summary = useQuery({
-    queryKey: ["universe", "summary"],
+    queryKey: queryKeys.universe.summary,
     queryFn: () => universe.summary(),
   });
   const prefs = useQuery({
-    queryKey: ["preferences"],
+    queryKey: queryKeys.preferences.all,
     queryFn: () => universe.preferences.get(),
     retry: false,
   });
@@ -223,7 +224,7 @@ function CompletenessRow({ check }: { check: Check }) {
 // Optional compact variant for the home/topbar — exports for future use.
 export function CompletenessPill() {
   const summary = useQuery({
-    queryKey: ["universe", "summary"],
+    queryKey: queryKeys.universe.summary,
     queryFn: () => universe.summary(),
   });
   if (!summary.data) return null;

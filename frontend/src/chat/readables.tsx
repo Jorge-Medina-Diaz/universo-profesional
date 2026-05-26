@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { chat, documents, jobs, universe, useAuthStore, auth } from "@/shared/api";
 import { integrations, liveProfile } from "@/shared/api-extra";
 import { useChatState } from "./state";
+import { queryKeys } from "@/shared/queryKeys";
 
 const FRESH_FOR_MS = 60_000;
 
@@ -20,7 +21,7 @@ export function UniverseReadable() {
 
   // --- Universe summary ---------------------------------------------------
   const summary = useQuery({
-    queryKey: ["universe", "summary"],
+    queryKey: queryKeys.universe.summary,
     queryFn: () => universe.summary(),
     enabled: isAuthed,
     staleTime: FRESH_FOR_MS,
@@ -36,7 +37,7 @@ export function UniverseReadable() {
   // workflow into open_questions / decisions / mentioned_entities/topics.
   // Lets the agent recall months of context without re-sending raw turns.
   const chatState = useQuery({
-    queryKey: ["chat", "state"],
+    queryKey: queryKeys.chat.state,
     queryFn: () => chat.state(),
     enabled: isAuthed,
     staleTime: FRESH_FOR_MS,
@@ -49,7 +50,7 @@ export function UniverseReadable() {
 
   // --- Suggestions (top 15) ----------------------------------------------
   const suggestions = useQuery({
-    queryKey: ["suggestions"],
+    queryKey: queryKeys.suggestions.all,
     queryFn: () => liveProfile.suggestions.list("pending"),
     enabled: isAuthed,
     staleTime: FRESH_FOR_MS,
@@ -65,7 +66,7 @@ export function UniverseReadable() {
 
   // --- Active jobs (top 10) ----------------------------------------------
   const jobsQ = useQuery({
-    queryKey: ["jobs"],
+    queryKey: queryKeys.jobs.all,
     queryFn: () => jobs.list(),
     enabled: isAuthed,
     staleTime: FRESH_FOR_MS,
@@ -87,7 +88,7 @@ export function UniverseReadable() {
 
   // --- Recent documents (top 6) ------------------------------------------
   const docsQ = useQuery({
-    queryKey: ["documents"],
+    queryKey: queryKeys.documents.all,
     queryFn: () => documents.list(),
     enabled: isAuthed,
     staleTime: FRESH_FOR_MS,
@@ -109,7 +110,7 @@ export function UniverseReadable() {
 
   // --- Career preferences -------------------------------------------------
   const prefsQ = useQuery({
-    queryKey: ["universe", "preferences"],
+    queryKey: queryKeys.universe.preferences,
     queryFn: () => universe.preferences.get(),
     enabled: isAuthed,
     staleTime: FRESH_FOR_MS,
@@ -122,7 +123,7 @@ export function UniverseReadable() {
 
   // --- Pending reminders (top 5) -----------------------------------------
   const remindersQ = useQuery({
-    queryKey: ["reminders", "pending"],
+    queryKey: queryKeys.reminders.pending,
     queryFn: () => universe.reminders.list(),
     enabled: isAuthed,
     staleTime: FRESH_FOR_MS,
@@ -141,7 +142,7 @@ export function UniverseReadable() {
 
   // --- Integrations status ------------------------------------------------
   const intsQ = useQuery({
-    queryKey: ["integrations", "list"],
+    queryKey: queryKeys.integrations.list,
     queryFn: () => integrations.list(),
     enabled: isAuthed,
     staleTime: FRESH_FOR_MS,
@@ -171,7 +172,7 @@ export function UniverseReadable() {
 
   // --- Tier ---------------------------------------------------------------
   const meQ = useQuery({
-    queryKey: ["me"],
+    queryKey: queryKeys.me.all,
     queryFn: () => auth.me(),
     enabled: isAuthed,
     staleTime: 5 * FRESH_FOR_MS,

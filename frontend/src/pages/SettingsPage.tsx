@@ -14,6 +14,7 @@ import { account, auth, useAuthStore } from "@/shared/api";
 import { PhotoUpload } from "@/widgets/PhotoUpload";
 import { tour } from "@/app/tour/TourProvider";
 import { firstRunTour } from "@/app/tour/tours";
+import { queryKeys } from "@/shared/queryKeys";
 import {
   Badge,
   Button,
@@ -28,12 +29,12 @@ import {
 export function SettingsPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const me = useQuery({ queryKey: ["me"], queryFn: () => auth.me() });
+  const me = useQuery({ queryKey: queryKeys.me.all, queryFn: () => auth.me() });
   const clear = useAuthStore((s) => s.clear);
 
   const setTier = useMutation({
     mutationFn: (tier: "free" | "pro") => account.setTier(tier),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["me"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.me.all }),
   });
 
   const exportData = async () => {

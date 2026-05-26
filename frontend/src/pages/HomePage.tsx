@@ -21,6 +21,7 @@ import { Button, GalaxyIllustration, Skeleton } from "@/ui";
 import { tour } from "@/app/tour/TourProvider";
 import { firstRunTour } from "@/app/tour/tours";
 import { enableCopilot, useCopilotReady } from "@/app/CopilotProvider";
+import { queryKeys } from "@/shared/queryKeys";
 
 // Trigger CopilotKit dynamic import as soon as the chat surface is loaded.
 enableCopilot();
@@ -65,7 +66,7 @@ export function HomePage() {
   const widgetsCount = useChatState((s) => s.widgets.length);
 
   const snapshot = useQuery({
-    queryKey: ["graph", "snapshot"],
+    queryKey: queryKeys.graph.snapshot,
     queryFn: () => graphApi.snapshot(false),
     staleTime: 30_000,
   });

@@ -11,7 +11,7 @@ from uuid import UUID
 from agno.run.base import RunContext
 from agno.tools import tool
 
-from src.shared.db import get_session_factory, set_rls_user
+from src.shared.db import with_user_session
 
 
 @tool(
@@ -26,9 +26,7 @@ async def get_universe_summary(run_context: RunContext) -> dict[str, Any]:
     user_id = run_context.user_id
     if not user_id:
         return {"error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         from src.universe.application.use_cases import GetUniverseSummary
         from src.universe.infrastructure.repositories import (
             SqlAlchemyCareerPreferencesRepository,
@@ -63,9 +61,7 @@ async def find_gaps(run_context: RunContext) -> dict[str, Any]:
     user_id = run_context.user_id
     if not user_id:
         return {"error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         # Reuse the rule-based suggestions engine — it already computes the
         # "what's missing / stale" signal we need.
         from src.universe.application.suggestions import GenerateSuggestions
@@ -134,9 +130,7 @@ async def find_incomplete_entities(
 
     kinds = [kind] if kind else list(CAPTURE_RUBRIC.keys())
     out: list[dict[str, Any]] = []
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         for k in kinds:
             spec = GRAPH_REGISTRY.get(k)
             rub = CAPTURE_RUBRIC.get(k)
@@ -185,9 +179,7 @@ async def search_universe(
     user_id = run_context.user_id
     if not user_id:
         return {"error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         from src.shared.embeddings import get_embeddings_service
         from src.universe.application.use_cases import SearchUniverse
         from src.universe.infrastructure.semantic_search import PgVectorSemanticSearch

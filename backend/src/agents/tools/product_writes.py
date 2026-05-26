@@ -13,7 +13,7 @@ from uuid import UUID
 from agno.run.base import RunContext
 from agno.tools import tool
 
-from src.shared.db import get_session_factory, set_rls_user
+from src.shared.db import with_user_session
 
 VALID_JOB_STATUSES = {
     "interested",
@@ -44,9 +44,7 @@ async def update_preferences(
     user_id = run_context.user_id
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         from src.universe.application.use_cases import SetCareerPreferences
         from src.universe.infrastructure.repositories import (
             SqlAlchemyCareerPreferencesRepository,
@@ -54,7 +52,6 @@ async def update_preferences(
 
         uc = SetCareerPreferences(SqlAlchemyCareerPreferencesRepository(session))
         result = await uc.execute(user_id=user_id, patch=patch)
-        await session.commit()
         return {"ok": True, "preferences": result}
 
 
@@ -73,9 +70,7 @@ async def dismiss_reminder(
     user_id = run_context.user_id
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         from src.universe.application.reminders import DismissReminder
 
         result = await DismissReminder(session).execute(
@@ -83,7 +78,6 @@ async def dismiss_reminder(
         )
         if result.is_failure:
             return {"ok": False, "error": str(result.error)}
-        await session.commit()
         return {"ok": True}
 
 
@@ -109,9 +103,7 @@ async def set_job_status(
 
     from src.documents.infrastructure.orm import JobOrm
 
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         try:
             row = await session.get(JobOrm, UUID(job_id))
         except ValueError:
@@ -125,7 +117,6 @@ async def set_job_status(
             tracker["applied_at"] = datetime.now(timezone.utc).isoformat()
         parsed["_tracker"] = tracker
         row.description_parsed = parsed
-        await session.commit()
         return {
             "ok": True,
             "job": {
@@ -159,9 +150,7 @@ async def compute_job_match(
     from src.shared.embeddings import get_embeddings_service
     from src.universe.infrastructure.semantic_search import PgVectorSemanticSearch
 
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         try:
             row = await session.get(JobOrm, UUID(job_id))
         except ValueError:
@@ -185,7 +174,6 @@ async def compute_job_match(
         tracker["match_score"] = match_score
         parsed["_tracker"] = tracker
         row.description_parsed = parsed
-        await session.commit()
         return {
             "ok": True,
             "job_id": job_id,

@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/shared/api";
 import { useHashRoute } from "@/shared/useHashRoute";
+import { useClickOutside } from "@/shared/useClickOutside";
+import { useEscapeKey } from "@/shared/useEscapeKey";
 import { Search, LogOut, BookOpen, ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button, cn } from "@/ui";
@@ -173,19 +175,8 @@ function AccountMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  useClickOutside(ref, () => setOpen(false), open);
+  useEscapeKey(() => setOpen(false), open);
 
   const logout = () => {
     clear();

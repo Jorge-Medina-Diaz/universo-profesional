@@ -19,6 +19,7 @@ import {
   Search,
 } from "lucide-react";
 import { notes, type NoteRow } from "@/shared/api";
+import { queryKeys } from "@/shared/queryKeys";
 import {
   Badge,
   Button,
@@ -48,7 +49,7 @@ const EMPTY_DRAFT: Draft = { title: "", body_md: "", tags: [] };
 
 export function NotesPage() {
   const qc = useQueryClient();
-  const query = useQuery({ queryKey: ["notes"], queryFn: () => notes.list() });
+  const query = useQuery({ queryKey: queryKeys.notes.all, queryFn: () => notes.list() });
   const [draft, setDraft] = useState<Draft | null>(null);
   const [search, setSearch] = useState("");
 
@@ -60,7 +61,7 @@ export function NotesPage() {
         tags: draft!.tags,
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["notes"] });
+      qc.invalidateQueries({ queryKey: queryKeys.notes.all });
       setDraft(null);
       toast.success("Nota creada");
     },
@@ -75,7 +76,7 @@ export function NotesPage() {
         tags: draft!.tags,
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["notes"] });
+      qc.invalidateQueries({ queryKey: queryKeys.notes.all });
       setDraft(null);
       toast.success("Nota actualizada");
     },
@@ -85,7 +86,7 @@ export function NotesPage() {
 
   const remove = useMutation({
     mutationFn: (id: string) => notes.remove(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["notes"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.notes.all }),
   });
 
   const items = useMemo(() => {

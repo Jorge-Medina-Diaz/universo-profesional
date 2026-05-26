@@ -22,7 +22,7 @@ from agno.run.base import RunContext
 from agno.tools import tool
 from sqlalchemy import select
 
-from src.shared.db import get_session_factory, set_rls_user
+from src.shared.db import with_user_session
 from src.universe.application.area_keywords import (
     SOFTWARE_AREA_KEYWORDS,  # re-export for backwards compat
     collect_text_blob,
@@ -101,9 +101,7 @@ async def compute_profile_health(run_context: RunContext) -> dict[str, Any]:
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
     user_uuid = UUID(user_id)
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, user_uuid)
+    async with with_user_session(user_uuid) as session:
         # Header (UniverseOrm)
         uni = (
             await session.execute(
@@ -226,14 +224,11 @@ async def detect_software_area(run_context: RunContext) -> dict[str, Any]:
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
     user_uuid = UUID(user_id)
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, user_uuid)
+    async with with_user_session(user_uuid) as session:
         strengths, _primary, _secondary = await load_area_strengths(session, user_uuid)
         if not strengths:
             # Cache miss → compute on the fly (cold path).
             result = await compute_area_strengths(session, user_uuid)
-            await session.commit()
             strengths = result.strengths
     if not strengths:
         return {

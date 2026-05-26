@@ -11,6 +11,7 @@ import { Stagger } from "@/ui/motion";
 import { universe } from "@/shared/api";
 import { KIND_COLORS, KIND_LABELS } from "@/shared/kindColors";
 import type { GraphSelection } from "@/graph/GraphView";
+import { queryKeys } from "@/shared/queryKeys";
 
 interface TimelineEvent {
   id: string;
@@ -103,7 +104,7 @@ export function TrajectoryLens({
   onSelect: (sel: GraphSelection) => void;
 }) {
   const query = useQuery({
-    queryKey: ["trajectory"],
+    queryKey: queryKeys.trajectory.all,
     staleTime: 30_000,
     queryFn: async () => {
       const results = await Promise.all(

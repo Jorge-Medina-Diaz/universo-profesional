@@ -1,9 +1,11 @@
 import { Sparkles, MessageSquare, Plug } from "lucide-react";
 import { Button, Card, Surface, Reveal, Stagger, Badge } from "@/ui";
+import { CursorGlow } from "@/widgets/CursorGlow";
 
 export function LandingPage() {
   return (
-    <div className="bg-canvas">
+    <div className="bg-canvas relative overflow-hidden">
+      <CursorGlow />
       <Surface width="lg" spacing="lg" className="text-center items-center pt-12 md:pt-24">
         <Reveal>
           <Badge tone="leaf" dot>

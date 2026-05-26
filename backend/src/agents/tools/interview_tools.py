@@ -22,7 +22,7 @@ from agno.run.base import RunContext
 from agno.tools import tool
 from sqlalchemy import select
 
-from src.shared.db import get_session_factory, set_rls_user
+from src.shared.db import with_user_session
 from src.universe.infrastructure.orm import (
     ExperienceOrm,
     ProjectOrm,
@@ -51,9 +51,7 @@ async def get_job_for_interview(
         return {"ok": False, "error": "missing user_id"}
     from src.documents.infrastructure.orm import JobOrm  # local import to avoid cycles
 
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         row = (
             await session.execute(
                 select(JobOrm)
@@ -91,10 +89,8 @@ async def get_interview_context_blob(run_context: RunContext) -> dict[str, Any]:
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
     user_uuid = UUID(user_id)
-    factory = get_session_factory()
     parts: list[str] = []
-    async with factory() as session:
-        await set_rls_user(session, user_uuid)
+    async with with_user_session(user_uuid) as session:
         uni = (
             await session.execute(
                 select(UniverseOrm).where(UniverseOrm.user_id == user_uuid)

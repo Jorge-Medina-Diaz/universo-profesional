@@ -21,6 +21,7 @@ import {
   Surface,
   cn,
 } from "@/ui";
+import { queryKeys } from "@/shared/queryKeys";
 
 interface EventMeta {
   label: string;
@@ -58,7 +59,7 @@ export function ActivityPage() {
   const activeFilter = FILTERS.find((f) => f.id === filter) ?? FILTERS[0];
 
   const query = useQuery({
-    queryKey: ["activity", filter],
+    queryKey: queryKeys.activity.list(filter),
     queryFn: () =>
       universe.activity({
         limit: 100,

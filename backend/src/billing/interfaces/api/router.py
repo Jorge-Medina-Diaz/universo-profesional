@@ -18,6 +18,7 @@ from src.billing.infrastructure.payments import (
     MockStripeProvider,
     get_payments_provider,
 )
+from src.shared.metrics import stripe_conversion_total
 from src.billing.infrastructure.repositories import SqlAlchemySubscriptionRepository
 from src.identity.interfaces.api.deps import CurrentUserId, SessionDep
 from src.shared.config import get_settings
@@ -208,6 +209,7 @@ async def stripe_webhook(
                 sub = Subscription.free_for(uid, utc_now())
             sub.plan = plan if plan in {"premium", "pro"} else "premium"
             sub.status = "active"
+            stripe_conversion_total.labels(plan=sub.plan, event="checkout_completed").inc()
             sub.stripe_customer_id = data_object.get("customer") or sub.stripe_customer_id
             sub.stripe_subscription_id = (
                 data_object.get("subscription") or sub.stripe_subscription_id
@@ -260,6 +262,7 @@ async def stripe_webhook(
                 return {"ok": True, "skipped": "no local subscription"}
             sub.plan = "free"
             sub.status = "canceled"
+            stripe_conversion_total.labels(plan="free", event="subscription_deleted").inc()
             sub.updated_at = utc_now()
             await subs.upsert(sub)
             await session.commit()

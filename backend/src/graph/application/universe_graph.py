@@ -22,8 +22,8 @@ from uuid import UUID
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.graph.application.ports import GraphRepository
 from src.graph.domain import schema
-from src.graph.infrastructure.age_client import cypher, parse_agtype
 
 logger = structlog.get_logger(__name__)
 
@@ -42,6 +42,19 @@ class UniverseGraphService:
     Every method takes the AsyncSession that the caller is already
     holding. The service does not own transactions; the caller commits.
     """
+
+    def __init__(self, graph_repo: GraphRepository | None = None) -> None:
+        """Inject a ``GraphRepository`` adapter.
+
+        When *graph_repo* is omitted a default AGE adapter is loaded
+        lazily so the module-level singleton keeps working for legacy
+        callers while new code can inject a mock or alternate backend.
+        """
+        if graph_repo is None:
+            from src.graph.infrastructure.age_repository import age_graph_repository
+
+            graph_repo = age_graph_repository
+        self._graph_repo = graph_repo
 
     # ------------------------------------------------------------------
     # Entity nodes
@@ -105,7 +118,7 @@ class UniverseGraphService:
             e.valid_to = NULL
         RETURN e
         """
-        await cypher(session, schema.GRAPH_PERSONAL, query, params=params)
+        await self._graph_repo.execute(session, schema.GRAPH_PERSONAL, query, params=params)
 
     async def soft_delete_entity(
         self,
@@ -118,7 +131,7 @@ class UniverseGraphService:
         now_iso = _iso(_now())
         params = {"id": str(entity_id), "user_id": str(user_id), "now": now_iso}
         # Expire the vertex
-        await cypher(
+        await self._graph_repo.execute(
             session,
             schema.GRAPH_PERSONAL,
             """
@@ -128,7 +141,7 @@ class UniverseGraphService:
             params=params,
         )
         # Expire incident edges
-        await cypher(
+        await self._graph_repo.execute(
             session,
             schema.GRAPH_PERSONAL,
             """
@@ -197,7 +210,7 @@ class UniverseGraphService:
             r.properties = $properties
         RETURN r
         """
-        rows = await cypher(
+        rows = await self._graph_repo.execute(
             session, schema.GRAPH_PERSONAL, query, params=params, column_defs="r agtype"
         )
         if not rows:
@@ -235,7 +248,7 @@ class UniverseGraphService:
         WHERE r.valid_to IS NULL
         SET r.valid_to = $now
         """
-        await cypher(session, schema.GRAPH_PERSONAL, query, params=params)
+        await self._graph_repo.execute(session, schema.GRAPH_PERSONAL, query, params=params)
 
     async def invalidate_contradicting_edges(
         self,
@@ -270,7 +283,7 @@ class UniverseGraphService:
         WHERE r.valid_to IS NULL AND b.id <> $keep
         SET r.valid_to = $now
         """
-        await cypher(session, schema.GRAPH_PERSONAL, query, params=params)
+        await self._graph_repo.execute(session, schema.GRAPH_PERSONAL, query, params=params)
 
     # ------------------------------------------------------------------
     # Read helpers
@@ -283,7 +296,7 @@ class UniverseGraphService:
         entity_id: UUID,
         user_id: UUID,
     ) -> dict[str, Any] | None:
-        rows = await cypher(
+        rows = await self._graph_repo.execute(
             session,
             schema.GRAPH_PERSONAL,
             "MATCH (e:Entity {id: $id, user_id: $user_id}) RETURN e",
@@ -292,7 +305,7 @@ class UniverseGraphService:
         )
         if not rows:
             return None
-        parsed = parse_agtype(rows[0]["e"])
+        parsed = self._graph_repo.parse_result(rows[0]["e"])
         if isinstance(parsed, dict):
             return parsed.get("properties", parsed)
         return None
@@ -352,7 +365,7 @@ class UniverseGraphService:
             RETURN DISTINCT n
             LIMIT {limit}
             """
-        rows = await cypher(
+        rows = await self._graph_repo.execute(
             session,
             schema.GRAPH_PERSONAL,
             query,
@@ -361,11 +374,13 @@ class UniverseGraphService:
         )
         out: list[dict[str, Any]] = []
         for row in rows:
-            parsed = parse_agtype(row["n"])
+            parsed = self._graph_repo.parse_result(row["n"])
             if isinstance(parsed, dict):
                 out.append(parsed.get("properties", parsed))
         return out
 
 
 # Module-level singleton; cheap to share since it is stateless.
+# The default adapter is loaded lazily inside the class so the
+# application layer does not import infrastructure at import time.
 universe_graph_service = UniverseGraphService()

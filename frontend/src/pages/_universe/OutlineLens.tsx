@@ -14,6 +14,7 @@ import { KIND_COLORS, KIND_LABELS, DEFAULT_KIND_COLOR } from "@/shared/kindColor
 import { cn } from "@/ui";
 import type { GraphSnapshot } from "@/graph/api";
 import type { GraphSelection } from "@/graph/GraphView";
+import { queryKeys } from "@/shared/queryKeys";
 
 interface ShapeStrength {
   area: string;
@@ -49,7 +50,7 @@ export function OutlineLens({
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const shapeQuery = useQuery({
-    queryKey: ["universe", "shape"],
+    queryKey: queryKeys.universe.shape,
     staleTime: 60_000,
     retry: false,
     queryFn: () => api<ShapeResponse>("/api/v1/universe/shape"),

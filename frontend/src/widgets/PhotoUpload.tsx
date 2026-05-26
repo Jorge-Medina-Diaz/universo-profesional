@@ -4,6 +4,7 @@ import { Trash2, Upload, User } from "lucide-react";
 import { photo } from "@/shared/api-extra";
 import { Button, DropZone, toast } from "@/ui";
 import { PhotoCropper } from "./PhotoCropper";
+import { queryKeys } from "@/shared/queryKeys";
 
 export function PhotoUpload() {
   const qc = useQueryClient();
@@ -13,7 +14,7 @@ export function PhotoUpload() {
 
   // Authenticated avatar load (a plain <img> can't send the Bearer header).
   const photoQuery = useQuery({
-    queryKey: ["me", "photo", refreshKey],
+    queryKey: queryKeys.me.photo(refreshKey),
     queryFn: () => photo.load(),
     staleTime: 60_000,
     retry: false,
@@ -32,7 +33,7 @@ export function PhotoUpload() {
     onSuccess: () => {
       setPreview(null);
       setRefreshKey((k) => k + 1);
-      qc.invalidateQueries({ queryKey: ["me"] });
+      qc.invalidateQueries({ queryKey: queryKeys.me.all });
       toast.success("Foto actualizada");
     },
     onError: (e: unknown) =>
@@ -43,7 +44,7 @@ export function PhotoUpload() {
     mutationFn: () => photo.remove(),
     onSuccess: () => {
       setRefreshKey((k) => k + 1);
-      qc.invalidateQueries({ queryKey: ["me"] });
+      qc.invalidateQueries({ queryKey: queryKeys.me.all });
     },
   });
 

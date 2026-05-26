@@ -11,6 +11,17 @@ for it via `/api/v1/chat/state` and inject it via `useCopilotReadable`.
 
 Both helpers below are pure DB plumbing — the LLM-driven summarization lives
 in the workflow file alongside the cron registration.
+
+COEXISTENCE with Agno v2.6.9 native memory:
+- `enable_session_summaries=True` on the Team gives Agno lightweight
+  per-session summaries managed by the framework.
+- `enable_user_memories=True` gives Agno atomic user memories.
+- This module does something different: it produces a long-horizon digest
+  that the frontend explicitly injects as a CopilotReadable.  It therefore
+  coexists with the native layer rather than replacing it.
+- Deprecation TODO: once we validate that Agno's native summaries alone
+  keep the context window bounded AND the frontend no longer needs the
+  explicit digest injection, this module can be retired.
 """
 from __future__ import annotations
 

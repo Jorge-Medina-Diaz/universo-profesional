@@ -39,6 +39,7 @@ import { AREA_ORDER, areaKey, colorForArea, colorForPillar, labelForArea } from 
 import { FloatingChat } from "@/chat/FloatingChat";
 import { enableCopilot, useCopilotReady } from "@/app/CopilotProvider";
 import { SuggestionBar } from "@/widgets/SuggestionBar";
+import { queryKeys } from "@/shared/queryKeys";
 import { ProfileCompleteness } from "@/widgets/ProfileCompleteness";
 import {
   Button,
@@ -95,7 +96,7 @@ export function UniversePage() {
   }, [lensMode, lensRevision]);
 
   const snapshotQuery = useQuery({
-    queryKey: ["graph", "snapshot"],
+    queryKey: queryKeys.graph.snapshot,
     queryFn: () => graphApi.snapshot(false),
     // Fresh enough — the graph dual-write hook invalidates this query
     // via the React Query cache key after coherence upserts.
@@ -103,18 +104,18 @@ export function UniversePage() {
   });
 
   const summaryQuery = useQuery({
-    queryKey: ["universe", "summary"],
+    queryKey: queryKeys.universe.summary,
     queryFn: universe.summary,
   });
 
   const pillarsQuery = useQuery({
-    queryKey: ["graph", "communities"],
+    queryKey: queryKeys.graph.communities,
     queryFn: () => graphApi.communities(),
     staleTime: 60_000,
   });
 
   const documentsQuery = useQuery({
-    queryKey: ["documents"],
+    queryKey: queryKeys.documents.all,
     queryFn: () => documents.list(),
     staleTime: 30_000,
   });
@@ -242,8 +243,8 @@ export function UniversePage() {
     try {
       await graphApi.enrich();
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["graph", "snapshot"] }),
-        queryClient.invalidateQueries({ queryKey: ["graph", "communities"] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.graph.snapshot }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.graph.communities }),
       ]);
     } finally {
       setEnriching(false);

@@ -10,6 +10,7 @@ import {
   Reveal,
   Surface,
 } from "@/ui";
+import { queryKeys } from "@/shared/queryKeys";
 
 interface SharePayload {
   document_id: string;
@@ -33,7 +34,7 @@ async function fetchShare(token: string): Promise<SharePayload> {
 
 export function SharePage({ token }: { token: string }) {
   const query = useQuery({
-    queryKey: ["share", token],
+    queryKey: queryKeys.share.detail(token),
     queryFn: () => fetchShare(token),
     retry: false,
   });

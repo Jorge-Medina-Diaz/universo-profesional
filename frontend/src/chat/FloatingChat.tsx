@@ -7,8 +7,9 @@
  * class that hides the message stream when collapsed. This preserves
  * streaming + HITL cards without forwarding messages between two UIs.
  */
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
+import { useEscapeKey } from "@/shared/useEscapeKey";
 import { cn } from "@/ui";
 
 export interface FloatingChatProps {
@@ -25,15 +26,7 @@ export function FloatingChat({ children, onExpandedChange }: FloatingChatProps) 
     onExpandedChange?.(v);
   };
 
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") set(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expanded]);
+  useEscapeKey(() => set(false), expanded);
 
   return (
     <>

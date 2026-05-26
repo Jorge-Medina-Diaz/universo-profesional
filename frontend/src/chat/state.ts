@@ -69,6 +69,10 @@ interface ChatStateStore extends ChatFocus {
   setFocus: (focus: Partial<ChatFocus>) => void;
   clear: () => void;
 
+  /** Active CopilotKit thread id (used for coherence upsert attribution). */
+  activeSessionId: string | null;
+  setActiveSessionId: (id: string | null) => void;
+
   widgets: ChatWidget[];
   addWidget: (
     w: Omit<ChatWidget, "id" | "createdAt"> & { id?: string },
@@ -97,6 +101,8 @@ function widgetMatchesExisting(a: ChatWidget, b: ChatWidget): boolean {
 
 export const useChatState = create<ChatStateStore>((set) => ({
   ...initialFocus,
+  activeSessionId: null,
+  setActiveSessionId: (id) => set({ activeSessionId: id }),
   widgets: [],
 
   setFocus: (focus) =>

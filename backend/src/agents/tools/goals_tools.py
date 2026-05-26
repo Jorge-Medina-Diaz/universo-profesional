@@ -17,7 +17,7 @@ from agno.run.base import RunContext
 from agno.tools import tool
 from sqlalchemy import select
 
-from src.shared.db import get_session_factory, set_rls_user
+from src.shared.db import with_user_session
 from src.shared.security import utc_now
 from src.universe.infrastructure.orm import GoalOrm
 
@@ -78,9 +78,7 @@ async def add_goal(
         details["subtasks"] = [
             {"title": s.strip(), "done": False} for s in subtasks if s.strip()
         ]
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         now = utc_now()
         goal = GoalOrm(
             id=uuid4(),
@@ -96,7 +94,6 @@ async def add_goal(
             completed_at=None,
         )
         session.add(goal)
-        await session.commit()
         await session.refresh(goal)
         return {"ok": True, "goal": _serialize(goal)}
 
@@ -117,9 +114,7 @@ async def list_goals(
     user_id = run_context.user_id
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         stmt = select(GoalOrm).where(GoalOrm.user_id == UUID(user_id))
         if status and status != "*":
             if status not in VALID_STATUS:
@@ -155,9 +150,7 @@ async def update_goal(
     user_id = run_context.user_id
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         goal = (
             await session.execute(
                 select(GoalOrm)
@@ -194,7 +187,6 @@ async def update_goal(
             ]
             goal.details = new_details
         goal.updated_at = utc_now()
-        await session.commit()
         await session.refresh(goal)
         return {"ok": True, "goal": _serialize(goal)}
 
@@ -215,9 +207,7 @@ async def mark_subtask_done(
     user_id = run_context.user_id
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         goal = (
             await session.execute(
                 select(GoalOrm)
@@ -249,6 +239,5 @@ async def mark_subtask_done(
         goal.updated_at = utc_now()
         done = sum(1 for s in subtasks if s.get("done"))
         progress = int(round(100 * done / max(1, len(subtasks))))
-        await session.commit()
         await session.refresh(goal)
         return {"ok": True, "goal": _serialize(goal), "progress": progress}

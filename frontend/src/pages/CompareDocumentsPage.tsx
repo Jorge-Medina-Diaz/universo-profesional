@@ -20,12 +20,13 @@ import {
   cn,
   toast,
 } from "@/ui";
+import { queryKeys } from "@/shared/queryKeys";
 
 type DocSide = "a" | "b";
 
 export function CompareDocumentsPage({ initialA, initialB }: { initialA?: string; initialB?: string }) {
   const list = useQuery({
-    queryKey: ["documents"],
+    queryKey: queryKeys.documents.all,
     queryFn: () => documents.list(),
   });
   const [a, setA] = useState<string | undefined>(initialA);
@@ -44,12 +45,12 @@ export function CompareDocumentsPage({ initialA, initialB }: { initialA?: string
 
   // Both detail queries must be declared before any conditional return.
   const queryA = useQuery({
-    queryKey: ["documents", a],
+    queryKey: queryKeys.documents.detail(a),
     queryFn: () => documents.get(a!),
     enabled: !!a,
   });
   const queryB = useQuery({
-    queryKey: ["documents", b],
+    queryKey: queryKeys.documents.detail(b),
     queryFn: () => documents.get(b!),
     enabled: !!b,
   });
@@ -223,7 +224,7 @@ function DocSelector({
 
 function DocPanel({ id, side }: { id: string | undefined; side: DocSide }) {
   const query = useQuery({
-    queryKey: ["documents", id],
+    queryKey: queryKeys.documents.detail(id),
     queryFn: () => documents.get(id!),
     enabled: !!id,
   });

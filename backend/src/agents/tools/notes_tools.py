@@ -18,7 +18,7 @@ from src.notes.application.use_cases import (
     UpdateNote,
 )
 from src.notes.infrastructure.repositories import SqlAlchemyNoteRepository
-from src.shared.db import get_session_factory, set_rls_user
+from src.shared.db import with_user_session
 from src.shared.uow import UnitOfWork
 from src.universe.infrastructure.scheduler import ArqEmbeddingScheduler
 
@@ -39,9 +39,7 @@ async def add_note(
     user_id = run_context.user_id
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         uc = CreateNote(SqlAlchemyNoteRepository(session), ArqEmbeddingScheduler())
         uow = UnitOfWork(session)
         result = await uc.execute(
@@ -70,9 +68,7 @@ async def update_note(
     user_id = run_context.user_id
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         uc = UpdateNote(SqlAlchemyNoteRepository(session), ArqEmbeddingScheduler())
         uow = UnitOfWork(session)
         patch = {k: v for k, v in {"body_md": body_md, "title": title, "tags": tags}.items() if v is not None}
@@ -98,9 +94,7 @@ async def list_notes(
     user_id = run_context.user_id
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         uc = ListNotes(SqlAlchemyNoteRepository(session))
         notes = await uc.execute(
             user_id=user_id, tags=[tag] if tag else None, limit=limit

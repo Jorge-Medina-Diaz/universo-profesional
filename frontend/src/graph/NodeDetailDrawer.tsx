@@ -6,7 +6,8 @@
  * navigate the graph (parent re-selects → camera animates). The detail content
  * is rendered from a per-kind field spec so each kind shows what matters.
  */
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
+import { useEscapeKey } from "@/shared/useEscapeKey";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowUpRight, MessageSquare, X } from "lucide-react";
 import { Badge, Button } from "@/ui";
@@ -240,14 +241,7 @@ export function NodeDetailDrawer({
   }, [id, snapshot]);
 
   // Esc closes the inspector without blocking the graph (no backdrop).
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  useEscapeKey(onClose, open);
 
   return (
     <AnimatePresence>

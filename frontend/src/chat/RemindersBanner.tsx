@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { BellRing, X, ArrowRight } from "lucide-react";
 import { universe, useAuthStore } from "@/shared/api";
 import { Badge, cn } from "@/ui";
+import { queryKeys } from "@/shared/queryKeys";
 
 const DISMISS_KEY = "cvs-saas-reminders-banner-dismissed";
 
@@ -48,7 +49,7 @@ export function RemindersBanner({
   const authed = !!useAuthStore((s) => s.accessToken);
   const [dismissed, setDismissed] = useState(isDismissedToday);
   const remindersQ = useQuery({
-    queryKey: ["reminders", "pending"],
+    queryKey: queryKeys.reminders.pending,
     queryFn: () => universe.reminders.list(),
     enabled: authed && !dismissed,
     staleTime: 5 * 60_000,

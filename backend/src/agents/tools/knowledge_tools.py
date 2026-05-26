@@ -14,7 +14,7 @@ from agno.run.base import RunContext
 from agno.tools import tool
 
 from src.knowledge.application.use_cases import search_knowledge as _search
-from src.shared.db import get_session_factory
+from src.shared.db import with_user_session
 
 logger = structlog.get_logger(__name__)
 
@@ -40,8 +40,7 @@ async def search_knowledge(
     user_id = run_context.user_id
     if not user_id:
         return {"ok": False, "error": "missing user_id", "results": []}
-    factory = get_session_factory()
-    async with factory() as session:
+    async with with_user_session(UUID(str(user_id))) as session:
         results = await _search(
             session,
             user_id=UUID(str(user_id)),

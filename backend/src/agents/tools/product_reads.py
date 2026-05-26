@@ -18,7 +18,7 @@ from uuid import UUID
 from agno.run.base import RunContext
 from agno.tools import tool
 
-from src.shared.db import get_session_factory, set_rls_user
+from src.shared.db import with_user_session
 
 
 @tool(
@@ -43,9 +43,7 @@ async def list_jobs(
 
     from src.documents.infrastructure.orm import JobOrm
 
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         stmt = (
             select(JobOrm)
             .where(JobOrm.user_id == UUID(user_id))
@@ -99,9 +97,7 @@ async def list_documents(
 
     from src.documents.infrastructure.orm import DocumentOrm
 
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         stmt = (
             select(DocumentOrm)
             .where(DocumentOrm.user_id == UUID(user_id))
@@ -144,9 +140,7 @@ async def get_preferences(run_context: RunContext) -> dict[str, Any] | None:
     user_id = run_context.user_id
     if not user_id:
         return {"error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         from src.universe.application.use_cases import GetCareerPreferences
         from src.universe.infrastructure.repositories import (
             SqlAlchemyCareerPreferencesRepository,
@@ -172,9 +166,7 @@ async def list_reminders(
     user_id = run_context.user_id
     if not user_id:
         return {"error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         from src.universe.application.reminders import ListReminders
 
         items = await ListReminders(session).execute(
@@ -198,9 +190,7 @@ async def get_integrations_status(run_context: RunContext) -> dict[str, Any]:
     user_id = run_context.user_id
     if not user_id:
         return {"error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         from src.integrations.application.connect_disconnect import ListConnections
         from src.integrations.infrastructure.repositories import (
             SqlExternalAccountRepository,
@@ -223,9 +213,7 @@ async def get_tier(run_context: RunContext) -> dict[str, Any]:
     user_id = run_context.user_id
     if not user_id:
         return {"error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         from src.identity.infrastructure.repositories import SqlAlchemyUserRepository
 
         repo = SqlAlchemyUserRepository(session)

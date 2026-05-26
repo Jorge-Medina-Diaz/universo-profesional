@@ -58,6 +58,14 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         embeddings=settings.embeddings_provider_resolved,
     )
 
+    # OpenTelemetry OTLP exporter
+    try:
+        from src.shared.otel_setup import init_otel
+
+        init_otel()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("otel_init_failed", error=str(exc))
+
     # Optional Sentry — only initializes if SENTRY_DSN is set.
     try:
         from src.shared.sentry_setup import init_sentry

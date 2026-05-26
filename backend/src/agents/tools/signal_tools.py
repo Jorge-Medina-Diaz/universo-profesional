@@ -17,7 +17,7 @@ from uuid import UUID
 from agno.run.base import RunContext
 from agno.tools import tool
 
-from src.shared.db import get_session_factory, set_rls_user
+from src.shared.db import with_user_session
 from src.universe.application.signal_extraction import (
     extract_user_signals,
     list_user_signals_with_chunk,
@@ -45,9 +45,7 @@ async def get_user_rubric_coverage(
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
     user_uuid = UUID(user_id)
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, user_uuid)
+    async with with_user_session(user_uuid) as session:
         rows = await list_user_signals_with_chunk(
             session, user_uuid, sector=sector, status=status
         )
@@ -104,11 +102,8 @@ async def recompute_user_signals(
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
     user_uuid = UUID(user_id)
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, user_uuid)
+    async with with_user_session(user_uuid) as session:
         result = await extract_user_signals(session, user_uuid, sector=sector)
-        await session.commit()
     return {
         "ok": True,
         "sector": sector,

@@ -18,7 +18,7 @@ export function Skeleton({ className, shape = "text", ...rest }: SkeletonProps) 
     <div
       aria-hidden
       className={cn(
-        "bg-black/[0.04] animate-pulse",
+        "shimmer",
         shape === "text" && "rounded",
         shape === "block" && "rounded-card",
         shape === "circle" && "rounded-full",

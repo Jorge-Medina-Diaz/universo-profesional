@@ -15,7 +15,7 @@ from agno.tools import tool
 from sqlalchemy import text
 
 from src.coherence.infrastructure.semantic_matcher import PgVectorSemanticMatcher
-from src.shared.db import get_session_factory, set_rls_user
+from src.shared.db import with_user_session
 
 
 @tool(
@@ -35,9 +35,7 @@ async def find_existing(
     user_id = run_context.user_id
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         matcher = PgVectorSemanticMatcher(session)
         hits = await matcher.find_most_similar(
             user_id=UUID(user_id),
@@ -68,9 +66,7 @@ async def propose_merge_suggestion(
         return {"ok": False, "error": "missing user_id"}
     if len(candidate_ids) < 2:
         return {"ok": False, "error": "need at least 2 candidates"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         sid = uuid4()
         import json
 
@@ -98,7 +94,6 @@ async def propose_merge_suggestion(
                 "payload": payload,
             },
         )
-        await session.commit()
         return {"ok": True, "suggestion_id": str(sid)}
 
 
@@ -119,9 +114,7 @@ async def list_pending_curation(
     user_id = run_context.user_id
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         suggestions = (
             await session.execute(
                 text(
@@ -190,9 +183,7 @@ async def mark_stale(
     reg = GRAPH_REGISTRY.get(entity_type)
     if reg is None or not reg.supports_stale:
         return {"ok": False, "error": f"entity_type {entity_type!r} does not support stale"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         table = reg.sql_table
         result = await session.execute(
             text(
@@ -230,7 +221,6 @@ async def mark_stale(
                 "run_id": run_context.run_id,
             },
         )
-        await session.commit()
         return {"ok": True, "entity_id": entity_id, "confidence": 0.3}
 
 
@@ -253,9 +243,7 @@ async def get_recent_activity(
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
     days = max(1, min(days, 90))
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         rows = (
             await session.execute(
                 text(
@@ -320,9 +308,7 @@ async def get_change_history(
     user_id = run_context.user_id
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         from src.coherence.infrastructure.change_log_repo import (
             SqlAlchemyChangeLogRepository,
         )

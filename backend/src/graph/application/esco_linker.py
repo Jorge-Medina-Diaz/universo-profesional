@@ -33,6 +33,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.shared.embeddings import get_embeddings_service
+from src.graph.domain import custom_skills_ontology as cso
 
 logger = structlog.get_logger(__name__)
 
@@ -216,6 +217,27 @@ class EscoEntityLinker:
                 candidates=candidates,
                 score=top.score,
                 reason="below auto-link threshold",
+            )
+        # Fallback to custom AI-era ontology when ESCO has no match.
+        custom = cso.find_by_label(normalised)
+        if custom is None:
+            custom_hits = cso.search_by_text(normalised)
+            custom = custom_hits[0] if custom_hits else None
+        if custom is not None:
+            return EscoLinkResult(
+                state=LinkState.LINKED,
+                esco_uri=custom.uri,
+                candidates=[
+                    EscoCandidate(
+                        uri=custom.uri,
+                        label="CustomSkill",
+                        pref_label_es=custom.pref_label_es,
+                        pref_label_en=custom.pref_label_en,
+                        score=0.95,  # deterministic high-confidence fallback
+                    )
+                ],
+                score=0.95,
+                reason="linked via custom skills ontology",
             )
         return EscoLinkResult(
             state=LinkState.ORPHAN,

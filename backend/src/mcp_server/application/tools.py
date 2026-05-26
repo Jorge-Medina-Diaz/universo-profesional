@@ -136,40 +136,16 @@ async def _h_search(*, session, user_id, client_id, args):
     )
 
 
-# --- Universe write (CRUD per entity, via factories) ------------------------
+# --- Universe write (CRUD per entity, via registry) -------------------------
 
-_CRUD_CLASSES = {
-    "education": "EducationCrud",
-    "experience": "ExperienceCrud",
-    "project": "ProjectCrud",
-    "skill": "SkillCrud",
-    "certification": "CertificationCrud",
-    "course": "CourseCrud",
-    "language": "LanguageCrud",
-    "achievement": "AchievementCrud",
-    "interest": "InterestCrud",
-}
-
-_REPO_KEYS = {
-    "education": "edu_repo",
-    "experience": "exp_repo",
-    "project": "proj_repo",
-    "skill": "skill_repo",
-    "certification": "cert_repo",
-    "course": "course_repo",
-    "language": "lang_repo",
-    "achievement": "ach_repo",
-    "interest": "int_repo",
-}
+from src.universe.application.registry import CrudRegistry
 
 
 def _build_crud(session, entity: str):  # type: ignore[no-untyped-def]
-    from src.universe.application import use_cases as uc
-
     deps = _session_only_deps(session)
-    cls = getattr(uc, _CRUD_CLASSES[entity])
-    repo = deps[_REPO_KEYS[entity]]
-    return cls(repo, deps["scheduler"])
+    crud_cls = CrudRegistry.get_crud_class(entity)
+    repo = deps[CrudRegistry.get_repo_key(entity)]
+    return crud_cls(repo, deps["scheduler"])
 
 
 def _make_add_handler(entity: str):

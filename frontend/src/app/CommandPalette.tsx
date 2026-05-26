@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { universe, type UniverseSearchHit } from "@/shared/api";
 import { cn } from "@/ui";
+import { queryKeys } from "@/shared/queryKeys";
 
 interface Command {
   id: string;
@@ -226,7 +227,7 @@ export function CommandPalette() {
   // open. Debounce by limiting to >=2 chars + react-query stale time.
   const searchEnabled = open && trimmed.length >= 2;
   const searchQuery = useQuery({
-    queryKey: ["palette-search", trimmed],
+    queryKey: queryKeys.palette.search(trimmed),
     queryFn: () => universe.search(trimmed, 8),
     enabled: searchEnabled,
     staleTime: 30_000,

@@ -81,14 +81,13 @@ function resolveRoute(path: string, query: URLSearchParams, isAuthed: boolean) {
   if (path === "/login" || path === "/") {
     if (isAuthed) {
       if (path === "/login") {
-        window.location.hash = "#/";
-        return null;
+        return <Redirect to="/" />;
       }
       return <HomePage />;
     }
     return path === "/login" ? <LoginPage /> : <LandingPage />;
   }
-  if (path === "/register") return isAuthed ? redirect("/") : <RegisterPage />;
+  if (path === "/register") return isAuthed ? <Redirect to="/" /> : <RegisterPage />;
   if (path === "/auth/verify") return <VerifyEmailPage token={query.get("token") || ""} />;
   if (path === "/auth/linkedin/callback") return <LinkedInCallbackPage />;
   if (path.startsWith("/share/")) {
@@ -100,8 +99,7 @@ function resolveRoute(path: string, query: URLSearchParams, isAuthed: boolean) {
   }
 
   if (!isAuthed) {
-    window.location.hash = "#/login";
-    return null;
+    return <Redirect to="/login" />;
   }
 
   // Authed routes
@@ -134,8 +132,10 @@ function resolveRoute(path: string, query: URLSearchParams, isAuthed: boolean) {
   return <NotFoundPage path={path} />;
 }
 
-function redirect(p: string) {
-  window.location.hash = `#${p}`;
+function Redirect({ to }: { to: string }) {
+  useEffect(() => {
+    window.location.hash = `#${to}`;
+  }, [to]);
   return null;
 }
 

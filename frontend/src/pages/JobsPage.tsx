@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useChatState } from "@/chat/state";
+import { queryKeys } from "@/shared/queryKeys";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Plus,
@@ -82,7 +83,7 @@ function computePosition(column: JobRow[], dropIndex: number): number {
 
 export function JobsPage() {
   const qc = useQueryClient();
-  const query = useQuery({ queryKey: ["jobs"], queryFn: () => jobs.list() });
+  const query = useQuery({ queryKey: queryKeys.jobs.all, queryFn: () => jobs.list() });
   const [view, setView] = useState<ViewMode>("kanban");
   const [creating, setCreating] = useState(false);
   const [autopilotJob, setAutopilotJob] = useState<JobRow | null>(null);
@@ -128,14 +129,14 @@ export function JobsPage() {
 
   const computeScore = useMutation({
     mutationFn: (id: string) => jobs.computeScore(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.jobs.all }),
     onError: (e: unknown) => toast.error("No pudimos calcular el match", (e as Error).message),
   });
 
   const create = useMutation({
     mutationFn: () => jobs.create({ ...draft, status: "interested" }),
     onSuccess: (created) => {
-      qc.invalidateQueries({ queryKey: ["jobs"] });
+      qc.invalidateQueries({ queryKey: queryKeys.jobs.all });
       setCreating(false);
       setDraft({ title: "", company_name: "", url: "", description_raw: "" });
       toast.success("Oferta añadida");
@@ -149,13 +150,13 @@ export function JobsPage() {
   const patch = useMutation({
     mutationFn: ({ id, body }: { id: string; body: Parameters<typeof jobs.patch>[1] }) =>
       jobs.patch(id, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.jobs.all }),
   });
 
   const reorder = useMutation({
     mutationFn: (items: Parameters<typeof jobs.reorder>[0]) => jobs.reorder(items),
     onMutate: async (items) => {
-      await qc.cancelQueries({ queryKey: ["jobs"] });
+      await qc.cancelQueries({ queryKey: queryKeys.jobs.all });
       const previous = qc.getQueryData<JobRow[]>(["jobs"]);
       if (previous) {
         const byId = new Map(items.map((i) => [i.id, i]));
@@ -185,12 +186,12 @@ export function JobsPage() {
       if (ctx?.previous) qc.setQueryData(["jobs"], ctx.previous);
       toast.error("No pudimos reordenar", (e as Error).message);
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.jobs.all }),
   });
 
   const remove = useMutation({
     mutationFn: (id: string) => jobs.remove(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.jobs.all }),
   });
 
   const grouped = useMemo(() => {
@@ -417,7 +418,7 @@ export function JobsPage() {
         <AutopilotRunner
           job={autopilotJob}
           onClose={() => setAutopilotJob(null)}
-          onComplete={() => qc.invalidateQueries({ queryKey: ["jobs"] })}
+          onComplete={() => qc.invalidateQueries({ queryKey: queryKeys.jobs.all })}
         />
       )}
     </Surface>

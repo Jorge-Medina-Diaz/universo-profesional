@@ -12,7 +12,7 @@
  * user's turns are warm ink bubbles on the right. Motion is restrained — one
  * entrance rise per message, a calm thinking pulse.
  */
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback, memo } from "react";
 import { Markdown } from "@copilotkit/react-ui";
 import type {
   AssistantMessageProps,
@@ -33,6 +33,11 @@ import {
   Square,
 } from "lucide-react";
 import { cn } from "@/ui";
+import { useThrottledText } from "./useThrottledText";
+import { ThinkingSteps, useHeuristicThinkingSteps } from "./ThinkingSteps";
+import { InlineEntityEditor } from "./InlineEntityEditor";
+import { CommandPalette, type SlashCommand, type CommandPaletteHandle } from "./CommandPalette";
+import { ComposerSuggestions, type ComposerSuggestion } from "./ComposerSuggestions";
 
 /**
  * In CopilotKit 1.57 a message's `content` is `string | InputContent[]` (text +
@@ -114,7 +119,7 @@ function ThinkingDots() {
   );
 }
 
-export function AgentMessage({
+export const AgentMessage = memo(function AgentMessage({
   message,
   isLoading,
   isGenerating,
@@ -122,36 +127,55 @@ export function AgentMessage({
 }: AssistantMessageProps) {
   const raw = messageText(message?.content);
   const content = raw.trim() ? raw : "";
+  const throttledContent = useThrottledText(content, 50);
+  const displayContent = isGenerating ? throttledContent : content;
   const card = message?.generativeUI?.() ?? undefined;
   const thinking = !!isLoading && !content;
   const [copied, setCopied] = useState(false);
+
+  const steps = useHeuristicThinkingSteps(content, !!isGenerating);
 
   // Suppressed/empty assistant turns (e.g. route hand-offs) render nothing —
   // no lone orb for a whitespace-only coordinator message.
   if (!content && !card && !thinking) return null;
 
   const copy = () => {
-    if (!content) return;
-    void navigator.clipboard?.writeText(content);
+    if (!displayContent) return;
+    void navigator.clipboard?.writeText(displayContent);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
 
+  const handleInlineEdit = useCallback((original: string, corrected: string) => {
+    // Emit a user-visible correction into the chat thread via a custom event
+    // that CopilotSurface can listen to and inject as a user message.
+    window.dispatchEvent(
+      new CustomEvent("cvs-chat-inline-edit", {
+        detail: { original, corrected },
+      }),
+    );
+  }, []);
+
   return (
     <div className="agent-msg group flex gap-3 px-1 py-2">
-      <AgentOrb thinking={thinking} />
+      <AgentOrb thinking={thinking || (!!isGenerating && steps.some((s) => s.status === "active"))} />
       <div className="min-w-0 flex-1">
         {thinking ? (
           <ThinkingDots />
         ) : (
           <>
-            {content && (
+            {!!isGenerating && steps.some((s) => s.status !== "pending") && (
+              <ThinkingSteps steps={steps} className="mb-1.5" />
+            )}
+            {displayContent && (
               <div className={cn("agent-prose", isGenerating && "agent-prose--streaming")}>
-                <Markdown content={content} />
+                <InlineEntityEditor onEdit={handleInlineEdit}>
+                  <Markdown content={displayContent} />
+                </InlineEntityEditor>
               </div>
             )}
             {card && <div className="mt-1.5">{card}</div>}
-            {content && !isGenerating && (
+            {displayContent && !isGenerating && (
               <div className="agent-actions mt-1 flex items-center gap-0.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100">
                 <button
                   type="button"
@@ -178,9 +202,9 @@ export function AgentMessage({
       </div>
     </div>
   );
-}
+});
 
-export function PersonMessage({ message, ImageRenderer }: UserMessageProps) {
+export const PersonMessage = memo(function PersonMessage({ message, ImageRenderer }: UserMessageProps) {
   const content = messageText(message?.content);
   const imgs = imageParts(message?.content);
   const docs = docParts(message?.content);
@@ -220,7 +244,7 @@ export function PersonMessage({ message, ImageRenderer }: UserMessageProps) {
       </div>
     </div>
   );
-}
+});
 
 /**
  * Inline, in-thread error bubble for genuine run/transport failures (RUN_ERROR,
@@ -261,7 +285,7 @@ export function ErrorMessage({ error }: ErrorMessageProps) {
   );
 }
 
-export function Composer({
+export const Composer = memo(function Composer({
   inProgress,
   onSend,
   onStop,
@@ -271,7 +295,9 @@ export function Composer({
 }: InputProps) {
   const [text, setText] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
+  const paletteRef = useRef<CommandPaletteHandle>(null);
   const disabled = chatReady === false;
+  const showPalette = text.startsWith("/");
 
   const autoGrow = () => {
     const el = ref.current;
@@ -287,16 +313,31 @@ export function Composer({
     });
   };
 
-  const send = () => {
-    const t = text.trim();
+  const send = useCallback((value: string) => {
+    const t = value.trim();
     if (!t || inProgress || disabled) return;
     reset();
     void onSend(t);
-  };
+  }, [inProgress, disabled, onSend]);
+
+  const handleSelectCommand = useCallback((cmd: SlashCommand) => {
+    setText(cmd.prompt);
+    requestAnimationFrame(() => {
+      autoGrow();
+      ref.current?.focus();
+    });
+  }, []);
+
+  const handleSelectSuggestion = useCallback((s: ComposerSuggestion) => {
+    send(s.prompt);
+  }, [send]);
 
   return (
     <div className="composer-wrap">
-      <div className="composer group">
+      {!showPalette && !inProgress && (
+        <ComposerSuggestions onSelect={handleSelectSuggestion} />
+      )}
+      <div className="composer group relative">
         {onUpload && (
           <button
             type="button"
@@ -320,9 +361,10 @@ export function Composer({
             autoGrow();
           }}
           onKeyDown={(e) => {
+            if (paletteRef.current?.isOpen) return; // Let palette handle navigation
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              send();
+              send(text);
             }
           }}
           className="composer-input"
@@ -339,7 +381,7 @@ export function Composer({
         ) : (
           <button
             type="button"
-            onClick={send}
+            onClick={() => send(text)}
             disabled={!text.trim() || inProgress || disabled}
             aria-label="Enviar"
             className="composer-send"
@@ -347,10 +389,19 @@ export function Composer({
             <ArrowUp size={17} strokeWidth={2.5} />
           </button>
         )}
+        <CommandPalette
+          ref={paletteRef}
+          query={text}
+          onSelect={handleSelectCommand}
+          onClose={() => {
+            setText("");
+            ref.current?.focus();
+          }}
+        />
       </div>
       <p className="composer-hint">
-        <kbd>Enter</kbd> para enviar · <kbd>Shift</kbd>+<kbd>Enter</kbd> salto de línea
+        <kbd>Enter</kbd> para enviar · <kbd>Shift</kbd>+<kbd>Enter</kbd> salto de línea · <kbd>/</kbd> comandos
       </p>
     </div>
   );
-}
+});

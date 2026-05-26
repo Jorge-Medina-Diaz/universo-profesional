@@ -10,7 +10,10 @@
 :root {
   color-scheme: light;
 
-  --primary-color-bg: red;
+  /* Acento IA — identifica elementos impulsados por agentes */
+  --color-nova: #00d4aa;
+  --color-nova-soft: #e6faf5;
+  --color-nova-ink: #004d3d;
 
   /* Colors — base palette */
   --color-midnight-ink: #0a0a0a;
@@ -69,6 +72,11 @@
   --duration-enter: 280ms;
   --duration-modal: 420ms;
 
+  /* Glows — para hover states y foco de elementos IA */
+  --glow-leaf: 0 0 20px rgba(110, 206, 157, 0.25);
+  --glow-sunbeam: 0 0 24px rgba(255, 218, 110, 0.30);
+  --glow-nova: 0 0 40px rgba(0, 212, 170, 0.15);
+
   /* Editorial elevation — hairline borders + refined depth. */
   --hairline: rgba(10, 10, 10, 0.08);
   --hairline-strong: rgba(10, 10, 10, 0.14);
@@ -104,10 +112,20 @@
   --color-leafy-green: #5cc28d;
   --color-leaf-soft: #163826;
   --color-leaf-ink: #cdeedb;
+  --color-nova: #00d4aa;
+  --color-nova-soft: #0d3329;
+  --color-nova-ink: #a8f0e0;
 
+  /* Profundidad de capas en dark mode (Linear-style) */
   --surface-canvas: #0c0b08;
-  --surface-card-surface: #16140f;
+  --surface-base: #16140f;
+  --surface-raised: #1e1c16;
   --surface-overlay: rgba(0, 0, 0, 0.6);
+  --surface-overlay: rgba(0, 0, 0, 0.6);
+
+  --glow-leaf: 0 0 20px rgba(92, 194, 141, 0.20);
+  --glow-sunbeam: 0 0 24px rgba(241, 200, 75, 0.25);
+  --glow-nova: 0 0 40px rgba(0, 212, 170, 0.12);
 
   --hairline: rgba(243, 239, 230, 0.1);
   --hairline-strong: rgba(243, 239, 230, 0.18);
@@ -782,7 +800,332 @@
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Honour reduced-motion globally. */
+/* ---------------------------------------------------------------- *
+ * Skeleton shimmer — replaces generic animate-pulse
+ * ---------------------------------------------------------------- */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--surface-card-surface) 25%,
+    color-mix(in srgb, var(--surface-card-surface) 92%, var(--color-midnight-ink)) 50%,
+    var(--surface-card-surface) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ---------------------------------------------------------------- *
+ * Glow hover — energía en CTAs primarios
+ * ---------------------------------------------------------------- */
+.glow-hover {
+  transition: box-shadow var(--duration-micro) var(--ease-pirsch);
+}
+.glow-hover:hover {
+  box-shadow: var(--glow-sunbeam);
+}
+.glow-hover-leaf:hover {
+  box-shadow: var(--glow-leaf);
+}
+.glow-hover-nova:hover {
+  box-shadow: var(--glow-nova);
+}
+
+/* ---------------------------------------------------------------- *
+ * Cursor glow — landing page ambient effect
+ * ---------------------------------------------------------------- */
+.cursor-glow {
+  position: fixed;
+  pointer-events: none;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(110, 206, 157, 0.08), transparent 70%);
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* ---------------------------------------------------------------- *
+ * Thinking steps — inline agent-progress pills
+ * ---------------------------------------------------------------- */
+.thinking-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-nova-soft) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-nova) 15%, transparent);
+  width: fit-content;
+  animation: msg-rise 0.28s var(--ease-pirsch) both;
+}
+:root[data-theme="dark"] .thinking-steps {
+  background: color-mix(in srgb, var(--color-nova-soft) 40%, transparent);
+  border-color: color-mix(in srgb, var(--color-nova) 20%, transparent);
+}
+.thinking-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-nova-ink);
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+.thinking-step--active { opacity: 1; font-weight: 500; }
+.thinking-step--done { opacity: 0.65; }
+.thinking-step__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-nova) 12%, transparent);
+  color: var(--color-nova);
+}
+
+/* ---------------------------------------------------------------- *
+ * Command palette — slash-menu inside composer
+ * ---------------------------------------------------------------- */
+.command-palette {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: var(--surface-raised, var(--surface-card-surface));
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  padding: 6px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  max-height: 260px;
+  overflow-y: auto;
+  animation: msg-rise 0.18s var(--ease-pirsch) both;
+}
+.command-palette__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--color-midnight-ink);
+  transition: background 0.14s ease;
+}
+.command-palette__item:hover,
+.command-palette__item--active {
+  background: color-mix(in srgb, var(--color-nova) 8%, transparent);
+}
+.command-palette__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--surface-canvas);
+  border: 1px solid var(--hairline);
+  color: var(--color-muted-stone);
+  flex-shrink: 0;
+}
+.command-palette__text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.command-palette__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+.command-palette__cmd {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-muted-stone);
+  background: rgba(0,0,0,0.04);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.command-palette__desc {
+  font-size: 11px;
+  color: var(--color-muted-stone);
+}
+.command-palette__arrow {
+  color: var(--color-muted-stone);
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+/* ---------------------------------------------------------------- *
+ * Composer suggestions — contextual chips
+ * ---------------------------------------------------------------- */
+.composer-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 4px 8px;
+  animation: msg-rise 0.22s var(--ease-pirsch) both;
+}
+.composer-suggestion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-nova-ink);
+  background: color-mix(in srgb, var(--color-nova-soft) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-nova) 12%, transparent);
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+  cursor: pointer;
+}
+.composer-suggestion-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--glow-nova);
+}
+.composer-suggestion-chip__icon {
+  color: var(--color-nova);
+  opacity: 0.8;
+}
+
+/* ---------------------------------------------------------------- *
+ * Inline entity editor — double-click popup
+ * ---------------------------------------------------------------- */
+.inline-editor-wrapper { position: relative; }
+.inline-editor-popover {
+  position: absolute;
+  z-index: 60;
+  background: var(--surface-raised, var(--surface-card-surface));
+  border: 1px solid var(--hairline-strong);
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+  animation: msg-rise 0.2s var(--ease-pirsch) both;
+  min-width: 280px;
+}
+.inline-editor-popover__head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-muted-stone);
+  margin-bottom: 8px;
+}
+.inline-editor-popover__input {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-family: var(--font-dm-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-midnight-ink);
+  background: var(--surface-canvas);
+  outline: none;
+  min-height: 60px;
+}
+.inline-editor-popover__input:focus {
+  border-color: var(--color-nova);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-nova) 15%, transparent);
+}
+.inline-editor-popover__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+.inline-editor-popover__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-midnight-ink);
+  background: rgba(0,0,0,0.04);
+  transition: background 0.14s ease;
+}
+.inline-editor-popover__btn:hover { background: rgba(0,0,0,0.08); }
+.inline-editor-popover__btn--primary {
+  background: var(--color-nova);
+  color: var(--surface-canvas);
+}
+.inline-editor-popover__btn--primary:hover { background: color-mix(in srgb, var(--color-nova) 85%, black); }
+
+/* ---------------------------------------------------------------- *
+ * Premium dark-mode chat enhancements
+ * ---------------------------------------------------------------- */
+/* Nova-tinted agent orb */
+.agent-orb {
+  background:
+    radial-gradient(120% 120% at 30% 22%, var(--color-sunbeam-soft) 0%, transparent 55%),
+    radial-gradient(120% 120% at 78% 82%, var(--color-nova-soft) 0%, transparent 55%),
+    var(--surface-card-surface);
+  transition: box-shadow 0.35s var(--ease-pirsch), transform 0.35s var(--ease-pirsch);
+}
+.agent-orb__spark { color: var(--color-nova-ink); }
+.agent-orb--thinking {
+  animation: orb-pulse 1.6s var(--ease-pirsch) infinite;
+  box-shadow: var(--glow-nova);
+}
+:root[data-theme="dark"] .agent-orb {
+  background:
+    radial-gradient(120% 120% at 30% 22%, var(--color-sunbeam-soft) 0%, transparent 55%),
+    radial-gradient(120% 120% at 78% 82%, var(--color-nova-soft) 0%, transparent 55%),
+    var(--surface-raised, var(--surface-card-surface));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), 0 1px 3px rgba(0,0,0,0.2), var(--glow-nova);
+}
+
+/* Soft glow on agent messages */
+.agent-msg {
+  transition: background 0.25s var(--ease-pirsch), box-shadow 0.25s var(--ease-pirsch);
+  border-radius: 14px;
+  padding: 8px 10px;
+}
+.agent-msg:hover {
+  background: color-mix(in srgb, var(--color-nova-soft) 30%, transparent);
+}
+:root[data-theme="dark"] .agent-msg:hover {
+  background: color-mix(in srgb, var(--color-nova-soft) 18%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-nova) 8%, transparent);
+}
+
+/* Smooth transitions for prose streaming */
+.agent-prose {
+  transition: opacity 0.15s ease;
+}
+.agent-prose--streaming {
+  opacity: 0.98;
+}
+
+/* Composer in dark mode */
+:root[data-theme="dark"] .composer {
+  background: rgba(243, 239, 230, 0.05);
+  border-color: var(--hairline);
+}
+:root[data-theme="dark"] .composer:focus-within {
+  background: rgba(243, 239, 230, 0.09);
+  border-color: color-mix(in srgb, var(--color-nova) 30%, var(--hairline-strong));
+  box-shadow: 0 6px 22px rgba(0,0,0,0.12), var(--glow-nova);
+}
+
+/* ---------------------------------------------------------------- *
+ * Honour reduced-motion globally.
+ * ---------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

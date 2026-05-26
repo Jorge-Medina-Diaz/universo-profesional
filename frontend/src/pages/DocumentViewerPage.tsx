@@ -17,6 +17,7 @@ import {
   Surface,
   toast,
 } from "@/ui";
+import { queryKeys } from "@/shared/queryKeys";
 
 const SECTION_PROMPTS: Record<string, string> = {
   experience:
@@ -61,15 +62,15 @@ function EditSectionButton({ section, docId }: { section: string; docId: string 
 export function DocumentViewerPage({ id }: { id: string }) {
   const qc = useQueryClient();
   const query = useQuery({
-    queryKey: ["documents", id],
+    queryKey: queryKeys.documents.detail(id),
     queryFn: () => documents.get(id),
     retry: false,
   });
   const share = useMutation({
     mutationFn: () => documents.share(id),
     onSuccess: (res: any) => {
-      qc.invalidateQueries({ queryKey: ["documents"] });
-      qc.invalidateQueries({ queryKey: ["documents", id] });
+      qc.invalidateQueries({ queryKey: queryKeys.documents.all });
+      qc.invalidateQueries({ queryKey: queryKeys.documents.detail(id) });
       const url = `${window.location.origin}/#/share/${res?.share_token ?? ""}`;
       void navigator.clipboard?.writeText(url).catch(() => {});
       toast.success("Enlace copiado", "Listo para compartir");

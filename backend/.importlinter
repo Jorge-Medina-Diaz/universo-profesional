@@ -16,3 +16,10 @@ containers =
     src.documents
     src.billing
     src.mcp_server
+    src.coherence
+    src.graph
+    src.agents
+    src.knowledge
+    src.notes
+    src.rubrics
+    src.integrations

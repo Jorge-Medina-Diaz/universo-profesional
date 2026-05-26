@@ -5,6 +5,7 @@ import { FileText, Share2, FileDown, Sparkles, ArrowLeftRight } from "lucide-rea
 
 import { documents } from "@/shared/api";
 import { useChatState } from "@/chat/state";
+import { queryKeys } from "@/shared/queryKeys";
 import {
   Badge,
   Button,
@@ -32,7 +33,7 @@ interface Doc {
 export function DocumentsPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const list = useQuery({ queryKey: ["documents"], queryFn: () => documents.list() });
+  const list = useQuery({ queryKey: queryKeys.documents.all, queryFn: () => documents.list() });
 
   // Chat focus → scroll-to + highlight if the agent is talking about a doc.
   const chatFocus = useChatState();
@@ -49,7 +50,7 @@ export function DocumentsPage() {
   const share = useMutation({
     mutationFn: (id: string) => documents.share(id),
     onSuccess: (res: any) => {
-      qc.invalidateQueries({ queryKey: ["documents"] });
+      qc.invalidateQueries({ queryKey: queryKeys.documents.all });
       const url = `${window.location.origin}/#/share/${res?.share_token ?? ""}`;
       void navigator.clipboard?.writeText(url).catch(() => {});
       toast.success("Enlace copiado", "Listo para compartir");

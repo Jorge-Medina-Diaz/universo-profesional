@@ -25,14 +25,13 @@ pass is idempotent (MERGE-based edges) and safe to re-run.
 """
 from __future__ import annotations
 
-import math
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.graph.application.universe_graph import universe_graph_service
@@ -69,19 +68,6 @@ def _vec(raw: Any) -> list[float] | None:
     except (TypeError, ValueError):
         return None
     return v or None
-
-
-def _cosine(a: list[float], b: list[float]) -> float:
-    dot = 0.0
-    na = 0.0
-    nb = 0.0
-    for x, y in zip(a, b, strict=False):
-        dot += x * y
-        na += x * x
-        nb += y * y
-    if na <= 0.0 or nb <= 0.0:
-        return 0.0
-    return dot / (math.sqrt(na) * math.sqrt(nb))
 
 
 def _date_overlap(p: ProjectOrm, e: ExperienceOrm) -> bool:
@@ -195,12 +181,12 @@ async def _infer_semantic_edges(
     min_score: float,
     stats: EnrichmentStats,
 ) -> None:
-    """Cosine-kNN RELATED_TO web with bi-temporal maintenance.
+    """HNSW-accelerated cosine-kNN RELATED_TO web with bi-temporal maintenance.
 
-    Expire ALL prior inferred RELATED_TO first; the kNN MERGE below revives the
-    ones still nearest (valid_to=NULL again), leaving genuinely-stale links
-    expired (valid_to set) instead of lingering. HippoRAG synonym edges: very
-    high cosine ⇒ near-duplicate concept, labelled distinctly for weighting.
+    Uses the pgvector HNSW index on `graph_entity_embeddings` so the kNN
+    phase is O(N log N) instead of O(N²). Expire ALL prior inferred
+    RELATED_TO first; the kNN MERGE below revives the ones still nearest
+    (valid_to=NULL again), leaving genuinely-stale links expired.
     """
     await age_cypher(
         session,
@@ -210,16 +196,35 @@ async def _infer_semantic_edges(
         params={"uid": str(user_id), "now": datetime.now(UTC).isoformat()},
     )
     seen: set[tuple[str, str]] = set()
-    for i, (id_a, _ka, va) in enumerate(recs):
-        sims: list[tuple[float, UUID]] = []
-        for j, (id_b, _kb, vb) in enumerate(recs):
-            if i == j:
+    for id_a, _ka, va in recs:
+        vec_literal = "[" + ",".join(f"{x:.7f}" for x in va) + "]"
+        rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT entity_id::text AS id,
+                           1 - (embedding <=> CAST(:q AS vector)) AS score
+                    FROM graph_entity_embeddings
+                    WHERE user_id = :uid
+                      AND entity_id <> :self_id
+                      AND embedding IS NOT NULL
+                    ORDER BY embedding <=> CAST(:q AS vector)
+                    LIMIT :k
+                    """
+                ),
+                {
+                    "q": vec_literal,
+                    "uid": str(user_id),
+                    "self_id": str(id_a),
+                    "k": knn * 2,  # over-fetch to survive min_score filter
+                },
+            )
+        ).all()
+        for row in rows:
+            s = float(row.score or 0.0)
+            if s < min_score:
                 continue
-            s = _cosine(va, vb)
-            if s >= min_score:
-                sims.append((s, id_b))
-        sims.sort(key=lambda t: t[0], reverse=True)
-        for s, id_b in sims[:knn]:
+            id_b = UUID(row.id)
             key = tuple(sorted((str(id_a), str(id_b))))
             if key in seen:
                 continue

@@ -10,6 +10,7 @@ dependencies = [
     # Web framework
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
+    "gunicorn>=23.0.0",
     "starlette>=0.40.0",
     # Data validation
     "pydantic>=2.9.0",
@@ -57,6 +58,7 @@ dependencies = [
     "opentelemetry-sdk>=1.28.0",
     "opentelemetry-instrumentation-fastapi>=0.49b0",
     "opentelemetry-instrumentation-sqlalchemy>=0.49b0",
+    "opentelemetry-exporter-otlp>=1.28.0",
     # Mail (mock via SMTP to mailhog)
     "aiosmtplib>=3.0.2",
     # Utils
@@ -112,6 +114,7 @@ select = [
     "PIE",
     "RET",
     "TID",
+    "S",    # bandit security
 ]
 ignore = [
     "PLR0913",  # too many arguments — common in DDD use cases

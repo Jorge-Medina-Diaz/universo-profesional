@@ -32,12 +32,13 @@ from __future__ import annotations
 
 import asyncio
 import math
+import pickle
 import time
 from collections import OrderedDict, defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
-from uuid import UUID
+from uuid import UUID, NAMESPACE_URL, uuid5
 
 import igraph as ig
 import structlog
@@ -47,9 +48,82 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.graph.domain import schema
 from src.graph.domain.registry import GRAPH_REGISTRY
 from src.graph.infrastructure.age_client import cypher, ensure_age_loaded
+from src.shared.config import get_settings
 from src.shared.embeddings import get_embeddings_service
 
 logger = structlog.get_logger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Redis snapshot cache
+# ---------------------------------------------------------------------------
+
+_REDIS_TTL_SECONDS = 24 * 60 * 60  # 24h
+_REDIS_KEY_PREFIX = "ppr:snapshot"
+_redis_client: Any | None = None
+_redis_lock: asyncio.Lock = asyncio.Lock()
+
+
+async def _get_redis() -> Any | None:
+    """Lazy singleton for redis.asyncio.Redis. Returns None if Redis is down."""
+    global _redis_client
+    if _redis_client is not None:
+        return _redis_client
+    async with _redis_lock:
+        if _redis_client is not None:
+            return _redis_client
+        try:
+            from redis.asyncio import Redis
+
+            settings = get_settings()
+            _redis_client = Redis.from_url(settings.redis_url, decode_responses=False)
+            await _redis_client.ping()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("redis_snapshot_unavailable", error=str(exc))
+            _redis_client = None
+    return _redis_client
+
+
+def _redis_key(user_id: UUID) -> str:
+    return f"{_REDIS_KEY_PREFIX}:{user_id}"
+
+
+async def _store_snapshot_redis(user_id: UUID, snapshot: "_UserSnapshot") -> None:
+    r = await _get_redis()
+    if r is None:
+        return
+    try:
+        payload = pickle.dumps(snapshot, protocol=pickle.HIGHEST_PROTOCOL)
+        await r.setex(_redis_key(user_id), _REDIS_TTL_SECONDS, payload)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("redis_snapshot_store_failed", user_id=str(user_id), error=str(exc))
+
+
+async def _load_snapshot_redis(user_id: UUID) -> "_UserSnapshot | None":
+    r = await _get_redis()
+    if r is None:
+        return None
+    try:
+        payload = await r.get(_redis_key(user_id))
+        if payload is None:
+            return None
+        snapshot = pickle.loads(payload)
+        if not isinstance(snapshot, _UserSnapshot):
+            return None
+        return snapshot
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("redis_snapshot_load_failed", user_id=str(user_id), error=str(exc))
+        return None
+
+
+async def _delete_snapshot_redis(user_id: UUID) -> None:
+    r = await _get_redis()
+    if r is None:
+        return
+    try:
+        await r.delete(_redis_key(user_id))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("redis_snapshot_delete_failed", user_id=str(user_id), error=str(exc))
 
 
 # ---------------------------------------------------------------------------
@@ -283,17 +357,28 @@ async def invalidate_snapshot(user_id: UUID) -> None:
     """Drop the cached snapshot. Called by event handlers after writes."""
     async with _snapshots_lock:
         _snapshots.pop(user_id, None)
+    await _delete_snapshot_redis(user_id)
 
 
 async def _load_snapshot(
     session: AsyncSession, user_id: UUID
 ) -> _UserSnapshot:
-    """Build (or fetch from LRU) the igraph snapshot of a user's graph."""
+    """Build (or fetch from LRU / Redis) the igraph snapshot of a user's graph."""
     async with _snapshots_lock:
         cached = _snapshots.get(user_id)
         if cached is not None:
             _snapshots.move_to_end(user_id)
             return cached
+
+    # 1. Try Redis (cross-worker consistency).
+    redis_snapshot = await _load_snapshot_redis(user_id)
+    if redis_snapshot is not None:
+        async with _snapshots_lock:
+            _snapshots[user_id] = redis_snapshot
+            _snapshots.move_to_end(user_id)
+            while len(_snapshots) > _SNAPSHOT_LRU_MAX:
+                _snapshots.popitem(last=False)
+        return redis_snapshot
 
     await ensure_age_loaded(session)
 
@@ -385,6 +470,8 @@ async def _load_snapshot(
         _snapshots.move_to_end(user_id)
         while len(_snapshots) > _SNAPSHOT_LRU_MAX:
             _snapshots.popitem(last=False)
+    # 2. Push to Redis so other workers see it.
+    await _store_snapshot_redis(user_id, snapshot)
     return snapshot
 
 
@@ -456,6 +543,65 @@ class PPRRetriever:
         return _attach_ranks(items[:top_k], lane=self.name)
 
 
+# ---------------------------------------------------------------------------
+# Community lane (4th lane — global / thematic retrieval)
+# ---------------------------------------------------------------------------
+
+
+class CommunityRetriever:
+    name = "community"
+
+    def __init__(self) -> None:
+        self._embedder = get_embeddings_service()
+
+    async def retrieve(
+        self,
+        session: AsyncSession,
+        user_id: UUID,
+        query: str,
+        *,
+        top_k: int = 12,
+        kinds: Iterable[str] | None = None,
+    ) -> list[ScoredItem]:
+        try:
+            embedding = await self._embedder.embed(query)
+        except Exception as exc:
+            logger.warning("community_retriever_embed_failed", error=str(exc))
+            return []
+        vec_literal = "[" + ",".join(f"{x:.7f}" for x in embedding) + "]"
+        sql = (
+            "SELECT community_id AS id, label, summary, "
+            "1 - (embedding <=> CAST(:q AS vector)) AS score "
+            "FROM community_summaries "
+            "WHERE user_id = :uid "
+            "  AND embedding IS NOT NULL "
+            "ORDER BY embedding <=> CAST(:q AS vector) "
+            "LIMIT :top_k"
+        )
+        rows = (
+            await session.execute(
+                text(sql),
+                {"uid": str(user_id), "q": vec_literal, "top_k": top_k},
+            )
+        ).all()
+        items: list[ScoredItem] = []
+        for row in rows:
+            # Communities are pseudo-entities: we synthesise a deterministic UUID
+            # from the community_id string so downstream RRF treats them uniformly.
+            pseudo_id = uuid5(NAMESPACE_URL, f"community:{row.id}")
+            items.append(
+                ScoredItem(
+                    entity_id=pseudo_id,
+                    kind="community",
+                    name=str(row.label or ""),
+                    score=float(row.score),
+                    lane=self.name,
+                    rationale=str(row.summary or ""),
+                )
+            )
+        return _attach_ranks(items, lane=self.name)
+
+
 async def _pick_seeds_via_dense(
     session: AsyncSession, user_id: UUID, query: str
 ) -> list[UUID]:
@@ -523,18 +669,19 @@ async def hybrid_retrieve(
     kinds: Iterable[str] | None = None,
     k_rrf: int = 60,
 ) -> list[HybridResult]:
-    """Run BM25 + Dense + PPR in parallel, fuse with RRF, then rerank.
+    """Run BM25 + Dense + PPR + Community in parallel, fuse with RRF, then rerank.
 
-    `kinds` filters all three lanes. None means every kind in
-    GRAPH_REGISTRY. A cross-encoder/LLM reranker reorders the fused
-    candidate pool against the query for a precision lift (no-op when
-    disabled — see `reranker.get_reranker`).
+    `kinds` filters all three entity lanes. None means every kind in
+    GRAPH_REGISTRY. The community lane is always active (global/thematic
+    retrieval). A cross-encoder/LLM reranker reorders the fused candidate
+    pool against the query for a precision lift.
     """
     from src.shared.config import get_settings
 
     bm25 = BM25Retriever()
     dense = DenseRetriever()
     ppr = PPRRetriever()
+    community = CommunityRetriever()
 
     # Lanes run sequentially because asyncpg only allows one operation
     # per connection. PPR piggybacks on the dense lane's top results for
@@ -550,11 +697,14 @@ async def hybrid_retrieve(
     ppr_res = await ppr.retrieve(
         session, user_id, query, top_k=per_lane_k, kinds=kinds, seeds=seeds
     )
+    community_res = await community.retrieve(
+        session, user_id, query, top_k=per_lane_k
+    )
 
     # Fuse a WIDER pool than top_k so the reranker has candidates to reorder.
     pool = max(top_k, get_settings().rerank_candidate_pool)
     fused = reciprocal_rank_fusion(
-        [bm25_res, dense_res, ppr_res], k=k_rrf, top_k=pool
+        [bm25_res, dense_res, ppr_res, community_res], k=k_rrf, top_k=pool
     )
     return await _rerank(query, fused, top_k=top_k)
 

@@ -72,4 +72,6 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD curl -fsS http://127.0.0.1:8000/healthz || exit 1
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Use gunicorn + uvicorn workers for production concurrency.
+# WEB_CONCURRENCY controls worker count (default 1 for local dev).
+CMD ["sh", "-c", "gunicorn src.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers ${WEB_CONCURRENCY:-1} --timeout 60 --access-logfile -"]

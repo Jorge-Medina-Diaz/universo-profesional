@@ -97,6 +97,27 @@ async def set_rls_user(session: AsyncSession, user_id: UUID | None) -> None:
     await session.execute(text(f"SET LOCAL app.current_user_id = '{safe_uuid}'"))
 
 
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def with_user_session(user_id: UUID | None):
+    """Yield an AsyncSession with RLS already set for the given user.
+
+    Guarantees commit on success and rollback on exception.
+    """
+    factory = get_session_factory()
+    async with factory() as session:
+        await set_rls_user(session, user_id)
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
+        else:
+            await session.commit()
+
+
 def import_all_models() -> None:
     """Import every ORM module so SQLAlchemy registers tables on `Base.metadata`.
 

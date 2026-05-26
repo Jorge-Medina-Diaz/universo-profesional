@@ -18,11 +18,13 @@ from uuid import UUID
 
 import structlog
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.graph.application.retrieval import _load_snapshot, invalidate_snapshot
 from src.graph.domain import schema
 from src.graph.infrastructure.age_client import cypher, parse_agtype
+from src.shared.embeddings import get_embeddings_service
 from src.shared.llm_client import get_llm_client
 
 logger = structlog.get_logger(__name__)
@@ -165,9 +167,57 @@ async def compute_communities(
             )
         pillars.append(CareerPillar(id=cid, label=label, summary=summary, members=members))
 
+    # Persist relational sidecar with embedding (4th retrieval lane).
+    await _persist_summaries(session, user_id, pillars)
+
     pillars.sort(key=lambda p: p.size, reverse=True)
     logger.info("communities_computed", user_id=uid, count=len(pillars))
     return pillars
+
+
+async def _persist_summaries(
+    session: AsyncSession, user_id: UUID, pillars: list[CareerPillar]
+) -> None:
+    """Upsert community_summaries rows with embeddings for vector retrieval."""
+    if not pillars:
+        return
+    # Clear stale rows for this user.
+    await session.execute(
+        text("DELETE FROM community_summaries WHERE user_id = :uid"),
+        {"uid": str(user_id)},
+    )
+    embedder = get_embeddings_service()
+    for p in pillars:
+        embed_text = f"{p.label}. {p.summary}"
+        try:
+            vec = await embedder.embed(embed_text)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("community_embed_failed", community_id=p.id, error=str(exc))
+            vec = None
+        vec_literal = None
+        if vec is not None:
+            vec_literal = "[" + ",".join(f"{x:.7f}" for x in vec) + "]"
+        member_ids = [UUID(m["id"]) for m in p.members if m.get("id")]
+        await session.execute(
+            text(
+                """
+                INSERT INTO community_summaries (
+                    user_id, community_id, label, summary, member_ids, embedding, updated_at
+                ) VALUES (
+                    :uid, :cid, :label, :summary, :mids,
+                    CAST(:vec AS vector), now()
+                )
+                """
+            ),
+            {
+                "uid": str(user_id),
+                "cid": p.id,
+                "label": p.label,
+                "summary": p.summary,
+                "mids": member_ids,
+                "vec": vec_literal,
+            },
+        )
 
 
 async def get_communities(session: AsyncSession, user_id: UUID) -> list[dict]:

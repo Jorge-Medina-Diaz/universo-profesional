@@ -24,6 +24,7 @@ from src.documents.infrastructure.repositories import (
 )
 from src.identity.interfaces.api.deps import CurrentUserId, SessionDep
 from src.shared.embeddings import get_embeddings_service
+from src.shared.metrics import cv_generated_total
 from src.shared.uow import unit_of_work
 from src.universe.infrastructure.semantic_search import PgVectorSemanticSearch
 
@@ -112,6 +113,7 @@ async def generate_cv(
         await quota.increment(user_id=user_id, resource="cv_generated")
         await uow.commit()
         dto = result.value  # type: ignore[union-attr]
+        cv_generated_total.labels(kind=body.kind).inc()
     return {
         "document_id": dto.document_id,
         "pdf_url": dto.pdf_url,

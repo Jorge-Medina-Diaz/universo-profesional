@@ -32,16 +32,17 @@ import {
   type ImportPreviewSection,
   type ImportPreviewSelection,
 } from "@/widgets/ImportPreviewTable";
+import { queryKeys } from "@/shared/queryKeys";
 
 export function ConnectionsPage() {
   useTranslation();
   const qc = useQueryClient();
   const conns = useQuery({
-    queryKey: ["connections"],
+    queryKey: queryKeys.connections.all,
     queryFn: () => integrations.list(),
   });
   const runs = useQuery({
-    queryKey: ["syncRuns"],
+    queryKey: queryKeys.syncRuns.all,
     queryFn: () => integrations.syncRuns(5),
   });
 
@@ -52,7 +53,7 @@ export function ConnectionsPage() {
     const params = new URLSearchParams(window.location.hash.split("?")[1] || "");
     if (params.get("connected")) {
       setFlash(`Conectado: ${params.get("connected")}`);
-      qc.invalidateQueries({ queryKey: ["connections"] });
+      qc.invalidateQueries({ queryKey: queryKeys.connections.all });
     } else if (params.get("error")) {
       const e = decodeURIComponent(params.get("error") || "");
       if (e !== "linkedin_not_configured") {
@@ -72,14 +73,14 @@ export function ConnectionsPage() {
   const ghSync = useMutation({
     mutationFn: () => integrations.github.sync(),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["connections"] });
-      qc.invalidateQueries({ queryKey: ["universe"] });
-      qc.invalidateQueries({ queryKey: ["syncRuns"] });
+      qc.invalidateQueries({ queryKey: queryKeys.connections.all });
+      qc.invalidateQueries({ queryKey: queryKeys.universe.all });
+      qc.invalidateQueries({ queryKey: queryKeys.syncRuns.all });
     },
   });
   const ghDisconnect = useMutation({
     mutationFn: () => integrations.github.disconnect(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["connections"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.connections.all }),
   });
 
   const conn = (provider: string) =>
@@ -252,9 +253,9 @@ function ProviderCard({
 
 function LinkedInCard() {
   const qc = useQueryClient();
-  const me = useQuery({ queryKey: ["me"], queryFn: () => auth.me() });
+  const me = useQuery({ queryKey: queryKeys.me.all, queryFn: () => auth.me() });
   const conns = useQuery({
-    queryKey: ["connections"],
+    queryKey: queryKeys.connections.all,
     queryFn: () => integrations.list(),
   });
   const oidcConn = conns.data?.connections.find((c) => c.provider === "linkedin_oidc");
@@ -266,12 +267,12 @@ function LinkedInCard() {
   // buttons honestly so the user knows the difference between "your real
   // profile" and "the canned demo data".
   const linkedinProbe = useQuery({
-    queryKey: ["linkedin-probe"],
+    queryKey: queryKeys.linkedin.probe,
     queryFn: () => integrations.linkedin.oidcAuthorize(),
     staleTime: 60_000,
   });
   const linkedinStatus = useQuery({
-    queryKey: ["linkedin-status"],
+    queryKey: queryKeys.linkedin.status,
     queryFn: () => integrations.linkedin.status(),
     staleTime: 60_000,
   });
@@ -344,7 +345,7 @@ function LinkedInCard() {
     mutationFn: ({ id, selection }: { id: string; selection?: Record<string, number[]> }) =>
       integrations.linkedin.dma.commit(id, selection),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["universe"] });
+      qc.invalidateQueries({ queryKey: queryKeys.universe.all });
       setParsed(null);
       setSid(null);
       setParsedSource(null);
@@ -355,7 +356,7 @@ function LinkedInCard() {
   });
   const dmaDisconnect = useMutation({
     mutationFn: () => integrations.linkedin.dma.disconnect(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["connections"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.connections.all }),
   });
 
   // --- Bright Data ---
@@ -380,7 +381,7 @@ function LinkedInCard() {
     mutationFn: ({ id, selection }: { id: string; selection?: Record<string, number[]> }) =>
       integrations.linkedin.brightdata.commit(id, selection),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["universe"] });
+      qc.invalidateQueries({ queryKey: queryKeys.universe.all });
       setParsed(null);
       setSid(null);
       setParsedSource(null);
@@ -391,7 +392,7 @@ function LinkedInCard() {
   });
   const upgradePro = useMutation({
     mutationFn: () => account.setTier("pro"),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["me"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.me.all }),
   });
 
   // --- ZIP fallback ---
@@ -407,7 +408,7 @@ function LinkedInCard() {
   const zipCommit = useMutation({
     mutationFn: (id: string) => integrations.linkedin.commitZip(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["universe"] });
+      qc.invalidateQueries({ queryKey: queryKeys.universe.all });
       setParsed(null);
       setSid(null);
       setParsedSource(null);
@@ -814,7 +815,7 @@ function PdfCard() {
     mutationFn: (selection: Record<string, number[]>) =>
       integrations.pdf.commit(sid!, selection),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["universe"] });
+      qc.invalidateQueries({ queryKey: queryKeys.universe.all });
       setParsed(null);
       setSid(null);
       toast.success("PDF importado", "Tu universo se ha actualizado.");

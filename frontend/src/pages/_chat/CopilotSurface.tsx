@@ -15,13 +15,15 @@
  */
 import { useEffect } from "react";
 import { CopilotChat } from "@copilotkit/react-ui";
-import { useCopilotChat } from "@copilotkit/react-core";
+import { useCopilotChat, useCoAgentStateRender } from "@copilotkit/react-core";
 import { toast } from "@/ui";
 import { AgentMessage, PersonMessage, Composer, ErrorMessage } from "@/chat/ChatUI";
 import { UniverseActions } from "@/chat/actions";
 import { UniverseReadable } from "@/chat/readables";
 import { SyncTaskTray } from "@/chat/SyncTaskTray";
 import { RemindersBanner } from "@/chat/RemindersBanner";
+import { appendUserMessage } from "@/chat/appendMessage";
+import { ThinkingSteps } from "@/chat/ThinkingSteps";
 
 interface Props {
   instructions: string;
@@ -33,11 +35,38 @@ const ATTACH_ACCEPT = "image/jpeg,image/png,image/webp,image/gif,application/pdf
 const ATTACH_MAX_BYTES = 10 * 1024 * 1024;
 
 export function CopilotSurface({ instructions, title, initial }: Props) {
+  // Real-time agent state rendering ( predictive state updates from the backend ).
+  // Falls back to heuristic steps in AgentMessage when the backend does not emit
+  // explicit agent-state messages.
+  useCoAgentStateRender({
+    name: "universe_coordinator",
+    render: ({ status, state, nodeName }) => {
+      const steps = [] as Array<{ id: string; label: string; status: "pending" | "active" | "done" }>;
+      const s = state as Record<string, unknown> | undefined;
+      if (s?.step) {
+        steps.push({ id: "agent-step", label: String(s.step), status: status === "inProgress" ? "active" : "done" });
+      } else if (nodeName) {
+        const labelMap: Record<string, string> = {
+          analyze: "Analizando tu perfil…",
+          search: "Buscando experiencias relevantes…",
+          score: "Calculando match score…",
+          review: "Revisando recordatorios…",
+          sync: "Sincronizando datos…",
+          draft: "Redactando respuesta…",
+        };
+        steps.push({ id: nodeName, label: labelMap[nodeName] || nodeName, status: status === "inProgress" ? "active" : "done" });
+      }
+      if (steps.length === 0) return null;
+      return <ThinkingSteps steps={steps} />;
+    },
+  });
+
   return (
     <>
       <UniverseActions />
       <UniverseReadable />
       <ChatInjector />
+      <InlineEditListener />
       <RemindersBannerLauncher />
       <CopilotChat
         instructions={instructions}
@@ -62,25 +91,37 @@ export function CopilotSurface({ instructions, title, initial }: Props) {
   );
 }
 
+/** Listens for inline-edit events from AgentMessage and injects them as
+ *  a user correction into the active chat thread. */
+function InlineEditListener() {
+  const chat = useCopilotChat();
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { original: string; corrected: string } | undefined;
+      if (!detail) return;
+      appendUserMessage(
+        chat,
+        `Corrección: en lugar de "${detail.original}" debería ser "${detail.corrected}".`,
+      );
+    };
+    window.addEventListener("cvs-chat-inline-edit", handler);
+    return () => window.removeEventListener("cvs-chat-inline-edit", handler);
+  }, [chat]);
+  return null;
+}
+
 /** Thin wrapper that hooks into useCopilotChat so the banner can inject a
  *  prompt when the user clicks "Revisar en el chat". Kept separate from
  *  `RemindersBanner` itself so the banner stays decoupled from CopilotKit. */
 function RemindersBannerLauncher() {
-  const chat = useCopilotChat() as unknown as Record<string, unknown>;
+  const chat = useCopilotChat();
   return (
     <RemindersBanner
       onAsk={() => {
-        const append = chat.appendMessage as ((m: unknown) => void) | undefined;
-        if (typeof append !== "function") return;
-        try {
-          append({
-            role: "user",
-            content:
-              "Muéstrame mis recordatorios pendientes con `preview_list` y dime cuáles debería atender primero.",
-          });
-        } catch {
-          /* ignore — API moved between versions */
-        }
+        appendUserMessage(
+          chat,
+          "Muéstrame mis recordatorios pendientes con `preview_list` y dime cuáles debería atender primero.",
+        );
       }}
     />
   );
@@ -91,7 +132,7 @@ function RemindersBannerLauncher() {
  * section"). Appends them as a user message into the active chat thread.
  */
 function ChatInjector() {
-  const chat = useCopilotChat() as unknown as Record<string, unknown>;
+  const chat = useCopilotChat();
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem("cvs-saas-chat-inject");
@@ -99,15 +140,9 @@ function ChatInjector() {
       sessionStorage.removeItem("cvs-saas-chat-inject");
       const data = JSON.parse(raw) as { content: string };
       if (!data.content) return;
-      const append = chat.appendMessage as ((m: unknown) => void) | undefined;
-      if (typeof append !== "function") return;
       // Minor delay so CopilotChat finishes mounting before we push.
       setTimeout(() => {
-        try {
-          append({ role: "user", content: data.content });
-        } catch {
-          /* ignore — API moved between versions */
-        }
+        appendUserMessage(chat, data.content);
       }, 300);
     } catch {
       /* ignore */

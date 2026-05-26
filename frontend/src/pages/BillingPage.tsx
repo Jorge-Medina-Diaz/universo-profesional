@@ -13,6 +13,7 @@ import {
   cn,
   toast,
 } from "@/ui";
+import { queryKeys } from "@/shared/queryKeys";
 
 interface Plan {
   id: string;
@@ -29,9 +30,9 @@ interface Plan {
 export function BillingPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const plans = useQuery({ queryKey: ["billing", "plans"], queryFn: () => billing.plans() });
+  const plans = useQuery({ queryKey: queryKeys.billing.plans, queryFn: () => billing.plans() });
   const sub = useQuery({
-    queryKey: ["billing", "subscription"],
+    queryKey: queryKeys.billing.subscription,
     queryFn: () => billing.subscription(),
   });
 
@@ -60,7 +61,7 @@ export function BillingPage() {
   });
   const cancel = useMutation({
     mutationFn: () => billing.cancel(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["billing", "subscription"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.billing.subscription }),
   });
 
   return (

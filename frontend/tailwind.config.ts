@@ -26,6 +26,11 @@ const config: Config = {
           soft: "var(--color-leaf-soft)",
           ink: "var(--color-leaf-ink)",
         },
+        nova: {
+          DEFAULT: "var(--color-nova)",
+          soft: "var(--color-nova-soft)",
+          ink: "var(--color-nova-ink)",
+        },
         // Legacy `brand` alias — kept so existing `bg-brand-600`, `border-brand-200`
         // etc. compile during the rolling migration. All map to the new palette.
         brand: {
@@ -58,6 +63,15 @@ const config: Config = {
           "Times New Roman",
           "serif",
         ],
+        mono: [
+          "JetBrains Mono",
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Monaco",
+          "Consolas",
+          "monospace",
+        ],
       },
       fontSize: {
         eyebrow: ["11px", { lineHeight: "1", letterSpacing: "0.18em" }],
@@ -85,6 +99,9 @@ const config: Config = {
         lift: "0 2px 4px rgba(0,0,0,0.04), 0 16px 40px -20px rgba(0,0,0,0.12)",
         // Floating composer / overlay — deeper, for elements over the constellation.
         float: "0 4px 12px -2px rgba(0,0,0,0.08), 0 24px 60px -24px rgba(0,0,0,0.22)",
+        "glow-leaf": "var(--glow-leaf)",
+        "glow-sunbeam": "var(--glow-sunbeam)",
+        "glow-nova": "var(--glow-nova)",
       },
       transitionTimingFunction: {
         pirsch: "cubic-bezier(0.2, 0.8, 0.2, 1)",

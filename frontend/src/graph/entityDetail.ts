@@ -10,6 +10,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { universe, documents, type DocumentDetail } from "@/shared/api";
 import { graphApi } from "./api";
+import { queryKeys } from "@/shared/queryKeys";
 
 export type EntityRow = Record<string, unknown> & { id: string };
 
@@ -43,7 +44,7 @@ export function rawEntityId(nodeId: string): string {
 
 export function useEntityDetail(kind: string | null, nodeId: string | null) {
   return useQuery<EntityDetail | null>({
-    queryKey: ["entity-detail", kind, nodeId],
+    queryKey: queryKeys.entity.detail(kind, nodeId),
     enabled: !!kind && !!nodeId,
     staleTime: 30_000,
     queryFn: async () => {
@@ -67,7 +68,7 @@ export interface NeighborRow extends Record<string, unknown> {
 
 export function useNeighbors(nodeId: string | null, depth = 1) {
   return useQuery<NeighborRow[]>({
-    queryKey: ["entity-neighbors", nodeId, depth],
+    queryKey: queryKeys.entity.neighbors(nodeId, depth),
     enabled: !!nodeId && !nodeId.startsWith("doc-"),
     staleTime: 30_000,
     // The neighbors endpoint can 500 on graphs with no edges; fail fast and

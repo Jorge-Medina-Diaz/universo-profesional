@@ -25,6 +25,7 @@ import {
   cn,
   toast,
 } from "@/ui";
+import { queryKeys } from "@/shared/queryKeys";
 
 const EMPTY: CareerPreferences = {
   status: null,
@@ -63,7 +64,7 @@ const CONTRACT_OPTIONS = ["Indefinido", "Temporal", "Freelance", "Proyecto", "Pr
 export function CareerPreferencesPage() {
   const qc = useQueryClient();
   const query = useQuery({
-    queryKey: ["preferences"],
+    queryKey: queryKeys.preferences.all,
     queryFn: () => universe.preferences.get(),
   });
 
@@ -80,7 +81,7 @@ export function CareerPreferencesPage() {
   const save = useMutation({
     mutationFn: () => universe.preferences.set(draft),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["preferences"] });
+      qc.invalidateQueries({ queryKey: queryKeys.preferences.all });
       setDirty(false);
       toast.success("Preferencias guardadas", "El agente las usará en próximas CVs.");
     },

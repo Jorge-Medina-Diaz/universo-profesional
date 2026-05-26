@@ -5,12 +5,13 @@ import { auth, useAuthStore } from "@/shared/api";
 import { integrations } from "@/shared/api-extra";
 import { Button, Card, Field, Input, Reveal, Stagger } from "@/ui";
 import { AuthHero } from "./_auth/AuthHero";
+import { queryKeys } from "@/shared/queryKeys";
 
 export function RegisterPage() {
   const { t, i18n } = useTranslation();
   const setTokens = useAuthStore((s) => s.setTokens);
   const linkedinProbe = useQuery({
-    queryKey: ["linkedin-probe"],
+    queryKey: queryKeys.linkedin.probe,
     queryFn: () => integrations.linkedin.oidcAuthorize(),
     staleTime: 60_000,
   });

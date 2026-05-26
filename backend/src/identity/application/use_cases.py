@@ -23,6 +23,7 @@ from src.shared.errors import (
     UnauthorizedError,
     ValidationError,
 )
+from src.shared.metrics import user_registered_total
 from src.shared.result import Failure, Result, Success, err, ok
 from src.shared.security import (
     encode_jwt,
@@ -111,6 +112,7 @@ class RegisterUser:
             await self._emailer.send_verification(to=str(user.email), link=link, locale=locale)
 
         uow.add_events(user.pop_events())
+        user_registered_total.inc()
         return ok(
             RegisteredUser(
                 user_id=str(user.id),

@@ -24,7 +24,7 @@ from agno.tools import tool
 from src.coherence.application.upsert_use_cases import UpsertUniverseEntity
 from src.coherence.infrastructure.change_log_repo import SqlAlchemyChangeLogRepository
 from src.coherence.infrastructure.semantic_matcher import PgVectorSemanticMatcher
-from src.shared.db import get_session_factory, set_rls_user
+from src.shared.db import with_user_session
 from src.shared.uow import UnitOfWork
 
 
@@ -42,9 +42,7 @@ async def _run_upsert(
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
 
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         change_log = SqlAlchemyChangeLogRepository(session)
         matcher = PgVectorSemanticMatcher(session)
         uc = UpsertUniverseEntity(

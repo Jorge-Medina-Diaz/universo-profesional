@@ -24,7 +24,7 @@ from src.agents.domain_templates import (
 )
 from src.notes.application.use_cases import CreateNote, UpdateNote
 from src.notes.infrastructure.repositories import SqlAlchemyNoteRepository
-from src.shared.db import get_session_factory, set_rls_user
+from src.shared.db import with_user_session
 from src.shared.security import utc_now
 from src.shared.uow import UnitOfWork
 from src.universe.infrastructure.orm import ReminderOrm
@@ -77,9 +77,7 @@ async def add_learning_note(
     user_id = run_context.user_id
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         repo = SqlAlchemyNoteRepository(session)
         scheduler = ArqEmbeddingScheduler()
         uow = UnitOfWork(session)
@@ -142,9 +140,7 @@ async def schedule_learning_followup(
     domain_slug = domain.strip().lower()
     if not domain_slug:
         return {"ok": False, "error": "missing domain"}
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         existing_open = (
             await session.execute(
                 select(ReminderOrm)
@@ -179,5 +175,4 @@ async def schedule_learning_followup(
                 created_at=now,
             )
         )
-        await session.commit()
         return {"ok": True, "reminder_id": str(rid)}

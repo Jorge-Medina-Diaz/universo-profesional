@@ -15,6 +15,7 @@ import { useAuthStore } from "@/shared/api";
 import { integrations } from "@/shared/api-extra";
 import { ProgressCard } from "./cards/ProgressCard";
 import type { ProgressStep } from "@/ui";
+import { queryKeys } from "@/shared/queryKeys";
 
 interface SyncRun {
   id: string;
@@ -40,7 +41,7 @@ export function SyncTaskTray() {
   const authed = !!useAuthStore((s) => s.accessToken);
   const qc = useQueryClient();
   const query = useQuery({
-    queryKey: ["integrations", "sync-runs"],
+    queryKey: queryKeys.integrations.syncRuns,
     queryFn: () => integrations.syncRuns(5),
     enabled: authed,
     // Slow tick by default; we accelerate to 1.5s while a run is in flight.
@@ -86,8 +87,8 @@ export function SyncTaskTray() {
           );
         }
         if (r.ok) {
-          qc.invalidateQueries({ queryKey: ["universe"] });
-          qc.invalidateQueries({ queryKey: ["integrations"] });
+          qc.invalidateQueries({ queryKey: queryKeys.universe.all });
+          qc.invalidateQueries({ queryKey: queryKeys.integrations.all });
         }
       }
     }

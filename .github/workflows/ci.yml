@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
 
 jobs:
@@ -60,7 +60,9 @@ jobs:
       - name: Mypy
         working-directory: backend
         run: uv run mypy src
-        continue-on-error: true  # MVP: strict mypy may require further tuning
+      - name: Import-linter
+        working-directory: backend
+        run: uv run lint-imports
       - name: Pytest with coverage
         working-directory: backend
         env:
@@ -79,7 +81,7 @@ jobs:
           mkdir -p /tmp/cvs-docs
           # Coverage threshold is intentionally permissive on the first
           # production push — we'll ratchet it up sprint by sprint.
-          uv run pytest -q --cov=src --cov-report=xml --cov-report=term --cov-fail-under=40
+          uv run pytest -q --cov=src --cov-report=xml --cov-report=term --cov-fail-under=50
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v4
@@ -115,7 +117,7 @@ jobs:
         run: npm run build
 
   security:
-    name: trivy + secret scan
+    name: trivy + secret scan + image scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -128,4 +130,16 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
           format: table
-        continue-on-error: true  # First push: warn-only; flip to hard-fail later.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build backend image
+        run: docker build -f docker/backend.Dockerfile -t cvs-saas-backend:latest .
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: image
+          image-ref: cvs-saas-backend:latest
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table

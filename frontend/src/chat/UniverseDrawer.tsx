@@ -22,6 +22,7 @@ import {
 import { api, universe } from "@/shared/api";
 import { Badge, cn } from "@/ui";
 import { GitHubIcon, LinkedInIcon } from "@/ui/icons";
+import { queryKeys } from "@/shared/queryKeys";
 
 type Tab = "estructura" | "trayectoria" | "sugerencias" | "conexiones";
 
@@ -114,7 +115,7 @@ function TabButton({
 
 function EstructuraTab() {
   const summary = useQuery({
-    queryKey: ["universe", "summary"],
+    queryKey: queryKeys.universe.summary,
     queryFn: () => universe.summary(),
   });
   if (summary.isLoading) return <Skeleton />;
@@ -201,7 +202,7 @@ function groupByDay(rows: ChangeLogRow[]): Array<{ day: string; rows: ChangeLogR
 
 function TrayectoriaTab() {
   const changes = useQuery({
-    queryKey: ["coherence", "changes"],
+    queryKey: queryKeys.coherence.changes,
     queryFn: () => api<ChangeLogRow[]>("/api/v1/coherence/changes?limit=50"),
   });
   if (changes.isLoading) return <Skeleton />;
@@ -295,7 +296,7 @@ interface SuggestionRow {
 
 function SugerenciasTab() {
   const sugs = useQuery({
-    queryKey: ["suggestions", "pending"],
+    queryKey: queryKeys.suggestions.pending,
     queryFn: () => api<SuggestionRow[]>("/api/v1/universe/suggestions?status=pending"),
   });
   if (sugs.isLoading) return <Skeleton />;

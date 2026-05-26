@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 from agno.run.base import RunContext
 from agno.tools import tool
 
-from src.shared.db import get_session_factory, set_rls_user
+from src.shared.db import with_user_session
 from src.universe.application.shape_service import (
     _infer_shape,
     compute_area_strengths,
@@ -51,13 +51,10 @@ async def get_universe_shape(run_context: RunContext) -> dict[str, Any]:
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
     user_uuid = UUID(user_id)
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, user_uuid)
+    async with with_user_session(user_uuid) as session:
         strengths, primary, secondary = await load_area_strengths(session, user_uuid)
         if not strengths:
             result = await compute_area_strengths(session, user_uuid)
-            await session.commit()
             strengths = result.strengths
             primary = result.primary_areas[0] if result.primary_areas else None
             secondary = result.secondary_areas
@@ -97,11 +94,8 @@ async def recompute_universe_shape(run_context: RunContext) -> dict[str, Any]:
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
     user_uuid = UUID(user_id)
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, user_uuid)
+    async with with_user_session(user_uuid) as session:
         result = await compute_area_strengths(session, user_uuid)
-        await session.commit()
     return {
         "ok": True,
         "shape_type": result.shape_type,
@@ -129,9 +123,7 @@ async def list_artifacts(
     if not user_id:
         return {"ok": False, "error": "missing user_id"}
     user_uuid = UUID(user_id)
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, user_uuid)
+    async with with_user_session(user_uuid) as session:
         repo = SqlAlchemyArtifactRepository(session)
         artifacts = await repo.list(user_uuid, type=type)
     return {
@@ -191,9 +183,7 @@ async def upsert_artifact(
         except ValueError as exc:
             return {"ok": False, "error": f"invalid linked_project_id: {exc}"}
 
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, user_uuid)
+    async with with_user_session(user_uuid) as session:
         repo = SqlAlchemyArtifactRepository(session)
         artifact = Artifact.create(
             user_id=user_uuid,
@@ -240,7 +230,6 @@ async def upsert_artifact(
                 user_id=user_uuid,
                 source="agent_chat",
             )
-        await session.commit()
     return {
         "ok": True,
         "status": "created",

@@ -8,12 +8,23 @@ from prometheus_client import Counter, Histogram
 registrations_total = Counter(
     "cvs_registrations_total", "Total user registrations"
 )
+user_registered_total = Counter(
+    "cvs_user_registered_total", "Total user registrations (business metric)"
+)
 logins_total = Counter("cvs_logins_total", "Total successful logins")
 cvs_generated_total = Counter(
     "cvs_documents_generated_total", "Total documents generated", ["kind"]
 )
+cv_generated_total = Counter(
+    "cvs_cv_generated_total", "Total CVs generated (business metric)", ["kind"]
+)
 mcp_invocations_total = Counter(
     "cvs_mcp_invocations_total", "Total MCP tool invocations", ["tool", "ok"]
+)
+stripe_conversion_total = Counter(
+    "cvs_stripe_conversion_total",
+    "Total Stripe plan conversions",
+    ["plan", "event"],
 )
 mcp_latency_seconds = Histogram(
     "cvs_mcp_latency_seconds",
