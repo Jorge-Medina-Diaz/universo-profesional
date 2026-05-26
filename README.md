@@ -6,51 +6,128 @@ Un SaaS B2C español que sustituye al "CV en Word" por un **Universo Profesional
 
 ---
 
-## Quickstart
+## Quickstart — Levantar la app en terminal
 
 ### Requisitos
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows / macOS / Linux)
 - 8 GB RAM disponibles
 - Puertos libres: `5173` (frontend), `8000` (backend), `8025` (Mailhog UI), `5432` (postgres), `6379` (redis)
 
-### Arrancar el stack
-
-```powershell
-# Windows PowerShell
-docker compose up -d --build
-docker compose exec backend alembic upgrade head
+### 1. Clonar y entrar al repo
+```bash
+git clone <repo-url>
+cd CVs-SaaS
 ```
+
+### 2. Configurar variables de entorno
+```bash
+# El repo incluye valores por defecto que funcionan offline (todo mockeado)
+cp .env.example .env
+```
+
+### 3. Levantar el stack completo
+```bash
+# Construir imágenes y arrancar contenedores
+docker compose up -d --build
+
+# Aplicar migraciones de base de datos
+docker compose exec backend alembic upgrade head
+
+# Verificar que todo está saludable
+docker compose ps
+```
+
+> **Primera vez o después de cambiar dependencias:** el `--build` es obligatorio. Para arrancar sin rebuild: `docker compose up -d`.
+
+### 4. URLs locales
+| Servicio | URL |
+|----------|-----|
+| Frontend (Vite dev) | <http://localhost:5173> |
+| Backend (FastAPI) | <http://localhost:8000> |
+| OpenAPI docs | <http://localhost:8000/docs> |
+| MailHog UI (emails) | <http://localhost:8025> |
+| Prometheus metrics | <http://localhost:8000/metrics> |
+| Health check | <http://localhost:8000/healthz> |
+| Readiness check | <http://localhost:8000/readyz> |
+
+### 5. Crear un usuario de prueba
+1. Abrir <http://localhost:5173>
+2. Click en **"Crear cuenta"**
+3. Rellenar nombre, email y contraseña (mín. 10 caracteres)
+4. Ir a <http://localhost:8025> (MailHog) → abrir el email de verificación → click en el link
+5. Login con el email y contraseña creados
+
+> **Tip:** en desarrollo el consent OAuth y la verificación de email son automáticos si `AUTO_VERIFY_EMAILS_IN_DEV=true` (por defecto en `.env.example`).
+
+### 6. Golden path para validar
+1. **Onboarding:** después del login, completar el wizard de preferencias
+2. **Universe:** añadir educación, experiencia y skills en <http://localhost:5173/#/universe>
+3. **Generar CV:** ir a <http://localhost:5173/#/documents>, pegar una descripción de oferta de trabajo, generar y descargar PDF/DOCX
+4. **Chat:** abrir el chat flotante y pedir "añade mi experiencia en Google como Senior Backend"
+5. **MCP (terminal):**
+   ```bash
+   docker compose exec backend python -m tests.e2e.mcp_oauth_flow
+   ```
+
+### 7. Tests
 
 ```bash
-# bash / zsh
-docker compose up -d --build
-docker compose exec backend alembic upgrade head
-```
-
-### URLs locales
-- **Frontend (Vite dev)**: <http://localhost:5173>
-- **Backend (FastAPI)**: <http://localhost:8000>
-- **OpenAPI docs**: <http://localhost:8000/docs>
-- **Mailhog UI** (capturador de email): <http://localhost:8025>
-- **Prometheus metrics**: <http://localhost:8000/metrics>
-- **OAuth metadata**: <http://localhost:8000/.well-known/oauth-authorization-server>
-- **MCP server-card**: <http://localhost:8000/.well-known/mcp/server-card.json>
-
-### Tests
-
-```powershell
+# Backend (requiere deps de test en el contenedor)
+docker compose exec backend bash -c 'pip install pytest pytest-asyncio pytest-cov pytest-mock httpx'
 docker compose exec backend pytest -q
+
+# Frontend
 docker compose exec frontend npm test -- --run
+
+# Con cobertura
+docker compose exec backend pytest -q --cov=src --cov-report=term
 ```
 
-### Lint + type-check
+### 8. Lint + type-check
 
-```powershell
+```bash
+# Backend
 docker compose exec backend ruff check src tests
 docker compose exec backend mypy src
+
+# Frontend
 docker compose exec frontend npm run lint
 docker compose exec frontend npm run typecheck
 ```
+
+### 9. Comandos útiles de desarrollo
+
+```bash
+# Ver logs en tiempo real
+docker compose logs -f backend
+docker compose logs -f frontend
+
+# Reiniciar un servicio
+docker compose restart backend
+
+# Entrar al shell de un contenedor
+docker compose exec backend bash
+docker compose exec frontend sh
+
+# Reconstruir solo el backend tras cambios en pyproject.toml
+docker compose up -d --build backend worker
+
+# Reset completo (borra DB, Redis y documentos)
+docker compose down -v
+docker compose up -d --build
+docker compose exec backend alembic upgrade head
+```
+
+### Troubleshooting
+
+| Síntoma | Solución |
+|---------|----------|
+| `port is already allocated` | Mata los procesos que usen los puertos: `docker compose down` o reinicia Docker Desktop |
+| `alembic upgrade head` falla | Asegúrate de que `cvs-postgres` está healthy: `docker compose ps`. Si persistió, destruye el volumen: `docker compose down -v` |
+| Frontend muestra blank page | Revisa que el backend responde: `curl http://localhost:8000/healthz`. Luego `docker compose restart frontend` |
+| Emails no llegan a MailHog | Revisa `EMAIL_PROVIDER=mock` en `.env`. El contenedor `cvs-mailhog` debe estar `Up` |
+| Tests de frontend fallan por Rollup | `docker compose exec frontend npm rebuild` o entra al contenedor y corre `npm test` desde ahí |
+| `ModuleNotFoundError` en backend | El contenedor usa `uv sync` en build. Reconstruye: `docker compose up -d --build backend worker` |
 
 ---
 
