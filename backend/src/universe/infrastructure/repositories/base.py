@@ -33,7 +33,9 @@ def _build_repo_methods(orm_cls: Any, entity_cls: Any) -> dict[str, Any]:
     """Return a dict of methods implementing the standard repo Protocol."""
 
     async def list_(self: Any, user_id: UUID) -> list[Any]:
-        stmt = select(orm_cls).where(orm_cls.user_id == user_id).where(orm_cls.deleted_at.is_(None) if hasattr(orm_cls, "deleted_at") else True)  # type: ignore[arg-type]
+        stmt = select(orm_cls).where(orm_cls.user_id == user_id)
+        if hasattr(orm_cls, "deleted_at"):
+            stmt = stmt.where(orm_cls.deleted_at.is_(None))
         rows = (await self._session.execute(stmt)).scalars().all()
         return [_orm_to_entity(r, entity_cls) for r in rows]
 

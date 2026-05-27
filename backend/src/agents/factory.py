@@ -11,6 +11,8 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
+from agno.models.base import Model
+
 from src.shared.config import get_settings
 from src.shared.db import get_engine
 
@@ -196,7 +198,7 @@ STATIC_INSTRUCTIONS = [
 ]
 
 
-def _build_model(tier: ModelTier = "coordinator"):  # type: ignore[no-untyped-def]
+def _build_model(tier: ModelTier = "coordinator") -> Model:
     """Pick a model instance for the given tier.
 
     Model tiering (the whole point of having a coordinator + cheap
@@ -206,7 +208,7 @@ def _build_model(tier: ModelTier = "coordinator"):  # type: ignore[no-untyped-de
     e.g. Haiku). Both fall back to a shim mock when no API key is
     configured so dev/test boot even offline.
 
-    TODO(v2.6.9): Multi-provider fallback Anthropic → OpenAI on rate-limit.
+    TODO(2026-06): Multi-provider fallback Anthropic → OpenAI on rate-limit.
     Implementing this cleanly requires a custom Model subclass that delegates
     to primary/secondary on `aresponse` / `aresponse_stream`. That touches
     Agno's internal streaming protocol (RunEvents, tool-call pauses, etc.) and
@@ -235,7 +237,7 @@ def _build_model(tier: ModelTier = "coordinator"):  # type: ignore[no-untyped-de
         # input-token cost ~70% on busy chats. `cache_system_prompt` covers
         # the team-level instructions; `cache_tools` covers the tool schema.
         #
-        # TODO(v2.6.9): When we split static vs dynamic instructions, migrate
+        # TODO(2026-06): When we split static vs dynamic instructions, migrate
         # STATIC_INSTRUCTIONS to `system_prompt_blocks=[SystemPromptBlock(..., cache=True)]`
         # and set `cache_system_prompt=False` so the Team-built block is not cached
         # separately.  For now `cache_system_prompt=True` is sufficient because the
@@ -477,8 +479,9 @@ def get_universe_team():  # type: ignore[no-untyped-def]
         # These coexist with the app-level sliding_window digest (backend/src/agents/memory/)
         # which folds OLD messages into a structured summary.  Agno's native layer
         # handles light conversational facts; the sliding window handles long-horizon
-        # compression.  Deprecating sliding_window is a future TODO once we validate
-        # that Agno's summaries alone keep the context window bounded.
+        # compression.
+        # TODO(2026-06): Deprecate sliding_window once Agno's native summaries alone
+        # keep the context window bounded.
         enable_session_summaries=True,
         enable_user_memories=True,
         # Memory best-practice (Agno): `enable_agentic_memory` runs a nested
@@ -497,8 +500,8 @@ def get_universe_team():  # type: ignore[no-untyped-def]
         pre_hooks=[
             PromptInjectionGuardrail(),
         ],
-        # Team-level retries (same-model).  Multi-provider fallback is a
-        # future TODO (see _build_model docstring).
+        # Team-level retries (same-model).
+        # TODO(2026-06): Multi-provider fallback (see _build_model docstring).
         retries=2,
         delay_between_retries=2,
         exponential_backoff=True,

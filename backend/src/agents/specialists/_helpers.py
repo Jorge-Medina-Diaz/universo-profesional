@@ -82,7 +82,7 @@ def build_specialist(
     return Agent(
         name=name,
         role=role,
-        model=_build_model(tier),  # type: ignore[arg-type]
+        model=_build_model(tier),
         db=db,
         tools=tools,
         instructions=instructions,

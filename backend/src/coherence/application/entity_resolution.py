@@ -46,9 +46,7 @@ from src.shared.embeddings import get_embeddings_service
 logger = structlog.get_logger(__name__)
 
 
-# ---------------------------------------------------------------------------
 # Result types
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -79,9 +77,7 @@ class ResolutionResult:
     provenance_event_id: UUID | None = None
 
 
-# ---------------------------------------------------------------------------
 # 1. Blocking
-# ---------------------------------------------------------------------------
 
 
 class Blocker:
@@ -226,9 +222,7 @@ class Blocker:
         return {UUID(r.id) for r in rows}
 
 
-# ---------------------------------------------------------------------------
 # 2. Pairwise matching
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -385,9 +379,7 @@ class PairwiseMatcher:
         return len(intersection) / len(union) if union else 0.0
 
 
-# ---------------------------------------------------------------------------
 # 3. Clustering (connected components)
-# ---------------------------------------------------------------------------
 
 
 def _cluster_matches(
@@ -424,9 +416,7 @@ def _cluster_matches(
     return clusters
 
 
-# ---------------------------------------------------------------------------
 # 4. Merge
-# ---------------------------------------------------------------------------
 
 
 def _apply_field_rules(
@@ -531,9 +521,7 @@ def _resolve_field(
     return resolver(values, ranking)
 
 
-# ---------------------------------------------------------------------------
 # 5. Provenance
-# ---------------------------------------------------------------------------
 
 
 async def _record_provenance(
@@ -587,9 +575,7 @@ async def _record_provenance(
     return event_id
 
 
-# ---------------------------------------------------------------------------
 # Orchestrator
-# ---------------------------------------------------------------------------
 
 
 class EntityResolutionPipeline:
@@ -719,9 +705,7 @@ class EntityResolutionPipeline:
         return {UUID(r["id"]): dict(r) for r in rows}
 
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
 
 
 def _extract_date(row: dict[str, Any], field: str) -> date | None:

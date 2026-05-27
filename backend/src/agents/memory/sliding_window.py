@@ -19,9 +19,9 @@ COEXISTENCE with Agno v2.6.9 native memory:
 - This module does something different: it produces a long-horizon digest
   that the frontend explicitly injects as a CopilotReadable.  It therefore
   coexists with the native layer rather than replacing it.
-- Deprecation TODO: once we validate that Agno's native summaries alone
-  keep the context window bounded AND the frontend no longer needs the
-  explicit digest injection, this module can be retired.
+- TODO(2026-06): Retire this module once Agno's native summaries keep the
+  context window bounded AND the frontend no longer needs explicit digest
+  injection.
 """
 from __future__ import annotations
 

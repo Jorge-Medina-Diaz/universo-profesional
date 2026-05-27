@@ -80,9 +80,7 @@ const LENSES: { id: Lens; label: string; icon: React.ComponentType<{ className?:
   { id: "trajectory", label: "Trayectoria", icon: GitBranch },
 ];
 
-// ---------------------------------------------------------------------------
 // URL hash helpers
-// ---------------------------------------------------------------------------
 
 function readHashParams(): Record<string, string> {
   const hash = window.location.hash;
@@ -105,9 +103,7 @@ function writeHashParams(params: Record<string, string | undefined>) {
   window.location.hash = `${base}?${sp.toString()}`;
 }
 
-// ---------------------------------------------------------------------------
 // Main component
-// ---------------------------------------------------------------------------
 
 export function UniversePage() {
   useEffect(() => {
@@ -644,9 +640,7 @@ export function UniversePage() {
   );
 }
 
-// ---------------------------------------------------------------------------
 // Sidebar content — shared between desktop sidebar and mobile bottom sheet
-// ---------------------------------------------------------------------------
 
 interface SidebarContentProps {
   summaryCounts: Record<string, number> | null;
@@ -810,9 +804,7 @@ function SidebarContent({
   );
 }
 
-// ---------------------------------------------------------------------------
 // Kind filters with per-type counts
-// ---------------------------------------------------------------------------
 
 function KindFilters({
   kinds,
@@ -863,9 +855,7 @@ function KindFilters({
   );
 }
 
-// ---------------------------------------------------------------------------
 // Lens switcher
-// ---------------------------------------------------------------------------
 
 function LensSwitcher({
   current,
@@ -900,9 +890,7 @@ function LensSwitcher({
   );
 }
 
-// ---------------------------------------------------------------------------
 // Empty state — elegant constellation placeholder
-// ---------------------------------------------------------------------------
 
 function UniverseEmptyState() {
   return (
@@ -927,9 +915,7 @@ function UniverseEmptyState() {
   );
 }
 
-// ---------------------------------------------------------------------------
 // Per-lens loading skeletons — each mirrors the geometry of its lens
-// ---------------------------------------------------------------------------
 
 /** Grafo — scattered constellation of haloed dots with faint links. */
 function GraphSkeleton() {

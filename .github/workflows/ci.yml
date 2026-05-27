@@ -208,7 +208,7 @@ jobs:
         run: |
           mkdir -p /tmp/cvs-docs
           uv run python -m src.main &
-          sleep 5
+          until curl -sf http://localhost:8000/healthz; do sleep 1; done
       - name: Install frontend deps
         working-directory: frontend
         run: npm install --include=dev

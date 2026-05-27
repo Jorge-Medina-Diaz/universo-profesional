@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 import structlog
@@ -32,9 +32,7 @@ from src.shared.config import get_settings
 
 logger = structlog.get_logger(__name__)
 
-# ---------------------------------------------------------------------------
 # Schema descriptor
-# ---------------------------------------------------------------------------
 
 _PERSONAL_NODE_SCHEMA = """
 (:Experience {id, user_id, kind, created_at, updated_at, valid_from, valid_to, confidence, source})
@@ -121,9 +119,7 @@ If the question cannot be answered with the available schema, return:
 """
 
 
-# ---------------------------------------------------------------------------
 # Result types
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -136,9 +132,7 @@ class CypherResult:
     latency_ms: float = 0.0
 
 
-# ---------------------------------------------------------------------------
 # Validation
-# ---------------------------------------------------------------------------
 
 
 _AGE_FORBIDDEN = re.compile(
@@ -160,9 +154,7 @@ def _validate_query(query: str) -> str | None:
     return None
 
 
-# ---------------------------------------------------------------------------
 # Engine
-# ---------------------------------------------------------------------------
 
 
 class Text2CypherEngine:
@@ -338,11 +330,12 @@ class Text2CypherEngine:
 
     async def _call_openai(self, messages: list[dict[str, str]]) -> str:
         from openai import AsyncOpenAI
+        from openai.types.chat import ChatCompletionMessageParam
 
         client = AsyncOpenAI(api_key=self._settings.openai_api_key)
         response = await client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=messages,  # type: ignore[arg-type]
+            messages=cast(list[ChatCompletionMessageParam], messages),
             max_tokens=1024,
             temperature=0.1,
         )

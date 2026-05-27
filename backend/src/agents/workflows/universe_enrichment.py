@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal, cast
 from uuid import UUID
 
 import structlog
@@ -36,9 +36,7 @@ from src.shared.uow import UnitOfWork
 logger = structlog.get_logger(__name__)
 
 
-# ---------------------------------------------------------------------------
 # Domain types
-# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -166,9 +164,94 @@ Output:
 """
 
 
-# ---------------------------------------------------------------------------
+# ESCO linking helper
+
+
+async def _try_link_esco(
+    session: AsyncSession,
+    ent: ExtractedEntity,
+    entity_id: UUID,
+    user_id: UUID,
+) -> int:
+    """Try to link an entity to the ESCO ontology. Returns 1 if linked, 0 otherwise."""
+    kind_map = {
+        "skill": "skill",
+        "experience": "occupation",
+        "language": None,
+    }
+    esco_kind = kind_map.get(ent.kind)
+    if not esco_kind:
+        return 0
+
+    if ent.kind == "skill":
+        link_text = ent.payload.get("name", "")
+    elif ent.kind == "experience":
+        link_text = f"{ent.payload.get('role', '')} {ent.payload.get('organization', '')}"
+    else:
+        return 0
+
+    if not link_text.strip():
+        return 0
+
+    try:
+        result = await esco_linker.link(
+            session,
+            text_in=link_text,
+            kind=cast(Literal["skill", "occupation"], esco_kind),
+        )
+        if result.state == LinkState.LINKED and result.esco_uri:
+            target_label = "EscoSkill" if esco_kind == "skill" else "Occupation"
+            await session.execute(
+                text("""
+                    INSERT INTO graph_esco_links
+                        (user_id, entity_id, esco_uri, target_label, score)
+                    VALUES (:uid, :eid, :uri, :tgt, :score)
+                    ON CONFLICT (user_id, entity_id, esco_uri) DO UPDATE
+                      SET score = EXCLUDED.score,
+                          target_label = EXCLUDED.target_label
+                """),
+                {
+                    "uid": str(user_id),
+                    "eid": str(entity_id),
+                    "uri": result.esco_uri,
+                    "tgt": target_label,
+                    "score": round(result.score or 0.0, 3),
+                },
+            )
+            await universe_graph_service._execute_cypher(
+                session,
+                f"""
+                SELECT * FROM cypher('{graph_schema.GRAPH_PERSONAL}', $$
+                    MATCH (e {{id: $eid, user_id: $uid}})
+                    SET e.esco_uri = $uri
+                    RETURN e.id
+                $$) AS (id agtype)
+                """,
+                {"eid": str(entity_id), "uid": str(user_id), "uri": result.esco_uri},
+            )
+            logger.info(
+                "esco_linked",
+                user_id=str(user_id),
+                entity_id=str(entity_id),
+                kind=ent.kind,
+                uri=result.esco_uri,
+                score=result.score,
+            )
+            return 1
+        if result.state == LinkState.SUGGESTED:
+            logger.info(
+                "esco_suggested",
+                user_id=str(user_id),
+                entity_id=str(entity_id),
+                kind=ent.kind,
+                top_score=result.score,
+            )
+    except Exception as exc:
+        logger.warning("esco_link_failed", error=str(exc), kind=ent.kind, text=link_text[:50])
+    return 0
+
+
 # Engine
-# ---------------------------------------------------------------------------
 
 
 class UniverseEnrichmentEngine:
@@ -214,9 +297,9 @@ class UniverseEnrichmentEngine:
                     result.entities_created += 1
                     # 3b. Link to ESCO ontology
                     if link_esco:
-                        linked = await self._link_to_esco(ent, upserted_id)
-                        if linked:
-                            result.esco_linked += 1
+                        result.esco_linked += await _try_link_esco(
+                            self._session, ent, upserted_id, self._user_id
+                        )
             except Exception as exc:
                 result.errors.append(f"{ent.kind} upsert failed: {exc}")
                 logger.warning("enrichment_entity_failed", kind=ent.kind, error=str(exc))
@@ -258,9 +341,7 @@ class UniverseEnrichmentEngine:
         )
         return result
 
-    # ------------------------------------------------------------------
     # Extraction
-    # ------------------------------------------------------------------
 
     async def _extract_entities(self, text: str) -> list[ExtractedEntity]:
         """Call LLM to extract structured entities from text."""
@@ -328,9 +409,7 @@ class UniverseEnrichmentEngine:
             logger.warning("relation_extraction_parse_failed", response=response[:200])
             return []
 
-    # ------------------------------------------------------------------
     # Upsert
-    # ------------------------------------------------------------------
 
     async def _upsert_entity(
         self, ent: ExtractedEntity, source: str, resolve: bool
@@ -357,90 +436,7 @@ class UniverseEnrichmentEngine:
             return outcome.entity_id
         return None
 
-    async def _link_to_esco(self, ent: ExtractedEntity, entity_id: UUID) -> bool:
-        """Try to link an entity to the ESCO ontology. Returns True if linked."""
-        # Only skills and experiences are linkable today
-        kind_map = {
-            "skill": "skill",
-            "experience": "occupation",
-            "language": None,  # languages use CEFR, not ESCO
-        }
-        esco_kind = kind_map.get(ent.kind)
-        if not esco_kind:
-            return False
-
-        # Build the text to link
-        if ent.kind == "skill":
-            link_text = ent.payload.get("name", "")
-        elif ent.kind == "experience":
-            link_text = f"{ent.payload.get('role', '')} {ent.payload.get('organization', '')}"
-        else:
-            return False
-
-        if not link_text.strip():
-            return False
-
-        try:
-            result = await esco_linker.link(
-                self._session,
-                text_in=link_text,
-                kind=esco_kind,  # type: ignore[arg-type]
-            )
-            if result.state == LinkState.LINKED and result.esco_uri:
-                target_label = "EscoSkill" if esco_kind == "skill" else "Occupation"
-                await self._session.execute(
-                    text("""
-                        INSERT INTO graph_esco_links
-                            (user_id, entity_id, esco_uri, target_label, score)
-                        VALUES (:uid, :eid, :uri, :tgt, :score)
-                        ON CONFLICT (user_id, entity_id, esco_uri) DO UPDATE
-                          SET score = EXCLUDED.score,
-                              target_label = EXCLUDED.target_label
-                    """),
-                    {
-                        "uid": str(self._user_id),
-                        "eid": str(entity_id),
-                        "uri": result.esco_uri,
-                        "tgt": target_label,
-                        "score": round(result.score or 0.0, 3),
-                    },
-                )
-                # Also set esco_uri on the AGE vertex for fast lookup
-                await universe_graph_service._execute_cypher(
-                    self._session,
-                    f"""
-                    SELECT * FROM cypher('{graph_schema.GRAPH_PERSONAL}', $$
-                        MATCH (e {{id: $eid, user_id: $uid}})
-                        SET e.esco_uri = $uri
-                        RETURN e.id
-                    $$) AS (id agtype)
-                    """,
-                    {"eid": str(entity_id), "uid": str(self._user_id), "uri": result.esco_uri},
-                )
-                logger.info(
-                    "esco_linked",
-                    user_id=str(self._user_id),
-                    entity_id=str(entity_id),
-                    kind=ent.kind,
-                    uri=result.esco_uri,
-                    score=result.score,
-                )
-                return True
-            if result.state == LinkState.SUGGESTED:
-                logger.info(
-                    "esco_suggested",
-                    user_id=str(self._user_id),
-                    entity_id=str(entity_id),
-                    kind=ent.kind,
-                    top_score=result.score,
-                )
-        except Exception as exc:
-            logger.warning("esco_link_failed", error=str(exc), kind=ent.kind, text=link_text[:50])
-        return False
-
-    # ------------------------------------------------------------------
     # Helpers
-    # ------------------------------------------------------------------
 
     def _canonical_name(self, ent: ExtractedEntity) -> str:
         """Return a stable name key for the entity (used in relation mapping)."""

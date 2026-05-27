@@ -11,7 +11,7 @@ through the HITL flow stored in ``proposal_store.py``.
 from __future__ import annotations
 
 import uuid
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from mcp.types import Tool
@@ -360,10 +360,13 @@ async def _delete_entity(*, user_id: UUID, args: dict[str, Any]) -> dict[str, An
 
 async def _link_esco(*, user_id: UUID, args: dict[str, Any]) -> dict[str, Any]:
     text_in: str = args["text"]
-    kind: str = args.get("kind", "skill")
+    kind_raw: str = args.get("kind", "skill")
+    kind: Literal["skill", "occupation"] = (
+        "skill" if kind_raw == "skill" else "occupation"
+    )
 
     async with with_user_session(user_id) as session:
-        result = await esco_linker.link(session, text_in, kind)  # type: ignore[arg-type]
+        result = await esco_linker.link(session, text_in, kind)
         return {
             "state": result.state.value,
             "esco_uri": result.esco_uri,

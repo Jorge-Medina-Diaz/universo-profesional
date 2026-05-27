@@ -275,7 +275,7 @@ docker compose exec backend python -m scripts.seed_esco --force
 Para verificar:
 
 ```bash
-docker compose exec backend python -m scripts.ingest_esco --verify
+docker compose exec backend python -m scripts.seed_esco --verify
 ```
 
 ### Reconstruir AGE desde cero

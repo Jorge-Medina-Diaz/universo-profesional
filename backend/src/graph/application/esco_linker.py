@@ -36,9 +36,7 @@ from src.shared.metrics import discovery_esco_links_total
 logger = structlog.get_logger(__name__)
 
 
-# ---------------------------------------------------------------------------
 # Tuning constants — see the v2 plan for rationale.
-# ---------------------------------------------------------------------------
 
 THRESHOLD_AUTO: float = 0.86
 """Cosine score above which we auto-link. Picked from internal smoke
@@ -53,9 +51,7 @@ state. Three works in mobile chat; five gives ESCO's broader/narrower
 options some room when the surface labels are very generic."""
 
 
-# ---------------------------------------------------------------------------
 # Normalisation
-# ---------------------------------------------------------------------------
 
 _ABBREV_EXPANSIONS = {
     "aws": "amazon web services",
@@ -97,14 +93,7 @@ def normalise(text_in: str) -> str:
     return " ".join(tokens)
 
 
-# ---------------------------------------------------------------------------
 # Result types
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# Linker
-# ---------------------------------------------------------------------------
 
 
 class EscoEntityLinker:

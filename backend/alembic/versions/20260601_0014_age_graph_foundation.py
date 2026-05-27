@@ -81,7 +81,7 @@ def upgrade() -> None:
     )
 
     # ------------------------------------------------------------------
-    # 2. Ingest metadata — used by scripts/ingest_esco.py
+    # 2. Ingest metadata — used by scripts/seed_esco.py
     # ------------------------------------------------------------------
     op.create_table(
         "graph_ingest_meta",
