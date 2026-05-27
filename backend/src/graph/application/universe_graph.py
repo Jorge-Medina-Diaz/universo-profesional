@@ -57,6 +57,22 @@ class UniverseGraphService:
         self._graph_repo = graph_repo
 
     # ------------------------------------------------------------------
+    # Low-level query execution (used by enrichment + discovery tools)
+    # ------------------------------------------------------------------
+
+    async def _execute_cypher(
+        self,
+        session: AsyncSession,
+        query: str,
+        params: dict[str, Any] | None = None,
+        *,
+        graph: str = schema.GRAPH_PERSONAL,
+        column_defs: str = "result agtype",
+    ) -> list[dict[str, Any]]:
+        """Run a raw Cypher query through the graph repository."""
+        return await self._graph_repo.execute(session, graph, query, params=params, column_defs=column_defs)
+
+    # ------------------------------------------------------------------
     # Entity nodes
     # ------------------------------------------------------------------
 
@@ -73,17 +89,15 @@ class UniverseGraphService:
         esco_uri: str | None = None,
         extra: dict[str, Any] | None = None,
     ) -> None:
-        """Create or update an :Entity vertex.
+        """Create or update a typed vertex.
 
-        The vertex is keyed by (id, user_id). We MERGE on id; the user_id
-        is part of the merge pattern so two different users cannot
-        accidentally collide.
+        Sprint R upgrades the graph from a single :Entity label to typed
+        labels (:Experience, :Skill, …).  The label is derived from *kind*
+        via KIND_TO_LABEL; if the kind is not yet mapped we fall back to
+        :Entity so the write never fails.
         """
+        label = schema.KIND_TO_LABEL.get(kind, schema.ENTITY)
         now_iso = _iso(_now())
-        # AGE has limited type coercion inside Cypher literals — strip
-        # embedding to a stub property and store the full vector via the
-        # mirror table when it matters for similarity. (Sprint N adds the
-        # vector index over `ag_catalog._ag_label_vertex.properties->>'embedding_id'`.)
         embedding_present = embedding is not None and len(embedding) > 0
         params = {
             "id": str(entity_id),
@@ -96,16 +110,10 @@ class UniverseGraphService:
             "extra": extra or {},
             "now": now_iso,
         }
-        # Note: we intentionally do not push the embedding vector into
-        # the agtype JSON property (it would be 1536 floats per node).
-        # Sprint N introduces a sidecar `graph_entity_embeddings` table
-        # keyed on (entity_id, user_id) for HNSW indexing.
-        #
-        # AGE 1.5.0-rc0 does not yet support MERGE … ON CREATE SET / ON
-        # MATCH SET, so we use COALESCE on the "first-time" properties
-        # (created_at, valid_from) and overwrite everything else.
-        query = """
-        MERGE (e:Entity {id: $id, user_id: $user_id})
+        # AGE 1.5 does not support MERGE … ON CREATE SET / ON MATCH SET,
+        # so we COALESCE the immutable-first properties.
+        query = f"""
+        MERGE (e:{label} {{id: $id, user_id: $user_id}})
         SET e.kind = $kind,
             e.created_at = COALESCE(e.created_at, $now),
             e.valid_from = COALESCE(e.valid_from, $now),
@@ -130,12 +138,13 @@ class UniverseGraphService:
         """Soft-delete: set valid_to=now() and expire all incident edges."""
         now_iso = _iso(_now())
         params = {"id": str(entity_id), "user_id": str(user_id), "now": now_iso}
-        # Expire the vertex
+        # Expire the vertex — we don't know the label, so use the generic
+        # :Entity fallback (still present for legacy nodes).
         await self._graph_repo.execute(
             session,
             schema.GRAPH_PERSONAL,
             """
-            MATCH (e:Entity {id: $id, user_id: $user_id})
+            MATCH (e {id: $id, user_id: $user_id})
             SET e.valid_to = $now, e.updated_at = $now
             """,
             params=params,
@@ -145,7 +154,7 @@ class UniverseGraphService:
             session,
             schema.GRAPH_PERSONAL,
             """
-            MATCH (e:Entity {id: $id, user_id: $user_id})-[r]-()
+            MATCH (e {id: $id, user_id: $user_id})-[r]-()
             WHERE r.valid_to IS NULL
             SET r.valid_to = $now
             """,
@@ -198,8 +207,8 @@ class UniverseGraphService:
         # not a value), validated against an identifier regex above.
         # AGE 1.5.0 doesn't support MERGE … ON CREATE SET — use COALESCE.
         query = f"""
-        MATCH (a:Entity {{id: $src, user_id: $user_id}}),
-              (b:Entity {{id: $dst, user_id: $user_id}})
+        MATCH (a {{id: $src, user_id: $user_id}}),
+              (b {{id: $dst, user_id: $user_id}})
         MERGE (a)-[r:{edge_type}]->(b)
         SET r.created_at = COALESCE(r.created_at, $now),
             r.valid_from = COALESCE(r.valid_from, $now),
@@ -243,8 +252,8 @@ class UniverseGraphService:
             "now": _iso(_now()),
         }
         query = f"""
-        MATCH (a:Entity {{id: $src, user_id: $user_id}})-[r:{edge_type}]->
-              (b:Entity {{id: $dst, user_id: $user_id}})
+        MATCH (a {{id: $src, user_id: $user_id}})-[r:{edge_type}]->
+              (b {{id: $dst, user_id: $user_id}})
         WHERE r.valid_to IS NULL
         SET r.valid_to = $now
         """
@@ -278,8 +287,8 @@ class UniverseGraphService:
             "now": _iso(_now()),
         }
         query = f"""
-        MATCH (a:Entity {{id: $src, user_id: $user_id}})-[r:{edge_type}]->
-              (b:Entity {{user_id: $user_id}})
+        MATCH (a {{id: $src, user_id: $user_id}})-[r:{edge_type}]->
+              (b {{user_id: $user_id}})
         WHERE r.valid_to IS NULL AND b.id <> $keep
         SET r.valid_to = $now
         """
@@ -296,10 +305,11 @@ class UniverseGraphService:
         entity_id: UUID,
         user_id: UUID,
     ) -> dict[str, Any] | None:
+        """Read a vertex by id, matching any label (typed or legacy :Entity)."""
         rows = await self._graph_repo.execute(
             session,
             schema.GRAPH_PERSONAL,
-            "MATCH (e:Entity {id: $id, user_id: $user_id}) RETURN e",
+            "MATCH (e {id: $id, user_id: $user_id}) RETURN e",
             params={"id": str(entity_id), "user_id": str(user_id)},
             column_defs="e agtype",
         )
@@ -350,8 +360,8 @@ class UniverseGraphService:
             edge_filter = f":{'|'.join(edge_kinds_list)}" if edge_kinds_list else ""
             edge_active = "" if include_expired else "WHERE r.valid_to IS NULL"
             query = f"""
-            MATCH (e:Entity {{id: $id, user_id: $user_id}})
-                  -[r{edge_filter}]-(n:Entity {{user_id: $user_id}})
+            MATCH (e {{id: $id, user_id: $user_id}})
+                  -[r{edge_filter}]-(n {{user_id: $user_id}})
             {edge_active}
             RETURN DISTINCT n
             LIMIT {limit}
@@ -359,8 +369,8 @@ class UniverseGraphService:
         else:
             node_active = "" if include_expired else "WHERE n.valid_to IS NULL"
             query = f"""
-            MATCH (e:Entity {{id: $id, user_id: $user_id}})
-                  -[*1..{depth}]-(n:Entity {{user_id: $user_id}})
+            MATCH (e {{id: $id, user_id: $user_id}})
+                  -[*1..{depth}]-(n {{user_id: $user_id}})
             {node_active}
             RETURN DISTINCT n
             LIMIT {limit}

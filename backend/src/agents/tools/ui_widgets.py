@@ -380,6 +380,31 @@ def propose_cover_letter(
 
 
 @tool(
+    name="propose_document_generation",
+    description=(
+        "Offer the user to generate a NEW document (CV or cover letter) after "
+        "the conversational discovery is complete. The card shows a summary of "
+        "the choices (kind, template, tone, language, target job if any) and "
+        "opens the generator pre-filled with those settings. Use ONLY after "
+        "you have gathered: document kind, tone preference, and optionally a "
+        "job description."
+    ),
+    external_execution=True,
+)
+def propose_document_generation(
+    kind: str,
+    template: str,
+    tone: str,
+    language: str = "es",
+    job_description: str | None = None,
+    job_url: str | None = None,
+    job_title: str | None = None,
+    company: str | None = None,
+) -> str:
+    return _client_only()
+
+
+@tool(
     name="present_job_match",
     description=(
         "Render a visual match scorecard for a job description against the "

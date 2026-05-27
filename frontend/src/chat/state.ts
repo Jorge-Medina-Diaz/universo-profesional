@@ -73,6 +73,15 @@ interface ChatStateStore extends ChatFocus {
   activeSessionId: string | null;
   setActiveSessionId: (id: string | null) => void;
 
+  /** Whether the floating chat panel is expanded (controlled externally + by user focus). */
+  chatExpanded: boolean;
+  setChatExpanded: (v: boolean) => void;
+
+  /** One-shot message to inject into the chat thread (e.g. "Hablemos sobre X").
+   *  Consumers must clear it after appending so it doesn't re-fire. */
+  pendingInjection: { content: string } | null;
+  setPendingInjection: (payload: { content: string } | null) => void;
+
   widgets: ChatWidget[];
   addWidget: (
     w: Omit<ChatWidget, "id" | "createdAt"> & { id?: string },
@@ -103,6 +112,10 @@ export const useChatState = create<ChatStateStore>((set) => ({
   ...initialFocus,
   activeSessionId: null,
   setActiveSessionId: (id) => set({ activeSessionId: id }),
+  chatExpanded: false,
+  setChatExpanded: (v) => set({ chatExpanded: v }),
+  pendingInjection: null,
+  setPendingInjection: (payload) => set({ pendingInjection: payload }),
   widgets: [],
 
   setFocus: (focus) =>

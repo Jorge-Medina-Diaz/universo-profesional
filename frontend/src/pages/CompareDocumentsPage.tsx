@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeftRight, FileDown, ChevronDown, MessageSquare } from "lucide-react";
 import { documents, type DocumentDetail } from "@/shared/api";
+import { useChatState } from "@/chat/state";
 import {
   Badge,
   Button,
@@ -82,14 +83,9 @@ export function CompareDocumentsPage({ initialA, initialB }: { initialA?: string
       toast.error("Selecciona dos documentos completos antes de pedir opinión");
       return;
     }
-    try {
-      sessionStorage.setItem(
-        "cvs-saas-chat-inject",
-        JSON.stringify({ content: buildOpinionPrompt(docA, docB) }),
-      );
-    } catch {
-      /* ignore */
-    }
+    useChatState.getState().setPendingInjection({
+      content: buildOpinionPrompt(docA, docB),
+    });
     window.location.hash = "#/";
   };
 

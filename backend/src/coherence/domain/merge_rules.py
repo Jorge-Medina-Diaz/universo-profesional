@@ -15,10 +15,26 @@ Design principles:
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from .upsert_decision import FieldDiff, MergePlan
+
+
+def _to_date(val: Any) -> date | None:
+    """Normalise a date-like value (date, datetime, ISO string) to date."""
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return val.date()
+    if isinstance(val, date):
+        return val
+    if isinstance(val, str):
+        try:
+            return date.fromisoformat(val)
+        except ValueError:
+            return None
+    return None
 
 _SKILL_LEVEL_RANK = {"basic": 1, "intermediate": 2, "high": 3, "expert": 4}
 _CEFR_RANK = {"A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6, "native": 7}
@@ -52,12 +68,14 @@ def _max_int(a: Any, b: Any) -> Any:
     return max(int(a), int(b))
 
 
-def _max_date(a: date | None, b: date | None) -> date | None:
-    if a is None:
-        return b
-    if b is None:
-        return a
-    return max(a, b)
+def _max_date(a: Any, b: Any) -> date | None:
+    a_date = _to_date(a)
+    b_date = _to_date(b)
+    if a_date is None:
+        return b_date
+    if b_date is None:
+        return a_date
+    return max(a_date, b_date)
 
 
 def _max_ranked(a: str | None, b: str | None, ranking: dict[str, int]) -> str | None:

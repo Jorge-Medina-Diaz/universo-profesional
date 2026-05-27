@@ -8,7 +8,7 @@ entidades enumeradas. Sprints M → R del plan v2.
 
 ```
                             ┌──────────────────────────────────────────┐
-                            │            CHAT AGÉNTICO (24)            │
+                            │            CHAT AGÉNTICO (28)            │
                             │  CopilotKit AG-UI · HITL proposal cards  │
                             └────────────────────┬─────────────────────┘
                                                  │
@@ -17,7 +17,8 @@ entidades enumeradas. Sprints M → R del plan v2.
         ┌───────────────────────────────────────────────────────────────┐
         │              UNIVERSE GRAPH SERVICE (UGS)                     │
         │  • Coherence v2 (cross-type, ontology-anchored)               │
-        │  • ESCO entity linker (NER → cand. → quarantine si dudoso)    │
+        │  • ESCO entity linker (NER → cand. → rerank → quarantine)     │
+        │  • FeatureReranker (Jaro-Winkler + Jaccard + exact bonus)     │
         │  • Outlier detection (IsoForest + LOF on PCA-64)              │
         │  • Episode tracker (sesiones de chat = :Episode nodes)        │
         │  • Edge materialisation (derived_from_*, linked_*, …)         │
@@ -47,12 +48,12 @@ entidades enumeradas. Sprints M → R del plan v2.
         │   :TOUCHED_IN               │  │  (cross-graph edges no son  │
         │   :MEMBER_OF                │  │  posibles en AGE, así que   │
         │  Multi-tenant: property     │  │  usamos una tabla puente).  │
-        │  `user_id` en cada vértice  │  └────────────────────────────┘
-        │  + arista.                  │
-        │                             │
-        │  Aristas temporales:        │
-        │   {valid_from, valid_to}    │
-        │  NULL valid_to = activa     │
+        │  `user_id` en cada vértice  │  │                             │
+        │  + arista.                  │  │  Fallback: si ESCO devuelve │
+        │                             │  │  ORPHAN, se consulta la     │
+        │  Aristas temporales:        │  │  ontología custom de skills │
+        │   {valid_from, valid_to}    │  │  (MCP, RAG, CrewAI, etc.)   │
+        │  NULL valid_to = activa     │  └────────────────────────────┘
         └─────────────┬───────────────┘
                       │
                       ▼
@@ -67,13 +68,15 @@ entidades enumeradas. Sprints M → R del plan v2.
                                     │
                                     ▼
                           ┌─────────────────────────┐
-                          │     AGENTS (24)         │
+                          │     AGENTS (28)         │
                           │  Tools nuevos:          │
                           │   • universe_retrieve   │
                           │   • get_graph_neighbors │
                           │   • explain_path        │
                           │   • coherence_upsert v2 │
                           │     (op_hint + session) │
+                          │   • query_graph         │
+                          │   • record_feedback     │
                           └────────────┬────────────┘
                                        │
                                        ▼
@@ -84,6 +87,7 @@ entidades enumeradas. Sprints M → R del plan v2.
         │     • Outline   — Tana-style (kinds agrupados)                │
         │     • Trajectory — timeline (Sprint R+ expande con Episodes)  │
         │   Chat sidebar — graph lens cuando el agente fija focus       │
+        │   Discovery progress widget — score + coverage + SSE          │
         └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -96,6 +100,7 @@ entidades enumeradas. Sprints M → R del plan v2.
 | Retrieval híbrido | **3 carriles + RRF k=60** | Estándar de la literatura; SPLADE + community summaries en fase 2 |
 | Hipergrafo | **Multigraph + nodos Evidence reificados** | Isomorfo a hyperedge, sin DB hypergraph dedicada |
 | UI primaria | **Conversación + lente de grafo** | Móvil-first; el grafo es lente secundaria, no la UX primaria |
+| Cross-encoder ESCO | **FeatureReranker local** (sin GPU) | Determinista, rápido, interpretable; reduce falsos positivos de términos polisémicos |
 
 ## Componentes (backend)
 
@@ -108,6 +113,10 @@ entidades enumeradas. Sprints M → R del plan v2.
 - **`domain/nodes.py`** — dataclasses para EntityNode, EvidenceNode,
   SignalNode, EpisodeNode, etc.
 - **`domain/edges.py`** — `GraphEdge` con campos temporales.
+- **`domain/esco_types.py`** — `EscoCandidate`, `EscoLinkResult`, `LinkState`.
+- **`domain/custom_skills_ontology.py`** — ontología fallback para skills de IA
+  no presentes en ESCO (MCP, RAG, CrewAI, etc.). Cargada en memoria (<100
+  conceptos) e indexada en pgvector junto a ESCO.
 
 - **`infrastructure/age_client.py`** — wrapper `cypher()` que serializa
   parámetros como JSON y los pasa con `CAST(:p AS agtype)` (porque AGE
@@ -121,9 +130,18 @@ entidades enumeradas. Sprints M → R del plan v2.
   get_entity / neighbors`. La clase usa `MERGE … SET COALESCE(...)` en
   lugar de `MERGE … ON CREATE SET` porque AGE 1.5 no soporta este último.
 - **`application/esco_linker.py`** — `EscoEntityLinker` con normalize +
-  candidate generation (pgvector) + threshold-based resolution.
-  Devuelve `LINKED / SUGGESTED / ORPHAN / ERROR`. Threshold 0.86 auto,
-  0.70 quarantine.
+  candidate generation (pgvector) + `FeatureReranker` + threshold-based
+  resolution. Devuelve `LINKED / SUGGESTED / ORPHAN / ERROR`.
+  - Threshold auto-link: **0.86**
+  - Threshold quarantine (HITL): **0.70**
+  - Fallback ORPHAN → ontología custom (`custom_skills_ontology.py`).
+- **`application/cross_encoder.py`** — `FeatureReranker` stateless.
+  Re-scorea candidatos ESCO con señales locales:
+  - Jaro-Winkler similarity (`jellyfish`) — 0.35
+  - Token Jaccard overlap — 0.25
+  - Exact prefix/suffix bonus — 0.20
+  - Original rank decay — 0.20
+  No requiere GPU ni dependencias pesadas.
 - **`application/outlier_detection.py`** — IsoForest + LOF agreement
   sobre embeddings reducidos a 64-d con PCA. Flag se persiste en
   `entity_quarantine` con razón `outlier`.
@@ -160,8 +178,58 @@ Nuevo módulo que extiende el dual-write con:
 - **`retrieval_tools.py`** — `universe_retrieve`, `get_graph_neighbors`,
   `explain_path`. Reemplazan en gran parte a `search_universe`,
   `find_existing`, `search_rubrics`.
+- **`graph_query_tools.py`** — `query_graph`, `explain_graph_query`.
+  Text2Cypher para consultas en lenguaje natural sobre AGE.
+- **`learning_tools.py`** — `record_agent_feedback`. Alimenta el
+  self-learning loop desde el flujo HITL.
 - **`ui_widgets.py`** — añade `propose_esco_disambiguation`,
-  `propose_edge_creation`, `propose_edge_deletion`.
+  `propose_edge_creation`, `propose_edge_deletion`, `propose_document_generation`.
+
+## ESCO linking pipeline
+
+```
+Input text (e.g. "Docker")
+    │
+    ▼
+Normalise (NFKC, lowercase, abbreviation expansion)
+    │
+    ▼
+Embed → pgvector top-K cosine on ontology_embeddings
+    │
+    ▼
+FeatureReranker re-scores candidates:
+  • Jaro-Winkler(label, query)     × 0.35
+  • Jaccard(tokens)                × 0.25
+  • Exact substring bonus          × 0.20
+  • Rank decay (1.0 → 0.85 …)      × 0.20
+    │
+    ▼
+Threshold resolution:
+  rerank_score ≥ 0.86  →  LINKED     (auto, esco_uri persisted)
+  rerank_score ≥ 0.70  →  SUGGESTED  (quarantine, HITL card)
+  else                 →  ORPHAN     (fallback to custom_skills_ontology)
+```
+
+El threshold 0.86 reduce falsos positivos de términos polisémicos
+("Java" la isla vs. "Java" el lenguaje): aunque el embedding pueda estar
+cerca, el Jaro-Winkler y el Jaccard penalizan el desajuste de etiquetas.
+
+## Ontología custom fallback
+
+Cuando ESCO devuelve `ORPHAN` (sin candidato por encima de 0.70), el linker
+consulta `src/graph/domain/custom_skills_ontology.py`.  Es una ontología
+curada en memoria (<100 conceptos) que cubre skills de IA/LLM no presentes
+en ESCO:
+
+- `up:ai/mcp` — Model Context Protocol
+- `up:ai/rag-pipeline` — Retrieval-Augmented Generation
+- `up:ai/crewai` — Framework multi-agente
+- `up:ai/vector-databases` — pgvector, Pinecone, Weaviate
+- …
+
+Cada concepto lleva `uri`, `pref_label_es/en`, `description` y `related_uris`.
+Se indexan en pgvector junto a ESCO para que la búsqueda densa los encuentre
+también.  Se puede ampliar añadiendo entradas a `_CUSTOM_SKILLS`.
 
 ## Componentes (frontend)
 
@@ -174,7 +242,9 @@ Nuevo módulo que extiende el dual-write con:
   ProfileCompleteness + SuggestionBar.
 - **`src/chat/actions.tsx`** — registra los handlers
   `propose_esco_disambiguation`, `propose_edge_creation`,
-  `propose_edge_deletion`.
+  `propose_edge_deletion`, `propose_document_generation`, `propose_cover_letter`.
+- **`src/widgets/DiscoveryProgress.tsx`** — widget de score 0-100 con SSE
+  en tiempo real.
 
 ## Migraciones
 
@@ -193,16 +263,19 @@ Nuevo módulo que extiende el dual-write con:
 
 ### Ingestar ESCO
 
+El seeding es automático al levantar Docker Compose (`cvs-esco-seed`).
+Para forzar una re-ingesta manual:
+
 ```bash
-# Descargar el bundle CSV oficial:
-#   https://esco.ec.europa.eu/en/use-esco/download
-# Y extraer a /app/data/esco/
+./scripts/seed-esco.sh --force
+# o desde el container:
+docker compose exec backend python -m scripts.seed_esco --force
+```
 
-docker exec cvs-backend python -m scripts.ingest_esco \
-    --esco-dir /app/data/esco
+Para verificar:
 
-# Verificar:
-docker exec cvs-backend python -m scripts.ingest_esco --verify
+```bash
+docker compose exec backend python -m scripts.ingest_esco --verify
 ```
 
 ### Reconstruir AGE desde cero
@@ -222,6 +295,7 @@ docker exec cvs-backend alembic upgrade head
 | `hybrid_retrieve` (warm cache) | 10 ms | 50 ms |
 | `hybrid_retrieve` (cold cache) | 800 ms | 1500 ms |
 | `GET /api/v1/graph/snapshot` (500 nodos) | 250 ms | 600 ms |
+| `esco_linker` (1 skill, cold) | 30 ms | 80 ms |
 
 Cold snapshot loading domina el cold-start. La invalidación se
 dispara desde `coherence_v2.post_upsert()` después de cada escritura,

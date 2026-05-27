@@ -25,6 +25,7 @@ from src.mcp_server.application.tools import TOOLS
 from src.mcp_server.infrastructure.oauth_store import OAuthStore
 from src.shared.config import get_settings
 from src.shared.db import set_rls_user
+from src.shared.metrics import mcp_invocations_total, mcp_latency_seconds
 from src.shared.security import decode_jwt, utc_now
 
 router = APIRouter()
@@ -84,8 +85,7 @@ async def _authenticate(
     return user_id, client_id, scopes
 
 
-@router.api_route("", methods=["POST"])
-@router.api_route("/", methods=["POST"])
+@router.post("/")
 async def mcp_endpoint(
     request: Request,
     session: SessionDep,

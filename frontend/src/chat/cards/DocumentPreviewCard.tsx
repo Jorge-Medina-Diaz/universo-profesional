@@ -3,14 +3,17 @@
  *
  * The agent passes a document id (or compact metadata) and we fetch the JSON
  * Resume content lazily. Collapsible sections render summary, top experience,
- * top skills, languages, certifications — plus CTAs to open PDF / regenerate.
+ * top skills, languages, certifications — plus CTAs to download PDF/DOCX,
+ * save, generate variants, or open the full editor.
  */
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ChevronDown,
+  Copy,
   FileDown,
   FileText,
+  FolderOpen,
   RotateCw,
   Sparkles,
 } from "lucide-react";
@@ -22,9 +25,15 @@ export interface DocumentPreviewCardProps {
   documentId: string;
   /** Optional CTA — agent wires it to `propose_cv_regenerate` */
   onRegenerate?: () => void;
+  /** Optional CTA — agent wires it to `propose_document_generation` for a variant */
+  onGenerateVariant?: () => void;
 }
 
-export function DocumentPreviewCard({ documentId, onRegenerate }: DocumentPreviewCardProps) {
+export function DocumentPreviewCard({
+  documentId,
+  onRegenerate,
+  onGenerateVariant,
+}: DocumentPreviewCardProps) {
   const query = useQuery({
     queryKey: queryKeys.documents.detail(documentId),
     queryFn: () => documents.get(documentId),
@@ -51,6 +60,7 @@ export function DocumentPreviewCard({ documentId, onRegenerate }: DocumentPrevie
     | undefined;
   const work = (resume.work ?? []) as Array<Record<string, any>>;
   const skills = (resume.skills ?? []) as Array<Record<string, any>>;
+  const targetJobTitle = basics.label as string | undefined;
 
   return (
     <ChatMessageMotion>
@@ -64,6 +74,9 @@ export function DocumentPreviewCard({ documentId, onRegenerate }: DocumentPrevie
               <h4 className="text-sm font-medium text-ink leading-tight truncate">
                 {basics.name ?? (doc.kind === "cover_letter" ? "Carta" : "CV")}
               </h4>
+              {targetJobTitle && (
+                <p className="text-[11px] text-stone truncate">{targetJobTitle}</p>
+              )}
               <div className="flex items-center gap-1.5 flex-wrap">
                 <Badge tone="stone" size="sm">
                   {doc.kind === "cover_letter" ? "Carta" : "CV"}
@@ -71,6 +84,11 @@ export function DocumentPreviewCard({ documentId, onRegenerate }: DocumentPrevie
                 <Badge tone="stone" size="sm">
                   {doc.template}
                 </Badge>
+                {doc.tone && (
+                  <Badge tone="leaf" size="sm">
+                    {doc.tone}
+                  </Badge>
+                )}
                 <Badge tone="stone" size="sm">
                   {doc.language.toUpperCase()}
                 </Badge>
@@ -163,6 +181,22 @@ export function DocumentPreviewCard({ documentId, onRegenerate }: DocumentPrevie
               PDF
             </Button>
           )}
+          {doc.has_docx && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                window.open(
+                  `/api/v1/documents/${doc.id}/docx`,
+                  "_blank",
+                  "noopener,noreferrer",
+                )
+              }
+              leadingIcon={<FileDown size={12} />}
+            >
+              DOCX
+            </Button>
+          )}
           <Button
             size="sm"
             variant="ghost"
@@ -171,6 +205,16 @@ export function DocumentPreviewCard({ documentId, onRegenerate }: DocumentPrevie
           >
             Ver completo
           </Button>
+          {onGenerateVariant && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onGenerateVariant}
+              leadingIcon={<Copy size={12} />}
+            >
+              Variante
+            </Button>
+          )}
           {onRegenerate && (
             <Button
               size="sm"
@@ -181,6 +225,20 @@ export function DocumentPreviewCard({ documentId, onRegenerate }: DocumentPrevie
               Regenerar
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              documents.share(doc.id).then((res) => {
+                if (res.share_url) {
+                  navigator.clipboard?.writeText(res.share_url).catch(() => {});
+                }
+              });
+            }}
+            leadingIcon={<FolderOpen size={12} />}
+          >
+            Guardar
+          </Button>
         </div>
       </div>
     </ChatMessageMotion>

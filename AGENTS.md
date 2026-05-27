@@ -27,6 +27,7 @@
 - **Auth:** JWT RS256 (python-jose), Argon2, Authlib, pyOTP (2FA), OAuth 2.1 AS propio
 - **Documentos:** WeasyPrint (PDF), python-docx, Jinja2
 - **Grafo/Recuperación:** python-igraph (PageRank), scikit-learn (PCA, outlier detection)
+- **Similitud textual:** `jellyfish` (Jaro-Winkler, phonetic) para entity resolution y ESCO cross-encoder
 - **Observabilidad:** structlog, Prometheus client, OpenTelemetry (FastAPI + SQLAlchemy), Sentry
 - **Rate limiting:** slowapi + limits[redis]
 - **Email:** aiosmtplib (mock/MailHog en dev; Brevo/Postmark en prod)
@@ -73,7 +74,7 @@ Esta regla está **forzada por `import-linter`** (configurado en `pyproject.toml
 | `documents/` | Generación de CVs/cover letters, almacenamiento, compartir |
 | `ai_generation/` | Pipeline RAG (mockeado en MVP): parse JD → embed → retrieve → rerank → LLM → JSON Resume → PDF/DOCX |
 | `billing/` | Cuotas, suscripciones, Stripe (mock/real) |
-| `agents/` | Agentes Agno, especialistas, herramientas, flujos de trabajo, memoria |
+| `agents/` | Agentes Agno, 28 especialistas, herramientas, flujos de trabajo, memoria, context providers, auto-enrichment |
 | `coherence/` | Motor de coherencia: cada escritura pasa por upsert con reglas de merge declarativas |
 | `graph/` | Apache AGE + ontología ESCO (Sprint M en adelante) |
 | `knowledge/` | RAG / base de conocimiento (chunks en pgvector) |
@@ -87,6 +88,18 @@ Esta regla está **forzada por `import-linter`** (configurado en `pyproject.toml
 - `backend/templates/` — Plantillas Jinja2 para CVs
 - `backend/tests/{unit,integration,e2e}/` — Tests por categoría
 - `backend/scripts/` — Scripts auxiliares (benchmarks, ingestión ESCO, migraciones legacy)
+
+**Subdirectorios nuevos del backend (post-Sprint R):**
+
+| Ruta | Responsabilidad |
+|------|-----------------|
+| `src/agents/context_providers/` | Inyección de contexto por intent (`universe_provider`, `document_provider`, base, router) |
+| `src/agents/infrastructure/` | Proposal store HITL, sanitizers Anthropic, adaptadores de infraestructura |
+| `src/agents/memory/` | Sliding window digest, memoria estructurada (semantic/procedural/episodic), self-learning loop |
+| `src/agents/tools/` | ~20 ficheros de herramientas: reads, writes, discovery, document, graph query, learning, retrieval, UI widgets |
+| `src/agents/workflows/` | Flujos programados: `curator.py`, `universe_enrichment.py` |
+| `src/graph/application/cross_encoder.py` | `FeatureReranker` — reranking de candidatos ESCO con Jaro-Winkler + Jaccard |
+| `src/graph/domain/esco_types.py` | Tipos de datos del linker ESCO (`EscoCandidate`, `EscoLinkResult`, `LinkState`) |
 
 ### Frontend — Organización por feature
 
@@ -132,6 +145,12 @@ uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Worker arq
 arq src.shared.worker.WorkerSettings
+
+# Seed manual de ESCO (la imagen Docker ya lo hace en startup)
+python scripts/seed_esco.py
+
+# Reset completo de ESCO (trunca + re-seed)
+./scripts/reset-esco.sh
 ```
 
 ### Frontend (dentro del contenedor `frontend` o con `npm` local)
@@ -293,6 +312,15 @@ Copiar `.env.example` a `.env` en la raíz del repo. Docker Compose lo lee autom
 | Stripe | `MockStripeClient` | `STRIPE_PROVIDER=real` + keys |
 | PDF parse | `MockPdfParser` | `AFFINDA_API_KEY` |
 | Scraping | `MockJobScraper` | `SCRAPING_ENABLED=true` |
+| ESCO seed | Automático en Docker | `AUTO_SEED_ESCO=true` |
+
+**Variables de ESCO:**
+- `AUTO_SEED_ESCO` — semilla automática al arrancar el contenedor (`true` en dev).
+- `ESCO_VERSION` — tag de release guardado en `graph_ingest_meta` (ej. `v1.1.1`).
+- `ESCO_DOWNLOAD_URL` — URL alternativa del ZIP de ESCO si la oficial no responde.
+
+**Rate limiting de MCP:**
+- `MCP_RATE_LIMIT_PER_MINUTE` / `MCP_RATE_LIMIT_PER_HOUR` / `MCP_RATE_LIMIT_PER_DAY` — límites específicos para el servidor MCP.
 
 **Variables críticas en producción:**
 - `DATABASE_URL`, `DATABASE_URL_SYNC`
@@ -328,8 +356,21 @@ El backend valida en startup (`validate_production_ready()`) que no haya valores
 - **Patrón Repository + Unit of Work:** cada contexto define puertos en `application/` e implementaciones en `infrastructure/`.
 - **Event-driven:** bus de eventos in-process (`src/shared/events.py`). Los suscriptores se cablean en `main.py`.
 - **Motor de Coherencia:** toda escritura en el universo pasa por `POST /api/v1/coherence/upsert`. Nunca se hace append ciego: se busca entidad existente (exacta → similitud semántica), se fusiona según reglas declarativas, se registra changelog (`universe_change_log`).
+- **Auto-enrichment:** después de cada turno de chat, `UniverseEnrichmentEngine` extrae entidades y relaciones implícitas del mensaje del usuario y las materializa en el grafo AGE automáticamente (fire-and-forget). El grafo crece orgánicamente sin que el usuario tenga que usar comandos explícitos.
+- **Descubrimiento conversacional (context → capture → enrich):** el intent `discover_profile` nunca usa exámenes. El flujo es:
+  1. **Contexto:** `get_profile_completeness` revela qué dimensiones faltan.
+  2. **Captura:** `suggest_discovery_questions` genera 1-3 preguntas naturales conectadas a lo que el usuario ya tiene ("Veo que…").
+  3. **Enriquecimiento:** la respuesta fluye por `UniverseEnrichmentEngine` y se materializa en el grafo AGE + ESCO linking automático.
+- **HITL proposal system:** toda escritura pasa por `propose_*` (Agno `external_execution=True`). El frontend renderiza una card (`EntryCard`, `QuestionnaireCard`, etc.); el usuario confirma, rechaza o edita. Solo entonces se emite `POST /api/v1/coherence/upsert`. Los rechazos alimentan el self-learning loop.
+- **ESCO linking pipeline:** cada skill/entidad nueva se enlaza a ESCO en tres fases:
+  1. **Embed:** pgvector top-K cosine sobre `ontology_embeddings`.
+  2. **Rerank:** `FeatureReranker` (Jaro-Winkler 0.35 + Jaccard 0.25 + exact-bonus 0.20 + rank-decay 0.20) re-scorea candidatos.
+  3. **Threshold:** ≥0.86 → auto-link (`LINKED`); ≥0.70 → quarantine (`SUGGESTED`, HITL); <0.70 → fallback a ontología custom (`ORPHAN`).
+- **Self-learning feedback loop:** cuando un usuario rechaza o edita una propuesta, `record_agent_feedback` (vía `learning_tools.py`) guarda el evento en `user_procedural_memory`. Un workflow periódico (`consolidate`) agrega ejemplos similares en reglas activas que los `Context Providers` inyectan en las instrucciones del agente. Sin fine-tuning, solo *context engineering*.
+- **Discovery progress REST + SSE:**
+  - `GET /api/v1/discovery/progress` — score 0-100, coverage por dimensión, descubrimientos recientes, estadísticas ESCO.
+  - `GET /api/v1/discovery/stream` — SSE que emite un evento JSON cada vez que se inserta una fila en `universe_change_log` para el usuario autenticado (heartbeat cada 15 s).
 - **Single chat por usuario:** `thread_id = main-<user_id>`, con ventana deslizante de 40 mensajes + digest que pliega mensajes antiguos.
-- **HITL (Human-in-the-loop):** herramientas Agno con `external_execution=True` devuelven cards al frontend (React) para confirmación del usuario antes de persistir.
 - **Mock-first:** toda integración externa tiene implementación mock que se activa por defecto. Cambiar el `*_PROVIDER` correspondiente y añadir la API key para usar la real.
 
 ### Frontend
@@ -398,3 +439,15 @@ El backend valida en startup (`validate_production_ready()`) que no haya valores
 - **`continue-on-error: true` eliminado** de mypy y Trivy. Los errores de tipo y vulnerabilidades CRITICAL/HIGH ahora bloquean el pipeline.
 - **Dependencias muertas eliminadas** — `@tanstack/react-router`, `react-helmet-async`, `focus-trap-react`.
 - **Dead code eliminado** — `RemindersBell.tsx` (funcionalidad absorbida por `NotificationCenter`).
+
+### 13.6 Backend — Agno-first + Conversational Discovery (Sprint R)
+- **Enfoque Universo Profesional único** — Career, jobs y social depriorizados. El universo actual = CV knowledge. Futuros "universos entrelazados" quedan para más adelante.
+- **`quiz_skills` eliminado** — No se hacen exámenes ni quizzes. Reemplazado por `discover_profile`: el agente hace preguntas naturales sobre experiencias, proyectos y skills.
+- **`UniverseEnrichmentEngine`** — Pipeline post-turno que extrae entidades/relaciones del texto libre del usuario y las materializa en AGE automáticamente (ER v2 + coherence). El grafo crece sin comandos explícitos.
+- **Intent Router v2** — Fast-path keywords + LLM fallback. Intents activos: `expand_universe`, `generate_document`, `discover_profile`, `explore_graph`, `general_chat`. Career/Social providers existen en código pero están "apartados".
+- **Discovery tools** — `get_profile_completeness` y `suggest_discovery_questions` permiten al agente hacer preguntas contextualizadas basadas en los huecos reales del perfil.
+- **Graph auto-enrichment** — `enrich_user_graph` se ejecuta tras cada upsert para inferir edges adicionales (e.g., tech_stack → USES_TECH).
+- **ESCO anchor** — Todos los skills se enlazan a ESCO donde sea posible. Cross-type dedup vía `esco_uri`.
+- **Self-learning context** — 4-tier memory (semantic + procedural + episodic + working) con `SelfLearningEngine`. El modelo subyacente no cambia; el contexto alrededor evoluciona.
+- **Discovery progress endpoint + SSE** — `GET /api/v1/discovery/progress` devuelve score 0-100; `GET /api/v1/discovery/stream` notifica en tiempo real vía Server-Sent Events.
+- **Document specialist** — Especialista dedicado a generación de documentos con descubrimiento conversacional previo (kind → template → tone → language → JD opcional).

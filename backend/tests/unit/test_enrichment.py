@@ -28,7 +28,7 @@ async def test_infer_semantic_edges_uses_hnsw_knn() -> None:
 
     recs = [(e1, "skill", [0.1] * 1536)]
 
-    mock_session = MagicMock()
+    mock_session = AsyncMock()
     mock_result = MagicMock()
     mock_result.all.return_value = [_FakeRow(str(e2), 0.85)]
     mock_session.execute.return_value = mock_result
@@ -63,7 +63,7 @@ async def test_infer_semantic_edges_respects_min_score() -> None:
 
     recs = [(e1, "skill", [0.1] * 1536)]
 
-    mock_session = MagicMock()
+    mock_session = AsyncMock()
     mock_result = MagicMock()
     mock_result.all.return_value = [_FakeRow(str(e2), 0.15)]
     mock_session.execute.return_value = mock_result

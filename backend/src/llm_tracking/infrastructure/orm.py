@@ -3,9 +3,8 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Column, Integer, Numeric, String
+from sqlalchemy import Column, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
-
 from src.shared.db import Base
 
 
@@ -24,5 +23,6 @@ class LlmUsageLogORM(Base):  # type: ignore[misc]
     cache_write_tokens = Column(Integer, nullable=False, default=0)
     total_tokens = Column(Integer, nullable=False, default=0)
     duration_ms = Column(Integer, nullable=True)
-    cost_usd = Column(Numeric(12, 8), nullable=True)
-    created_at = Column(TIMESTAMP(timezone=True), nullable=False)
+    cost_eur = Column(Numeric(12, 8), nullable=True)
+    agent = Column(String(64), nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())

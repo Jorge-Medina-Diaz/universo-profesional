@@ -5,6 +5,7 @@ import { useAuthStore, auth } from "@/shared/api";
 import { useHashRoute } from "@/shared/useHashRoute";
 import { useClickOutside } from "@/shared/useClickOutside";
 import { useEscapeKey } from "@/shared/useEscapeKey";
+import { useEnrichmentNotifications } from "@/shared/hooks/useEnrichmentNotifications";
 import { queryKeys } from "@/shared/queryKeys";
 import { Search, LogOut, BookOpen, ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
@@ -13,6 +14,7 @@ import { BottomNav } from "./BottomNav";
 import { openCommandPalette } from "./CommandPalette";
 import { NotificationCenter } from "@/widgets/NotificationCenter";
 import { CookieConsentBanner } from "@/widgets/CookieConsentBanner";
+import { DiscoveryProgress, DiscoveryProgressPill } from "@/widgets/DiscoveryProgress";
 import { ThemeToggle } from "./ThemeToggle";
 import { tour } from "./tour/TourProvider";
 import { firstRunTour } from "./tour/tours";
@@ -48,6 +50,9 @@ export function Layout({ title, isAuthed, children }: Props) {
     staleTime: 5 * 60_000,
     retry: 1,
   });
+
+  // Watch for auto-enrichment results and notify the user.
+  useEnrichmentNotifications();
 
   const isFullBleed = isAuthed && path === "/";
 
@@ -100,6 +105,7 @@ export function Layout({ title, isAuthed, children }: Props) {
                 <kbd className="text-[10px] bg-surface px-1.5 py-0.5 rounded font-medium">⌘K</kbd>
               </button>
             )}
+            {isAuthed && <DiscoveryProgressPill />}
             {isAuthed && (
               <span data-tour="reminders-bell">
                 <NotificationCenter />
@@ -155,6 +161,11 @@ export function Layout({ title, isAuthed, children }: Props) {
       )}
 
       {isAuthed && <BottomNav />}
+      {isAuthed && !path.startsWith("/universe") && (
+        <div className="fixed right-4 top-24 z-20 w-[min(92vw,300px)] hidden lg:block">
+          <DiscoveryProgress />
+        </div>
+      )}
       <CookieConsentBanner />
     </div>
   );
@@ -241,6 +252,14 @@ function AccountMenu() {
             className="block px-3 py-2 rounded-btn text-sm text-stone hover:text-ink hover:bg-surface/70 transition-colors"
           >
             Plan y facturación
+          </a>
+          <a
+            href="#/usage"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="block px-3 py-2 rounded-btn text-sm text-stone hover:text-ink hover:bg-surface/70 transition-colors"
+          >
+            Uso de IA
           </a>
           <button
             type="button"

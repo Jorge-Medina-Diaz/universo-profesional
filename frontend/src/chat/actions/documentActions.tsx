@@ -63,6 +63,76 @@ export function useDocumentActions(
   });
 
   useCopilotAction({
+    name: "propose_document_generation",
+    description:
+      "Offer to generate a NEW document (CV or cover letter) after conversational discovery. Pass kind, template, tone, language, and optional job details.",
+    parameters: [
+      { name: "kind", type: "string", required: true },
+      { name: "template", type: "string", required: true },
+      { name: "tone", type: "string", required: true },
+      { name: "language", type: "string" },
+      { name: "job_description", type: "string" },
+      { name: "job_url", type: "string" },
+      { name: "job_title", type: "string" },
+      { name: "company", type: "string" },
+    ] satisfies CopilotActionParams,
+    renderAndWaitForResponse: ({
+      args,
+      respond,
+    }: {
+      args: Record<string, unknown>;
+      respond?: (s: string) => void;
+    }) => (
+      <ConfirmCard
+        actionLabel="Generar"
+        target={args.kind === "cover_letter" ? "Carta de presentación" : "CV"}
+        description={`Plantilla: ${String(args.template)} · Tono: ${String(args.tone)} · Idioma: ${String(args.language ?? "es")}`}
+        payload={{
+          oferta: args.job_title,
+          empresa: args.company,
+          plantilla: args.template,
+          tono: args.tone,
+        }}
+        confirmLabel="Abrir generador"
+        onConfirm={() => {
+          try {
+            sessionStorage.setItem(
+              "cvs-saas-prefill-job",
+              JSON.stringify({
+                job_url: args.job_url as string | undefined,
+                job_description: args.job_description as string | undefined,
+                title: args.job_title as string | undefined,
+                company_name: args.company as string | undefined,
+              }),
+            );
+            sessionStorage.setItem(
+              "cvs-saas-prefill-kind",
+              (args.kind as string) ?? "cv",
+            );
+            sessionStorage.setItem(
+              "cvs-saas-prefill-template",
+              String(args.template),
+            );
+            sessionStorage.setItem(
+              "cvs-saas-prefill-tone",
+              String(args.tone),
+            );
+            sessionStorage.setItem(
+              "cvs-saas-prefill-language",
+              String(args.language ?? "es"),
+            );
+          } catch {
+            /* ignore */
+          }
+          window.location.hash = "#/cv/new";
+          respond?.(JSON.stringify({ ok: true, redirected: true }));
+        }}
+        onCancel={() => respond?.(JSON.stringify({ cancelled: true }))}
+      />
+    ),
+  });
+
+  useCopilotAction({
     name: "propose_cv_regenerate",
     description:
       "Propose regenerating an existing document with new template/language/tone.",
@@ -120,12 +190,20 @@ export function useDocumentActions(
     parameters: [
       { name: "document_id", type: "string", required: true },
       { name: "offer_regenerate", type: "boolean" },
+      { name: "offer_variant", type: "boolean" },
     ] satisfies CopilotActionParams,
     render: ({ args }: { args: Record<string, unknown> }) => (
       <DocumentPreviewCard
         documentId={args.document_id as string}
         onRegenerate={
           args.offer_regenerate
+            ? () => {
+                window.location.hash = "#/cv/new";
+              }
+            : undefined
+        }
+        onGenerateVariant={
+          args.offer_variant
             ? () => {
                 window.location.hash = "#/cv/new";
               }

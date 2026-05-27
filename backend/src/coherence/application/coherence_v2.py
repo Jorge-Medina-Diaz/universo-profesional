@@ -192,7 +192,7 @@ async def _attach_esco_edge(
         session,
         schema.GRAPH_PERSONAL,
         """
-        MATCH (e:Entity {id: $eid, user_id: $uid})
+        MATCH (e {id: $eid, user_id: $uid})
         SET e.esco_uri = $uri
         """,
         params={"eid": str(entity_id), "uid": str(user_id), "uri": esco_uri},

@@ -12,6 +12,8 @@ export interface GraphNode {
     area?: string | null;
     /** Career pillar (Leiden community label); null until communities computed. */
     pillar?: string | null;
+    /** ESCO ontology URI when the entity is linked. */
+    esco_uri?: string | null;
     [k: string]: unknown;
   };
 }
@@ -50,11 +52,20 @@ export interface RetrievedItem {
   contributions: Record<string, { rank: number; score: number }>;
 }
 
+export interface DiscoveryStreamEvent {
+  type: "entity_discovered";
+  entity_type: string;
+  name: string;
+  source: string;
+}
+
 export const graphApi = {
   snapshot: async (includeExpired = false): Promise<GraphSnapshot> =>
     api<GraphSnapshot>(
       `/api/v1/graph/snapshot?include_expired=${includeExpired ? "true" : "false"}`,
     ),
+
+  discoveryStreamURL: "/api/v1/agents/discovery/stream" as const,
 
   retrieve: async (
     q: string,
@@ -82,4 +93,9 @@ export const graphApi = {
 
   communities: async (): Promise<{ items: CareerPillar[]; count: number }> =>
     api("/api/v1/graph/communities"),
+
+  escoLinks: async (): Promise<{
+    items: Array<{ entity_id: string; esco_uri: string; target_label: string; score: number }>;
+    count: number;
+  }> => api("/api/v1/graph/esco-links"),
 };

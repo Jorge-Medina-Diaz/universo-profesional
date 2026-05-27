@@ -55,6 +55,7 @@ const CompareDocumentsPage = lazyPage(
   "CompareDocumentsPage",
 );
 const LegalPage = lazyPage(() => import("@/pages/LegalPage"), "LegalPage");
+const UsagePage = lazyPage(() => import("@/pages/UsagePage"), "UsagePage");
 
 function parseHash(): { path: string; query: URLSearchParams } {
   const raw = (window.location.hash || "#/").slice(1);
@@ -155,6 +156,7 @@ function resolveRoute(path: string, query: URLSearchParams, isAuthed: boolean) {
   if (path === "/mcp") return <McpConnectPage />;
   if (path === "/settings") return <SettingsPage />;
   if (path === "/billing") return <BillingPage />;
+  if (path === "/usage") return <UsagePage />;
   if (path === "/activity") return <ActivityPage />;
   if (path === "/preferences") return <CareerPreferencesPage />;
   if (path === "/jobs") return <JobsPage />;

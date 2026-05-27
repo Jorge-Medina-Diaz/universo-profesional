@@ -25,6 +25,29 @@ Agno emits the call as an AG-UI tool-call event the React layer renders.
 | `propose_github_sync` | — | `EntryCard` confirm |
 | `propose_brightdata_sync` | — | `EntryCard` confirm (PRO) |
 | `propose_pdf_import` | — | `EntryCard` redirect to /connections |
+| `propose_document_generation` | kind, template, tone, language, job_description | `EntryCard` confirm |
+| `propose_cover_letter` | job_description, template, tone, language | `EntryCard` confirm |
+| `propose_cv_regenerate` | document_id, overrides | `EntryCard` confirm |
+| `propose_esco_disambiguation` | entity_id, candidates[] | `EscoDisambigCard` |
+| `propose_edge_creation` | from_id, to_id, edge_type, metadata | `EntryCard` confirm |
+| `propose_edge_deletion` | from_id, to_id, edge_type | `EntryCard` confirm |
+
+### HITL proposal flow
+
+All `propose_*` tools are `external_execution=True`.  The flow is:
+
+1. **Agent emits** the tool call → CopilotKit serialises it as an AG-UI event.
+2. **Frontend renders** the matching React card (`EntryCard`, `EscoDisambigCard`, etc.).
+3. **User acts:**
+   - *Confirm* → frontend `POST /api/v1/coherence/upsert` with the payload.
+   - *Reject* → frontend calls `record_agent_feedback` with `sentiment="negative"`.
+   - *Edit* → frontend patches the payload, then POSTs upsert + neutral/positive feedback.
+4. **Backend upserts** via Coherence Engine → returns `UpsertOutcome` with field-level diffs.
+5. **Frontend renders** `DiffCard` so the user sees what changed.
+6. **Agent receives** the outcome JSON and acknowledges in chat ("Añadido: Docker (nivel avanzado)").
+
+No data is persisted until step 3 (confirm).  This is the only write path for
+user-facing chat interactions.
 
 ### Adding a new card
 
@@ -62,6 +85,72 @@ async def add_<entity>(run_context: RunContext, ...):
 | `get_universe_summary` | Counts per entity + headline + top skills + recent experiences + languages |
 | `find_gaps` | List of suggestions from the rule engine (`MissingSkillProvider`, `StaleSkillProvider`, etc.) |
 | `search_universe` | Semantic search hits across the user's entities |
+
+## `discovery_tools.py` — conversational profile building
+
+| Name | Returns | When to use |
+|---|---|---|
+| `get_profile_completeness` | Counts + coverage % per dimension + sparse list | Agent wants to know what's missing before asking |
+| `suggest_discovery_questions` | Targeted questions + rationale + expected entities | Agent needs natural questions to fill gaps |
+
+These tools power the **`discover_profile`** intent.  Instead of formal quizzes
+or exams, the agent asks *conversational* questions grounded in the actual
+profile gaps: "¿Has tenido algún proyecto personal del que estés orgulloso?",
+"¿En qué crees que podrías aportar valor sin dudarlo?".  Every answer flows
+through the `UniverseEnrichmentEngine` and materialises in the graph.
+
+## `document_tools.py` — document generation support
+
+| Name | Returns | When to use |
+|---|---|---|
+| `list_document_templates` | Array of template metadata (name, kind, description, best_for, language_support) | Recommending a template conversationally |
+| `get_document_template` | Single template detail | User asks about a specific template |
+| `get_document` | Document metadata + content summary (experience_count, skill_count, etc.) | Referring to an existing CV or cover letter |
+
+These tools let the `document_specialist` discover what the user already has
+before proposing new generation.  They prevent the agent from exhausting the
+LLM context window with full document contents.
+
+## `graph_query_tools.py` — natural language graph queries
+
+| Name | Returns | When to use |
+|---|---|---|
+| `query_graph` | Executed Cypher + rows + explanation | Complex graph questions: "¿qué skills usa mi proyecto más reciente?" |
+| `explain_graph_query` | Cypher string + params (no execution) | Debugging or showing the user the translation |
+
+Both delegate to `Text2CypherEngine` which generates openCypher from natural
+language, validates it, executes it on Apache AGE, and returns structured
+results.
+
+## `learning_tools.py` — self-learning feedback loop
+
+| Name | Returns | When to use |
+|---|---|---|
+| `record_agent_feedback` | `{ "status": "recorded" }` | After any HITL rejection, heavy edit, or enthusiastic confirmation |
+
+Captures:
+- `trigger_message` — what the user said that caused the action.
+- `agent_action` — what the agent did (e.g. `proposed_skill: Docker`).
+- `user_expectation` — what the user wanted instead.
+- `sentiment` — `positive` | `negative` | `neutral`.
+
+The `SelfLearningEngine` stores this in `user_procedural_memory`.  A periodic
+`consolidate` workflow groups similar examples into active rules that the
+Context Providers inject into agent instructions.  No fine-tuning, no GPU —
+pure context engineering.
+
+## `universe_enrichment.py` — auto-materialisation engine
+
+`UniverseEnrichmentEngine` runs **after every chat turn** (fire-and-forget) to:
+
+1. **Extract entities** from free text via LLM (skills, experiences, projects, etc.)
+2. **Extract relations** between them ("used Python in project X")
+3. **Resolve duplicates** via Entity Resolution v2
+4. **Upsert nodes + edges** into AGE
+5. **Link to ESCO** where possible
+
+This is how the graph grows *organically* — the user never has to say "add this
+skill"; they just describe their work and the system materialises the knowledge.
 
 ## `memory.py` (planned)
 

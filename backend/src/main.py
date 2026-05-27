@@ -5,6 +5,9 @@ the well-known metadata, and the observability/middleware stack.
 """
 from __future__ import annotations
 
+import asyncio
+import os
+import sys
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -16,15 +19,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import text
 from starlette.responses import Response
 
 from src.shared.config import get_settings
-from src.shared.db import dispose_engine, import_all_models
+from src.shared.db import dispose_engine, get_session_factory, import_all_models
 from src.shared.errors import DomainError
 from src.shared.events import get_event_bus
 from src.shared.logging import configure_logging, get_logger
-from src.shared.middleware import SecurityHeadersMiddleware
 from src.shared.metrics import errors_total
+from src.shared.middleware import SecurityHeadersMiddleware
 from src.shared.rate_limit import limiter, rate_limit_exceeded_handler
 from src.shared.security import ensure_jwt_keys
 
@@ -33,12 +37,8 @@ logger = get_logger(__name__)
 
 async def _ensure_agno_indexes() -> None:
     """Create runtime indexes on tables managed by Agno (not in Alembic)."""
-    from sqlalchemy import text
-
-    from src.shared.db import async_session_factory
-
     try:
-        async with async_session_factory() as session:
+        async with get_session_factory()() as session:
             await session.execute(
                 text(
                     "CREATE INDEX IF NOT EXISTS ix_agno_messages_session ON agno_messages(session_id)"
@@ -47,6 +47,53 @@ async def _ensure_agno_indexes() -> None:
             await session.commit()
     except Exception as exc:
         logger.warning("agno_index_setup_failed", error=str(exc))
+
+
+async def _maybe_auto_seed_esco() -> None:
+    """Warn or auto-seed ESCO ontology when running in development."""
+    settings = get_settings()
+    if settings.env != "development":
+        return
+    try:
+        factory = get_session_factory()
+        async with factory() as session:
+            result = await session.execute(
+                text("SELECT count(*) FROM ontology_search WHERE label = 'Occupation'")
+            )
+            count = result.scalar_one()
+            if count > 1000:
+                return
+    except Exception as exc:
+        logger.warning("esco_seed_check_failed", error=str(exc))
+        return
+
+    auto_seed = os.getenv("AUTO_SEED_ESCO", "false").lower() in ("1", "true", "yes")
+    if auto_seed:
+        logger.info("esco_auto_seed_starting")
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable,
+                "-m",
+                "scripts.seed_esco",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _stdout, stderr = await proc.communicate()
+            if proc.returncode == 0:
+                logger.info("esco_auto_seed_finished")
+            else:
+                logger.warning(
+                    "esco_auto_seed_failed",
+                    rc=proc.returncode,
+                    stderr=stderr.decode(errors="replace")[:500],
+                )
+        except Exception as exc:
+            logger.warning("esco_auto_seed_exception", error=str(exc))
+    else:
+        logger.warning(
+            "esco_data_missing",
+            hint="Run 'docker compose up esco-seed' or set AUTO_SEED_ESCO=true",
+        )
 
 
 @asynccontextmanager
@@ -105,6 +152,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # 4. Ensure Agno chat-history index exists (created by Agno at runtime,
     #    not tracked by Alembic, so we guard it here to avoid seq-scans).
     await _ensure_agno_indexes()
+
+    # 5. Async ESCO seed check in dev (non-blocking).
+    _esco_seed_task = asyncio.create_task(_maybe_auto_seed_esco())  # noqa: RUF006
 
     yield
 
@@ -198,9 +248,9 @@ def create_app() -> FastAPI:
     from src.documents.interfaces.api.router import router as documents_router
     from src.identity.interfaces.api.router import router as identity_router
     from src.identity.interfaces.api.users_router import router as users_router
-    from src.mcp_server.interfaces.mcp_router import router as mcp_router
     from src.mcp_server.interfaces.oauth_router import router as oauth_router
     from src.mcp_server.interfaces.well_known_router import router as well_known_router
+    from src.mcp_server.server import create_mcp_app
     from src.shared.legal_router import router as legal_router
     from src.universe.interfaces.api.goals_router import router as goals_router
     from src.universe.interfaces.api.import_router import router as import_router
@@ -240,15 +290,17 @@ def create_app() -> FastAPI:
     )
     app.include_router(oauth_router, prefix="/auth/oauth", tags=["oauth"])
     app.include_router(well_known_router, tags=["well-known"])
-    app.include_router(mcp_router, prefix="/mcp", tags=["mcp"])
+    app.mount("/mcp", create_mcp_app())
     app.include_router(legal_router, tags=["legal"])
 
     # Agents AG-UI streaming endpoint (chat-first frontend)
     from src.agents.interfaces.agui_router import router as agui_router
+    from src.agents.interfaces.api.router import router as agents_api_router
     from src.agents.interfaces.chat_sessions_router import router as chat_sessions_router
 
     app.include_router(agui_router, tags=["agui"])
     app.include_router(chat_sessions_router, prefix="/api/v1/chat", tags=["chat"])
+    app.include_router(agents_api_router, prefix="/api/v1/agents", tags=["agents"])
 
     from src.coherence.interfaces.api.router import router as coherence_router
 
@@ -258,6 +310,10 @@ def create_app() -> FastAPI:
     from src.graph.interfaces.api.graph_router import router as graph_router
 
     app.include_router(graph_router, tags=["graph"])
+
+    from src.llm_tracking.interfaces.api.router import router as llm_tracking_router
+
+    app.include_router(llm_tracking_router, prefix="/api/v1/llm", tags=["llm"])
 
     # --- Health & metrics --------------------------------------------------
     @app.get("/health", tags=["health"])
@@ -280,8 +336,6 @@ def create_app() -> FastAPI:
         Each check has its own short timeout (2s) so a slow dependency
         doesn't pile up.
         """
-        import asyncio
-
         from src.shared.db import get_engine
 
         results: dict[str, str] = {}
@@ -337,6 +391,64 @@ def create_app() -> FastAPI:
         # LLM provider — just configuration check, no network ping (would be
         # too slow + the provider has its own SLAs we shouldn't gate on).
         results["llm_provider"] = settings.agents_provider_resolved
+
+        # MCP server health
+        try:
+            from mcp import ClientSession
+            from mcp.client.sse import sse_client
+
+            async def _ping_mcp() -> None:
+                mcp_url = f"{settings.canonical_base_url.rstrip('/')}/mcp/sse"
+                async with sse_client(mcp_url) as (read, write):
+                    async with ClientSession(read, write) as session:
+                        await session.initialize()
+
+            await asyncio.wait_for(_ping_mcp(), timeout=3.0)
+            results["mcp_server"] = "ok"
+        except Exception as exc:
+            results["mcp_server"] = f"error: {exc}"
+            overall_ok = False
+
+        # ESCO data availability
+        try:
+            async def _check_esco() -> None:
+                async with get_session_factory()() as session:
+                    result = await session.execute(
+                        text("SELECT count(*) FROM ontology_search WHERE label = 'Occupation'")
+                    )
+                    count = result.scalar_one()
+                    if count < 1000:
+                        raise RuntimeError(f"only {count} occupations")
+
+            await asyncio.wait_for(_check_esco(), timeout=3.0)
+            results["esco_data"] = "ok"
+        except Exception as exc:
+            results["esco_data"] = f"error: {exc}"
+            overall_ok = False
+
+        # LLM provider connectivity (lightweight list-models or similar)
+        try:
+            async def _ping_llm() -> None:
+                provider = settings.agents_provider_resolved
+                if provider == "anthropic":
+                    from anthropic import AsyncAnthropic
+
+                    client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+                    await client.models.list()
+                elif provider == "openai":
+                    from openai import AsyncOpenAI
+
+                    client = AsyncOpenAI(api_key=settings.openai_api_key)
+                    await client.models.list()
+                else:
+                    # mock / unknown — skip network check
+                    pass
+
+            await asyncio.wait_for(_ping_llm(), timeout=5.0)
+            results["llm_connectivity"] = "ok"
+        except Exception as exc:
+            results["llm_connectivity"] = f"error: {exc}"
+            overall_ok = False
 
         status_code = 200 if overall_ok else 503
         return JSONResponse(

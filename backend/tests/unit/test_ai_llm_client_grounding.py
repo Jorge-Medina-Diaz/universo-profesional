@@ -60,6 +60,7 @@ def _client(grounded: _FakeGrounded, llm: _FakeLlm) -> AiLlmClient:
     # Bypass __init__ so the test never touches a real session or provider.
     c = AiLlmClient.__new__(AiLlmClient)
     c._session = None  # type: ignore[attr-defined]
+    c._user_id = None  # type: ignore[attr-defined]
     c._grounded = grounded  # type: ignore[attr-defined]
     c._llm = llm  # type: ignore[attr-defined]
     return c

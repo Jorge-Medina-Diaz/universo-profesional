@@ -154,9 +154,10 @@ export function ArchitectureDecisionProposalCard({
                   <button
                     type="button"
                     className="ml-1"
+                    aria-label={`Quitar etiqueta ${t}`}
                     onClick={() => setTags(tags.filter((x) => x !== t))}
                   >
-                    <X size={10} />
+                    <X size={10} aria-hidden="true" />
                   </button>
                 </Badge>
               ))}
@@ -176,9 +177,10 @@ export function ArchitectureDecisionProposalCard({
                 <button
                   type="button"
                   className="text-stone hover:text-ink"
+                  aria-label="Añadir etiqueta"
                   onClick={addTag}
                 >
-                  <Plus size={12} />
+                  <Plus size={12} aria-hidden="true" />
                 </button>
               </div>
             </div>

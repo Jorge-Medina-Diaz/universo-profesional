@@ -30,20 +30,31 @@ import {
 import GraphCtor from "graphology";
 import { NodeBorderProgram } from "@sigma/node-border";
 import { createNodeImageProgram } from "@sigma/node-image";
+import { createNodeCompoundProgram } from "sigma/rendering";
 import EdgeCurveProgram, { indexParallelEdgesIndex } from "@sigma/edge-curve";
 import { Plus, Minus, Maximize2 } from "lucide-react";
 import "@react-sigma/core/lib/style.css";
 import type { GraphSnapshot } from "./api";
 import { areaKey, colorForArea, colorForPillar, labelForArea } from "@/shared/areaColors";
 import { iconFor, edgeLabel } from "./nodeIcons";
+import { shapeFor } from "./nodeShapes";
+import { kindColor } from "@/shared/kindColors";
 
-// Built once: colored disc background + white pictogram drawn on top, clipped
-// to the circle. Texture is shared across this module's sigma instances.
-const NodeImageProgram = createNodeImageProgram({
+// Program: coloured disc + white pictogram (area lens)
+const CircleImageProgram = createNodeImageProgram({
   drawingMode: "background",
   keepWithinCircle: true,
   padding: 0.28,
 });
+const CircleCompound = createNodeCompoundProgram([CircleImageProgram, NodeBorderProgram]);
+
+// Program: full shape + pictogram (kind-shapes lens)
+const ShapeImageProgram = createNodeImageProgram({
+  drawingMode: "background",
+  keepWithinCircle: false,
+  padding: 0.12,
+});
+const ShapeCompound = createNodeCompoundProgram([ShapeImageProgram, NodeBorderProgram]);
 
 interface GraphLike {
   order: number;
@@ -68,6 +79,27 @@ function cssVar(name: string, fallback: string): string {
   return v || fallback;
 }
 
+/** Convert #rrggbb or #rgb to rgba(r,g,b,a) for Sigma color attributes. */
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.trim();
+  let r = 0, g = 0, b = 0;
+  if (h.length === 4 && h[0] === "#") {
+    r = parseInt(h[1] + h[1], 16);
+    g = parseInt(h[2] + h[2], 16);
+    b = parseInt(h[3] + h[3], 16);
+  } else if (h.length === 7 && h[0] === "#") {
+    r = parseInt(h.slice(1, 3), 16);
+    g = parseInt(h.slice(3, 5), 16);
+    b = parseInt(h.slice(5, 7), 16);
+  } else if (h.startsWith("rgb(")) {
+    const m = h.match(/\d+/g);
+    if (m) { r = parseInt(m[0]); g = parseInt(m[1]); b = parseInt(m[2]); }
+  } else {
+    return h;
+  }
+  return `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(2)})`;
+}
+
 /** Stable [0,1) pseudo-random from a string — keeps jitter constant per node. */
 function seeded(s: string): number {
   let h = 2166136261;
@@ -87,6 +119,7 @@ interface ThemeColors {
   dim: string;
   leaf: string;
   edge: string;
+  sunbeam: string;
 }
 function readColors(): ThemeColors {
   return {
@@ -95,6 +128,7 @@ function readColors(): ThemeColors {
     dim: cssVar("--hairline-strong", "rgba(10,10,10,0.12)"),
     leaf: cssVar("--color-leafy-green", "#6ece9d"),
     edge: cssVar("--hairline", "rgba(10,10,10,0.08)"),
+    sunbeam: cssVar("--color-sunbeam-yellow", "#ffda6e"),
   };
 }
 
@@ -118,6 +152,14 @@ export interface GraphViewProps {
   onSelectEntity?: (sel: GraphSelection | null) => void;
   /** Group/colour the constellation by semantic area (default) or career pillar. */
   colorBy?: GraphColorBy;
+  /** Search query — non-matching nodes dim to 20 %. */
+  searchQuery?: string;
+  /** Node IDs currently undergoing a discovery-celebration animation. */
+  celebratingNodes?: Set<string>;
+  /** Render nodes as per-kind coloured shapes instead of area-coloured circles. */
+  shapeByKind?: boolean;
+  /** Visually flag nodes that carry an ESCO ontology link. */
+  showEsco?: boolean;
 }
 
 /** Resolve a node's group key, region label, and colour for the active lens. */
@@ -137,10 +179,14 @@ function GraphLoader({
   snapshot,
   kindsFilter,
   colorBy,
+  shapeByKind,
+  showEsco,
 }: {
   snapshot: GraphSnapshot;
   kindsFilter?: string[];
   colorBy: GraphColorBy;
+  shapeByKind?: boolean;
+  showEsco?: boolean;
 }) {
   const loadGraph = useLoadGraph();
 
@@ -151,7 +197,7 @@ function GraphLoader({
     const visible = snapshot.nodes.filter((n) => !filtered || filtered.has(n.attributes.kind));
 
     // Group into islands by the active lens (semantic area OR career pillar);
-    // each group becomes a coherent, labeled, colour-coded island.
+    // each group becomes a coherent, labelled, colour-coded island.
     const byGroup = new Map<string, typeof visible>();
     const groupMeta = new Map<string, { label: string; color: string }>();
     for (const n of visible) {
@@ -161,8 +207,7 @@ function GraphLoader({
       byGroup.set(g0.key, list);
       if (!groupMeta.has(g0.key)) groupMeta.set(g0.key, { label: g0.label, color: g0.color });
     }
-    // Largest group is the core of the universe; the rest orbit it. This fills
-    // the centre (no empty donut) and reads as "this is what you're about".
+    // Largest group is the core of the universe; the rest orbit it.
     const groups = Array.from(byGroup.keys()).sort(
       (a, b) => (byGroup.get(b)?.length ?? 0) - (byGroup.get(a)?.length ?? 0),
     );
@@ -172,31 +217,37 @@ function GraphLoader({
       const meta = groupMeta.get(gkey) ?? { label: gkey, color: colorForArea("general") };
       const nodes = byGroup.get(gkey) ?? [];
       nodes.forEach((node, i) => {
-        // Phyllotaxis spiral → even, organic packing; seeded jitter adds life.
         const a = i * 2.399963;
         const r = 0.95 * Math.sqrt(i);
         const jx = (seeded(node.key + "x") - 0.5) * 0.6;
         const jy = (seeded(node.key + "y") - 0.5) * 0.6;
+        const kind = node.attributes.kind;
+        const isEsco = showEsco && !!node.attributes.esco_uri;
+        const nodeColor = shapeByKind ? kindColor(kind) : meta.color;
+
         g.addNode(node.key, {
-          type: "image",
-          image: iconFor(node.attributes.kind),
+          type: shapeByKind ? "shape" : "image",
+          image: shapeByKind ? shapeFor(kind) : iconFor(kind),
           label: node.attributes.label,
           x: cx + Math.cos(a) * r + jx,
           y: cy + Math.sin(a) * r + jy,
           size: 16,
-          color: meta.color,
-          kind: node.attributes.kind,
+          color: nodeColor,
+          kind,
           groupKey: gkey,
           groupLabel: meta.label,
           groupColor: meta.color,
           zIndex: 1,
+          isEscoLinked: isEsco,
+          escoUri: node.attributes.esco_uri ?? null,
+          borderColor: isEsco ? "#f1c84b" : nodeColor,
+          borderSize: isEsco ? 2.5 : 0,
         });
       });
     };
 
     const coreCount = byGroup.get(groups[0])?.length ?? 0;
     const satellites = groups.slice(1);
-    // Orbit distance: clear the core island + the biggest satellite + a gap.
     const maxSatellite = Math.max(1, ...satellites.map((a) => byGroup.get(a)?.length ?? 0));
     const ring = islandRadius(coreCount) + islandRadius(maxSatellite) + 5.5;
 
@@ -222,8 +273,7 @@ function GraphLoader({
       }
     });
 
-    // Size by degree centrality — hubs read bigger. Generous floor so a
-    // disconnected universe stays legible.
+    // Size by degree centrality — hubs read bigger.
     g.forEachNode((node: string) => {
       const degree = g.degree(node);
       g.setNodeAttribute(node, "size", 16 + Math.sqrt(degree) * 3.4);
@@ -237,7 +287,7 @@ function GraphLoader({
 
     type LoadableGraph = Parameters<typeof loadGraph>[0];
     loadGraph(g as unknown as LoadableGraph);
-  }, [loadGraph, snapshot, kindsFilter, colorBy]);
+  }, [loadGraph, snapshot, kindsFilter, colorBy, shapeByKind, showEsco]);
 
   return null;
 }
@@ -326,9 +376,13 @@ interface CaptorCoords {
 function GraphEvents({
   selectedId,
   onSelectEntity,
+  searchQuery,
+  celebratingNodes,
 }: {
   selectedId?: string | null;
   onSelectEntity?: (sel: GraphSelection | null) => void;
+  searchQuery?: string;
+  celebratingNodes?: Set<string>;
 }) {
   const sigma = useSigma();
   const registerEvents = useRegisterEvents();
@@ -339,15 +393,67 @@ function GraphEvents({
   const dragged = useRef<string | null>(null);
   const dragging = useRef(false);
   const dragMoved = useRef(false);
+  const celebrationStart = useRef<Map<string, number>>(new Map());
 
-  // Install reducers once; hover/selection flip refs + refresh. Theme colours
-  // are read from a ref so a live theme switch updates them without re-install.
+  // Merge prop celebrations into our animated timeline.
+  useEffect(() => {
+    const now = Date.now();
+    for (const id of celebratingNodes ?? []) {
+      if (!celebrationStart.current.has(id)) {
+        celebrationStart.current.set(id, now);
+      }
+    }
+  }, [celebratingNodes]);
+
+  // Install reducers once; hover/selection/search/celebration flip refs + refresh.
   useEffect(() => {
     const graph = sigma.getGraph();
 
     sigma.setSetting("nodeReducer", (node, data) => {
       const res = { ...data } as Record<string, unknown>;
+      const now = Date.now();
+      const celebrationStartTime = celebrationStart.current.get(node);
       const focus = hovered.current ?? selected.current;
+
+      // Discovery celebration: spring scale + opacity + glow border.
+      if (celebrationStartTime !== undefined) {
+        const elapsed = now - celebrationStartTime;
+        const progress = Math.min(elapsed / 800, 1);
+        // Damped spring approx: 1 - e^(-6t)
+        const springVal = 1 - Math.exp(-6 * progress);
+        const baseSize = (data.size as number);
+        res.size = baseSize * (0.2 + 0.8 * springVal);
+        // Opacity via alpha on color
+        const baseColor = String(data.color ?? colors.current.ink);
+        res.color = hexToRgba(baseColor, springVal);
+        // Glow border that fades over 2s
+        const glowProgress = Math.min(elapsed / 2000, 1);
+        res.borderColor = `rgba(255, 218, 110, ${1 - glowProgress})`;
+        res.borderSize = 4 * (1 - glowProgress);
+        res.zIndex = 3;
+        if (elapsed > 2000) {
+          celebrationStart.current.delete(node);
+        }
+      }
+
+      // Search highlight: matching nodes get a ring, non-matching dim to 20 %.
+      if (searchQuery && searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        const label = String(data.label ?? "").toLowerCase();
+        const matches = label.includes(q);
+        if (!matches) {
+          res.color = colors.current.dim;
+          res.image = undefined;
+          res.label = "";
+          res.borderSize = 0;
+        } else {
+          res.borderColor = colors.current.sunbeam;
+          res.borderSize = 3;
+          res.zIndex = 3;
+        }
+      }
+
+      // Hover / selection focus.
       if (focus && graph.hasNode(focus)) {
         if (node === focus) {
           res.highlighted = true;
@@ -379,8 +485,6 @@ function GraphEvents({
           res.hidden = true;
         }
       } else {
-        // Resting state: hide document-provenance overlay edges so the map
-        // breathes; they reappear when you hover/select a connected node.
         if (data.edge_type === OVERLAY_EDGE) res.hidden = true;
         res.label = "";
       }
@@ -412,14 +516,12 @@ function GraphEvents({
         setCursor("grabbing");
         if (!sigma.getCustomBBox()) sigma.setCustomBBox(sigma.getBBox());
       },
-      // Body-level move so the drag keeps working past the node's hit area.
       mousemovebody: (e: CaptorCoords) => {
         if (!dragging.current || !dragged.current) return;
         const pos = sigma.viewportToGraph(e);
         graph.setNodeAttribute(dragged.current, "x", pos.x);
         graph.setNodeAttribute(dragged.current, "y", pos.y);
         dragMoved.current = true;
-        // Stop the camera from panning while we drag the node.
         e.preventSigmaDefault();
         e.original.preventDefault();
         e.original.stopPropagation();
@@ -436,8 +538,6 @@ function GraphEvents({
         if (!sigma.getCustomBBox()) sigma.setCustomBBox(sigma.getBBox());
       },
       clickNode: ({ node }) => {
-        // A drag ends with a click event — swallow it so we don't open the
-        // inspector after repositioning a node.
         if (dragMoved.current) {
           dragMoved.current = false;
           return;
@@ -451,9 +551,27 @@ function GraphEvents({
         onSelectEntity?.(null);
       },
     });
-  }, [sigma, registerEvents, onSelectEntity]);
+  }, [sigma, registerEvents, onSelectEntity, searchQuery]);
 
-  // Live theme switch: refresh cached colours + label colours, then repaint.
+  // Animation loop for celebrations.
+  useEffect(() => {
+    let raf: number;
+    const loop = () => {
+      const now = Date.now();
+      let hasActive = false;
+      for (const [, start] of celebrationStart.current) {
+        if (now - start < 2000) hasActive = true;
+      }
+      if (hasActive) {
+        sigma.refresh({ skipIndexation: true });
+        raf = requestAnimationFrame(loop);
+      }
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [sigma]);
+
+  // Live theme switch.
   useEffect(() => {
     const apply = () => {
       colors.current = readColors();
@@ -467,8 +585,6 @@ function GraphEvents({
   }, [sigma]);
 
   // React to controlled selection: highlight + animate camera to the node.
-  // Skip the camera move on the very first run (mount / lens-switch) — node
-  // display data isn't laid out yet, which would fling the camera to (0,0).
   useEffect(() => {
     selected.current = selectedId ?? null;
     const graph = sigma.getGraph();
@@ -526,17 +642,21 @@ export function GraphView({
   selectedId,
   onSelectEntity,
   colorBy = "area",
+  searchQuery,
+  celebratingNodes,
+  shapeByKind,
+  showEsco,
 }: GraphViewProps) {
   const signature = useMemo(
-    () => `${snapshot.node_count}:${(kindsFilter ?? []).join(",")}:${colorBy}`,
-    [snapshot.node_count, kindsFilter, colorBy],
+    () => `${snapshot.node_count}:${(kindsFilter ?? []).join(",")}:${colorBy}:${shapeByKind ?? false}`,
+    [snapshot.node_count, kindsFilter, colorBy, shapeByKind],
   );
 
   const settings = useMemo(
     () => ({
-      nodeProgramClasses: { image: NodeImageProgram, border: NodeBorderProgram },
+      nodeProgramClasses: { image: CircleCompound, shape: ShapeCompound, border: NodeBorderProgram },
       edgeProgramClasses: { curved: EdgeCurveProgram },
-      defaultNodeType: "image",
+      defaultNodeType: shapeByKind ? "shape" : "image",
       defaultEdgeType: "curved",
       renderLabels: !ambient,
       renderEdgeLabels: !ambient,
@@ -547,8 +667,6 @@ export function GraphView({
       edgeLabelFont: '"DM Sans", system-ui, sans-serif',
       edgeLabelSize: 11,
       edgeLabelColor: { color: cssVar("--color-muted-stone", "#6b7280") },
-      // Declutter: fewer, larger label cells + a rendered-size floor so only
-      // hubs label when zoomed out; everything labels as you zoom in.
       labelDensity: 0.55,
       labelGridCellSize: 150,
       labelRenderedSizeThreshold: ambient ? Number.POSITIVE_INFINITY : 7,
@@ -557,11 +675,11 @@ export function GraphView({
       allowInvalidContainer: true,
       enableEdgeEvents: false,
     }),
-    [ambient],
+    [ambient, shapeByKind],
   );
 
   if (snapshot.node_count === 0 && !ambient) {
-    return null; // empty state handled by the page
+    return null;
   }
 
   return (
@@ -570,12 +688,24 @@ export function GraphView({
         style={{ height: "100%", width: "100%", background: "transparent" }}
         settings={settings}
         className={ambient ? "pointer-events-none opacity-70" : undefined}
+        aria-label="Grafo interactivo de tu universo profesional. Usa los controles de zoom o tabula para navegar."
       >
-        <GraphLoader snapshot={snapshot} kindsFilter={kindsFilter} colorBy={colorBy} />
+        <GraphLoader
+          snapshot={snapshot}
+          kindsFilter={kindsFilter}
+          colorBy={colorBy}
+          shapeByKind={shapeByKind}
+          showEsco={showEsco}
+        />
         {!ambient && (
           <>
             <ClusterLabels signature={signature} />
-            <GraphEvents selectedId={selectedId} onSelectEntity={onSelectEntity} />
+            <GraphEvents
+              selectedId={selectedId}
+              onSelectEntity={onSelectEntity}
+              searchQuery={searchQuery}
+              celebratingNodes={celebratingNodes}
+            />
             <ZoomControls />
           </>
         )}

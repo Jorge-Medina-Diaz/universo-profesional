@@ -5,16 +5,15 @@ we update the dict here and redeploy — no DB migration needed.
 """
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.llm_tracking.domain.entities import LlmUsageLog
 from src.llm_tracking.infrastructure.repository import SqlalchemyLlmUsageLogRepository
 
-# USD per 1M tokens
+# EUR per 1M tokens
 _PRICES: dict[str, dict[str, Decimal]] = {
     "claude-sonnet-4-6": {
         "input": Decimal("3.00"),
@@ -23,14 +22,14 @@ _PRICES: dict[str, dict[str, Decimal]] = {
         "cache_write": Decimal("3.75"),
     },
     "claude-haiku-4-5-20251001": {
-        "input": Decimal("0.80"),
-        "output": Decimal("4.00"),
+        "input": Decimal("0.25"),
+        "output": Decimal("1.25"),
         "cache_read": Decimal("0.08"),
         "cache_write": Decimal("1.00"),
     },
     "gpt-4o": {
-        "input": Decimal("2.50"),
-        "output": Decimal("10.00"),
+        "input": Decimal("5.00"),
+        "output": Decimal("15.00"),
         "cache_read": Decimal("1.25"),
         "cache_write": Decimal("0.00"),
     },
@@ -43,8 +42,15 @@ _PRICES: dict[str, dict[str, Decimal]] = {
 }
 
 
-def compute_cost_usd(*, model: str, input_tokens: int, output_tokens: int, cache_read_tokens: int = 0, cache_write_tokens: int = 0) -> Decimal | None:
-    """Return estimated cost in USD, or None if model pricing unknown."""
+def compute_cost_eur(
+    *,
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    cache_read_tokens: int = 0,
+    cache_write_tokens: int = 0,
+) -> Decimal | None:
+    """Return estimated cost in EUR, or None if model pricing unknown."""
     prices = _PRICES.get(model)
     if not prices:
         return None
@@ -54,7 +60,7 @@ def compute_cost_usd(*, model: str, input_tokens: int, output_tokens: int, cache
         + Decimal(cache_read_tokens) * prices["cache_read"]
         + Decimal(cache_write_tokens) * prices["cache_write"]
     ) / Decimal("1_000_000")
-    return cost.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP)
+    return cost.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
 
 
 async def log_agno_run(
@@ -64,6 +70,7 @@ async def log_agno_run(
     run_id: str,
     session_id: str,
     metrics: dict[str, Any],
+    agent: str | None = None,
 ) -> LlmUsageLog | None:
     """Extract metrics from an Agno run and persist a usage log row.
 
@@ -87,8 +94,9 @@ async def log_agno_run(
         metrics=metrics,
         run_id=run_id,
         session_id=session_id,
+        agent=agent,
     )
-    cost = compute_cost_usd(
+    cost = compute_cost_eur(
         model=model,
         input_tokens=log.input_tokens,
         output_tokens=log.output_tokens,
@@ -106,9 +114,10 @@ async def log_agno_run(
         cache_write_tokens=log.cache_write_tokens,
         total_tokens=log.total_tokens,
         duration_ms=log.duration_ms,
-        cost_usd=cost,
+        cost_eur=cost,
         run_id=log.run_id,
         session_id=log.session_id,
+        agent=log.agent,
     )
     repo = SqlalchemyLlmUsageLogRepository(session)
     await repo.create(log)
@@ -126,9 +135,10 @@ async def log_document_llm_call(
     cache_read_tokens: int = 0,
     cache_write_tokens: int = 0,
     duration_ms: int | None = None,
+    agent: str | None = None,
 ) -> LlmUsageLog:
     """Persist usage from a direct LLM call (document generation, extraction)."""
-    cost = compute_cost_usd(
+    cost = compute_cost_eur(
         model=model,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
@@ -145,7 +155,8 @@ async def log_document_llm_call(
         cache_write_tokens=cache_write_tokens,
         total_tokens=input_tokens + output_tokens,
         duration_ms=duration_ms,
-        cost_usd=cost,
+        cost_eur=cost,
+        agent=agent,
     )
     repo = SqlalchemyLlmUsageLogRepository(session)
     await repo.create(log)

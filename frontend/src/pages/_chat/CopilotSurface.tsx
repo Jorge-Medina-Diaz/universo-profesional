@@ -28,6 +28,7 @@ import { SyncTaskTray } from "@/chat/SyncTaskTray";
 import { RemindersBanner } from "@/chat/RemindersBanner";
 import { appendUserMessage } from "@/chat/appendMessage";
 import { ThinkingSteps } from "@/chat/ThinkingSteps";
+import { useChatState } from "@/chat/state";
 
 interface Props {
   instructions: string;
@@ -142,26 +143,27 @@ function RemindersBannerLauncher() {
 }
 
 /**
- * Consumes one-shot prompts dropped via sessionStorage (e.g. "Edit this CV
+ * Consumes one-shot prompts dropped into the Zustand store (e.g. "Edit this CV
  * section"). Appends them as a user message into the active chat thread.
+ *
+ * Reactive: subscribes to `pendingInjection` so messages are delivered even
+ * when CopilotSurface is already mounted.
  */
 function ChatInjector() {
   const chat = useCopilotChat();
+  const pendingInjection = useChatState((s) => s.pendingInjection);
+  const setPendingInjection = useChatState((s) => s.setPendingInjection);
+
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem("cvs-saas-chat-inject");
-      if (!raw) return;
-      sessionStorage.removeItem("cvs-saas-chat-inject");
-      const data = JSON.parse(raw) as { content: string };
-      if (!data.content) return;
-      // Minor delay so CopilotChat finishes mounting before we push.
-      setTimeout(() => {
-        appendUserMessage(chat, data.content);
-      }, 300);
-    } catch {
-      /* ignore */
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!pendingInjection?.content) return;
+    // Clear immediately so a re-render doesn't re-append.
+    setPendingInjection(null);
+    // Minor delay so CopilotChat finishes any internal init before we push.
+    const t = setTimeout(() => {
+      appendUserMessage(chat, pendingInjection.content);
+    }, 150);
+    return () => clearTimeout(t);
+  }, [pendingInjection, chat, setPendingInjection]);
+
   return null;
 }

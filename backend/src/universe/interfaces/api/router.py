@@ -27,6 +27,7 @@ from src.universe.interfaces.api.deps import (
     SummaryDep,
     UpdateHeaderDep,
 )
+from src.universe.application.snapshot_service import TemporalSnapshotService
 
 router = APIRouter()
 
@@ -41,6 +42,27 @@ class UniverseHeaderPatch(BaseModel):
 @router.get("/summary")
 async def get_summary(user_id: CurrentUserId, uc: SummaryDep) -> dict[str, Any]:
     return await uc.execute(user_id=user_id)
+
+
+@router.get("/at/{iso_date}")
+async def get_universe_at(
+    user_id: CurrentUserId,
+    session: SessionDep,
+    iso_date: str,
+) -> dict[str, Any]:
+    """Reconstruct the user's universe as it existed on *iso_date* (YYYY-MM-DD
+    or ISO-8601 datetime).  Useful for "what did my CV look like in March?"
+    or time-travel debugging.
+    """
+    from datetime import datetime, timezone
+
+    # Accept YYYY-MM-DD or full ISO datetime
+    try:
+        at = datetime.fromisoformat(iso_date.replace("Z", "+00:00"))
+    except ValueError:
+        at = datetime.strptime(iso_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    svc = TemporalSnapshotService(session)
+    return await svc.get_universe_at(user_id=user_id, at=at)
 
 
 @router.patch("/header")

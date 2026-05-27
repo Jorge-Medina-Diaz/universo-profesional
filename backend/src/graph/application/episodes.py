@@ -94,7 +94,7 @@ async def record_touch(
         session,
         schema.GRAPH_PERSONAL,
         """
-        MATCH (e:Entity {id: $eid, user_id: $uid}),
+        MATCH (e {id: $eid, user_id: $uid}),
               (ep:Episode {id: $epid, user_id: $uid})
         MERGE (e)-[r:TOUCHED_IN]->(ep)
         SET r.valid_from = COALESCE(r.valid_from, $now),

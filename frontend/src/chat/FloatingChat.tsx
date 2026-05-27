@@ -7,10 +7,11 @@
  * class that hides the message stream when collapsed. This preserves
  * streaming + HITL cards without forwarding messages between two UIs.
  */
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { useEscapeKey } from "@/shared/useEscapeKey";
 import { cn } from "@/ui";
+import { useChatState } from "@/chat/state";
 
 export interface FloatingChatProps {
   children: ReactNode;
@@ -18,7 +19,8 @@ export interface FloatingChatProps {
 }
 
 export function FloatingChat({ children, onExpandedChange }: FloatingChatProps) {
-  const [expanded, setExpanded] = useState(false);
+  const expanded = useChatState((s) => s.chatExpanded);
+  const setExpanded = useChatState((s) => s.setChatExpanded);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const set = (v: boolean) => {

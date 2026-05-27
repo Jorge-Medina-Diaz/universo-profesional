@@ -18,9 +18,10 @@ class LlmUsageLog:
     cache_write_tokens: int = 0
     total_tokens: int = 0
     duration_ms: int | None = None
-    cost_usd: Decimal | None = None
+    cost_eur: Decimal | None = None
     run_id: str | None = None
     session_id: str | None = None
+    agent: str | None = None
 
     @classmethod
     def from_agno_metrics(
@@ -32,6 +33,7 @@ class LlmUsageLog:
         metrics: dict[str, object],
         run_id: str | None = None,
         session_id: str | None = None,
+        agent: str | None = None,
     ) -> Self:
         """Build from Agno run metrics dict (ai.agno_sessions.runs->metrics)."""
         return cls(
@@ -46,9 +48,10 @@ class LlmUsageLog:
             duration_ms=_int(metrics.get("duration") * 1000)
             if isinstance(metrics.get("duration"), (int, float))
             else None,
-            cost_usd=None,  # computed separately
+            cost_eur=None,  # computed separately
             run_id=run_id,
             session_id=session_id,
+            agent=agent,
         )
 
 

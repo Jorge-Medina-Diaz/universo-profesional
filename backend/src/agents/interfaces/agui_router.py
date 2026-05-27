@@ -22,35 +22,67 @@ and pin `thread_id = main-<user_id>` ourselves).
 from __future__ import annotations
 
 import asyncio
+import base64
+import contextlib
+import copy as _copy
+import io
 import re
+import time as _time
 import uuid
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Any
+from uuid import UUID
 
 import structlog
 from ag_ui.core import (
     EventType,
     RunAgentInput,
     RunErrorEvent,
+    RunFinishedEvent,
     RunStartedEvent,
     TextMessageContentEvent,
     TextMessageEndEvent,
     TextMessageStartEvent,
 )
 from ag_ui.encoder import EventEncoder
+from agno.media import Image
+from agno.os.interfaces.agui.utils import (
+    async_stream_agno_response_as_agui_events,
+    extract_agui_user_input,
+    validate_agui_state,
+)
+from agno.run.agent import RunEvent as _RunEvent
+from agno.run.agent import RunPausedEvent as _AgentRunPausedEvent
+from agno.run.team import RunErrorEvent as _TeamRunErrorEvent
 from fastapi import APIRouter, Body, Query, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from jose import JWTError
+from pypdf import PdfReader
 from sqlalchemy import text
 
+from src.agents.context_providers import IntentRouter
+from src.agents.factory import get_universe_team
+from src.agents.infrastructure.proposal_store import set_proposal
+from src.agents.workflows.universe_enrichment import UniverseEnrichmentEngine
 from src.identity.interfaces.api.deps import SessionDep
+from src.llm_tracking.application.tracker import log_agno_run
+from src.shared.db import get_session_factory, set_rls_user, with_user_session
 from src.shared.errors import UnauthorizedError
+from src.shared.metrics import (
+    agent_proposals_total,
+    agent_run_seconds,
+    agent_runs_total,
+)
 from src.shared.rate_limit import limiter
 from src.shared.security import decode_jwt
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter()
+
+# Hold references to fire-and-forget background tasks so they are not
+# garbage-collected mid-flight (RUF006).
+_background_tasks: set[asyncio.Task] = set()
 
 # Per-RUN rate limit. Applied ONLY to actual agent generations (run /
 # run-multimodal), never to `connect` or `info`: CopilotKit keeps reopening
@@ -60,6 +92,7 @@ router = APIRouter()
 # scripted cost bombs; the per-user concurrency cap below is the parallel
 # guard. Keyed by JWT (rate_limit._key_func) → per-user, cross-replica (Redis).
 _CHAT_RATE_LIMIT = "60/minute"
+_REQUIRED_BODY = Body(...)
 
 # Per-user concurrent-stream cap. SSE chat streams are long-lived; without a
 # cap a single user could open dozens in parallel and exhaust the DB pool.
@@ -239,8 +272,6 @@ def _ts_to_iso(ts: Any) -> str | None:
     if ts is None:
         return None
     try:
-        from datetime import datetime
-
         return datetime.fromtimestamp(int(ts), tz=UTC).isoformat()
     except Exception:
         return None
@@ -254,7 +285,7 @@ def _ts_to_iso(ts: Any) -> str | None:
 @router.post("/agui")
 async def agui_single_endpoint(
     request: Request,
-    body: dict[str, Any] = Body(...),
+    body: dict[str, Any] = _REQUIRED_BODY,
 ) -> Any:
     # NOTE: no blanket @limiter here — this envelope multiplexes info/connect/
     # run, and only runs should be rate-limited. The run limit is enforced
@@ -298,7 +329,7 @@ async def agui_single_endpoint(
 
 @router.post("/agui/agent/{agent_id}/connect")
 async def agui_agent_connect(
-    agent_id: str, request: Request, body: dict[str, Any] = Body(...)
+    agent_id: str, request: Request, body: dict[str, Any] = _REQUIRED_BODY
 ) -> StreamingResponse:
     _ensure_known_agent(agent_id)
     # connect = passive SSE channel CopilotKit reopens on every reconnect /
@@ -310,7 +341,7 @@ async def agui_agent_connect(
 @router.post("/agui/agent/{agent_id}/run")
 @limiter.limit(_CHAT_RATE_LIMIT)
 async def agui_agent_run(
-    agent_id: str, request: Request, body: dict[str, Any] = Body(...)
+    agent_id: str, request: Request, body: dict[str, Any] = _REQUIRED_BODY
 ) -> StreamingResponse:
     _ensure_known_agent(agent_id)
     return await _stream_chat(
@@ -465,8 +496,6 @@ _MAX_PDF_CHARS = 8000
 
 def _decode_data_value(value: str) -> bytes:
     """Decode an InputContentDataSource value (raw base64 or data: URL)."""
-    import base64
-
     payload = value.split(",", 1)[1] if value.startswith("data:") else value
     return base64.b64decode(payload)
 
@@ -483,8 +512,6 @@ def _last_user_parts(messages: list[Any]) -> list[Any]:
 
 def _extract_agui_images(messages: list[Any]) -> list[Any]:
     """Build agno Image objects from image InputContent parts (data or url)."""
-    from agno.media import Image
-
     images: list[Any] = []
     for part in _last_user_parts(messages):
         if getattr(part, "type", None) != "image":
@@ -511,9 +538,6 @@ def _extract_agui_images(messages: list[Any]) -> list[Any]:
 
 async def _extract_agui_pdf_text(messages: list[Any]) -> str:
     """Inline-parse text from attached PDF document parts (best-effort)."""
-    import asyncio
-    import io
-
     chunks: list[str] = []
     for part in _last_user_parts(messages):
         source = getattr(part, "source", None)
@@ -527,21 +551,67 @@ async def _extract_agui_pdf_text(messages: list[Any]) -> str:
         if not value:
             continue
         try:
-            from pypdf import PdfReader
-
-            def _parse() -> str:
-                reader = PdfReader(io.BytesIO(_decode_data_value(value)))
+            def _parse(pdf_value: str = value) -> str:
+                reader = PdfReader(io.BytesIO(_decode_data_value(pdf_value)))
                 return "\n".join((pg.extract_text() or "") for pg in reader.pages).strip()
 
-            text = await asyncio.to_thread(_parse)
-            if text:
-                chunks.append("[Documento adjunto]\n" + text[:_MAX_PDF_CHARS])
+            pdf_text = await asyncio.to_thread(_parse)
+            if pdf_text:
+                chunks.append("[Documento adjunto]\n" + pdf_text[:_MAX_PDF_CHARS])
         except Exception:  # skip an unreadable PDF
             continue
     return "\n\n".join(chunks)
 
 
-def _adapt_team_pause(ev: Any) -> Any:
+_PROPOSAL_TOOLS = {
+    "propose_experience",
+    "propose_skill",
+    "propose_project",
+    "propose_education",
+    "propose_certification",
+    "propose_goal",
+}
+
+
+def _inject_proposal_metadata(ev: Any, user_id: str | None) -> None:
+    """Detect proposal tool calls, generate IDs, store in cache, inject into args.
+
+    Mutates the event's tools in-place so the AG-UI converter forwards the
+    enriched arguments to CopilotKit, which passes them to
+    ``useCopilotAction(({ name: 'propose_experience', ... }))``.
+    """
+    tools = getattr(ev, "tools", None) or []
+    for tool in tools:
+        name = getattr(tool, "tool_name", None)
+        if name not in _PROPOSAL_TOOLS:
+            continue
+        args = getattr(tool, "tool_args", None) or {}
+        if not isinstance(args, dict):
+            continue
+
+        proposal_id = str(uuid.uuid4())
+        entity_type = name.replace("propose_", "")
+
+        set_proposal(
+            user_id=user_id or "anonymous",
+            proposal_id=proposal_id,
+            entity_type=entity_type,
+            entity_data=dict(args),
+            action="create",
+            confidence=0.85,
+            reason="Propuesta generada por el agente",
+            thread_id=getattr(ev, "session_id", None),
+        )
+
+        args["proposal_id"] = proposal_id
+        args["entity_type"] = entity_type
+        args["action"] = "create"
+        args["confidence"] = 0.85
+        args["reason"] = "Propuesta generada por el agente"
+        agent_proposals_total.labels(type=entity_type).inc()
+
+
+def _adapt_team_pause(ev: Any, user_id: str | None = None) -> Any:
     """Convert a TEAM-level RunPausedEvent into an AGENT-level one.
 
     This is a controlled workaround for Agno's AG-UI converter, which
@@ -550,14 +620,10 @@ def _adapt_team_pause(ev: Any) -> Any:
     isolate the fragile `__class__` swap here so failures can be caught
     and surfaced as a proper `RunErrorEvent`.
     """
-    import copy as _copy
-
-    from agno.run.agent import RunEvent as _RunEvent
-    from agno.run.agent import RunPausedEvent as _AgentRunPausedEvent
-
     if not getattr(ev, "is_paused", False):
         return ev
     if isinstance(ev, _AgentRunPausedEvent):
+        _inject_proposal_metadata(ev, user_id)
         return ev
 
     has_ext = any(
@@ -573,10 +639,13 @@ def _adapt_team_pause(ev: Any) -> Any:
     conv.__class__ = _AgentRunPausedEvent
     conv.event = _RunEvent.run_paused
     conv.content = None  # drop "Team run paused…" plumbing text
+    _inject_proposal_metadata(conv, user_id)
     return conv
 
 
-async def _surface_team_external_tools(raw: Any) -> Any:
+async def _surface_team_external_tools(
+    raw: Any, user_id: str | None = None
+) -> Any:
     """Make TEAM-level external-execution pauses visible to agno's AG-UI converter.
 
     Wraps the fragile `_adapt_team_pause` monkey-patch in a hard try/except
@@ -584,11 +653,9 @@ async def _surface_team_external_tools(raw: Any) -> Any:
     dataclass layout in a future release) we emit a `RunErrorEvent` so the
     client sees a failure instead of a silent empty turn.
     """
-    from agno.run.team import RunErrorEvent as _TeamRunErrorEvent
-
     async for ev in raw:
         try:
-            adapted = _adapt_team_pause(ev)
+            adapted = _adapt_team_pause(ev, user_id=user_id)
         except Exception as exc:
             logger.error(
                 "agui_team_pause_adapter_failed",
@@ -606,12 +673,6 @@ async def _surface_team_external_tools(raw: Any) -> Any:
 async def _run_team_with_attachments(team: Any, run_input: RunAgentInput) -> Any:
     """Like agno's `run_team`, but also passes image attachments and inline PDF
     text to `team.arun`. (agno's stock extractor keeps text only.)"""
-    from agno.os.interfaces.agui.utils import (
-        async_stream_agno_response_as_agui_events,
-        extract_agui_user_input,
-        validate_agui_state,
-    )
-
     run_id = run_input.run_id or str(uuid.uuid4())
     try:
         messages = run_input.messages or []
@@ -630,6 +691,31 @@ async def _run_team_with_attachments(team: Any, run_input: RunAgentInput) -> Any
             user_id = run_input.forwarded_props.get("user_id")
         session_state = validate_agui_state(run_input.state, run_input.thread_id)
 
+        # Sprint R: Intent Router — classify user message and enrich session_state
+        # with provider context so tools can adapt behaviour downstream.
+        if user_id and user_input:
+            try:
+                factory = get_session_factory()
+                async with factory() as db_session:
+                    await set_rls_user(db_session, UUID(str(user_id)))
+                    router = IntentRouter(db_session, UUID(str(user_id)))
+                    intent = await router.classify(user_input)
+                    provider = await router.get_provider(intent)
+                    memory_ctx = await provider.get_memory_context()
+                    session_state["_provider_intent"] = intent.name
+                    session_state["_provider_name"] = intent.provider_name
+                    session_state["_provider_confidence"] = intent.confidence
+                    session_state["_provider_memory_context"] = memory_ctx
+                    logger.info(
+                        "intent_routed",
+                        user_id=str(user_id),
+                        intent=intent.name,
+                        provider=intent.provider_name,
+                        confidence=intent.confidence,
+                    )
+            except Exception as exc:
+                logger.warning("intent_router_failed", error=str(exc), user_id=str(user_id))
+
         response_stream = team.arun(
             input=user_input,
             images=images or None,
@@ -641,7 +727,9 @@ async def _run_team_with_attachments(team: Any, run_input: RunAgentInput) -> Any
             run_id=run_id,
         )
         async for event in async_stream_agno_response_as_agui_events(
-            response_stream=_surface_team_external_tools(response_stream),
+            response_stream=_surface_team_external_tools(
+                response_stream, user_id=user_id
+            ),
             thread_id=run_input.thread_id,
             run_id=run_id,
         ):
@@ -649,6 +737,7 @@ async def _run_team_with_attachments(team: Any, run_input: RunAgentInput) -> Any
     except Exception as exc:
         logger.error("agui_run_failed", error=str(exc), exc_info=True)
         yield RunErrorEvent(type=EventType.RUN_ERROR, message="internal error")
+        yield RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=run_input.thread_id, run_id=run_id)
 
 
 # ---------------------------------------------------------------------------
@@ -732,7 +821,7 @@ async def _stream_chat(
 
     # Per-user concurrency guard — bounds simultaneous agent RUNS only.
     # The long-lived `connect` SSE channel (guard_concurrency=False) must NOT
-    # consume a slot, or a single open chat page (×2 under React StrictMode)
+    # consume a slot, or a single open chat page (x2 under React StrictMode)
     # would exhaust the cap and 429 every turn.
     acquired = False
     if guard_concurrency:
@@ -759,69 +848,19 @@ async def _stream_chat(
     )
     flag_empty_run = guard_concurrency and has_user_message
 
-    from src.agents.factory import get_universe_team
-
     team = get_universe_team()
     encoder = EventEncoder()
 
-    async def event_stream():
-        # `run_team` already wraps agent errors and yields a RunErrorEvent,
-        # but encoding/transport can still raise. Guard the whole loop so a
-        # mid-stream failure always reaches the client as a clean error
-        # frame (generic message — never leak internals) and is logged
-        # server-side with our structured logger. We also record run
-        # volume / latency / status for observability (token spend for the
-        # streaming path is read from agno_sessions by the cost benchmark).
-        import time as _time
-
-        from src.shared.metrics import agent_run_seconds, agent_runs_total
-
-        started = _time.monotonic()
-        status = "completed"
-        try:
-            async for frame in _clean_event_stream(
-                _run_team_with_attachments(team, run_input),
-                encoder,
-                flag_empty_run=flag_empty_run,
-            ):
-                yield frame
-        except Exception as exc:
-            status = "error"
-            logger.error(
-                "agui_stream_failed",
-                user_id=str(user_id),
-                thread_id=enforced_thread_id,
-                error=str(exc),
-                exc_info=True,
-            )
-            try:
-                yield encoder.encode(
-                    RunErrorEvent(
-                        type=EventType.RUN_ERROR,
-                        message="internal error",
-                    )
-                )
-            except Exception:
-                yield 'data: {"type":"RUN_ERROR","message":"internal error"}\n\n'
-        finally:
-            if acquired:
-                await _release_stream_slot(str(user_id))
-            agent_runs_total.labels(
-                agent="universe_coordinator", status=status
-            ).inc()
-            agent_run_seconds.labels(agent="universe_coordinator").observe(
-                _time.monotonic() - started
-            )
-            # Post-run usage tracking — fire-and-forget so we never block the stream.
-            try:
-                asyncio.create_task(
-                    _persist_agno_usage(enforced_thread_id, str(user_id))
-                )
-            except Exception:
-                pass
-
     return StreamingResponse(
-        event_stream(),
+        _event_stream(
+            team=team,
+            run_input=run_input,
+            encoder=encoder,
+            flag_empty_run=flag_empty_run,
+            user_id=str(user_id),
+            enforced_thread_id=enforced_thread_id,
+            acquired=acquired,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -829,6 +868,79 @@ async def _stream_chat(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+async def _event_stream(
+    *,
+    team: Any,
+    run_input: RunAgentInput,
+    encoder: EventEncoder,
+    flag_empty_run: bool,
+    user_id: str,
+    enforced_thread_id: str,
+    acquired: bool,
+):
+    """Yield encoded AG-UI frames for a single agent run.
+
+    Guarded so a mid-stream failure always reaches the client as a clean
+    error frame.  Also records run volume / latency / status.
+    """
+    started = _time.monotonic()
+    status = "completed"
+    try:
+        async for frame in _clean_event_stream(
+            _run_team_with_attachments(team, run_input),
+            encoder,
+            flag_empty_run=flag_empty_run,
+        ):
+            yield frame
+    except Exception as exc:
+        status = "error"
+        logger.error(
+            "agui_stream_failed",
+            user_id=user_id,
+            thread_id=enforced_thread_id,
+            error=str(exc),
+            exc_info=True,
+        )
+        try:
+            yield encoder.encode(
+                RunErrorEvent(
+                    type=EventType.RUN_ERROR,
+                    message="internal error",
+                )
+            )
+        except Exception:
+            yield 'data: {"type":"RUN_ERROR","message":"internal error"}\n\n'
+    finally:
+        if acquired:
+            await _release_stream_slot(user_id)
+        agent_runs_total.labels(
+            agent="universe_coordinator", status=status
+        ).inc()
+        agent_run_seconds.labels(agent="universe_coordinator").observe(
+            _time.monotonic() - started
+        )
+        # Post-run usage tracking — fire-and-forget so we never block the stream.
+        with contextlib.suppress(Exception):
+            _background_tasks.add(
+                asyncio.create_task(_persist_agno_usage(enforced_thread_id, user_id))
+            )
+        # Post-run universe enrichment — every user message is a potential
+        # source of new professional knowledge. Fire-and-forget so the SSE
+        # closes immediately for the client.
+        with contextlib.suppress(Exception):
+            user_text = _last_user_text(run_input.messages)
+            if user_text:
+                _background_tasks.add(
+                    asyncio.create_task(
+                        _enrich_universe_from_chat(
+                            user_id=user_id,
+                            text=user_text,
+                            thread_id=enforced_thread_id,
+                        )
+                    )
+                )
 
 
 def _ensure_known_agent(agent_id: str) -> None:
@@ -854,6 +966,44 @@ def _extract_user_id_from_jwt(request: Request) -> str:
     return str(uid)
 
 
+def _last_user_text(messages: list[Any]) -> str | None:
+    """Return the plain-text content of the last user message."""
+    for msg in reversed(messages):
+        if getattr(msg, "role", None) == "user":
+            content = getattr(msg, "content", None)
+            if isinstance(content, str) and content.strip():
+                return content.strip()
+    return None
+
+
+async def _enrich_universe_from_chat(
+    user_id: str,
+    text: str,
+    thread_id: str,
+) -> None:
+    """Run the Universe Enrichment Engine on a user message.
+
+    This is fire-and-forget from the SSE stream; failures are logged but never
+    propagated to the client.
+    """
+    try:
+        uid = UUID(user_id)
+        async with with_user_session(uid) as session:
+            engine = UniverseEnrichmentEngine(session, uid)
+            result = await engine.process(text, source="agent_chat")
+            logger.info(
+                "chat_universe_enriched",
+                user_id=user_id,
+                thread_id=thread_id,
+                entities_created=result.entities_created,
+                entities_merged=result.entities_merged,
+                relations_created=result.relations_created,
+                errors=len(result.errors),
+            )
+    except Exception as exc:
+        logger.warning("chat_universe_enrichment_failed", error=str(exc), user_id=user_id)
+
+
 async def _persist_agno_usage(session_id: str, user_id: str) -> None:
     """Query ai.agno_sessions and persist usage metrics into llm_usage_logs.
 
@@ -861,13 +1011,6 @@ async def _persist_agno_usage(session_id: str, user_id: str) -> None:
     blocks the SSE connection.
     """
     try:
-        from uuid import UUID
-
-        from sqlalchemy import text
-
-        from src.llm_tracking.application.tracker import log_agno_run
-        from src.shared.db import with_user_session
-
         uid = UUID(user_id)
         async with with_user_session(uid) as session:
             # Agno stores each turn as a run inside ai.agno_sessions.runs (JSONB).
@@ -899,6 +1042,7 @@ async def _persist_agno_usage(session_id: str, user_id: str) -> None:
                 run_id=run_id,
                 session_id=session_id,
                 metrics=metrics,
+                agent="universe_coordinator",
             )
             await session.commit()
     except Exception as exc:

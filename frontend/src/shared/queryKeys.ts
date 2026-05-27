@@ -95,4 +95,13 @@ export const queryKeys = {
   architectureDecisions: {
     all: ["architecture_decisions"] as const,
   },
+  agents: {
+    discovery: {
+      progress: ["agents", "discovery", "progress"] as const,
+    },
+  },
+  llm: {
+    usage: ["llm", "usage"] as const,
+    sessions: ["llm", "sessions"] as const,
+  },
 } as const;

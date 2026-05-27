@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import UTC
 from pathlib import Path
 from typing import Annotated, Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse, JSONResponse

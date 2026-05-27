@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from src.shared.config import get_settings
 from src.shared.redis import get_redis
 
 _DAILY_BUDGET: dict[str, int | None] = {

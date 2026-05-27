@@ -66,9 +66,11 @@ async def test_user_cannot_delete_another_users_entities(client: AsyncClient) ->
     r = await client.delete(f"/api/v1/universe/skill/{skill_id}", headers=h_bob)
     assert r.status_code == 404
 
-    # Alice can still see it
-    r = await client.get(f"/api/v1/universe/skill/{skill_id}", headers=h_alice)
+    # Alice can still see it in her list
+    r = await client.get("/api/v1/universe/skill", headers=h_alice)
     assert r.status_code == 200
+    skill_ids = [s["id"] for s in r.json()]
+    assert skill_id in skill_ids
 
 
 @pytest.mark.asyncio

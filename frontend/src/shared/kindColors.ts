@@ -19,24 +19,27 @@ export const KIND_COLORS: Record<string, string> = {
   interest: "#84cc16",
   artifact: "#8b5cf6",
   architecture_decision: "#ec4899",
+  goal: "#ec4899",
   document: "#0a0a0a",
 };
 
 export const DEFAULT_KIND_COLOR = "#94a3b8";
 
 export const KIND_LABELS: Record<string, string> = {
-  skill: "Competencia",
-  project: "Proyecto",
+  skill: "Habilidades",
+  project: "Proyectos",
   experience: "Experiencia",
-  education: "Formación",
-  certification: "Certificación",
+  education: "Educación",
+  certification: "Certificaciones",
   course: "Curso",
   language: "Idioma",
   achievement: "Logro",
   interest: "Interés",
   artifact: "Artifact",
   architecture_decision: "ADR",
+  goal: "Metas",
   document: "Documento",
+  note: "Notas",
 };
 
 export function kindColor(kind: string): string {

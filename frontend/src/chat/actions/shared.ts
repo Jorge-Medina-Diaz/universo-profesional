@@ -2,6 +2,17 @@ import { api } from "@/shared/api";
 import { useChatState } from "../state";
 import type { UpsertResponse } from "./types";
 
+export async function resolveProposal(
+  proposalId: string,
+  action: "confirm" | "reject" | "modify",
+  modifiedData?: Record<string, unknown>,
+): Promise<UpsertResponse> {
+  return api<UpsertResponse>(`/api/v1/agents/proposals/${proposalId}/resolve`, {
+    method: "POST",
+    body: JSON.stringify({ action, modified_data: modifiedData }),
+  });
+}
+
 // Field whitelist per entity kind — the canonical payload each entity accepts.
 // The batch-import card sends free-form LLM-extracted items, so a hallucinated
 // field name (e.g. `obtained_date` instead of `issued_on`) would 500 the

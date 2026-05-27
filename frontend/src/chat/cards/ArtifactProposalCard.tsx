@@ -116,6 +116,7 @@ export function ArtifactProposalCard({
                   key={t.id}
                   type="button"
                   onClick={() => setType(t.id)}
+                  aria-pressed={type === t.id}
                   className={cn(
                     "px-2.5 py-1 text-[11px] rounded-full transition-all border",
                     type === t.id

@@ -135,6 +135,16 @@ export const AgentMessage = memo(function AgentMessage({
 
   const steps = useHeuristicThinkingSteps(content, !!isGenerating);
 
+  const handleInlineEdit = useCallback((original: string, corrected: string) => {
+    // Emit a user-visible correction into the chat thread via a custom event
+    // that CopilotSurface can listen to and inject as a user message.
+    window.dispatchEvent(
+      new CustomEvent("cvs-chat-inline-edit", {
+        detail: { original, corrected },
+      }),
+    );
+  }, []);
+
   // Suppressed/empty assistant turns (e.g. route hand-offs) render nothing —
   // no lone orb for a whitespace-only coordinator message.
   if (!content && !card && !thinking) return null;
@@ -145,16 +155,6 @@ export const AgentMessage = memo(function AgentMessage({
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
-
-  const handleInlineEdit = useCallback((original: string, corrected: string) => {
-    // Emit a user-visible correction into the chat thread via a custom event
-    // that CopilotSurface can listen to and inject as a user message.
-    window.dispatchEvent(
-      new CustomEvent("cvs-chat-inline-edit", {
-        detail: { original, corrected },
-      }),
-    );
-  }, []);
 
   return (
     <div className="agent-msg group flex gap-3 px-1 py-2">

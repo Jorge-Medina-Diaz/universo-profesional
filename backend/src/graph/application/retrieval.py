@@ -341,6 +341,7 @@ class _UserSnapshot:
     graph: Any  # igraph.Graph
     id_to_idx: dict[UUID, int]
     idx_to_meta: dict[int, tuple[UUID, str, str]]  # idx → (id, kind, name)
+    idx_to_esco: dict[int, str | None]  # idx → esco_uri
     built_at: float
 
 
@@ -389,7 +390,7 @@ async def _load_snapshot(
         session,
         schema.GRAPH_PERSONAL,
         """
-        MATCH (e:Entity {user_id: $uid})
+        MATCH (e {user_id: $uid})
         WHERE e.valid_to IS NULL
         RETURN e.id, e.kind, e.esco_uri
         """,
@@ -400,7 +401,7 @@ async def _load_snapshot(
         session,
         schema.GRAPH_PERSONAL,
         """
-        MATCH (a:Entity {user_id: $uid})-[r]->(b:Entity {user_id: $uid})
+        MATCH (a {user_id: $uid})-[r]->(b {user_id: $uid})
         WHERE r.valid_to IS NULL
         RETURN a.id, b.id, type(r)
         """,
@@ -441,10 +442,18 @@ async def _load_snapshot(
     g = ig.Graph(directed=True)
     id_to_idx: dict[UUID, int] = {}
     idx_to_meta: dict[int, tuple[UUID, str, str]] = {}
+    idx_to_esco: dict[int, str | None] = {}
+    esco_by_id: dict[UUID, str | None] = {}
+    for row in vertex_rows:
+        entity_id = _coerce_uuid(parse_agtype(row.get("id")))
+        esco_uri = parse_agtype(row.get("esco_uri"))
+        if entity_id is not None:
+            esco_by_id[entity_id] = esco_uri if isinstance(esco_uri, str) else None
     for entity_id, (kind, name) in names_by_id.items():
         idx = g.add_vertex(name=str(entity_id)).index
         id_to_idx[entity_id] = idx
         idx_to_meta[idx] = (entity_id, kind, name)
+        idx_to_esco[idx] = esco_by_id.get(entity_id)
 
     for edge in edge_rows:
         from src.graph.infrastructure.age_client import parse_agtype
@@ -460,6 +469,7 @@ async def _load_snapshot(
         graph=g,
         id_to_idx=id_to_idx,
         idx_to_meta=idx_to_meta,
+        idx_to_esco=idx_to_esco,
         built_at=time.time(),
     )
     # Insertion + eviction is the second critical section. Another task

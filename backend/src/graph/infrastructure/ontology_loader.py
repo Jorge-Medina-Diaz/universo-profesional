@@ -22,7 +22,9 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import dataclasses
 import logging
+import sys
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,6 +37,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.graph.domain import schema
 from src.graph.infrastructure.age_client import cypher, ensure_age_loaded
 from src.shared.embeddings import get_embeddings_service
+
+csv.field_size_limit(sys.maxsize)
 
 logger = structlog.get_logger(__name__)
 
@@ -84,6 +88,14 @@ def _read_csv(path: Path) -> Iterator[dict[str, str]]:
     with path.open("r", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         yield from reader
+
+
+def _resolve_csv(esco_dir: Path, *candidates: str) -> Path | None:
+    for name in candidates:
+        p = esco_dir / name
+        if p.exists():
+            return p
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -181,16 +193,19 @@ async def ingest_esco(
     # ------------------------------------------------------------------
     # ISCO groups
     # ------------------------------------------------------------------
-    isco_path = esco_dir / "ISCOGroups_es.csv"
-    if isco_path.exists():
+    isco_path = _resolve_csv(esco_dir, "ISCOGroups_es.csv", "ISCOGroups_en.csv")
+    isco_en_path = _resolve_csv(esco_dir, "ISCOGroups_en.csv")
+    if isco_path and isco_en_path:
         isco_en = {
             row["conceptUri"]: row.get("preferredLabel", "")
-            for row in _read_csv(esco_dir / "ISCOGroups_en.csv")
+            for row in _read_csv(isco_en_path)
         }
         for row in _read_csv(isco_path):
             code = row.get("code", "").strip()
             if not code:
                 continue
+            label_es = row.get("preferredLabel", "") or None
+            label_en = isco_en.get(row["conceptUri"]) or None
             await cypher(
                 session,
                 schema.GRAPH_ONTOLOGY,
@@ -201,9 +216,20 @@ async def ingest_esco(
                 """,
                 params={
                     "code": code,
-                    "label_es": row.get("preferredLabel", "") or None,
-                    "label_en": isco_en.get(row["conceptUri"]) or None,
+                    "label_es": label_es,
+                    "label_en": label_en,
                 },
+            )
+            await _store_ontology_search(
+                session,
+                "ISCOGroup",
+                row["conceptUri"],
+                pref_label_es=label_es,
+                pref_label_en=label_en,
+                alt_labels_es=[],
+                alt_labels_en=[],
+                description_es=None,
+                description_en=None,
             )
             stats.isco_groups += 1
             if progress and stats.isco_groups % 50 == 0:
@@ -255,6 +281,17 @@ async def ingest_esco(
             },
         )
         await _store_ontology_embedding(session, "Occupation", occ.uri, emb)
+        await _store_ontology_search(
+            session,
+            "Occupation",
+            occ.uri,
+            pref_label_es=occ.pref_label_es,
+            pref_label_en=occ.pref_label_en,
+            alt_labels_es=occ.alt_labels_es,
+            alt_labels_en=occ.alt_labels_en,
+            description_es=occ.description_es,
+            description_en=occ.description_en,
+        )
         if occ.isco_code:
             await cypher(
                 session,
@@ -316,6 +353,17 @@ async def ingest_esco(
             },
         )
         await _store_ontology_embedding(session, "EscoSkill", sk.uri, emb)
+        await _store_ontology_search(
+            session,
+            "EscoSkill",
+            sk.uri,
+            pref_label_es=sk.pref_label_es,
+            pref_label_en=sk.pref_label_en,
+            alt_labels_es=sk.alt_labels_es,
+            alt_labels_en=sk.alt_labels_en,
+            description_es=sk.description_es,
+            description_en=sk.description_en,
+        )
         stats.skills += 1
         if progress and stats.skills % 1000 == 0:
             logger.info("esco_skills_progress", n=stats.skills)
@@ -323,8 +371,8 @@ async def ingest_esco(
     # ------------------------------------------------------------------
     # Occupation × Skill relations (essential / optional)
     # ------------------------------------------------------------------
-    rel_path = esco_dir / "occupationSkillRelations.csv"
-    if rel_path.exists():
+    rel_path = _resolve_csv(esco_dir, "occupationSkillRelations.csv", "occupationSkillRelations_en.csv")
+    if rel_path and rel_path.exists():
         for row in _read_csv(rel_path):
             occ_uri = row.get("occupationUri", "")
             skill_uri = row.get("skillUri", "")
@@ -361,8 +409,8 @@ async def ingest_esco(
             "edges_skos_broader_skill",
         ),
     ):
-        path = esco_dir / filename
-        if not path.exists():
+        path = _resolve_csv(esco_dir, filename, f"{filename[:-4]}_en.csv")
+        if not path or not path.exists():
             continue
         for row in _read_csv(path):
             narrower = row.get("conceptUri") or row.get("narrowerUri")
@@ -400,7 +448,7 @@ async def ingest_esco(
         {"v": release_tag},
     )
 
-    logger.info("esco_ingest_completed", release_tag=release_tag, **stats.__dict__)
+    logger.info("esco_ingest_completed", release_tag=release_tag, **dataclasses.asdict(stats))
     return stats
 
 
@@ -410,8 +458,10 @@ async def ingest_esco(
 
 
 def _iter_occupations(esco_dir: Path) -> Iterator[_OccupationRow]:
-    es_path = esco_dir / "occupations_es.csv"
-    en_path = esco_dir / "occupations_en.csv"
+    es_path = _resolve_csv(esco_dir, "occupations_es.csv", "occupations_en.csv")
+    en_path = _resolve_csv(esco_dir, "occupations_en.csv")
+    if not es_path or not en_path:
+        return
     en_index = {row["conceptUri"]: row for row in _read_csv(en_path)}
 
     for row in _read_csv(es_path):
@@ -430,8 +480,10 @@ def _iter_occupations(esco_dir: Path) -> Iterator[_OccupationRow]:
 
 
 def _iter_skills(esco_dir: Path) -> Iterator[_SkillRow]:
-    es_path = esco_dir / "skills_es.csv"
-    en_path = esco_dir / "skills_en.csv"
+    es_path = _resolve_csv(esco_dir, "skills_es.csv", "skills_en.csv")
+    en_path = _resolve_csv(esco_dir, "skills_en.csv")
+    if not es_path or not en_path:
+        return
     en_index = {row["conceptUri"]: row for row in _read_csv(en_path)}
 
     for row in _read_csv(es_path):
@@ -500,14 +552,61 @@ async def _store_ontology_embedding(
         text(
             """
             INSERT INTO ontology_embeddings (label, uri, embedding)
-            VALUES (:label, :uri, :emb::vector)
+            VALUES (:label, :uri, CAST(:emb AS vector))
             ON CONFLICT (uri) DO UPDATE
               SET embedding = EXCLUDED.embedding,
                   label = EXCLUDED.label,
                   updated_at = now()
             """
         ),
-        {"label": label, "uri": uri, "emb": embedding},
+        {"label": label, "uri": uri, "emb": str(embedding)},
+    )
+
+
+async def _store_ontology_search(
+    session: AsyncSession,
+    label: str,
+    uri: str,
+    pref_label_es: str | None,
+    pref_label_en: str | None,
+    alt_labels_es: list[str],
+    alt_labels_en: list[str],
+    description_es: str | None,
+    description_en: str | None,
+) -> None:
+    """Mirror labels into ontology_search for BM25 exact-match routing."""
+    await session.execute(
+        text(
+            """
+            INSERT INTO ontology_search (
+                label, uri, pref_label_es, pref_label_en,
+                alt_labels_es, alt_labels_en, description_es, description_en
+            )
+            VALUES (
+                :label, :uri, :pref_es, :pref_en,
+                :alt_es, :alt_en, :desc_es, :desc_en
+            )
+            ON CONFLICT (uri) DO UPDATE
+              SET label = EXCLUDED.label,
+                  pref_label_es = EXCLUDED.pref_label_es,
+                  pref_label_en = EXCLUDED.pref_label_en,
+                  alt_labels_es = EXCLUDED.alt_labels_es,
+                  alt_labels_en = EXCLUDED.alt_labels_en,
+                  description_es = EXCLUDED.description_es,
+                  description_en = EXCLUDED.description_en,
+                  updated_at = now()
+            """
+        ),
+        {
+            "label": label,
+            "uri": uri,
+            "pref_es": pref_label_es,
+            "pref_en": pref_label_en,
+            "alt_es": alt_labels_es,
+            "alt_en": alt_labels_en,
+            "desc_es": description_es,
+            "desc_en": description_en,
+        },
     )
 
 

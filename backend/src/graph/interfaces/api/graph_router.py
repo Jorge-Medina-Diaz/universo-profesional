@@ -198,7 +198,7 @@ async def snapshot(
             session,
             gschema.GRAPH_PERSONAL,
             """
-            MATCH (e:Entity {user_id: $uid})-[m:MEMBER_OF]->
+            MATCH (e {user_id: $uid})-[m:MEMBER_OF]->
                   (c:Community {user_id: $uid})
             RETURN e.id, c.label
             """,
@@ -217,7 +217,7 @@ async def snapshot(
         session,
         gschema.GRAPH_PERSONAL,
         """
-        MATCH (a:Entity {user_id: $uid})-[r]->(b:Entity {user_id: $uid})
+        MATCH (a {user_id: $uid})-[r]->(b {user_id: $uid})
         WHERE r.valid_to IS NULL OR $include_expired = true
         RETURN a.id, b.id, type(r), r.confidence
         """,
@@ -235,6 +235,7 @@ async def snapshot(
             continue
         entity_id, kind, name = meta
         area = area_by_entity.get(str(entity_id)) or primary_area(str(name).lower())
+        esco_uri = snap.idx_to_esco.get(idx)
         nodes_out.append(
             {
                 "key": str(entity_id),
@@ -243,6 +244,7 @@ async def snapshot(
                     "label": name,
                     "area": area,
                     "pillar": pillar_by_entity.get(str(entity_id)),
+                    "esco_uri": esco_uri,
                 },
             }
         )

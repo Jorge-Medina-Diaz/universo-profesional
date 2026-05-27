@@ -44,6 +44,10 @@ from src.coherence.domain.upsert_decision import (
     UpsertOutcome,
     UpsertStatus,
 )
+from src.coherence.application.entity_resolution import (
+    EntityResolutionPipeline,
+    ResolutionResult,
+)
 from src.graph.application.universe_graph import universe_graph_service
 from src.graph.domain.registry import GRAPH_REGISTRY
 from src.shared.uow import UnitOfWork
@@ -278,6 +282,38 @@ class UpsertUniverseEntity:
     # ------------------------------------------------------------------
 
     async def _find_existing(
+        self,
+        *,
+        entity_type: str,
+        user_id: str,
+        payload: dict[str, Any],
+        config: dict[str, Any],
+    ) -> MatchResult:
+        # Sprint R: try ER v2 first (blocking + pairwise + clustering).
+        er_pipeline = EntityResolutionPipeline(self._session)
+        er_result = await er_pipeline.resolve(
+            user_id=UUID(user_id), kind=entity_type, payload=payload, cfg=config
+        )
+        if er_result.status == "merged" and er_result.entity_id is not None:
+            return MatchResult(
+                kind=MatchKind.SEMANTIC,
+                entity_id=er_result.entity_id,
+                score=0.95,  # ER v2 already validated via composite score
+            )
+        if er_result.status == "ambiguous" and er_result.suggestion_payload:
+            cands = er_result.suggestion_payload.get("candidates", [])
+            return MatchResult(
+                kind=MatchKind.AMBIGUOUS,
+                candidates=[UUID(c["entity_id"]) for c in cands if "entity_id" in c],
+                score=cands[0].get("score", 0.0) if cands else 0.0,
+            )
+
+        # Fallback to legacy exact + semantic matcher.
+        return await self._find_existing_legacy(
+            entity_type=entity_type, user_id=user_id, payload=payload, config=config
+        )
+
+    async def _find_existing_legacy(
         self,
         *,
         entity_type: str,

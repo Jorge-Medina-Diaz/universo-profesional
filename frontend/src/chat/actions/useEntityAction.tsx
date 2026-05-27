@@ -2,6 +2,7 @@ import { useCopilotAction } from "@copilotkit/react-core";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/queryKeys";
 import { EntryCard, ResolvedEntryChip } from "../cards/EntryCard";
+import { ProposalCard, ResolvedProposalChip } from "../components/ProposalCard";
 import type { SavingState, UpsertResponse, CopilotActionParams } from "./types";
 import { coherenceUpsert } from "./shared";
 
@@ -12,7 +13,7 @@ interface EntityActionConfig<TArgs> {
   cardTitle: (args: TArgs) => string;
   parameters: CopilotActionParams;
   buildPayload?: (args: TArgs) => Record<string, unknown>;
-  /** Optional card override. Falls back to EntryCard. */
+  /** Optional card override. Falls back to EntryCard / ProposalCard. */
   renderCard?: (ctx: {
     args: TArgs;
     pending: boolean;
@@ -43,10 +44,24 @@ export function useEntityAction<TArgs extends Record<string, unknown>>(
       status?: string;
       result?: unknown;
     }) => {
-      // Once the tool call is resolved, show a terminal confirmation instead of
-      // the interactive card — otherwise a confirmed card keeps its buttons (or
-      // a stuck "Guardando" spinner when a follow-up run fails).
+      // Terminal state — once the tool call is resolved, show a quiet chip
+      // instead of the interactive card.
       if (status === "complete") {
+        if (args.proposal_id && typeof args.proposal_id === "string") {
+          return (
+            <ResolvedProposalChip
+              payload={{
+                proposal_id: args.proposal_id as string,
+                entity_type: ((args.entity_type as string) || config.entityKind) as import("../components/ProposalCard").EntityType,
+                entity_data: args as Record<string, unknown>,
+                action: (args.action as string) || "create",
+                confidence: (args.confidence as number) || 0.85,
+                reason: (args.reason as string) || "",
+              }}
+              result={typeof result === "string" ? result : undefined}
+            />
+          );
+        }
         return (
           <ResolvedEntryChip
             kind={config.entityKind}
@@ -55,6 +70,32 @@ export function useEntityAction<TArgs extends Record<string, unknown>>(
           />
         );
       }
+
+      // If the backend injected a rich proposal payload, render ProposalCard.
+      if (args.proposal_id && typeof args.proposal_id === "string") {
+        const pending = saving === config.entityKind;
+        return (
+          <ProposalCard
+            payload={{
+              proposal_id: args.proposal_id as string,
+              entity_type: ((args.entity_type as string) || config.entityKind) as import("../components/ProposalCard").EntityType,
+              entity_data: args as Record<string, unknown>,
+              action: (args.action as string) || "create",
+              confidence: (args.confidence as number) || 0.85,
+              reason: (args.reason as string) || "",
+            }}
+            pending={pending}
+            onResolved={({ action, response }) => {
+              qc.invalidateQueries({ queryKey: queryKeys.universe.all });
+              qc.invalidateQueries({ queryKey: queryKeys.coherence.changes });
+              setLastOutcome({ kind: config.entityKind, resp: response });
+              respond?.(JSON.stringify({ action, ...response }));
+            }}
+          />
+        );
+      }
+
+      // Legacy fallback — plain EntryCard without proposal metadata.
       const pending = saving === config.entityKind;
       const onConfirm = async () => {
         setSaving(config.entityKind);

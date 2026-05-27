@@ -28,10 +28,40 @@ GRAPH_ONTOLOGY: Final = "universe_ontology"
 # Vertex labels (personal graph)
 # ---------------------------------------------------------------------------
 
+# v1 generic label — kept for backward compatibility during the N→R
+# migration window. New code should use the typed labels below.
 ENTITY: Final = "Entity"
-"""Generic user entity. The `kind` property distinguishes skill / project /
-experience / education / certification / course / language / achievement /
-interest / artifact / architecture_decision."""
+"""Generic user entity (legacy). The `kind` property distinguishes types.
+New writes use the typed labels below; reads query both."""
+
+# v2 typed labels — one per entity kind for expressive Cypher and
+# schema-level query planning (AGE can index per-label).
+EXPERIENCE: Final = "Experience"
+EDUCATION: Final = "Education"
+SKILL: Final = "Skill"
+PROJECT: Final = "Project"
+CERTIFICATION: Final = "Certification"
+COURSE: Final = "Course"
+LANGUAGE: Final = "Language"
+ACHIEVEMENT: Final = "Achievement"
+INTEREST: Final = "Interest"
+ARTIFACT: Final = "Artifact"
+ARCHITECTURE_DECISION: Final = "ArchitectureDecision"
+
+# Mapping from canonical kind string → graph label.
+KIND_TO_LABEL: Final[dict[str, str]] = {
+    "experience": EXPERIENCE,
+    "education": EDUCATION,
+    "skill": SKILL,
+    "project": PROJECT,
+    "certification": CERTIFICATION,
+    "course": COURSE,
+    "language": LANGUAGE,
+    "achievement": ACHIEVEMENT,
+    "interest": INTEREST,
+    "artifact": ARTIFACT,
+    "architecture_decision": ARCHITECTURE_DECISION,
+}
 
 EVIDENCE: Final = "Evidence"
 """Reified n-ary relation. Replaces the polymorphic `evidences` table —

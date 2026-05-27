@@ -5,12 +5,17 @@
  * neighbours, and any documents it sourced. Neighbours are clickable and
  * navigate the graph (parent re-selects → camera animates). The detail content
  * is rendered from a per-kind field spec so each kind shows what matters.
+ *
+ * Edit mode: every non-document kind can be edited in-place. Changes are sent
+ * via PATCH /api/v1/universe/{kind}/{id} and relevant queries are invalidated
+ * so the graph + lists refresh automatically.
  */
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEscapeKey } from "@/shared/useEscapeKey";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUpRight, MessageSquare, X } from "lucide-react";
-import { Badge, Button } from "@/ui";
+import { ArrowUpRight, MessageSquare, Pencil, X } from "lucide-react";
+import { Badge, Button, Input, Textarea, Field, ChipInput, Select, toast } from "@/ui";
 import { KIND_COLORS, KIND_LABELS, DEFAULT_KIND_COLOR } from "@/shared/kindColors";
 import { iconFor } from "./nodeIcons";
 import {
@@ -18,10 +23,12 @@ import {
   useEntityDetail,
   type EntityRow,
 } from "./entityDetail";
+import { universe } from "@/shared/api";
 import type { GraphSnapshot } from "./api";
 import type { GraphSelection } from "./GraphView";
+import { queryKeys } from "@/shared/queryKeys";
 
-type FieldType = "text" | "date" | "range" | "chips" | "bullets" | "link";
+type FieldType = "text" | "date" | "range" | "chips" | "bullets" | "link" | "number";
 interface FieldSpec {
   key: string;
   label: string;
@@ -69,14 +76,14 @@ const FIELD_SPECS: Record<string, FieldSpec[]> = {
   skill: [
     { key: "category", label: "Categoría" },
     { key: "level", label: "Nivel" },
-    { key: "years", label: "Años" },
-    { key: "last_used_year", label: "Último uso" },
+    { key: "years", label: "Años", type: "number" },
+    { key: "last_used_year", label: "Último uso", type: "number" },
   ],
   education: [
     { key: "institution", label: "Institución" },
     { key: "field_of_study", label: "Área" },
     { key: "__range", label: "Periodo", type: "range" },
-    { key: "gpa", label: "Nota" },
+    { key: "gpa", label: "Nota", type: "number" },
     { key: "description", label: "Descripción" },
     { key: "highlights", label: "Hitos", type: "bullets" },
     { key: "url", label: "Enlace", type: "link" },
@@ -109,6 +116,52 @@ const FIELD_SPECS: Record<string, FieldSpec[]> = {
   interest: [{ key: "description", label: "Descripción" }],
 };
 
+const SELECT_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  seniority_level: [
+    { value: "junior", label: "Junior" },
+    { value: "mid", label: "Mid" },
+    { value: "senior", label: "Senior" },
+    { value: "lead", label: "Lead" },
+    { value: "staff", label: "Staff" },
+    { value: "principal", label: "Principal" },
+  ],
+  employment_type: [
+    { value: "full-time", label: "Tiempo completo" },
+    { value: "part-time", label: "Medio tiempo" },
+    { value: "contract", label: "Contrato" },
+    { value: "freelance", label: "Freelance" },
+    { value: "internship", label: "Prácticas" },
+  ],
+  modality: [
+    { value: "remote", label: "Remoto" },
+    { value: "hybrid", label: "Híbrido" },
+    { value: "on-site", label: "Presencial" },
+  ],
+  level: [
+    { value: "basic", label: "Básico" },
+    { value: "intermediate", label: "Intermedio" },
+    { value: "high", label: "Avanzado" },
+    { value: "expert", label: "Experto" },
+  ],
+  project_type: [
+    { value: "personal", label: "Personal" },
+    { value: "professional", label: "Profesional" },
+    { value: "open-source", label: "Open Source" },
+    { value: "academic", label: "Académico" },
+  ],
+  status: [
+    { value: "active", label: "Activo" },
+    { value: "completed", label: "Completado" },
+    { value: "archived", label: "Archivado" },
+    { value: "paused", label: "Pausado" },
+  ],
+  category: [
+    { value: "hard", label: "Hard skill" },
+    { value: "soft", label: "Soft skill" },
+    { value: "tool", label: "Herramienta" },
+  ],
+};
+
 function fmtDate(v: unknown): string {
   if (!v) return "";
   const d = new Date(String(v));
@@ -116,12 +169,31 @@ function fmtDate(v: unknown): string {
   return d.toLocaleDateString("es-ES", { month: "short", year: "numeric" });
 }
 
+function toDateInputValue(v: unknown): string {
+  if (!v) return "";
+  const s = String(v);
+  // Accept ISO strings or plain YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  return "";
+}
+
 function asArray(v: unknown): string[] {
   if (Array.isArray(v)) return v.map((x) => String(x)).filter(Boolean);
   return [];
 }
 
-function Field({ spec, row }: { spec: FieldSpec; row: EntityRow }) {
+function computeDelta(original: EntityRow, draft: Record<string, unknown>): Record<string, unknown> {
+  const delta: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(draft)) {
+    const orig = original[key];
+    if (JSON.stringify(value) !== JSON.stringify(orig)) {
+      delta[key] = value;
+    }
+  }
+  return delta;
+}
+
+function FieldRead({ spec, row }: { spec: FieldSpec; row: EntityRow }) {
   let value: unknown = row[spec.key];
   if (spec.type === "range") {
     const start = fmtDate(row.start_date);
@@ -199,6 +271,10 @@ export function NodeDetailDrawer({
   const kind = selection?.kind ?? null;
   const id = selection?.id ?? null;
   const { data, isLoading } = useEntityDetail(kind, id);
+  const queryClient = useQueryClient();
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<Record<string, unknown>>({});
 
   const color = kind ? KIND_COLORS[kind] ?? DEFAULT_KIND_COLOR : DEFAULT_KIND_COLOR;
   const row = data?.row ?? null;
@@ -207,6 +283,61 @@ export function NodeDetailDrawer({
   const title =
     (row && kind && (row[TITLE_KEY[kind] ?? "name"] as string)) || selection?.label || "";
   const confidence = typeof row?.confidence === "number" ? Math.round(row.confidence * 100) : null;
+
+  // Reset editing state when the selection changes or drawer closes.
+  useEffect(() => {
+    if (!open) setEditing(false);
+  }, [open]);
+
+  const saveMutation = useMutation({
+    mutationFn: async ({
+      kind,
+      id,
+      body,
+    }: {
+      kind: string;
+      id: string;
+      body: Record<string, unknown>;
+    }) => {
+      return universe.patch(kind, id, body);
+    },
+    onSuccess: (_, vars) => {
+      toast.success("Guardado", "Los cambios se guardaron correctamente.");
+      setEditing(false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.entity.detail(vars.kind, vars.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.graph.snapshot });
+      queryClient.invalidateQueries({ queryKey: queryKeys.universe.summary });
+      queryClient.invalidateQueries({ queryKey: queryKeys.trajectory.all });
+    },
+    onError: (err: Error) => {
+      toast.error("No se pudo guardar", err.message || "Inténtalo de nuevo.");
+    },
+  });
+
+  const startEditing = () => {
+    if (!row) return;
+    setDraft({ ...row });
+    setEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setEditing(false);
+    setDraft({});
+  };
+
+  const submitEditing = () => {
+    if (!row || !kind || !id) return;
+    const delta = computeDelta(row, draft);
+    if (Object.keys(delta).length === 0) {
+      setEditing(false);
+      return;
+    }
+    saveMutation.mutate({ kind, id, body: delta });
+  };
+
+  const updateDraft = (key: string, value: unknown) => {
+    setDraft((prev) => ({ ...prev, [key]: value }));
+  };
 
   // Neighbours come straight from the snapshot the graph already holds — real
   // names, no extra round-trip, reflects the agent-inferred relationships.
@@ -243,6 +374,8 @@ export function NodeDetailDrawer({
   // Esc closes the inspector without blocking the graph (no backdrop).
   useEscapeKey(onClose, open);
 
+  const editable = !!row && kind !== "document" && kind !== "interest" && kind !== null;
+
   return (
     <AnimatePresence>
       {open && (
@@ -252,6 +385,9 @@ export function NodeDetailDrawer({
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: 24, opacity: 0 }}
           transition={{ type: "spring", stiffness: 420, damping: 40 }}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Ficha de ${title || "entidad"}`}
           className="node-inspector pointer-events-auto absolute right-4 top-4 z-30 flex max-h-[calc(100%-2rem)] w-[min(94%,360px)] flex-col overflow-hidden rounded-card border border-hairline shadow-float"
         >
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -261,7 +397,7 @@ export function NodeDetailDrawer({
                 className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
                 style={{ backgroundColor: color }}
               >
-                <img src={iconFor(kind ?? "")} alt="" className="h-4 w-4" />
+                <img src={iconFor(kind ?? "")} alt="" className="h-4 w-4" aria-hidden="true" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="eyebrow">{kind ? KIND_LABELS[kind] ?? kind : ""}</p>
@@ -269,14 +405,26 @@ export function NodeDetailDrawer({
                   {title}
                 </h3>
               </div>
-              <button
-                type="button"
-                aria-label="Cerrar"
-                onClick={onClose}
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-stone hover:text-ink hover:bg-surface transition-colors"
-              >
-                <X size={16} />
-              </button>
+              <div className="flex items-center gap-1">
+                {editable && !editing && (
+                  <button
+                    type="button"
+                    aria-label="Editar"
+                    onClick={startEditing}
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-stone hover:text-ink hover:bg-surface transition-colors"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  aria-label="Cerrar"
+                  onClick={onClose}
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-stone hover:text-ink hover:bg-surface transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
 
             <div className="px-5 py-4 space-y-5">
@@ -294,17 +442,168 @@ export function NodeDetailDrawer({
                 </div>
               )}
 
-              {/* Body */}
+              {/* Body — read or edit */}
               {isLoading ? (
                 <p className="text-sm text-stone">Cargando…</p>
               ) : doc ? (
                 <DocumentBody doc={doc} />
               ) : row ? (
-                <dl className="divide-y divide-hairline/60">
-                  {specs.map((spec) => (
-                    <Field key={spec.key} spec={spec} row={row} />
-                  ))}
-                </dl>
+                editing ? (
+                  <div className="space-y-3">
+                    {specs.map((spec) => {
+                      if (spec.key === "__range") {
+                        return (
+                          <div key="__range" className="space-y-3">
+                            <Field label="Fecha inicio">
+                              {(props) => (
+                                <Input
+                                  {...props}
+                                  type="date"
+                                  value={toDateInputValue(draft.start_date)}
+                                  onChange={(e) => updateDraft("start_date", e.target.value)}
+                                />
+                              )}
+                            </Field>
+                            <Field label="Fecha fin">
+                              {(props) => (
+                                <Input
+                                  {...props}
+                                  type="date"
+                                  value={toDateInputValue(draft.end_date)}
+                                  onChange={(e) => updateDraft("end_date", e.target.value)}
+                                />
+                              )}
+                            </Field>
+                            <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={!!draft.is_current}
+                                onChange={(e) => updateDraft("is_current", e.target.checked)}
+                                className="h-4 w-4 rounded border-hairline"
+                              />
+                              Actual (sin fecha de fin)
+                            </label>
+                          </div>
+                        );
+                      }
+
+                      const key = spec.key;
+                      const val = draft[key];
+                      const options = SELECT_OPTIONS[key];
+
+                      if (options) {
+                        return (
+                          <Field key={key} label={spec.label}>
+                            {(props) => (
+                              <Select
+                                {...props}
+                                options={options}
+                                value={String(val ?? "")}
+                                onChange={(v) => updateDraft(key, v)}
+                              />
+                            )}
+                          </Field>
+                        );
+                      }
+
+                      if (spec.type === "date") {
+                        return (
+                          <Field key={key} label={spec.label}>
+                            {(props) => (
+                              <Input
+                                {...props}
+                                type="date"
+                                value={toDateInputValue(val)}
+                                onChange={(e) => updateDraft(key, e.target.value)}
+                              />
+                            )}
+                          </Field>
+                        );
+                      }
+
+                      if (spec.type === "chips" || spec.type === "bullets") {
+                        return (
+                          <Field key={key} label={spec.label}>
+                            {(props) => (
+                              <ChipInput
+                                {...props}
+                                value={asArray(val)}
+                                onChange={(next) => updateDraft(key, next)}
+                              />
+                            )}
+                          </Field>
+                        );
+                      }
+
+                      if (spec.type === "link") {
+                        return (
+                          <Field key={key} label={spec.label}>
+                            {(props) => (
+                              <Input
+                                {...props}
+                                type="url"
+                                value={String(val ?? "")}
+                                onChange={(e) => updateDraft(key, e.target.value)}
+                              />
+                            )}
+                          </Field>
+                        );
+                      }
+
+                      if (spec.type === "number") {
+                        return (
+                          <Field key={key} label={spec.label}>
+                            {(props) => (
+                              <Input
+                                {...props}
+                                type="number"
+                                value={String(val ?? "")}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  if (v === "") return updateDraft(key, null);
+                                  const n = Number(v);
+                                  updateDraft(key, Number.isNaN(n) ? null : n);
+                                }}
+                              />
+                            )}
+                          </Field>
+                        );
+                      }
+
+                      if (key === "description" || key === "impact") {
+                        return (
+                          <Field key={key} label={spec.label}>
+                            {(props) => (
+                              <Textarea
+                                {...props}
+                                value={String(val ?? "")}
+                                onChange={(e) => updateDraft(key, e.target.value)}
+                              />
+                            )}
+                          </Field>
+                        );
+                      }
+
+                      return (
+                        <Field key={key} label={spec.label}>
+                          {(props) => (
+                            <Input
+                              {...props}
+                              value={String(val ?? "")}
+                              onChange={(e) => updateDraft(key, e.target.value)}
+                            />
+                          )}
+                        </Field>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <dl className="divide-y divide-hairline/60">
+                    {specs.map((spec) => (
+                      <FieldRead key={spec.key} spec={spec} row={row} />
+                    ))}
+                  </dl>
+                )
               ) : !kindHasDetail(kind ?? "") ? (
                 <p className="text-sm text-stone leading-relaxed">
                   Este nodo no tiene una ficha detallada todavía. Pregúntale al agente
@@ -313,7 +612,7 @@ export function NodeDetailDrawer({
               ) : null}
 
               {/* Neighbours — derived from the graph's own edges */}
-              {neighborList.length > 0 && (
+              {!editing && neighborList.length > 0 && (
                 <section>
                   <p className="eyebrow mb-2">
                     Conectado con <span className="text-stone/70">· {neighborList.length}</span>
@@ -324,6 +623,7 @@ export function NodeDetailDrawer({
                         <button
                           type="button"
                           onClick={() => onNavigate({ id: n.id, kind: n.kind, label: n.label })}
+                          aria-label={`Navegar a ${n.label}`}
                           className="group flex w-full items-center gap-2 rounded-btn px-2 py-1.5 text-left hover:bg-surface transition-colors"
                         >
                           <span
@@ -341,29 +641,52 @@ export function NodeDetailDrawer({
               )}
 
               {/* Actions */}
-              <div className="flex flex-wrap gap-2 pt-1">
-                {kind !== "document" && id ? (
-                  <Button
-                    size="sm"
-                    leadingIcon={<MessageSquare size={14} />}
-                    onClick={() => onChatFocus(id, kind ?? "entity", title)}
-                  >
-                    Hablar de esto
-                  </Button>
-                ) : null}
-                {kind === "document" && id ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    leadingIcon={<ArrowUpRight size={14} />}
-                    onClick={() => (window.location.hash = `#/documents/${id.replace(/^doc-/, "")}`)}
-                  >
-                    Abrir documento
-                  </Button>
-                ) : null}
-              </div>
+              {!editing && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {kind !== "document" && id ? (
+                    <Button
+                      size="sm"
+                      leadingIcon={<MessageSquare size={14} />}
+                      onClick={() => onChatFocus(id, kind ?? "entity", title)}
+                    >
+                      Hablar de esto
+                    </Button>
+                  ) : null}
+                  {kind === "document" && id ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      leadingIcon={<ArrowUpRight size={14} />}
+                      onClick={() => (window.location.hash = `#/documents/${id.replace(/^doc-/, "")}`)}
+                    >
+                      Abrir documento
+                    </Button>
+                  ) : null}
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Edit footer */}
+          {editing && (
+            <div className="shrink-0 border-t border-hairline bg-canvas/80 backdrop-blur px-5 py-3 flex items-center justify-between gap-3">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={cancelEditing}
+                disabled={saveMutation.isPending}
+              >
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                onClick={submitEditing}
+                disabled={saveMutation.isPending}
+              >
+                {saveMutation.isPending ? "Guardando…" : "Guardar"}
+              </Button>
+            </div>
+          )}
         </motion.aside>
       )}
     </AnimatePresence>

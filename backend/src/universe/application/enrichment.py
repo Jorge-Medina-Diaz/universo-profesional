@@ -191,7 +191,7 @@ async def _infer_semantic_edges(
     await age_cypher(
         session,
         schema.GRAPH_PERSONAL,
-        "MATCH (a:Entity {user_id: $uid})-[r:RELATED_TO]->(b:Entity {user_id: $uid}) "
+        "MATCH (a {user_id: $uid})-[r:RELATED_TO]->(b {user_id: $uid}) "
         "WHERE r.valid_to IS NULL AND r.source = 'inferred' SET r.valid_to = $now",
         params={"uid": str(user_id), "now": datetime.now(UTC).isoformat()},
     )

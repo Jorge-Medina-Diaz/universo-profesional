@@ -17,7 +17,10 @@
 
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    build:
+      context: ./docker
+      dockerfile: postgres.Dockerfile
+    image: cvs-saas/postgres-age:pg16
     container_name: cvs-postgres
     restart: unless-stopped
     environment:

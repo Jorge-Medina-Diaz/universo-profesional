@@ -214,6 +214,56 @@ export const liveProfile = {
 
 // --- Photo ---
 
+// --- LLM Usage ---
+
+export const llmUsage = {
+  summary: (year?: number, month?: number) => {
+    const qs = new URLSearchParams();
+    if (year) qs.set("year", String(year));
+    if (month) qs.set("month", String(month));
+    const qstr = qs.toString();
+    return api<{
+      period: { year: number; month: number };
+      summary: {
+        total_cost_eur: number;
+        total_tokens: number;
+        input_tokens: number;
+        output_tokens: number;
+        by_model: Array<{
+          model: string;
+          cost_eur: number;
+          tokens: number;
+          runs: number;
+        }>;
+        by_agent: Array<{
+          agent: string;
+          cost_eur: number;
+          tokens: number;
+          runs: number;
+        }>;
+      };
+      daily: Array<{
+        day: string;
+        input_tokens: number;
+        output_tokens: number;
+        total_tokens: number;
+        cost_eur: number;
+      }>;
+      free_tier_tokens: number;
+    }>(`/api/v1/llm/usage${qstr ? `?${qstr}` : ""}`);
+  },
+  sessions: (limit = 50) =>
+    api<{
+      sessions: Array<{
+        session_id: string;
+        cost_eur: number;
+        tokens: number;
+        runs: number;
+        last_used: string | null;
+      }>;
+    }>(`/api/v1/llm/usage/sessions?limit=${limit}`),
+};
+
 export const photo = {
   upload: async (file: File) => {
     const fd = new FormData();

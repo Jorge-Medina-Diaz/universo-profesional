@@ -159,7 +159,7 @@ async def compute_communities(
                 session,
                 schema.GRAPH_PERSONAL,
                 f"""
-                MATCH (e:Entity {{id: $eid, user_id: $uid}}),
+                MATCH (e {{id: $eid, user_id: $uid}}),
                       (c:{schema.COMMUNITY} {{id: $cid, user_id: $uid}})
                 MERGE (e)-[m:{schema.MEMBER_OF}]->(c)
                 """,

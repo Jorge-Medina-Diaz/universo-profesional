@@ -108,6 +108,7 @@ def test_pickle_snapshot_roundtrip() -> None:
         graph=g,
         id_to_idx={uuid4(): 0, uuid4(): 1},
         idx_to_meta={0: (uuid4(), "skill", "Python"), 1: (uuid4(), "skill", "R")},
+        idx_to_esco={0: None, 1: "http://data.europa.eu/esco/skill/123"},
         built_at=1234.0,
     )
     payload = pickle.dumps(snap)

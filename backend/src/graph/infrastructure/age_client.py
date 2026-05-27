@@ -137,32 +137,28 @@ async def cypher(
     _validate_column_defs(column_defs)
     await ensure_age_loaded(session)
 
-    # AGE requires the params arg to be a SQL Param node (not a literal).
-    # The SQL parameter is sent via psycopg/asyncpg bind variables, which
-    # is what sqlalchemy's `:cypher_params` turns into.
     params_json = _serialize_params(params)
+    # AGE requires the third argument to be a SQL parameter, but the second
+    # argument (the Cypher query) must be a literal string.  SQLAlchemy's
+    # text() parses :name bind parameters even inside dollar-quoted strings,
+    # which breaks Cypher labels like :ISCO_GROUP_OF.  We bypass text()
+    # entirely and use the raw asyncpg connection directly.
+    raw_conn = await (await session.connection()).get_raw_connection()
+    asyncpg_conn = raw_conn.driver_connection
     if params:
-        # The `::agtype` cast is applied AFTER bind substitution, so AGE
-        # sees a Param node at parse time (its requirement) while postgres
-        # later coerces the JSON string into agtype.
         sql = (
             f"SELECT * FROM cypher('{graph}', $cypher$ {query} $cypher$, "
-            f"CAST(:cypher_params AS agtype)) AS ({column_defs})"
+            f"CAST($1 AS agtype)) AS ({column_defs})"
         )
-        result = await session.execute(text(sql), {"cypher_params": params_json})
+        records = await asyncpg_conn.fetch(sql, params_json)
     else:
-        # No-params form: AGE's two-argument cypher() doesn't expect the
-        # Param node at all, and many built-in Cypher utilities still
-        # work without it. We avoid sending an empty `{}` agtype to keep
-        # the SQL clean.
         sql = (
             f"SELECT * FROM cypher('{graph}', $cypher$ {query} $cypher$) "
             f"AS ({column_defs})"
         )
-        result = await session.execute(text(sql))
+        records = await asyncpg_conn.fetch(sql)
 
-    rows = result.mappings().all()
-    return [dict(row) for row in rows]
+    return [dict(r) for r in records]
 
 
 # ---------------------------------------------------------------------------

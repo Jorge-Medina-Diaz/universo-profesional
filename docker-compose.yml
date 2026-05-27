@@ -57,6 +57,33 @@ services:
       timeout: 5s
       retries: 5
 
+  esco-seed:
+    build:
+      context: ./backend
+      dockerfile: ../docker/backend.Dockerfile
+      target: runtime
+    container_name: cvs-esco-seed
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cvs:cvs_dev_password@postgres:5432/cvs
+      DATABASE_URL_SYNC: postgresql://cvs:cvs_dev_password@postgres:5432/cvs
+      REDIS_URL: redis://redis:6379/0
+      ENV: ${ENV:-development}
+      EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER:-deterministic}
+      AUTO_SEED_ESCO: "true"
+      ESCO_VERSION: ${ESCO_VERSION:-sample}
+      ESCO_DOWNLOAD_URL: ${ESCO_DOWNLOAD_URL:-}
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./backend:/app
+      - backend_var:/app/var
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "python -m alembic upgrade head || true; python -m scripts.seed_esco --sample-only"
+    restart: on-failure
+
   backend:
     build:
       context: ./backend
@@ -126,6 +153,8 @@ services:
         condition: service_healthy
       mailhog:
         condition: service_started
+      esco-seed:
+        condition: service_completed_successfully
     command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/src
 
   worker:

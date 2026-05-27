@@ -26,7 +26,7 @@ async def test_community_retriever_issues_vector_query() -> None:
     user_id = uuid4()
     retriever = CommunityRetriever()
 
-    mock_session = MagicMock()
+    mock_session = AsyncMock()
     mock_result = MagicMock()
     mock_result.all.return_value = [
         _FakeRow("comm-1", "Cloud Architecture", "AWS and infra work", 0.88)
@@ -60,7 +60,10 @@ async def test_community_retriever_empty_on_embed_failure() -> None:
     user_id = uuid4()
     retriever = CommunityRetriever()
 
-    mock_session = MagicMock()
+    mock_session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.all.return_value = []
+    mock_session.execute.return_value = mock_result
 
     with patch(
         "src.graph.application.retrieval.get_embeddings_service"

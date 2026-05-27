@@ -1,16 +1,28 @@
+import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
+
 interface ChatApi {
-  appendMessage?: (message: { role: "user"; content: string }) => void;
+  sendMessage?: (message: TextMessage) => Promise<void>;
 }
 
 /**
  * Type-safe helper to append a user message to a CopilotKit chat.
- * Isolates the `unknown` casting that CopilotSurface previously did inline.
+ *
+ * Uses {@link sendMessage} (not the deprecated {@link appendMessage}) because
+ * CopilotKit v1.57's `appendMessage` internally calls `gqlToAGUI` on a plain
+ * object, which crashes with `isResultMessage is not a function`.
+ * `sendMessage` accepts a proper {@link TextMessage} instance and passes it
+ * straight to the agent, bypassing the broken conversion path.
  */
 export function appendUserMessage(chat: unknown, content: string): void {
   const api = chat as ChatApi;
-  if (typeof api.appendMessage !== "function") return;
+  if (typeof api.sendMessage !== "function") return;
   try {
-    api.appendMessage({ role: "user", content });
+    void api.sendMessage(
+      new TextMessage({
+        content,
+        role: MessageRole.User,
+      }),
+    );
   } catch {
     /* ignore — API moved between versions */
   }

@@ -36,8 +36,9 @@ curl http://localhost:8000/readyz    # comprueba DB + Redis + JWT keys + LLM
 | `cvs-postgres` | Postgres + pgvector | 5432 | RLS scoping per user. Datos en volumen `postgres_data`. |
 | `cvs-redis` | Redis | 6379 | Cola Arq + rate-limit storage. |
 | `cvs-mailhog` | SMTP de pruebas | 1025 (smtp) + 8025 (web) | Captura todos los emails. |
+| `cvs-esco-seed` | Init container ESCO | — | Descarga (o usa muestra) e ingiere la ontología ESCO. Sale tras completar. |
 | `cvs-backend` | FastAPI + Agno | 8000 | Hot-reload sobre `backend/src/`. |
-| `cvs-worker` | Arq worker | — | 12 tasks registradas. |
+| `cvs-worker` | Arq worker | — | 12+ tasks registradas. |
 | `cvs-frontend` | Vite dev server | 5173 | Hot-reload sobre `frontend/src/`. |
 
 Si quieres ver el estado:
@@ -66,6 +67,8 @@ docker logs cvs-backend --tail 20 -f
 | Notification center | ✅ | |
 | Cookie consent banner | ✅ | |
 | Security headers + rate limiting | ✅ | Verifica `curl -i http://localhost:8000/healthz`. |
+| ESCO ontology | ✅ | Seeda automáticamente via `cvs-esco-seed` (sin intervención). |
+| Discovery progress + SSE | ✅ | Funciona con datos locales. |
 
 ---
 
@@ -213,6 +216,11 @@ Copia esto a `.env` en la raíz, descomenta lo que vayas activando:
 # === Sentry (opcional pero recomendable en staging) ============
 # SENTRY_DSN=https://...
 # VITE_SENTRY_DSN=https://...
+
+# === ESCO ontology (ya es automática en Docker, solo para override) ===
+# AUTO_SEED_ESCO=true          # semilla automática al arrancar en dev
+# ESCO_VERSION=v1.1.1          # tag de release guardado en graph_ingest_meta
+# ESCO_DOWNLOAD_URL=...        # URL alternativa del ZIP de ESCO
 ```
 
 Tras editar `.env`:
@@ -300,6 +308,12 @@ import os; os.environ['ENV']='production'
 import src.shared.config as cfg; cfg.get_settings.cache_clear()
 for e in cfg.get_settings().validate_production_ready(): print('-',e)
 "
+
+# Re-seed ESCO manualmente (o desde muestra si falla la descarga)
+./scripts/seed-esco.sh
+
+# Reset completo de ESCO (trunca + re-seed)
+./scripts/reset-esco.sh
 ```
 
 ---
@@ -338,7 +352,7 @@ Posibles causas:
 
 ### Rate limit fired
 
-```
+```json
 {"detail":"...","retry_after_seconds":900}
 ```
 

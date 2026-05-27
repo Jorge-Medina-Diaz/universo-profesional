@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { FileDown, Share2, ArrowLeft, Sparkles, FileText, Pencil } from "lucide-react";
 import { documents } from "@/shared/api";
+import { useChatState } from "@/chat/state";
 import {
   Badge,
   Button,
@@ -34,16 +35,9 @@ function EditSectionButton({ section, docId }: { section: string; docId: string 
   const onClick = () => {
     const prompt = SECTION_PROMPTS[section];
     if (!prompt) return;
-    try {
-      sessionStorage.setItem(
-        "cvs-saas-chat-inject",
-        JSON.stringify({
-          content: `${prompt}\n\n(Contexto: documento ${docId}, sección ${section})`,
-        }),
-      );
-    } catch {
-      /* ignore */
-    }
+    useChatState.getState().setPendingInjection({
+      content: `${prompt}\n\n(Contexto: documento ${docId}, sección ${section})`,
+    });
     window.location.hash = "#/";
   };
   return (

@@ -1,39 +1,37 @@
 """ESCO entity linker — bridges personal entities to the shared ontology.
 
-Pipeline (matches the design in §N.1 of the v2 plan):
+Pipeline:
 
   1. Normalise the input text (NFKC, lowercase, abbreviation expansion).
-  2. Candidate generation: pgvector top-K cosine against the
-     `ontology_embeddings` table, filtered by `label` so a skill is only
-     compared to :EscoSkill and an occupation only to :Occupation.
-  3. Cross-encoder rerank — *deferred* to a future sprint when we ship a
-     small open-source reranker. Until then the score is cosine alone.
+  2. Candidate generation: pgvector top-K cosine against
+     `ontology_embeddings` filtered by `label`.
+  3. Cross-encoder rerank: FeatureReranker re-scores candidates using
+     Jaro-Winkler + token Jaccard + exact-match bonus + rank decay.
   4. Resolution:
 
-       score ≥ THRESHOLD_AUTO       → LINKED      (returns esco_uri)
-       score ≥ THRESHOLD_QUARANTINE → SUGGESTED   (returns top-3)
-       else                         → ORPHAN      (no link, no quarantine)
+       rerank_score ≥ THRESHOLD_AUTO       → LINKED      (returns esco_uri)
+       rerank_score ≥ THRESHOLD_QUARANTINE → SUGGESTED   (returns top-3)
+       else                                → ORPHAN      (fallback to custom ontology)
 
-The thresholds are deliberately conservative. False positives are far
-worse than false negatives because once a personal entity carries an
-`esco_uri`, all downstream retrieval (PPR seeds, signal extraction)
-treats it as authoritative. A SUGGESTED row goes into `entity_quarantine`
-and the coordinator surfaces it to the user via the HITL flow added in
-N.5.
+The thresholds apply to the *reranked* score, not the raw cosine. This
+reduces false positives from polysemous terms (e.g. "Java" the island
+vs "Java" the language) because the string-similarity signals penalise
+label mismatches even when embeddings are close.
 """
 from __future__ import annotations
 
 import unicodedata
-from dataclasses import dataclass, field
-from enum import Enum
 from typing import Literal
 
 import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.graph.application.cross_encoder import feature_reranker
 from src.graph.domain import custom_skills_ontology as cso
+from src.graph.domain.esco_types import EscoCandidate, EscoLinkResult, LinkState
 from src.shared.embeddings import get_embeddings_service
+from src.shared.metrics import discovery_esco_links_total
 
 logger = structlog.get_logger(__name__)
 
@@ -104,31 +102,6 @@ def normalise(text_in: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-class LinkState(str, Enum):
-    LINKED = "linked"
-    SUGGESTED = "suggested"
-    ORPHAN = "orphan"
-    ERROR = "error"
-
-
-@dataclass(slots=True)
-class EscoCandidate:
-    uri: str
-    label: str          # AGE vertex label: "EscoSkill" or "Occupation"
-    pref_label_es: str | None
-    pref_label_en: str | None
-    score: float        # cosine in [0, 1]
-
-
-@dataclass(slots=True)
-class EscoLinkResult:
-    state: LinkState
-    esco_uri: str | None = None
-    candidates: list[EscoCandidate] = field(default_factory=list)
-    score: float | None = None  # top candidate score
-    reason: str | None = None
-
-
 # ---------------------------------------------------------------------------
 # Linker
 # ---------------------------------------------------------------------------
@@ -149,7 +122,9 @@ class EscoEntityLinker:
     ) -> EscoLinkResult:
         normalised = normalise(text_in)
         if not normalised:
-            return EscoLinkResult(state=LinkState.ORPHAN, reason="empty input")
+            result = EscoLinkResult(state=LinkState.ORPHAN, reason="empty input")
+            discovery_esco_links_total.labels(state=result.state.value).inc()
+            return result
 
         # 1. Embed the query.
         provider = get_embeddings_service()
@@ -157,7 +132,9 @@ class EscoEntityLinker:
             query_vec = await provider.embed(normalised)
         except Exception as exc:
             logger.warning("esco_linker_embed_failed", error=str(exc))
-            return EscoLinkResult(state=LinkState.ERROR, reason="embed_failed")
+            result = EscoLinkResult(state=LinkState.ERROR, reason="embed_failed")
+            discovery_esco_links_total.labels(state=result.state.value).inc()
+            return result
 
         # 2. Candidate generation via pgvector + label hydration in ONE
         #    query. asyncpg only accepts the vector as a "[v1,v2,...]"
@@ -187,9 +164,11 @@ class EscoEntityLinker:
             )
         ).all()
         if not rows:
-            return EscoLinkResult(
+            result = EscoLinkResult(
                 state=LinkState.ORPHAN, reason="no candidates in ontology"
             )
+            discovery_esco_links_total.labels(state=result.state.value).inc()
+            return result
 
         candidates = [
             EscoCandidate(
@@ -202,49 +181,64 @@ class EscoEntityLinker:
             for row in rows
         ]
 
-        # 4. Resolution.
-        top = candidates[0]
-        if top.score >= threshold_auto:
-            return EscoLinkResult(
-                state=LinkState.LINKED,
-                esco_uri=top.uri,
-                candidates=candidates[:1],
-                score=top.score,
+        # 3b. Cross-encoder rerank.
+        reranked = feature_reranker.rerank(normalised, candidates)
+        if not reranked:
+            result = EscoLinkResult(
+                state=LinkState.ORPHAN, reason="rerank returned empty"
             )
-        if top.score >= threshold_quarantine:
-            return EscoLinkResult(
+            discovery_esco_links_total.labels(state=result.state.value).inc()
+            return result
+
+        # 4. Resolution on reranked scores.
+        top = reranked[0]
+        result: EscoLinkResult
+        if top.rerank_score >= threshold_auto:
+            result = EscoLinkResult(
+                state=LinkState.LINKED,
+                esco_uri=top.candidate.uri,
+                candidates=[top.candidate],
+                score=top.rerank_score,
+                reason="linked via embedding + rerank",
+            )
+        elif top.rerank_score >= threshold_quarantine:
+            result = EscoLinkResult(
                 state=LinkState.SUGGESTED,
-                candidates=candidates,
-                score=top.score,
-                reason="below auto-link threshold",
+                candidates=[r.candidate for r in reranked[:CANDIDATE_TOP_K]],
+                score=top.rerank_score,
+                reason="below auto-link threshold after rerank",
             )
-        # Fallback to custom AI-era ontology when ESCO has no match.
-        custom = cso.find_by_label(normalised)
-        if custom is None:
-            custom_hits = cso.search_by_text(normalised)
-            custom = custom_hits[0] if custom_hits else None
-        if custom is not None:
-            return EscoLinkResult(
-                state=LinkState.LINKED,
-                esco_uri=custom.uri,
-                candidates=[
-                    EscoCandidate(
-                        uri=custom.uri,
-                        label="CustomSkill",
-                        pref_label_es=custom.pref_label_es,
-                        pref_label_en=custom.pref_label_en,
-                        score=0.95,  # deterministic high-confidence fallback
-                    )
-                ],
-                score=0.95,
-                reason="linked via custom skills ontology",
-            )
-        return EscoLinkResult(
-            state=LinkState.ORPHAN,
-            candidates=candidates,
-            score=top.score,
-            reason="top candidate below quarantine threshold",
-        )
+        else:
+            # 5. Fallback to custom AI-era ontology when ESCO has no match.
+            custom = cso.find_by_label(normalised)
+            if custom is None:
+                custom_hits = cso.search_by_text(normalised)
+                custom = custom_hits[0] if custom_hits else None
+            if custom is not None:
+                result = EscoLinkResult(
+                    state=LinkState.LINKED,
+                    esco_uri=custom.uri,
+                    candidates=[
+                        EscoCandidate(
+                            uri=custom.uri,
+                            label="CustomSkill",
+                            pref_label_es=custom.pref_label_es,
+                            pref_label_en=custom.pref_label_en,
+                            score=0.95,
+                        )
+                    ],
+                    score=0.95,
+                    reason="linked via custom skills ontology",
+                )
+            else:
+                result = EscoLinkResult(
+                    state=LinkState.ORPHAN,
+                    candidates=[r.candidate for r in reranked[:CANDIDATE_TOP_K]],
+                    score=top.rerank_score,
+                    reason="top candidate below quarantine threshold after rerank",
+                )
+        discovery_esco_links_total.labels(state=result.state.value).inc()
+        return result
 
 
 # Module-level singleton — stateless, safe to share.

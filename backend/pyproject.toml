@@ -49,6 +49,7 @@ dependencies = [
     # Graph / ontology / retrieval (Universe v2)
     "python-igraph>=0.11.6",  # Personalized PageRank snapshots (per-user)
     "scikit-learn>=1.5.2",    # PCA + IsolationForest + LOF outlier ensemble
+    "jellyfish>=1.1.0",       # phonetic + string similarity for entity resolution
     # HTTP client
     "httpx>=0.27.2",
     # Observability
@@ -163,6 +164,8 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 minversion = "8.0"
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
@@ -180,6 +183,10 @@ filterwarnings = [
     # teardown of the session-scoped event_loop fixture. The pinned version
     # closes the loop for us; the warning is cosmetic, so don't fail on it.
     "ignore::DeprecationWarning:pytest_asyncio.*",
+    # Redis async connections and ASGI transports sometimes emit ResourceWarning
+    # during session teardown after the event loop has closed; suppress the
+    # pytest wrapper so it doesn't fail the suite.
+    "ignore::pytest.PytestUnraisableExceptionWarning",
 ]
 markers = [
     "unit: pure domain/application logic, no IO",

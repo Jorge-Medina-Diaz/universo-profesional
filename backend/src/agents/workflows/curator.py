@@ -174,7 +174,7 @@ async def _clean_orphan_graph_vertices(session: AsyncSession, *, user_id: str) -
     graph_rows = await cypher(
         session,
         schema.GRAPH_PERSONAL,
-        "MATCH (e:Entity {user_id: $uid}) RETURN e.id AS id, e.kind AS kind",
+        "MATCH (e {user_id: $uid}) WHERE e.id IS NOT NULL RETURN e.id AS id, e.kind AS kind",
         params={"uid": user_id},
         column_defs="id agtype, kind agtype",
     )

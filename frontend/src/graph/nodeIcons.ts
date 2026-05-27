@@ -13,7 +13,7 @@ const STROKE =
   'fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 
 // Raw inner SVG (paths) per kind — white strokes on transparent.
-const GLYPHS: Record<string, string> = {
+export const GLYPHS: Record<string, string> = {
   // skill — compact concave sparkle ("spark of ability"). Kept small + centred
   // so the area-coloured disc frames it (a big fill made nodes read as white),
   // and so it never looks like the old 8-ray loading spinner.
