@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
-
 from src.graph.application.retrieval import CommunityRetriever
 
 
@@ -34,7 +33,7 @@ async def test_community_retriever_issues_vector_query() -> None:
     mock_session.execute.return_value = mock_result
 
     with patch(
-        "src.graph.application.retrieval.get_embeddings_service"
+        "src.graph.application.retrieval.communities.get_embeddings_service"
     ) as mock_embed:
         mock_embed.return_value = AsyncMock()
         mock_embed.return_value.embed = AsyncMock(return_value=[0.1] * 1536)
@@ -66,7 +65,7 @@ async def test_community_retriever_empty_on_embed_failure() -> None:
     mock_session.execute.return_value = mock_result
 
     with patch(
-        "src.graph.application.retrieval.get_embeddings_service"
+        "src.graph.application.retrieval.communities.get_embeddings_service"
     ) as mock_embed:
         mock_embed.return_value = AsyncMock()
         mock_embed.return_value.embed = AsyncMock(side_effect=RuntimeError("down"))
