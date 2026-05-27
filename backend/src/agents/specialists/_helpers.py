@@ -18,7 +18,7 @@ def build_specialist(
     db: Any,
     tier: str = "specialist",
     tool_call_limit: int = 8,
-):  # type: ignore[no-untyped-def]
+):
     """Build one focused specialist agent.
 
     `tier` defaults to "specialist" (cheap/fast model) — that is the whole

@@ -133,7 +133,7 @@ uv run pytest -q --cov=src --cov-report=xml --cov-report=term --cov-fail-under=4
 # Lint
 uv run ruff check src tests
 
-# Type-check (permissivo en MVP; `continue-on-error: true` en CI)
+# Type-check (estricto; bloqueante en CI)
 uv run mypy src
 
 # Migraciones
@@ -250,9 +250,9 @@ Se ejecuta en push a `main` y en pull requests.
 
 | Job | Qué hace |
 |-----|----------|
-| `backend` | Checkout → deps de sistema (WeasyPrint) → instala `uv` → `uv sync --all-extras` → crea extensiones pgvector/citext/pgcrypto → Alembic migrate → Ruff → Mypy (`continue-on-error`) → pytest con cobertura ≥40% → sube artifact `coverage.xml` (14 días) |
+| `backend` | Checkout → deps de sistema (WeasyPrint) → instala `uv` → `uv sync --all-extras` → crea extensiones pgvector/citext/pgcrypto → Alembic migrate → Ruff → Import-linter → Mypy (bloqueante) → pytest con cobertura ≥40% → sube artifact `coverage.xml` (14 días) |
 | `frontend` | Checkout → Node 22 + npm cache → `npm install --include=dev` → lint → typecheck → test (`--run`) → build |
-| `security` | Trivy filesystem scan (CRITICAL/HIGH, `exit-code: 1`, `continue-on-error` por ahora) |
+| `security` | Trivy filesystem scan (CRITICAL/HIGH, `exit-code: 1`, bloqueante) |
 
 **Servicios del job backend:** `pgvector/pgvector:pg16` + `redis:7-alpine`.
 
@@ -402,8 +402,9 @@ El backend valida en startup (`validate_production_ready()`) que no haya valores
 - **No modificar `pyproject.toml` ni `package.json` sin justificación:** los rangos de versión están pinneados con cuidado (especialmente Agno, FastAPI, Pydantic v2).
 - **Alembic antes de código nuevo con modelos:** si añades/quitas tablas o columnas, genera una migración con `alembic revision --autogenerate` y revísala antes de aplicar.
 - **No romper import-linter:** si creas un nuevo contexto acotado, añade su contenedor a `backend/.importlinter` bajo la cláusula `layered`.
-- **Tests en CI:** el umbral de cobertura es 40 %. Si reduces cobertura por debajo, el job de backend fallará.
-- **Mypy es estricto pero permite fallo en CI:** no bloquea el merge actualmente (`continue-on-error: true`), pero se pretende endurecer.
+- **Tests en CI:** el umbral de cobertura es 40 %. Meta de producción: 50 %. Si reduces cobertura por debajo de 40 %, el job de backend fallará.
+- **Import-linter bloquea el merge:** 0 contract violations permitidos. Si añades un nuevo contexto acotado, regístralo en `.importlinter` y crea los ports necesarios para no cruzar `application → infrastructure`.
+- **Mypy es estricto y bloquea el pipeline:** no hay `continue-on-error`. Se corrigen `unused-ignore` proactivamente. ~495 errores pre-existentes pendientes de limpieza progresiva.
 
 ---
 
@@ -451,3 +452,21 @@ El backend valida en startup (`validate_production_ready()`) que no haya valores
 - **Self-learning context** — 4-tier memory (semantic + procedural + episodic + working) con `SelfLearningEngine`. El modelo subyacente no cambia; el contexto alrededor evoluciona.
 - **Discovery progress endpoint + SSE** — `GET /api/v1/discovery/progress` devuelve score 0-100; `GET /api/v1/discovery/stream` notifica en tiempo real vía Server-Sent Events.
 - **Document specialist** — Especialista dedicado a generación de documentos con descubrimiento conversacional previo (kind → template → tone → language → JD opcional).
+
+### 13.7 Sprint 4 — Clean Architecture enforcement + test refactor + code flattening
+
+- **Import-linter: 0 violations** — Todos los imports `application → infrastructure` eliminados mediante ports con module-level variables (patrón graph → universe → integrations).
+- **`shared.db` → `shared.orm_loader`** — `import_all_models()` movido fuera de `shared.db` para romper cadenas de violación indirecta entre contextos.
+- **Ports creados:**
+  - `graph/application/ports/age.py` — `cypher`, `parse_agtype`, `ensure_age_loaded`
+  - `universe/application/ports/orm.py` — ORM classes (`ExperienceOrm`, `ProjectOrm`, etc.)
+  - `universe/application/ports/tasks.py` — `refresh_embedding`, `ENTITY_MAP`
+  - `universe/application/ports/repositories.py` — `UserRubricSignalRepository`
+  - `integrations/application/ports/` — `github.py`, `linkedin_brightdata.py`, `linkedin_dma.py`
+  - `llm_tracking/application/ports.py` — `LlmUsageLogRepository`
+  - `notes/application/ports.py` — `NoteRepository`, `EmbeddingRefreshScheduler`
+- **Inyección de dependencias** — `VerifyEmail` acepta `welcome_emailer`, `LlmCostTracker` acepta `repo`, use cases de notes aceptan `repository` + `scheduler`, `ingest_rubrics` acepta `repo_class`.
+- **Tests refactor** — Eliminados 4 tests frágiles que hacían patch a métodos privados (`_call_llm`, `_upsert_entity`). Reemplazado SQL-string branching mock por side-effects ordenados. Factory `make_mock_document()`.
+- **CSV flatten** — `import_linkedin_zip` pasa de 6 a 2 niveles de anidamiento mediante parsers extraídos (`_parse_li_experiences`, `_parse_li_educations`, `_parse_li_skills`).
+- **Lookup tables** — `_resolve_field` (9 branches) y `_infer_shape` (nested ifs) convertidos a diccionarios de estrategias + guard clauses.
+- **Mypy cleanup** — 40 `unused-ignore` eliminados automáticamente; errores de tipo en `entity_resolution.py` corregidos.

@@ -397,7 +397,7 @@ async def _stream_chat(
 
     # Single-chat enforcement.
     enforced_thread_id = f"main-{user_id}"
-    run_input.thread_id = enforced_thread_id  # type: ignore[assignment]
+    run_input.thread_id = enforced_thread_id
     run_input.forwarded_props = {
         **(run_input.forwarded_props or {}),
         "user_id": str(user_id),

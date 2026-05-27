@@ -103,7 +103,7 @@ async def add_education(
         if result.is_failure:
             raise result.error  # type: ignore[union-attr]
         await uow.commit()
-        return result.value  # type: ignore[union-attr, return-value]
+        return result.value
 
 
 @router.patch("/education/{entity_id}")
@@ -121,7 +121,7 @@ async def update_education(
         if result.is_failure:
             raise result.error  # type: ignore[union-attr]
         await uow.commit()
-        return result.value  # type: ignore[union-attr, return-value]
+        return result.value
 
 
 @router.delete("/education/{entity_id}", status_code=204)
@@ -158,7 +158,7 @@ async def add_experience(
         if result.is_failure:
             raise result.error  # type: ignore[union-attr]
         await uow.commit()
-        return result.value  # type: ignore[union-attr, return-value]
+        return result.value
 
 
 @router.patch("/experience/{entity_id}")
@@ -174,7 +174,7 @@ async def update_experience(
         if result.is_failure:
             raise result.error  # type: ignore[union-attr]
         await uow.commit()
-        return result.value  # type: ignore[union-attr, return-value]
+        return result.value
 
 
 @router.delete("/experience/{entity_id}", status_code=204)
@@ -211,7 +211,7 @@ async def add_project(
         if result.is_failure:
             raise result.error  # type: ignore[union-attr]
         await uow.commit()
-        return result.value  # type: ignore[union-attr, return-value]
+        return result.value
 
 
 @router.patch("/project/{entity_id}")
@@ -227,7 +227,7 @@ async def update_project(
         if result.is_failure:
             raise result.error  # type: ignore[union-attr]
         await uow.commit()
-        return result.value  # type: ignore[union-attr, return-value]
+        return result.value
 
 
 @router.delete("/project/{entity_id}", status_code=204)
@@ -264,7 +264,7 @@ async def add_skill(
         if result.is_failure:
             raise result.error  # type: ignore[union-attr]
         await uow.commit()
-        return result.value  # type: ignore[union-attr, return-value]
+        return result.value
 
 
 @router.patch("/skill/{entity_id}")
@@ -280,7 +280,7 @@ async def update_skill(
         if result.is_failure:
             raise result.error  # type: ignore[union-attr]
         await uow.commit()
-        return result.value  # type: ignore[union-attr, return-value]
+        return result.value
 
 
 @router.delete("/skill/{entity_id}", status_code=204)
@@ -328,7 +328,7 @@ async def add_certification(
         if r.is_failure:
             raise r.error  # type: ignore[union-attr]
         await uow.commit()
-        return r.value  # type: ignore[union-attr, return-value]
+        return r.value
 
 
 @router.patch("/certification/{entity_id}")
@@ -344,7 +344,7 @@ async def update_certification(
         if r.is_failure:
             raise r.error  # type: ignore[union-attr]
         await uow.commit()
-        return r.value  # type: ignore[union-attr, return-value]
+        return r.value
 
 
 @router.delete("/certification/{entity_id}", status_code=204)
@@ -378,7 +378,7 @@ async def add_course(
         if r.is_failure:
             raise r.error  # type: ignore[union-attr]
         await uow.commit()
-        return r.value  # type: ignore[union-attr, return-value]
+        return r.value
 
 
 @router.patch("/course/{entity_id}")
@@ -394,7 +394,7 @@ async def update_course(
         if r.is_failure:
             raise r.error  # type: ignore[union-attr]
         await uow.commit()
-        return r.value  # type: ignore[union-attr, return-value]
+        return r.value
 
 
 @router.delete("/course/{entity_id}", status_code=204)
@@ -428,7 +428,7 @@ async def add_language(
         if r.is_failure:
             raise r.error  # type: ignore[union-attr]
         await uow.commit()
-        return r.value  # type: ignore[union-attr, return-value]
+        return r.value
 
 
 @router.patch("/language/{entity_id}")
@@ -444,7 +444,7 @@ async def update_language(
         if r.is_failure:
             raise r.error  # type: ignore[union-attr]
         await uow.commit()
-        return r.value  # type: ignore[union-attr, return-value]
+        return r.value
 
 
 @router.delete("/language/{entity_id}", status_code=204)
@@ -478,7 +478,7 @@ async def add_achievement(
         if r.is_failure:
             raise r.error  # type: ignore[union-attr]
         await uow.commit()
-        return r.value  # type: ignore[union-attr, return-value]
+        return r.value
 
 
 @router.patch("/achievement/{entity_id}")
@@ -494,7 +494,7 @@ async def update_achievement(
         if r.is_failure:
             raise r.error  # type: ignore[union-attr]
         await uow.commit()
-        return r.value  # type: ignore[union-attr, return-value]
+        return r.value
 
 
 @router.delete("/achievement/{entity_id}", status_code=204)
@@ -528,7 +528,7 @@ async def add_interest(
         if r.is_failure:
             raise r.error  # type: ignore[union-attr]
         await uow.commit()
-        return r.value  # type: ignore[union-attr, return-value]
+        return r.value
 
 
 @router.delete("/interest/{entity_id}", status_code=204)
@@ -597,7 +597,7 @@ async def mark_reviewed(
     if result.is_failure:
         raise result.error  # type: ignore[union-attr]
     await session.commit()
-    return result.value  # type: ignore[union-attr, return-value]
+    return result.value
 
 
 # --- Evidence linking ------------------------------------------------------
@@ -631,7 +631,7 @@ async def link_evidence(
     if result.is_failure:
         raise result.error  # type: ignore[union-attr]
     await session.commit()
-    return result.value  # type: ignore[union-attr, return-value]
+    return result.value
 
 
 @router.get("/evidence")
@@ -704,7 +704,7 @@ async def act_on_suggestion(
     if r.is_failure:
         raise r.error  # type: ignore[union-attr]
     await session.commit()
-    return r.value  # type: ignore[union-attr, return-value]
+    return r.value
 
 
 # --- Reminders -----------------------------------------------------------

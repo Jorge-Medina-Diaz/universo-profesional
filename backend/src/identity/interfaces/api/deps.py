@@ -32,10 +32,10 @@ from src.shared.errors import UnauthorizedError
 from src.shared.security import decode_jwt
 
 
-async def session_dep() -> AsyncSession:  # type: ignore[return-value]
+async def session_dep() -> AsyncSession:
     """Wrapper so FastAPI sees a proper dependency function."""
     async for s in get_session():
-        yield s  # type: ignore[misc]
+        yield s
 
 
 SessionDep = Annotated[AsyncSession, Depends(session_dep)]

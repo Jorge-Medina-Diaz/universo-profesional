@@ -37,7 +37,7 @@ logger = structlog.get_logger(__name__)
 
 
 async def _run_with_cooperative_cancel(
-    coro,  # type: ignore[no-untyped-def]
+    coro,
     *,
     runs: SyncRunsRepository,
     run_id: UUID,

@@ -157,7 +157,7 @@ class SyncGithub:
                         "repo": f"{r['owner']['login']}/{r['name']}",
                         "fetched_at": now.isoformat(),
                         "stars": r.get("stargazers_count", 0),
-                    }  # type: ignore[attr-defined]
+                    }
                     await self._projects.add(project)
                     items_created += 1
                 else:
@@ -190,7 +190,7 @@ class SyncGithub:
                         user_id=uid, name=lang, category="hard", level=level
                     )
                     skill.source = "github"
-                    skill.source_metadata = {  # type: ignore[attr-defined]
+                    skill.source_metadata = {
                         "bytes": byte_count,
                         "fetched_at": now.isoformat(),
                     }
@@ -233,7 +233,7 @@ class SyncGithub:
                     is_current=True,
                 )
                 exp.source = "github"
-                exp.source_metadata = {  # type: ignore[attr-defined]
+                exp.source_metadata = {
                     "org_url": org.get("url"),
                     "fetched_at": now.isoformat(),
                 }

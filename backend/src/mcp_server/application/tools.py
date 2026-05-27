@@ -155,7 +155,7 @@ def _make_add_handler(entity: str):
         uow = _new_uow(session)
         r = await uc_inst.add(user_id=str(user_id), payload=dict(args), uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         return r.value
 
     return handler
@@ -173,7 +173,7 @@ def _make_update_handler(entity: str):
             user_id=str(user_id), entity_id=entity_id, patch=args, uow=uow
         )
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         return r.value
 
     return handler
@@ -185,7 +185,7 @@ def _make_delete_handler(entity: str):
         uow = _new_uow(session)
         r = await uc_inst.delete(user_id=str(user_id), entity_id=args["id"], uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         return {"deleted": True}
 
     return handler

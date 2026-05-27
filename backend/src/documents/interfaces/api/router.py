@@ -146,7 +146,7 @@ async def get_document(
     result = await uc.execute(user_id=user_id, document_id=document_id)
     if result.is_failure:
         raise result.error  # type: ignore[union-attr]
-    return result.value  # type: ignore[union-attr, return-value]
+    return result.value
 
 
 @router.get("/{document_id}/pdf")
@@ -232,7 +232,7 @@ async def share_document(
         if result.is_failure:
             raise result.error  # type: ignore[union-attr]
         await uow.commit()
-        return result.value  # type: ignore[union-attr, return-value]
+        return result.value
 
 
 # Public router — no auth, resolves a share token to a document summary.

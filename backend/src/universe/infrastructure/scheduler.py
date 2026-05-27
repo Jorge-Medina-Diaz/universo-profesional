@@ -21,9 +21,9 @@ class ArqEmbeddingScheduler(EmbeddingRefreshScheduler):
     """
 
     def __init__(self) -> None:
-        self._pool: Any | None = None  # type: ignore[assignment, name-defined]
+        self._pool: Any | None = None
 
-    async def _get_pool(self) -> Any:  # type: ignore[name-defined]
+    async def _get_pool(self) -> Any:
         if self._pool is None:
             settings = get_settings()
             try:

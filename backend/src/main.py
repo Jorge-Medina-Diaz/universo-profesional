@@ -380,7 +380,7 @@ def create_app() -> FastAPI:
             async def _ping_redis() -> None:
                 pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
                 try:
-                    await pool.ping()  # type: ignore[attr-defined]
+                    await pool.ping()
                 except AttributeError:
                     # older arq exposes the underlying redis as .pool
                     pass

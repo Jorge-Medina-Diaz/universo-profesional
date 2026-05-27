@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from src.shared.db import Base
 
 
-class LlmUsageLogORM(Base):  # type: ignore[misc]
+class LlmUsageLogORM(Base):
     __tablename__ = "llm_usage_logs"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

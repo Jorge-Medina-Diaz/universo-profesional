@@ -82,7 +82,7 @@ async def ingest_rubrics(
                     continue
                 await _embed_doc(doc, embedder)
                 upserted, was_created = await repo.upsert_document(doc)
-                await repo.replace_chunks(upserted.id, doc.chunks)  # type: ignore[arg-type]
+                await repo.replace_chunks(upserted.id, doc.chunks)
                 await session.commit()
                 if was_created:
                     summary.created += 1

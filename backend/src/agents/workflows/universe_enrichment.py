@@ -489,7 +489,7 @@ class UniverseEnrichmentEngine:
         client = AsyncOpenAI(api_key=self._settings.openai_api_key)
         response = await client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=messages,  # type: ignore[arg-type]
+            messages=messages,
             max_tokens=2048,
             temperature=0.1,
             response_format={"type": "json_object"},

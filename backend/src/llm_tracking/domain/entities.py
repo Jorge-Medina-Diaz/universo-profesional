@@ -57,6 +57,6 @@ class LlmUsageLog:
 
 def _int(val: object) -> int:
     try:
-        return int(val or 0)  # type: ignore[arg-type]
+        return int(val or 0)
     except (TypeError, ValueError):
         return 0
