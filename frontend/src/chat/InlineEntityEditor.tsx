@@ -7,6 +7,7 @@
  * This keeps the user inside the chat flow — no proposal cards, no modals.
  */
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useEscapeKey } from "@/shared/useEscapeKey";
 import { Check, X, Pencil } from "lucide-react";
 
 
@@ -65,16 +66,16 @@ export function InlineEntityEditor({ children, onEdit }: Props) {
 
   const cancel = useCallback(() => setEdit(null), []);
 
-  // Close on Escape / save on Ctrl+Enter
+  useEscapeKey(cancel, !!edit);
+
   useEffect(() => {
     if (!edit) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") cancel();
       if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) save();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [edit, save, cancel]);
+  }, [edit, save]);
 
   return (
     <div ref={wrapperRef} className="inline-editor-wrapper" onDoubleClick={handleDoubleClick}>

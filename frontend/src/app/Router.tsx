@@ -199,14 +199,14 @@ function NotFoundPage({ path }: { path: string }) {
  * React.lazy() needs a default export. Pages historically use named exports,
  * so wrap them to keep the existing export style without per-page boilerplate.
  */
-function lazyPage<P extends Record<string, ComponentType<any>>, K extends keyof P>(
+function lazyPage<P extends Record<string, unknown>, K extends keyof P>(
   loader: () => Promise<P>,
   name: K,
-): ComponentType<any> {
+): P[K] {
   return lazy(async () => {
     const mod = await loader();
-    return { default: mod[name] };
-  });
+    return { default: mod[name] as ComponentType<unknown> };
+  }) as unknown as P[K];
 }
 
 function RouteFallback() {

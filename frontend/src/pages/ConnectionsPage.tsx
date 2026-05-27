@@ -14,7 +14,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { account, auth, useAuthStore } from "@/shared/api";
-import { integrations } from "@/shared/api-extra";
+import { integrations, type Connection } from "@/shared/api-extra";
 import {
   Badge,
   Button,
@@ -33,6 +33,18 @@ import {
   type ImportPreviewSelection,
 } from "@/widgets/ImportPreviewTable";
 import { queryKeys } from "@/shared/queryKeys";
+
+interface SyncRun {
+  id: string;
+  provider: string;
+  ok: boolean | null;
+  started_at: string;
+  items_created: number;
+  items_updated: number;
+  error?: string | null;
+}
+
+type ParsedImport = Record<string, unknown>;
 
 export function ConnectionsPage() {
   useTranslation();
@@ -130,7 +142,7 @@ export function ConnectionsPage() {
         </h2>
         {runs.data?.runs.length ? (
           <ul className="space-y-3">
-            {runs.data.runs.map((r: any) => (
+            {(runs.data.runs as unknown as SyncRun[]).map((r) => (
               <li
                 key={r.id}
                 className="flex items-start justify-between gap-3 border-b border-ink/5 last:border-0 pb-3 last:pb-0"
@@ -187,7 +199,7 @@ function ProviderCard({
   iconBg: string;
   iconColor: string;
   description: string;
-  connection: any;
+  connection: Connection | undefined;
   onConnect: () => void;
   onSync?: () => void;
   onDisconnect?: () => void;
@@ -282,7 +294,7 @@ function LinkedInCard() {
 
   // Shared state: any of the three paths can open an import session, then we
   // route through the same selection UI before committing.
-  const [parsed, setParsed] = useState<any | null>(null);
+  const [parsed, setParsed] = useState<ParsedImport | null>(null);
   const [sid, setSid] = useState<string | null>(null);
   const [parsedSource, setParsedSource] = useState<
     "zip" | "dma" | "brightdata" | null
@@ -304,7 +316,7 @@ function LinkedInCard() {
       }
       window.location.href = r.authorize_url;
     },
-    onError: (e: any) => setError(e?.message ?? String(e)),
+    onError: (e: unknown) => setError((e as Error)?.message ?? String(e)),
   });
   // --- DMA ---
   // Single Sync button — the backend's DMA provider falls back to a
@@ -322,9 +334,10 @@ function LinkedInCard() {
       setSid(r.session_id);
       setParsedSource("dma");
     },
-    onError: (e: any) => {
+    onError: (e: unknown) => {
+      const err = e as { status?: number; message?: string };
       setError(
-        `Sync DMA falló (${e?.status ?? "?"}): ${e?.message ?? String(e)}`,
+        `Sync DMA falló (${err.status ?? "?"}): ${err.message ?? String(e)}`,
       );
     },
   });
@@ -356,11 +369,12 @@ function LinkedInCard() {
       setSid(r.session_id);
       setParsedSource("brightdata");
     },
-    onError: (e: any) => {
-      if (e?.status === 402) {
+    onError: (e: unknown) => {
+      const err = e as { status?: number; message?: string };
+      if (err.status === 402) {
         setError("Esta función requiere el plan PRO.");
       } else {
-        setError(e?.message ?? String(e));
+        setError(err.message ?? String(e));
       }
     },
   });
@@ -426,8 +440,8 @@ function LinkedInCard() {
     if (error) return { tone: "error" as const, msg: error };
     if (parsed && parsedSource) {
       const total = Object.values(parsed)
-        .filter((v) => Array.isArray(v))
-        .reduce((s, v: any) => s + v.length, 0);
+        .filter((v): v is unknown[] => Array.isArray(v))
+        .reduce((s, v) => s + v.length, 0);
       return {
         tone: "success" as const,
         msg: `${total} entradas detectadas — revisa abajo y pulsa Importar todo.`,
@@ -737,35 +751,35 @@ function toSectionMap(sel: ImportPreviewSelection): Record<string, number[]> {
   return { ...sel };
 }
 
-function buildLinkedInSections(parsed: Record<string, any>): ImportPreviewSection[] {
-  const defs: Array<[string, string, (r: any) => string, ((r: any) => string | undefined)?]> = [
+function buildLinkedInSections(parsed: ParsedImport): ImportPreviewSection[] {
+  const defs: Array<[string, string, (r: Record<string, unknown>) => string, ((r: Record<string, unknown>) => string | undefined)?]> = [
     [
       "experiences",
       "Experiencias",
-      (r) => `${r.role ?? "?"} @ ${r.organization ?? "?"}`,
-      (r) => formatRange(r.start_date, r.end_date, r.is_current),
+      (r) => `${(r.role as string | undefined) ?? "?"} @ ${(r.organization as string | undefined) ?? "?"}`,
+      (r) => formatRange(r.start_date as string | null | undefined, r.end_date as string | null | undefined, r.is_current as boolean | undefined),
     ],
     [
       "educations",
       "Educación",
-      (r) => `${r.degree ?? r.field_of_study ?? "?"} — ${r.institution ?? "?"}`,
-      (r) => formatRange(r.start_date, r.end_date, r.is_current),
+      (r) => `${(r.degree as string | undefined) ?? (r.field_of_study as string | undefined) ?? "?"} — ${(r.institution as string | undefined) ?? "?"}`,
+      (r) => formatRange(r.start_date as string | null | undefined, r.end_date as string | null | undefined, r.is_current as boolean | undefined),
     ],
-    ["skills", "Skills", (r) => `${r.name}${r.level ? ` · ${r.level}` : ""}`],
-    ["languages", "Idiomas", (r) => `${r.name} (${r.level ?? "?"})`],
+    ["skills", "Skills", (r) => `${r.name as string | undefined}${(r.level as string | undefined) ? ` · ${r.level as string}` : ""}`],
+    ["languages", "Idiomas", (r) => `${r.name as string | undefined} (${(r.level as string | undefined) ?? "?"})`],
     [
       "certifications",
       "Certificaciones",
-      (r) => `${r.name} — ${r.issuer ?? ""}`,
-      (r) => (r.issued_on ? `Emitida ${r.issued_on}` : undefined),
+      (r) => `${r.name as string | undefined} — ${(r.issuer as string | undefined) ?? ""}`,
+      (r) => ((r.issued_on as string | undefined) ? `Emitida ${r.issued_on as string}` : undefined),
     ],
-    ["projects", "Proyectos", (r) => `${r.name ?? "?"}`],
-    ["achievements", "Logros", (r) => `${r.title ?? "?"}`],
-    ["courses", "Cursos", (r) => `${r.title ?? "?"}${r.platform ? ` · ${r.platform}` : ""}`],
+    ["projects", "Proyectos", (r) => `${(r.name as string | undefined) ?? "?"}`],
+    ["achievements", "Logros", (r) => `${(r.title as string | undefined) ?? "?"}`],
+    ["courses", "Cursos", (r) => `${(r.title as string | undefined) ?? "?"}${(r.platform as string | undefined) ? ` · ${r.platform as string}` : ""}`],
   ];
   const sections: ImportPreviewSection[] = [];
   for (const [key, label, summarize, sublabel] of defs) {
-    const rows = (parsed[key] as any[]) ?? [];
+    const rows = (parsed[key] as Array<Record<string, unknown>> | undefined) ?? [];
     if (rows.length > 0) {
       sections.push({ key, label, rows, summarize, sublabel });
     }
@@ -786,7 +800,7 @@ function formatRange(start?: string | null, end?: string | null, isCurrent?: boo
 
 function PdfCard() {
   const qc = useQueryClient();
-  const [parsed, setParsed] = useState<any | null>(null);
+  const [parsed, setParsed] = useState<ParsedImport | null>(null);
   const [sid, setSid] = useState<string | null>(null);
 
   const parseUpload = useMutation({
@@ -868,16 +882,16 @@ function PdfCard() {
   );
 }
 
-function buildPdfSections(parsed: Record<string, any>): ImportPreviewSection[] {
-  const defs: Array<[string, string, (r: any) => string, ((r: any) => string | undefined)?]> = [
+function buildPdfSections(parsed: ParsedImport): ImportPreviewSection[] {
+  const defs: Array<[string, string, (r: Record<string, unknown>) => string, ((r: Record<string, unknown>) => string | undefined)?]> = [
     [
       "experiences",
       "Experiencias",
-      (r) => `${r.role ?? "?"} @ ${r.organization ?? "?"}`,
+      (r) => `${(r.role as string | undefined) ?? "?"} @ ${(r.organization as string | undefined) ?? "?"}`,
       (r) =>
         [
-          formatRange(r.start_date, r.end_date, r.is_current),
-          r.confidence !== undefined ? `${Math.round(r.confidence * 100)}% confianza` : undefined,
+          formatRange(r.start_date as string | null | undefined, r.end_date as string | null | undefined, r.is_current as boolean | undefined),
+          (r.confidence as number | undefined) !== undefined ? `${Math.round((r.confidence as number) * 100)}% confianza` : undefined,
         ]
           .filter(Boolean)
           .join(" · "),
@@ -885,18 +899,18 @@ function buildPdfSections(parsed: Record<string, any>): ImportPreviewSection[] {
     [
       "educations",
       "Educación",
-      (r) => `${r.degree ?? r.field_of_study ?? "?"} — ${r.institution ?? "?"}`,
-      (r) => formatRange(r.start_date, r.end_date, r.is_current),
+      (r) => `${(r.degree as string | undefined) ?? (r.field_of_study as string | undefined) ?? "?"} — ${(r.institution as string | undefined) ?? "?"}`,
+      (r) => formatRange(r.start_date as string | null | undefined, r.end_date as string | null | undefined, r.is_current as boolean | undefined),
     ],
-    ["skills", "Skills", (r) => `${r.name}${r.level ? ` · ${r.level}` : ""}`],
-    ["languages", "Idiomas", (r) => `${r.name} (${r.level ?? "?"})`],
-    ["certifications", "Certificaciones", (r) => `${r.name} — ${r.issuer ?? ""}`],
-    ["projects", "Proyectos", (r) => `${r.name ?? "?"}`],
-    ["achievements", "Logros", (r) => `${r.title ?? "?"}`],
+    ["skills", "Skills", (r) => `${r.name as string | undefined}${(r.level as string | undefined) ? ` · ${r.level as string}` : ""}`],
+    ["languages", "Idiomas", (r) => `${r.name as string | undefined} (${(r.level as string | undefined) ?? "?"})`],
+    ["certifications", "Certificaciones", (r) => `${r.name as string | undefined} — ${(r.issuer as string | undefined) ?? ""}`],
+    ["projects", "Proyectos", (r) => `${(r.name as string | undefined) ?? "?"}`],
+    ["achievements", "Logros", (r) => `${(r.title as string | undefined) ?? "?"}`],
   ];
   const sections: ImportPreviewSection[] = [];
   for (const [key, label, summarize, sublabel] of defs) {
-    const rows = (parsed[key] as any[]) ?? [];
+    const rows = (parsed[key] as Array<Record<string, unknown>> | undefined) ?? [];
     if (rows.length > 0) {
       sections.push({ key, label, rows, summarize, sublabel });
     }

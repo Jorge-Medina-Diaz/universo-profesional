@@ -12,7 +12,7 @@
  * unmounted from the Layout). Each item carries an action: dismiss for
  * reminders, accept/reject for suggestions, jump-to-page for job alerts.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -29,6 +29,7 @@ import { universe, jobs, type ReminderRow, type JobRow } from "@/shared/api";
 import { liveProfile, type Suggestion } from "@/shared/api-extra";
 import { Badge, BellQuietIllustration, Button, cn } from "@/ui";
 import { queryKeys } from "@/shared/queryKeys";
+import { useClickOutside } from "@/shared/useClickOutside";
 import { useEscapeKey } from "@/shared/useEscapeKey";
 
 type SectionKey = "reminders" | "suggestions" | "jobs";
@@ -85,8 +86,8 @@ export function NotificationCenter() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [section, setSection] = useState<SectionKey>("reminders");
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const reminders = useQuery({
     queryKey: queryKeys.reminders.all,
@@ -125,20 +126,7 @@ export function NotificationCenter() {
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.suggestions.all }),
   });
 
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (e: MouseEvent) => {
-      if (
-        popoverRef.current &&
-        !popoverRef.current.contains(e.target as Node) &&
-        !buttonRef.current?.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [open]);
+  useClickOutside(wrapperRef, () => setOpen(false), open);
 
   useEscapeKey(() => setOpen(false), open);
 
@@ -150,9 +138,8 @@ export function NotificationCenter() {
   const total = counts.reminders + counts.suggestions + counts.jobs;
 
   return (
-    <div className="relative">
+    <div className="relative" ref={wrapperRef}>
       <button
-        ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label={`Notificaciones (${total})`}

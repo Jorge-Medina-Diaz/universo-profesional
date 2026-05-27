@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore, auth } from "@/shared/api";
 import { useHashRoute } from "@/shared/useHashRoute";
@@ -39,7 +38,6 @@ const NAV_RIGHT: NavItem[] = [
 ];
 
 export function Layout({ title, isAuthed, children }: Props) {
-  const { i18n } = useTranslation();
   const path = useHashRoute();
 
   // Eagerly fetch the user profile so every page has it warm in the cache.
@@ -112,10 +110,6 @@ export function Layout({ title, isAuthed, children }: Props) {
               </span>
             )}
             <ThemeToggle />
-            <LanguageToggle
-              value={i18n.resolvedLanguage || "es"}
-              onChange={(v) => i18n.changeLanguage(v)}
-            />
             {isAuthed ? (
               <AccountMenu />
             ) : (
@@ -289,34 +283,3 @@ function AccountMenu() {
   );
 }
 
-function LanguageToggle({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const lang = value.startsWith("en") ? "en" : "es";
-  return (
-    <div
-      role="group"
-      aria-label="Idioma"
-      className="hidden sm:inline-flex items-center gap-0.5 rounded-btn bg-surface p-0.5 text-[11px] font-medium"
-    >
-      {(["es", "en"] as const).map((opt) => (
-        <button
-          key={opt}
-          type="button"
-          onClick={() => onChange(opt)}
-          aria-pressed={lang === opt}
-          className={cn(
-            "px-2 py-1 rounded-[8px] transition-colors duration-180 uppercase tracking-wider",
-            lang === opt ? "bg-canvas text-ink shadow-soft" : "text-stone hover:text-ink",
-          )}
-        >
-          {opt}
-        </button>
-      ))}
-    </div>
-  );
-}

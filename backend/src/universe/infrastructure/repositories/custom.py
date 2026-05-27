@@ -1,10 +1,4 @@
-"""SQLAlchemy implementations of Universe ports.
-
-Every entity has an analogous repository following the same pattern. We
-intentionally keep mapping functions explicit rather than using a generic
-mapper — the entities differ enough that magic mapping leaks more bugs
-than the duplication costs.
-"""
+"""Custom repositories with specialized queries and helpers."""
 from __future__ import annotations
 
 from typing import Any
@@ -21,41 +15,31 @@ from src.universe.application.ports import (
     UniverseRepository,
 )
 from src.universe.domain.entities import (
-    Achievement,
-    ArchitectureDecision,
     AreaStrength,
     Artifact,
     CareerPreferences,
-    Certification,
-    Course,
-    Education,
-    Experience,
-    Interest,
     Language,
-    Project,
     Skill,
     SkillStack,
     UserRubricSignal,
 )
 from src.universe.domain.universe import Universe
 from src.universe.infrastructure.orm import (
-    AchievementOrm,
-    ArchitectureDecisionOrm,
     AreaStrengthOrm,
     ArtifactOrm,
     CareerPreferencesOrm,
-    CertificationOrm,
-    CourseOrm,
-    EducationOrm,
-    ExperienceOrm,
-    InterestOrm,
     LanguageOrm,
-    ProjectOrm,
     SkillOrm,
     SkillStackOrm,
     UniverseOrm,
     UserRubricSignalOrm,
 )
+from src.universe.infrastructure.repositories.base import (
+    _BaseRepo,
+    _entity_to_orm_kwargs,
+    _orm_to_entity,
+)
+
 
 # --- Universe --------------------------------------------------------------
 
@@ -104,120 +88,7 @@ class SqlAlchemyUniverseRepository(UniverseRepository):
         await self._session.flush()
 
 
-# --- Helper: a small declarative mapping table --------------------------------
-# For repositories that share the exact same shape (insert/update/delete +
-# update_embedding), we generate them in-place to avoid a wall of duplicate code.
-
-
-def _entity_to_orm_kwargs(entity: Any, orm_cls: Any) -> dict[str, Any]:
-    """Pick fields from the dataclass entity that exist on the ORM class."""
-    orm_cols = {c.name for c in orm_cls.__table__.columns}
-    out: dict[str, Any] = {}
-    for f in entity.__dataclass_fields__:
-        if f.startswith("_"):
-            continue
-        if f in orm_cols:
-            out[f] = getattr(entity, f)
-    return out
-
-
-def _orm_to_entity(row: Any, entity_cls: Any) -> Any:
-    """Map ORM row → entity dataclass. Fields not present on the entity are dropped."""
-    fields = {f for f in entity_cls.__dataclass_fields__ if not f.startswith("_")}
-    kwargs = {f: getattr(row, f) for f in fields if hasattr(row, f)}
-    return entity_cls(**kwargs)
-
-
-# --- Generic repo body ---
-
-
-def _build_repo_methods(orm_cls: Any, entity_cls: Any) -> dict[str, Any]:
-    """Return a dict of methods implementing the standard repo Protocol."""
-
-    async def list_(self: Any, user_id: UUID) -> list[Any]:
-        stmt = select(orm_cls).where(orm_cls.user_id == user_id).where(orm_cls.deleted_at.is_(None) if hasattr(orm_cls, "deleted_at") else True)  # type: ignore[arg-type]
-        rows = (await self._session.execute(stmt)).scalars().all()
-        return [_orm_to_entity(r, entity_cls) for r in rows]
-
-    async def get_(self: Any, user_id: UUID, entity_id: UUID) -> Any | None:
-        stmt = select(orm_cls).where(orm_cls.id == entity_id).where(orm_cls.user_id == user_id)
-        row = (await self._session.execute(stmt)).scalar_one_or_none()
-        if row is None:
-            return None
-        return _orm_to_entity(row, entity_cls)
-
-    async def add_(self: Any, entity: Any) -> None:
-        self._session.add(orm_cls(**_entity_to_orm_kwargs(entity, orm_cls)))
-        await self._session.flush()
-
-    async def update_(self: Any, entity: Any) -> None:
-        existing = await self._session.get(orm_cls, entity.id)
-        if existing is None:
-            return
-        for k, v in _entity_to_orm_kwargs(entity, orm_cls).items():
-            setattr(existing, k, v)
-        existing.updated_at = utc_now()
-        await self._session.flush()
-
-    async def delete_(self: Any, user_id: UUID, entity_id: UUID) -> bool:
-        stmt = (
-            delete(orm_cls)
-            .where(orm_cls.id == entity_id)
-            .where(orm_cls.user_id == user_id)
-            .returning(orm_cls.id)
-        )
-        result = await self._session.execute(stmt)
-        return result.first() is not None
-
-    async def update_embedding_(self: Any, entity_id: UUID, embedding: list[float]) -> None:
-        stmt = (
-            update(orm_cls)
-            .where(orm_cls.id == entity_id)
-            .values(embedding=embedding, updated_at=utc_now())
-        )
-        await self._session.execute(stmt)
-        await self._session.flush()
-
-    return {
-        "list": list_,
-        "get": get_,
-        "add": add_,
-        "update": update_,
-        "delete": delete_,
-        "update_embedding": update_embedding_,
-    }
-
-
-class _BaseRepo:
-    def __init__(self, session: AsyncSession) -> None:
-        self._session = session
-
-
-def _make_repo(name: str, orm_cls: Any, entity_cls: Any) -> type:
-    methods = _build_repo_methods(orm_cls, entity_cls)
-    return type(name, (_BaseRepo,), methods)
-
-
-SqlAlchemyEducationRepository = _make_repo(
-    "SqlAlchemyEducationRepository", EducationOrm, Education
-)
-SqlAlchemyExperienceRepository = _make_repo(
-    "SqlAlchemyExperienceRepository", ExperienceOrm, Experience
-)
-SqlAlchemyProjectRepository = _make_repo("SqlAlchemyProjectRepository", ProjectOrm, Project)
-SqlAlchemyCertificationRepository = _make_repo(
-    "SqlAlchemyCertificationRepository", CertificationOrm, Certification
-)
-SqlAlchemyCourseRepository = _make_repo("SqlAlchemyCourseRepository", CourseOrm, Course)
-SqlAlchemyAchievementRepository = _make_repo(
-    "SqlAlchemyAchievementRepository", AchievementOrm, Achievement
-)
-SqlAlchemyInterestRepository = _make_repo("SqlAlchemyInterestRepository", InterestOrm, Interest)
-SqlAlchemyArchitectureDecisionRepository = _make_repo(
-    "SqlAlchemyArchitectureDecisionRepository",
-    ArchitectureDecisionOrm,
-    ArchitectureDecision,
-)
+# --- Language --------------------------------------------------------------
 
 
 class SqlAlchemyLanguageRepository(_BaseRepo, LanguageRepository):
@@ -257,6 +128,9 @@ class SqlAlchemyLanguageRepository(_BaseRepo, LanguageRepository):
         )
         result = await self._session.execute(stmt)
         return result.first() is not None
+
+
+# --- Skill -----------------------------------------------------------------
 
 
 class SqlAlchemySkillRepository(_BaseRepo, SkillRepository):
@@ -313,6 +187,9 @@ class SqlAlchemySkillRepository(_BaseRepo, SkillRepository):
         )
         row = (await self._session.execute(stmt)).scalar_one_or_none()
         return _orm_to_entity(row, Skill) if row else None
+
+
+# --- CareerPreferences ------------------------------------------------------
 
 
 class SqlAlchemyCareerPreferencesRepository(_BaseRepo, CareerPreferencesRepository):
@@ -384,7 +261,7 @@ class SqlAlchemyCareerPreferencesRepository(_BaseRepo, CareerPreferencesReposito
         await self._session.flush()
 
 
-# --- AreaStrength ---------------------------------------------------------
+# --- AreaStrength ----------------------------------------------------------
 
 
 class SqlAlchemyAreaStrengthRepository(_BaseRepo):
@@ -450,7 +327,7 @@ class SqlAlchemyAreaStrengthRepository(_BaseRepo):
         )
 
 
-# --- Artifact -------------------------------------------------------------
+# --- Artifact --------------------------------------------------------------
 
 
 class SqlAlchemyArtifactRepository(_BaseRepo):
@@ -547,7 +424,7 @@ class SqlAlchemyArtifactRepository(_BaseRepo):
         )
 
 
-# --- SkillStack -----------------------------------------------------------
+# --- SkillStack ------------------------------------------------------------
 
 
 class SqlAlchemySkillStackRepository(_BaseRepo):
@@ -775,25 +652,3 @@ async def update_universe_areas(
     existing.secondary_areas = list(secondary_areas)
     existing.updated_at = utc_now()
     await session.flush()
-
-
-# ---------------------------------------------------------------------------
-# Wire module-level ports so application layer stays import-clean.
-# ---------------------------------------------------------------------------
-
-from src.universe.application.ports import repositories as _repo_port  # noqa: E402
-
-_repo_port.SqlAlchemyEducationRepository = SqlAlchemyEducationRepository
-_repo_port.SqlAlchemyExperienceRepository = SqlAlchemyExperienceRepository
-_repo_port.SqlAlchemyProjectRepository = SqlAlchemyProjectRepository
-_repo_port.SqlAlchemySkillRepository = SqlAlchemySkillRepository
-_repo_port.SqlAlchemyCertificationRepository = SqlAlchemyCertificationRepository
-_repo_port.SqlAlchemyCourseRepository = SqlAlchemyCourseRepository
-_repo_port.SqlAlchemyLanguageRepository = SqlAlchemyLanguageRepository
-_repo_port.SqlAlchemyAchievementRepository = SqlAlchemyAchievementRepository
-_repo_port.SqlAlchemyInterestRepository = SqlAlchemyInterestRepository
-_repo_port.SqlAlchemyArtifactRepository = SqlAlchemyArtifactRepository
-_repo_port.SqlAlchemyArchitectureDecisionRepository = SqlAlchemyArchitectureDecisionRepository
-_repo_port.SqlAlchemyUserRubricSignalRepository = SqlAlchemyUserRubricSignalRepository
-_repo_port.SqlAlchemyAreaStrengthRepository = SqlAlchemyAreaStrengthRepository
-_repo_port.update_universe_areas = update_universe_areas

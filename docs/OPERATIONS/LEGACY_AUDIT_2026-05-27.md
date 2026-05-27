@@ -27,6 +27,7 @@
 ## 🔴 CRÍTICO — Arreglar antes del próximo despliegue
 
 ### 1. Branching en migraciones Alembic
+**Estado: ✅ RESUELTO** — Resuelto en Sprint Inmediato (commit 747b73b) — renumbered to 0001→0026.
 **Archivo:** `backend/alembic/versions/20260526_0023_create_agno_messages.py` + `20260526_0023_typed_graph_vlabels.py`  
 **Problema:** Ambas migraciones declaran `revision = "0023"` y `down_revision = "0022"`. Alembic detecta el conflicto y falla:
 ```
@@ -45,6 +46,7 @@ Actualizar `down_revision` de cada una y la tabla `alembic_version` en DBs ya mi
 ---
 
 ### 2. `backend/.importlinter` roto
+**Estado: ✅ RESUELTO** — Resuelto en Sprint Inmediato — fixed layer paths.
 **Problema:** El contrato de capas usa `src.infrastructure` en lugar de `infrastructure` (relativo al contenedor). Import-linter falla con:
 ```
 Missing layer in container 'src.billing': module src.billing.src.infrastructure does not exist.
@@ -63,6 +65,7 @@ Y añadir los bounded contexts faltantes (`coherence`, `graph`, `agents`, `knowl
 ---
 
 ### 3. Dependencias declaradas pero no implementadas
+**Estado: ✅ RESUELTO** — Resuelto en Sprint Inmediato — removed from pyproject.toml.
 **Problema:** `pyotp` está en `pyproject.toml` y AGENTS.md/PLAN.md afirman que hay 2FA/TOTP, pero **no existe código de 2FA** en `src/identity/`.
 **Impacto:** Documentación engañosa. Dependencia muerta que bloatnea el entorno.  
 **Fix:** Decisión binaria:
@@ -74,6 +77,7 @@ Y añadir los bounded contexts faltantes (`coherence`, `graph`, `agents`, `knowl
 ---
 
 ### 4. Frontend: dependencias que rompen cross-platform
+**Estado: ✅ RESUELTO** — Resuelto en Sprint Inmediato — removed @rollup/win32, @typescript-eslint/*, added globals.
 **Archivo:** `frontend/package.json`  
 **Problema 4a:** `@rollup/rollup-win32-x64-msvc` está pinneado en `devDependencies`. En CI Linux fallará o instalará un binario innecesario de 20+ MB.  
 **Problema 4b:** `globals` se importa en `eslint.config.js` pero **no está declarado** en `package.json`. Funciona por hoisting transitivo, pero se romperá si el dep se mueve.  
@@ -87,13 +91,14 @@ npm install -D globals
 ---
 
 ### 5. Backend: `src/documents/interfaces/api/router.py` — Bug de producción recién arreglado
-**Estado:** ✅ **YA FIXEADO** en commit `537839b`.  
+**Estado: ✅ RESUELTO** — Resuelto en commit 537839b.
 **Causa:** Faltaba `from uuid import UUID`, causando `NameError` en generación de CV/cover letter.  
 **Lección:** Este tipo de bug de importación debería haber sido atrapado por mypy si se endureciera el CI.
 
 ---
 
 ### 6. `ag-ui-protocol` dependencia huérfana
+**Estado: ✅ RESUELTO** — Resuelto en Sprint Inmediato — removed from pyproject.toml.
 **Archivo:** `backend/pyproject.toml`  
 **Problema:** `ag-ui-protocol>=0.1.0` está pinneado pero **nunca importado**. El AG-UI router usa `agno.os.interfaces.agui.utils` (viene con `agno`).  
 **Fix:** Eliminar `ag-ui-protocol` de `pyproject.toml`.
@@ -101,6 +106,7 @@ npm install -D globals
 ---
 
 ### 7. `jsonschema` y `filetype` — dependencias huérfanas
+**Estado: ✅ RESUELTO** — Resuelto en Sprint Inmediato — removed.
 **Archivo:** `backend/pyproject.toml`  
 **Problema:** Ninguna importa directamente en `src/`. Solo usadas transitivamente por `mcp`/`opentelemetry`.  
 **Fix:** Mover a comentario o eliminar si los transitivos ya las traen.
@@ -108,13 +114,15 @@ npm install -D globals
 ---
 
 ### 8. `schemathesis` y `freezegun` — dev deps sin uso
-**Archivo:** `backend/pyproject.toml`  
+**Estado: ✅ RESUELTO** — Resuelto en Sprint Inmediato — removed.
+**Archivo:** `backend/pyproject.toml`
 **Problema:** Instaladas pero cero imports en `tests/`.  
 **Fix:** Eliminar o mover a grupo opcional `[load]` junto con `locust`.
 
 ---
 
 ### 9. `cv_generation.py` — módulo huérfano de 253 líneas
+**Estado: ✅ RESUELTO** — Resuelto en Sprint Inmediato — deleted.
 **Archivo:** `backend/src/agents/workflows/cv_generation.py`  
 **Problema:** Cero referencias en todo el codebase. No se importa ni se ejecuta.  
 **Fix:** Eliminar o mover a `docs/archive/` si tiene valor histórico.
@@ -122,7 +130,7 @@ npm install -D globals
 ---
 
 ### 10. `universe_rls` test obsoleto + endpoint DELETE inexistente
-**Estado:** ✅ **YA FIXEADO** en commit `537839b`.  
+**Estado: ✅ RESUELTO** — Resuelto en commit 537839b.
 **Causa:** El test esperaba `GET /skill/{id}` que ya no existe (devolvía 405). Migrado a `GET /skill` lista.
 
 ---
@@ -132,6 +140,7 @@ npm install -D globals
 ### Backend
 
 #### 11. `agui_router.py` — God Object de 1049 líneas / 30 funciones
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 3 (commit da78f87) — split into agui_core.py, agui_transport.py, agui_streaming.py, agui_multimodal.py, agui_postrun.py.
 **Archivo:** `backend/src/agents/interfaces/agui_router.py`  
 **Responsabilidades mezcladas:**
 - JWT extraction & validation
@@ -161,6 +170,7 @@ npm install -D globals
 ---
 
 #### 12. `retrieval.py` — God Object de 806 líneas
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 3 — split into retrieval/ package (6 modules).
 **Archivo:** `backend/src/graph/application/retrieval.py`  
 **Responsabilidades:** BM25, Dense, PPR, Community retrievers, Redis snapshot caching, igraph hydration, SQL name lookups, RRF fusion, reranking.
 **Fix:** Split en `retrieval/{bm25,dense,ppr,communities,fusion,snapshot}.py`.
@@ -168,6 +178,7 @@ npm install -D globals
 ---
 
 #### 13. `use_cases.py` — 966 líneas / 46 funciones
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 3 — split into crud.py + queries.py.
 **Archivo:** `backend/src/universe/application/use_cases.py`  
 **Problema:** CRUD genérico + per-entity subclasses + queries one-off mezclados.
 **Fix:** Split en `crud.py` + `queries.py`.
@@ -175,6 +186,7 @@ npm install -D globals
 ---
 
 #### 14. `_jsonify` duplicado en 4 archivos
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 2 (commit 01d7b79) — centralized in shared/serialization.py.
 | Archivo | Líneas |
 |---------|--------|
 | `src/agents/tools/universe_writes.py` | 77–87 |
@@ -187,6 +199,7 @@ npm install -D globals
 ---
 
 #### 15. Guard `missing user_id` duplicado 67+ veces
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 2 — @require_user_id decorator + entrypoint wrapper.
 **Patrón copiado en:** `coherence_tools.py`, `curiosity_tools.py`, `document_tools.py`, `goals_tools.py`, `graph_query_tools.py`, `insights_tools.py`, `interview_tools.py`, `knowledge_tools.py`, `learning_tools.py`, `notes_tools.py`, `product_reads.py`, `product_writes.py`, `retrieval_tools.py`, `rubrics_tools.py`, `shape_tools.py`, `signal_tools.py`, `universe_reads.py`, `universe_writes.py`...
 
 **Fix:** Extraer decorador `@require_user_id` o helper `get_user_id(ctx)` en `src/agents/tools/_deps.py`.
@@ -194,12 +207,14 @@ npm install -D globals
 ---
 
 #### 16. DB session boilerplate (`get_session_factory` + `set_rls_user`) en ~20 archivos
+**Estado: ⚠️ PARCIALMENTE RESUELTO** — Resuelto en Sprint 2 — `with_user_session` context manager introducido; migración de todos los agent tools pendiente.
 **Problema:** `with_user_session` ya existe (`AGENTS.md` §13.4) pero no se usa consistentemente.  
 **Fix:** Migrar todos los agent tools al context manager `with_user_session`.
 
 ---
 
 #### 17. `ui_widgets.py` — 41 tools idénticos generados manualmente
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 3 — factory loop.
 **Archivo:** `backend/src/agents/tools/ui_widgets.py` (847 líneas)  
 **Patrón:** Cada `propose_*` tool es exactamente igual salvo nombre y parámetros.
 **Fix:** Factory loop o `_register_hitl_tools()` helper.
@@ -207,6 +222,7 @@ npm install -D globals
 ---
 
 #### 18. `_resolve_field` — cadena if/elif de 9 ramas
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 4 (commit e5df1b5) — lookup table `_strategies` dict.
 **Archivo:** `backend/src/coherence/application/entity_resolution.py:445–503`  
 **Fix:** Reemplazar con registro `dict[str, Callable]` o `functools.singledispatch`.
 
@@ -220,6 +236,7 @@ npm install -D globals
 ---
 
 #### 20. Magic strings sin centralizar
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 2 — intents.py + sources.py.
 | String | Count | Ubicaciones |
 |--------|-------|-------------|
 | `"agent_chat"` | 6 | `agui_router.py`, `api/router.py`, `shape_tools.py`, `universe_writes.py` |
@@ -234,6 +251,7 @@ npm install -D globals
 ### Frontend
 
 #### 21. `console.log` en producción
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 2 — removed from ConnectionsPage.tsx.
 **Archivo:** `frontend/src/pages/ConnectionsPage.tsx:317, 320`  
 **Problema:** Logs de LinkedIn DMA sync internals a la consola del navegador.  
 **Fix:** Eliminar.
@@ -241,6 +259,7 @@ npm install -D globals
 ---
 
 #### 22. Parsing de resume JSON duplicado en 4 páginas
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 2 — useJsonResume() hook.
 **Archivos:** `DocumentViewerPage.tsx:105–112`, `CompareDocumentsPage.tsx:248–252`, `SharePage.tsx:71–75`, `GenerateCvPage.tsx:234–236`  
 **Patrón:**
 ```tsx
@@ -288,12 +307,14 @@ const work = (resume?.work ?? []) as any[];
 ### Infra / Config
 
 #### 28. `LLM_PROVIDER` no documentado en `.env.example`
+**Estado: ✅ RESUELTO** — Resuelto en Sprint Inmediato — added to .env.example.
 **Problema:** `docker-compose.yml` usa `${LLM_PROVIDER:-mock}`, pero `.env.example` solo documenta `AGENTS_PROVIDER`.  
 **Fix:** Añadir `LLM_PROVIDER=mock` a `.env.example`.
 
 ---
 
 #### 29. `agno` y `mcp` sin upper bound
+**Estado: ✅ RESUELTO** (ya estaba corregido al momento de la auditoría) — capped: agno<3.0.0, mcp<2.0.0.
 **Archivo:** `backend/pyproject.toml`  
 **Problema:** `agno>=2.6.7` (pre-1.0, evoluciona rápido) y `mcp>=1.1.0` sin tope superior.  
 **Fix:** `agno>=2.6.7,<3.0.0`, `mcp>=1.1.0,<2.0.0`.
@@ -301,6 +322,7 @@ const work = (resume?.work ?? []) as any[];
 ---
 
 #### 30. `httpx` duplicado en deps y dev deps
+**Estado: ✅ RESUELTO** (ya estaba corregido al momento de la auditoría) — only one entry in pyproject.toml.
 **Archivo:** `backend/pyproject.toml`  
 **Fix:** Eliminar de `[project.optional-dependencies] dev`.
 
@@ -335,24 +357,28 @@ const work = (resume?.work ?? []) as any[];
 ---
 
 #### 35. `import_router.py` — 6 niveles de anidación CSV
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 4 — extracted _parse_li_experiences, _parse_li_educations, _parse_li_skills.
 **Archivo:** `backend/src/universe/interfaces/api/import_router.py`  
 **Fix:** Extraer `_parse_li_experiences()`, `_parse_li_educations()`.
 
 ---
 
 #### 36. `universe_enrichment.py` — 4 niveles de anidación
+**Estado: ⚠️ PARCIALMENTE RESUELTO** — Parcialmente abordado en Sprint 4 — `_try_link_esco()` extraído; revisar estado actual.
 **Archivo:** `backend/src/agents/workflows/universe_enrichment.py:210–218`  
 **Fix:** Extraer `async def _try_link_esco()`.
 
 ---
 
 #### 37. `_clean_event_stream` — máquina de estados inline
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 3 — moved to agui_streaming.py.
 **Archivo:** `backend/src/agents/interfaces/agui_router.py:387–495`  
 **Fix:** Clase `EventStreamCleaner`.
 
 ---
 
 #### 38. `shape_service.py` — lógica anidada de inferencia
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 4 — guard clauses + early returns.
 **Archivo:** `backend/src/universe/application/shape_service.py:155–170`  
 **Fix:** Lookup table o early-return guards.
 
@@ -361,6 +387,7 @@ const work = (resume?.work ?? []) as any[];
 ### Tests
 
 #### 39. Mocking de métodos privados
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 4 — removed fragile tests, DI-based testing.
 **Archivos:** `tests/integration/agents/test_enrichment_esco_flow.py`, `tests/unit/agents/test_universe_enrichment.py`  
 **Problema:** Patchean `engine._call_llm`, `engine._upsert_entity`, `engine._link_to_esco`. Los tests conocen implementación interna.  
 **Fix:** Inyección de dependencias (LLM client, repos) vía constructor.
@@ -368,6 +395,7 @@ const work = (resume?.work ?? []) as any[];
 ---
 
 #### 40. `test_discovery_progress.py` — aserciones sobre SQL text crudo
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 4 — order-based side-effect mock.
 **Archivo:** `backend/tests/unit/agents/test_discovery_progress.py:37–68`  
 **Problema:** `_build_mock_execute` ramifica sobre contenido de string SQL. Muy frágil.  
 **Fix:** Mock del puerto `DiscoveryProgressService` o DB in-memory.
@@ -375,6 +403,7 @@ const work = (resume?.work ?? []) as any[];
 ---
 
 #### 41. `test_document_specialist.py` — 20+ líneas de MagicMock por test
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 4 — make_mock_document() factory.
 **Archivo:** `backend/tests/unit/agents/test_document_specialist.py`  
 **Fix:** Factory `make_mock_document(...)`.
 
@@ -515,3 +544,15 @@ const work = (resume?.work ?? []) as any[];
 | Archivos modificados en commit | 159 |
 | Líneas insertadas | +16,956 |
 | Líneas eliminadas | -1,675 |
+
+---
+
+## Estado post-Sprint 4 (2026-05-26)
+
+Out of 43 actionable items audited, approximately **29 are fully resolved**, **2 are partially resolved**, and **12 remain open**.
+
+The most significant remaining open items are:
+- **#19** — Specialists copy-paste (`experience.py`, `skill.py`, `education.py`, etc. still need parameterization via `domain_templates.py`).
+- **#23–27** — Frontend hardening (`any` masivo en `ConnectionsPage.tsx`, event handlers manuales, `ComponentType<any>`, `useTranslation` residual, `PhotoCropper` inline).
+- **#31–32** — Infra CI/docker (`docker-compose.prod.yml` frontend image no validada en CI, `esco-seed` con Alembic redundante).
+- **#33–34** — Backend large files (`entities.py` 633 líneas, `repositories.py` 777 líneas).
