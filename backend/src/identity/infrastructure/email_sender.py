@@ -12,10 +12,12 @@ Callers never instantiate concrete senders directly.
 """
 from __future__ import annotations
 
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from functools import lru_cache
 
 import aiosmtplib
+import httpx
 import structlog
 
 from src.identity.application.ports import EmailSender, EmailSendError
@@ -97,9 +99,7 @@ class MockEmailSender(_BaseEmailSender, EmailSender):
     ) -> None:
         settings = get_settings()
         if body_html:
-            from email.mime.multipart import MIMEMultipart
-
-            msg: MIMEText | MIMEMultipart = MIMEMultipart("alternative")
+            msg = MIMEMultipart("alternative")
             msg.attach(MIMEText(body_text, "plain", "utf-8"))
             msg.attach(MIMEText(body_html, "html", "utf-8"))
         else:
@@ -145,8 +145,6 @@ class BrevoEmailSender(_BaseEmailSender, EmailSender):
         body_html: str | None = None,
         tags: list[str] | None = None,
     ) -> None:
-        import httpx
-
         settings = get_settings()
         api_key = settings.brevo_api_key
         if not api_key:
@@ -196,10 +194,75 @@ class BrevoEmailSender(_BaseEmailSender, EmailSender):
         logger.info("email_sent_brevo", to=to, subject=subject, tags=tags)
 
 
+class ResendEmailSender(_BaseEmailSender, EmailSender):
+    """Resend transactional email via REST.
+
+    Endpoint: POST https://api.resend.com/emails
+    Docs: https://resend.com/docs/api-reference/emails/send-email
+    """
+
+    _ENDPOINT = "https://api.resend.com/emails"
+
+    async def send(
+        self,
+        *,
+        to: str,
+        subject: str,
+        body_text: str,
+        body_html: str | None = None,
+        tags: list[str] | None = None,
+    ) -> None:
+        settings = get_settings()
+        api_key = settings.resend_api_key
+        if not api_key:
+            raise EmailSendError("RESEND_API_KEY not configured")
+
+        payload: dict[str, object] = {
+            "from": f"{settings.email_from_name or 'Universo Profesional'} <{settings.email_from}>",
+            "to": [to],
+            "subject": subject,
+            "text": body_text,
+        }
+        if body_html:
+            payload["html"] = body_html
+        if tags:
+            payload["tags"] = [{"name": t} for t in tags]
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(
+                    self._ENDPOINT,
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
+        except httpx.HTTPError as exc:
+            raise EmailSendError(f"Resend network error: {exc}") from exc
+
+        if resp.status_code >= 500:
+            raise EmailSendError(f"Resend 5xx ({resp.status_code}): {resp.text[:200]}")
+        if resp.status_code >= 400:
+            logger.warning(
+                "email_resend_4xx",
+                status=resp.status_code,
+                body=resp.text[:200],
+                to=to,
+            )
+            raise EmailSendError(f"Resend {resp.status_code}: {resp.text[:200]}")
+        logger.info("email_sent_resend", to=to, subject=subject, tags=tags)
+
+
 @lru_cache(maxsize=1)
 def get_email_sender() -> EmailSender:
     """Pick the configured email provider. Cached singleton."""
     settings = get_settings()
+    if settings.email_provider == "resend":
+        if not settings.resend_api_key:
+            logger.warning("resend_no_key_fallback_mock")
+            return MockEmailSender()
+        return ResendEmailSender()
     if settings.email_provider == "brevo":
         if not settings.brevo_api_key:
             logger.warning("brevo_no_key_fallback_mock")

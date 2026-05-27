@@ -53,9 +53,10 @@ class Settings(BaseSettings):
     email_port: int = 1025
     email_from: str = "no-reply@cvs-saas.local"
     email_from_name: str = "Universo Profesional"
-    email_provider: Literal["mock", "postmark", "brevo"] = "mock"
+    email_provider: Literal["mock", "postmark", "brevo", "resend"] = "mock"
     brevo_api_key: str | None = None
     postmark_server_token: str | None = None
+    resend_api_key: str | None = None
 
     # --- Storage ---
     storage_root: Path = Path("/app/var/documents")
