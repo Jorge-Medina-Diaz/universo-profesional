@@ -93,29 +93,18 @@ export async function api<T = unknown>(
     ...(init.authRequired === false ? {} : await authHeader()),
     ...((init.headers as Record<string, string>) ?? {}),
   };
-  const method = (init.method ?? "GET").toUpperCase();
-  const t0 = performance.now();
-   
-  console.debug(`[api] → ${method} ${path}`);
   let resp: Response;
   try {
     resp = await fetch(path, { ...init, headers });
   } catch (networkError) {
-     
-    console.error(`[api] ✗ ${method} ${path} — network error`, networkError);
     throw new ApiError(0, null, `Sin conexión al backend: ${(networkError as Error).message}`);
   }
-  const ms = Math.round(performance.now() - t0);
   if (resp.status === 204) {
-     
-    console.debug(`[api] ← ${method} ${path} 204 (${ms}ms)`);
     return undefined as T;
   }
   const text = await resp.text();
   const parsed = text ? safeJson(text) : undefined;
   if (!resp.ok) {
-     
-    console.error(`[api] ✗ ${method} ${path} ${resp.status} (${ms}ms)`, parsed);
     // Retry once after a token refresh. The `_retried` guard prevents an
     // infinite loop if the refreshed token is also rejected.
     if (resp.status === 401 && init.authRequired !== false && !init._retried) {
@@ -125,8 +114,6 @@ export async function api<T = unknown>(
     }
     throw new ApiError(resp.status, parsed, extractErrorMessage(resp.status, parsed));
   }
-   
-  console.debug(`[api] ← ${method} ${path} ${resp.status} (${ms}ms)`);
   return parsed as T;
 }
 

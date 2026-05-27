@@ -58,6 +58,11 @@ docker-data/
 .claude/
 .playwright-mcp/
 backups/
+
+# Root-level accidental artifacts (frontend has its own manifests)
+/package.json
+/package-lock.json
+/*.png
 backend/.cache/
 backend/nul
 # Screenshots dropped at repo root during UI testing

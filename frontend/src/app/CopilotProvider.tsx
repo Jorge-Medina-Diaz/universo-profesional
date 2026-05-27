@@ -92,12 +92,8 @@ class CopilotErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-     
-    console.warn(
-      "[copilotkit] disabled after runtime error — chat features unavailable",
-      error,
-      info,
-    );
+    void error;
+    void info;
   }
 
   render() {

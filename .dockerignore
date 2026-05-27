@@ -1,1 +1,52 @@
-**/node_modules
+# Git
+.git
+.gitignore
+
+# Python cache & env
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Logs & local data
+*.log
+logs/
+var/
+data/
+.local/
+backups/
+.claude/
+.playwright-mcp/
+
+# Test artifacts
+test-results/
+playwright-report/
+e2e/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Root artifacts
+/*.png
+/package.json
+/package-lock.json

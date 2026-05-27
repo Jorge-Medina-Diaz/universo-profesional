@@ -123,8 +123,8 @@ export function ProposalCard({
       const resp = await resolveProposal(payload.proposal_id, "confirm");
       setMode("success");
       onResolved?.({ action: "confirm", response: resp });
-    } catch (e) {
-      console.error("Proposal confirm failed", e);
+    } catch {
+      // silently fail — UI already in error state
     } finally {
       setPending(false);
     }
@@ -150,8 +150,8 @@ export function ProposalCard({
       const resp = await resolveProposal(payload.proposal_id, "modify", modified);
       setMode("success");
       onResolved?.({ action: "modify", response: resp });
-    } catch (e) {
-      console.error("Proposal modify failed", e);
+    } catch {
+      // silently fail — UI already in error state
     } finally {
       setPending(false);
     }
@@ -163,8 +163,8 @@ export function ProposalCard({
       const resp = await resolveProposal(payload.proposal_id, "reject");
       setMode("rejected");
       onResolved?.({ action: "reject", response: resp });
-    } catch (e) {
-      console.error("Proposal reject failed", e);
+    } catch {
+      // silently fail — UI already in error state
     } finally {
       setPending(false);
     }

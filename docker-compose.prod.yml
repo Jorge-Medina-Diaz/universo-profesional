@@ -17,10 +17,11 @@
 
 services:
   postgres:
-    build:
-      context: ./docker
-      dockerfile: postgres.Dockerfile
-    image: cvs-saas/postgres-age:pg16
+    image: ${POSTGRES_IMAGE:?POSTGRES_IMAGE required — set in .env.production or use ghcr.io/<owner>/cvs-postgres:latest}
+    # Fallback to local build if image not available:
+    # build:
+    #   context: ./docker
+    #   dockerfile: postgres.Dockerfile
     container_name: cvs-postgres
     restart: unless-stopped
     environment:

@@ -491,7 +491,12 @@ const work = (resume?.work ?? []) as any[];
 ---
 
 #### 52. `docker/postgres.Dockerfile` — build de AGE desde source (~3 min)
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 8 — imagen pre-build publicada a GHCR vía workflow + script local.
 **Fix:** Publicar imagen pre-build a registry para CI.
+- Workflow `.github/workflows/publish-postgres.yml` buildea y pushea automáticamente a `ghcr.io/<owner>/cvs-postgres:latest` en cada cambio a `docker/postgres.Dockerfile`.
+- Script `scripts/build-postgres-image.sh` permite publicación manual local con `--dry-run` para pruebas.
+- `docker-compose.yml` y `docker-compose.prod.yml` usan `${POSTGRES_IMAGE}` con fallback comentado a build local.
+- `.env.example` documenta la variable `POSTGRES_IMAGE`.
 
 ---
 
@@ -569,7 +574,6 @@ const work = (resume?.work ?? []) as any[];
 
 ## Estado post-Sprint 8 (2026-05-27)
 
-Out of 43 actionable items audited, approximately **40 are fully resolved**, **2 are partially resolved**, and **1 remains open**.
+Out of 43 actionable items audited, approximately **41 are fully resolved**, **2 are partially resolved**, and **0 remain open**.
 
-The only remaining open item is:
-- **#52** — `docker/postgres.Dockerfile` pre-build image requires registry access.
+All audited items have been addressed.
