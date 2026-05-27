@@ -4,7 +4,6 @@ These tools let specialists query available templates and fetch document
 metadata without exhausting the LLM context window.
 """
 from __future__ import annotations
-from src.agents.tools._deps import require_user_id
 
 from pathlib import Path
 from typing import Any
@@ -14,6 +13,7 @@ from agno.run.base import RunContext
 from agno.tools import tool
 from sqlalchemy import select
 
+from src.agents.tools._deps import require_user_id
 from src.documents.infrastructure.orm import DocumentOrm
 from src.shared.db import with_user_session
 

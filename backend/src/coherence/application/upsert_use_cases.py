@@ -34,6 +34,9 @@ from src.coherence.application.change_log import (
     record_create,
     record_merge,
 )
+from src.coherence.application.entity_resolution import (
+    EntityResolutionPipeline,
+)
 from src.coherence.application.ports import (
     ChangeLogRepository,
     SemanticMatcher,
@@ -44,10 +47,6 @@ from src.coherence.domain.upsert_decision import (
     MatchResult,
     UpsertOutcome,
     UpsertStatus,
-)
-from src.coherence.application.entity_resolution import (
-    EntityResolutionPipeline,
-    ResolutionResult,
 )
 from src.graph.application.universe_graph import universe_graph_service
 from src.graph.domain.registry import GRAPH_REGISTRY

@@ -123,3 +123,13 @@ async def compute_communities_task(ctx: dict[str, Any], *, user_id: str) -> dict
         await session.commit()
         logger.info("compute_communities_task_done", user_id=user_id, count=len(pillars))
         return {"communities": len(pillars)}
+
+
+# ---------------------------------------------------------------------------
+# Wire module-level ports so application layer stays import-clean.
+# ---------------------------------------------------------------------------
+
+from src.universe.application.ports import tasks as _tasks_port  # noqa: E402
+
+_tasks_port.ENTITY_MAP = _ENTITY_MAP
+_tasks_port.refresh_embedding = refresh_embedding

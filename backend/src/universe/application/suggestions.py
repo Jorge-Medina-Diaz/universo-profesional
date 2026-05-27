@@ -26,7 +26,7 @@ from src.universe.application.ports import (
     ProjectRepository,
     SkillRepository,
 )
-from src.universe.infrastructure.orm import SuggestionOrm
+from src.universe.application.ports.orm import SuggestionOrm
 
 logger = structlog.get_logger(__name__)
 

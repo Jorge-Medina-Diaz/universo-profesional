@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import pytest
 from jose.exceptions import JWTError
-
 from src.shared.security import decode_jwt, encode_jwt, ensure_jwt_keys
 
 

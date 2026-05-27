@@ -9,7 +9,6 @@ Three helpers:
      so the coordinator can resurface the topic in ~10 days.
 """
 from __future__ import annotations
-from src.agents.tools._deps import require_user_id
 
 from datetime import timedelta
 from typing import Any
@@ -23,6 +22,7 @@ from src.agents.domain_templates import (
     fallback_template,
     get_template_for,
 )
+from src.agents.tools._deps import require_user_id
 from src.notes.application.use_cases import CreateNote, UpdateNote
 from src.notes.infrastructure.repositories import SqlAlchemyNoteRepository
 from src.shared.db import with_user_session

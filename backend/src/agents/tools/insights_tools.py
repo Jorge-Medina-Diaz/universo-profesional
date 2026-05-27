@@ -13,7 +13,6 @@ Both are READ-ONLY. The canonical area keyword map now lives in
 and the agents share a single source of truth.
 """
 from __future__ import annotations
-from src.agents.tools._deps import require_user_id
 
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -23,6 +22,7 @@ from agno.run.base import RunContext
 from agno.tools import tool
 from sqlalchemy import func, select
 
+from src.agents.tools._deps import require_user_id
 from src.shared.db import with_user_session
 from src.universe.application.shape_service import (
     compute_area_strengths,

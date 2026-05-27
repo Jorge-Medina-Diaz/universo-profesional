@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
-
 from src.agents.context_providers.router import IntentRouter
 
 

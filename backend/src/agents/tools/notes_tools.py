@@ -5,7 +5,6 @@ universe entity: ongoing learning, opinions, gustos, projects-in-progress
 narratives. Notes can be tagged and later searched semantically.
 """
 from __future__ import annotations
-from src.agents.tools._deps import require_user_id
 
 from typing import Any
 from uuid import UUID
@@ -13,6 +12,7 @@ from uuid import UUID
 from agno.run.base import RunContext
 from agno.tools import tool
 
+from src.agents.tools._deps import require_user_id
 from src.notes.application.use_cases import (
     CreateNote,
     ListNotes,

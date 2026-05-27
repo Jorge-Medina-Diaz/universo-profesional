@@ -5,7 +5,6 @@ themselves.  The engine generates openCypher, validates it, executes it on
 AGE, and returns structured results.
 """
 from __future__ import annotations
-from src.agents.tools._deps import require_user_id
 
 from typing import Any
 from uuid import UUID
@@ -14,6 +13,7 @@ import structlog
 from agno.run.base import RunContext
 from agno.tools import tool
 
+from src.agents.tools._deps import require_user_id
 from src.graph.application.text2cypher import Text2CypherEngine
 from src.shared.db import with_user_session
 

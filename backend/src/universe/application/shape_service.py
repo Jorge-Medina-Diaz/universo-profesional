@@ -34,13 +34,13 @@ from src.universe.application.area_keywords import (
     score_areas,
 )
 from src.universe.domain.entities import AreaStrength, ShapeType
-from src.universe.infrastructure.orm import (
+from src.universe.application.ports.orm import (
     ExperienceOrm,
     ProjectOrm,
     SkillOrm,
     UniverseOrm,
 )
-from src.universe.infrastructure.repositories import (
+from src.universe.application.ports.repositories import (
     SqlAlchemyAreaStrengthRepository,
     update_universe_areas,
 )
@@ -154,13 +154,13 @@ def _infer_shape(scores: dict[str, float], primary_areas: list[str]) -> ShapeTyp
     top = max(scores.values())
     top_ratio = top / total
     n_broad = sum(1 for v in scores.values() if v >= 0.2)
-    if n_primary == 1:
-        if top_ratio >= 0.6 and n_broad <= 1:
-            return "I"
-        return "T"
+    if n_primary >= 3:
+        return "M"
     if n_primary == 2:
         return "π"
-    return "M"
+    if top_ratio >= 0.6 and n_broad <= 1:
+        return "I"
+    return "T"
 
 
 async def compute_area_strengths(

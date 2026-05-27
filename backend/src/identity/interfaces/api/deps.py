@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Any
+from uuid import UUID
 
 from fastapi import Depends, Header, Request
 from jose import JWTError
@@ -25,6 +26,7 @@ from src.identity.infrastructure.repositories import (
     SqlAlchemyRefreshTokenRepository,
     SqlAlchemyUserRepository,
 )
+from src.identity.infrastructure.tasks import enqueue_transactional_email
 from src.shared.db import get_session, set_rls_user
 from src.shared.errors import UnauthorizedError
 from src.shared.security import decode_jwt
@@ -48,9 +50,15 @@ def register_user_dep(session: SessionDep) -> RegisterUser:
 
 
 def verify_email_dep(session: SessionDep) -> VerifyEmail:
+    async def _send_welcome(user_id: UUID) -> None:
+        await enqueue_transactional_email(
+            user_id=user_id, template="welcome", context=None
+        )
+
     return VerifyEmail(
         SqlAlchemyUserRepository(session),
         SqlAlchemyEmailTokenRepository(session),
+        welcome_emailer=_send_welcome,
     )
 
 

@@ -10,8 +10,9 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.llm_tracking.application.ports import LlmUsageLogRepository
 from src.llm_tracking.domain.entities import LlmUsageLog
-from src.llm_tracking.infrastructure.repository import SqlalchemyLlmUsageLogRepository
 
 # EUR per 1M tokens
 _PRICES: dict[str, dict[str, Decimal]] = {
@@ -65,6 +66,7 @@ def compute_cost_eur(
 
 async def log_agno_run(
     session: AsyncSession,
+    repo: LlmUsageLogRepository,
     *,
     user_id: UUID,
     run_id: str,
@@ -119,13 +121,13 @@ async def log_agno_run(
         session_id=log.session_id,
         agent=log.agent,
     )
-    repo = SqlalchemyLlmUsageLogRepository(session)
     await repo.create(log)
     return log
 
 
 async def log_document_llm_call(
     session: AsyncSession,
+    repo: LlmUsageLogRepository,
     *,
     user_id: UUID,
     provider: str,
@@ -158,6 +160,5 @@ async def log_document_llm_call(
         cost_eur=cost,
         agent=agent,
     )
-    repo = SqlalchemyLlmUsageLogRepository(session)
     await repo.create(log)
     return log

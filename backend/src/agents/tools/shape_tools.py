@@ -10,7 +10,6 @@ The `propose_artifact` HITL tool lives in `ui_widgets.py` (external
 execution by the React layer).
 """
 from __future__ import annotations
-from src.agents.tools._deps import require_user_id
 
 from datetime import UTC, datetime
 from typing import Any
@@ -20,6 +19,7 @@ from agno.run.base import RunContext
 from agno.tools import tool
 
 from src.agents.domain.sources import SOURCE_AGENT_CHAT
+from src.agents.tools._deps import require_user_id
 from src.shared.db import with_user_session
 from src.universe.application.shape_service import (
     _infer_shape,

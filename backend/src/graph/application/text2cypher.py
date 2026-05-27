@@ -26,10 +26,9 @@ from uuid import UUID
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.graph.application.ports.age import cypher
 from src.graph.domain import schema as graph_schema
-from src.graph.infrastructure.age_client import cypher
 from src.shared.config import get_settings
-from src.shared.embeddings import get_embeddings_service
 
 logger = structlog.get_logger(__name__)
 
@@ -276,7 +275,7 @@ class Text2CypherEngine:
                 params=result.params,
                 column_defs="result agtype",
             )
-            from src.graph.infrastructure.age_client import parse_agtype
+            from src.graph.application.ports.age import parse_agtype
 
             parsed_rows = []
             for r in rows:

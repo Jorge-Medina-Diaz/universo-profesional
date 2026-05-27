@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.shared.errors import NotFoundError
 from src.shared.result import Result, err, ok
 from src.shared.security import utc_now
-from src.universe.infrastructure.orm import CertificationOrm, CourseOrm, ReminderOrm
+from src.universe.application.ports.orm import CertificationOrm, CourseOrm, ReminderOrm
 
 logger = structlog.get_logger(__name__)
 

@@ -14,7 +14,7 @@ from src.integrations.application.ports import (
     SyncRunsRepository,
 )
 from src.integrations.domain.external_account import IntegrationSynced
-from src.integrations.infrastructure.github_client import GithubClient
+from src.integrations.application.ports.github import GithubClient
 from src.shared.security import utc_now
 from src.shared.uow import UnitOfWork
 from src.universe.application.ports import (

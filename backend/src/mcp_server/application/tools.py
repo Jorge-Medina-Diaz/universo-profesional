@@ -731,7 +731,7 @@ async def _h_get_avatar_url(*, session, user_id, client_id, args):
     from sqlalchemy import select
 
     from src.shared.config import get_settings
-    from src.universe.infrastructure.orm import AvatarOrm
+    from src.universe.application.ports.orm import AvatarOrm
 
     row = (await session.execute(select(AvatarOrm).where(AvatarOrm.user_id == user_id))).scalar_one_or_none()
     if row is None:

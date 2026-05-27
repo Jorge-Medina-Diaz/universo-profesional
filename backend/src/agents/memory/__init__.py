@@ -19,12 +19,12 @@ from src.agents.memory.structured_memory import (
 )
 
 __all__ = [
-    "UserSemanticMemoryOrm",
-    "UserProceduralMemoryOrm",
-    "SessionEpisodeOrm",
-    "SemanticFact",
-    "ProceduralRule",
     "Episode",
+    "ProceduralRule",
     "SelfLearningEngine",
+    "SemanticFact",
+    "SessionEpisodeOrm",
     "UserFeedback",
+    "UserProceduralMemoryOrm",
+    "UserSemanticMemoryOrm",
 ]

@@ -13,7 +13,6 @@ import hashlib
 import re
 import secrets
 import urllib.parse
-from typing import Any
 
 import pytest
 from httpx import AsyncClient

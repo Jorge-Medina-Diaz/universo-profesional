@@ -135,3 +135,13 @@ async def exchange_code_for_token(
         )
         r.raise_for_status()
         return r.json()
+
+
+# ---------------------------------------------------------------------------
+# Wire module-level ports so application layer stays import-clean.
+# ---------------------------------------------------------------------------
+
+from src.integrations.application.ports import github as _github_port  # noqa: E402
+
+_github_port.GithubClient = GithubClient
+_github_port.exchange_code_for_token = exchange_code_for_token

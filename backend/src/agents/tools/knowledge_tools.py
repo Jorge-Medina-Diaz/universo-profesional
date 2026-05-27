@@ -5,7 +5,6 @@ retriever covers structured entities; this covers long unstructured
 documents the user has uploaded or imported.
 """
 from __future__ import annotations
-from src.agents.tools._deps import require_user_id
 
 from typing import Any
 from uuid import UUID
@@ -14,6 +13,7 @@ import structlog
 from agno.run.base import RunContext
 from agno.tools import tool
 
+from src.agents.tools._deps import require_user_id
 from src.knowledge.application.use_cases import search_knowledge as _search
 from src.shared.db import with_user_session
 

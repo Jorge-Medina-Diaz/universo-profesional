@@ -12,7 +12,8 @@ scaling).
 """
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -88,8 +89,9 @@ class BaseContextProvider:
 
         Called by the HITL layer or by explicit user feedback (thumbs up/down).
         """
-        from src.agents.memory.structured_memory import UserProceduralMemoryOrm
         from datetime import UTC, datetime
+
+        from src.agents.memory.structured_memory import UserProceduralMemoryOrm
 
         if was_correct:
             # Reinforce existing rule or create a positive one

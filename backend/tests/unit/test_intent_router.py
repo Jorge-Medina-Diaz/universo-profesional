@@ -4,7 +4,6 @@ from __future__ import annotations
 from uuid import UUID
 
 import pytest
-
 from src.agents.context_providers.router import IntentRouter
 
 

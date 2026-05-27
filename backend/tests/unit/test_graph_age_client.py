@@ -10,7 +10,6 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 import pytest
-
 from src.graph.infrastructure.age_client import (
     _serialize_params,
     _validate_column_defs,

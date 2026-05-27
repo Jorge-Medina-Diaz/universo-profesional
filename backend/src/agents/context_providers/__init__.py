@@ -19,9 +19,9 @@ from src.agents.context_providers.universe_provider import UniverseContextProvid
 
 __all__ = [
     "BaseContextProvider",
-    "UniverseContextProvider",
-    "DocumentContextProvider",
     "CareerContextProvider",
-    "SocialContextProvider",
+    "DocumentContextProvider",
     "IntentRouter",
+    "SocialContextProvider",
+    "UniverseContextProvider",
 ]

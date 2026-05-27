@@ -6,16 +6,15 @@ Tools: retrieval, graph exploration, CRUD proposals, enrichment.
 """
 from __future__ import annotations
 
-from typing import Any, Callable
-
-from agno.tools import tool
+from collections.abc import Callable
+from typing import Any
 
 from src.agents.context_providers.base import BaseContextProvider
-from src.agents.tools.graph_query_tools import explain_graph_query, query_graph
 from src.agents.tools.discovery_tools import (
     get_profile_completeness,
     suggest_discovery_questions,
 )
+from src.agents.tools.graph_query_tools import explain_graph_query, query_graph
 from src.agents.tools.learning_tools import record_agent_feedback
 from src.agents.tools.retrieval_tools import (
     enrich_universe,
@@ -44,7 +43,6 @@ class UniverseContextProvider(BaseContextProvider):
     async def get_memory_context(self) -> str:
         """Inject profile counts + base semantic/procedural memory."""
         base = await super().get_memory_context()
-        from uuid import UUID
         from src.graph.application.universe_graph import universe_graph_service
         from src.graph.domain import schema as graph_schema
 

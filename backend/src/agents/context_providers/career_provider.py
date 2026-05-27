@@ -11,7 +11,8 @@ Future expansions (prepared):
 """
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from src.agents.context_providers.base import BaseContextProvider
 from src.agents.tools.product_reads import list_jobs

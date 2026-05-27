@@ -14,7 +14,6 @@ whether to merge or create, it emits a suggestion and the result includes
 `status='suggested'` for the chat layer to render a DiffCard.
 """
 from __future__ import annotations
-from src.agents.tools._deps import require_user_id
 
 from typing import Any
 from uuid import UUID
@@ -23,6 +22,7 @@ from agno.run.base import RunContext
 from agno.tools import tool
 
 from src.agents.domain.sources import SOURCE_AGENT_CHAT
+from src.agents.tools._deps import require_user_id
 from src.coherence.application.upsert_use_cases import UpsertUniverseEntity
 from src.coherence.infrastructure.change_log_repo import SqlAlchemyChangeLogRepository
 from src.coherence.infrastructure.semantic_matcher import PgVectorSemanticMatcher

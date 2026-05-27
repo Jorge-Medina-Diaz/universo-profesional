@@ -6,6 +6,7 @@ from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.llm_tracking.domain.entities import LlmUsageLog
 from src.llm_tracking.infrastructure.orm import LlmUsageLogORM
 

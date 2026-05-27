@@ -282,7 +282,7 @@ def _build_db():  # type: ignore[no-untyped-def]
 @lru_cache(maxsize=1)
 def get_universe_team():  # type: ignore[no-untyped-def]
     """Return the cached universe coordinator team."""
-    from agno.guardrails import PIIDetectionGuardrail, PromptInjectionGuardrail
+    from agno.guardrails import PromptInjectionGuardrail
     from agno.team import Team
 
     from src.agents.specialists.achievement import build_achievement_specialist

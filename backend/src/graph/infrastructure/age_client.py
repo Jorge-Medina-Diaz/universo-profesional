@@ -195,3 +195,14 @@ def parse_agtype(value: Any) -> Any:
         # Fall back to the raw string — some AGE responses (e.g. function
         # names) come back unquoted.
         return raw
+
+
+# ---------------------------------------------------------------------------
+# Wire module-level ports so application layer stays import-clean.
+# ---------------------------------------------------------------------------
+
+from src.graph.application.ports import age as _age_port  # noqa: E402
+
+_age_port.cypher = cypher
+_age_port.parse_agtype = parse_agtype
+_age_port.ensure_age_loaded = ensure_age_loaded

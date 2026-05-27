@@ -37,9 +37,7 @@ from src.integrations.domain.linkedin_profile import (
     LinkedInProject,
     LinkedInSkill,
 )
-from src.integrations.infrastructure.linkedin_brightdata_client import (
-    scrape_profile,
-)
+from src.integrations.application.ports.linkedin_brightdata import scrape_profile
 from src.shared.config import get_settings
 
 logger = structlog.get_logger(__name__)

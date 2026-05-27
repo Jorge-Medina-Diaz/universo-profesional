@@ -14,7 +14,7 @@ from .config import get_settings
 
 
 async def startup(ctx: dict[str, Any]) -> None:
-    from .db import import_all_models
+    from .orm_loader import import_all_models
     from .logging import configure_logging
 
     configure_logging()

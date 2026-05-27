@@ -4,7 +4,6 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-
 from src.shared.errors import ValidationError
 from src.shared.value_objects import (
     DateRange,

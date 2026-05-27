@@ -21,9 +21,9 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.graph.application.ports.age import cypher, parse_agtype
 from src.graph.application.retrieval import _load_snapshot, invalidate_snapshot
 from src.graph.domain import schema
-from src.graph.infrastructure.age_client import cypher, parse_agtype
 from src.shared.embeddings import get_embeddings_service
 from src.shared.llm_client import get_llm_client
 

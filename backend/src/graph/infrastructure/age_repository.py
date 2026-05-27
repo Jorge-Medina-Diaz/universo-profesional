@@ -35,3 +35,12 @@ class AgeGraphRepository:
 
 # Module-level singleton — cheap to share because it is stateless.
 age_graph_repository = AgeGraphRepository()
+
+
+# ---------------------------------------------------------------------------
+# Wire module-level port so application layer stays import-clean.
+# ---------------------------------------------------------------------------
+
+from src.graph.application.ports import age as _age_port  # noqa: E402
+
+_age_port.age_graph_repository = age_graph_repository

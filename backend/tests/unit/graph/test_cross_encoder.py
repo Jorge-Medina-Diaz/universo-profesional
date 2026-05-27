@@ -1,8 +1,6 @@
 """Unit tests for the FeatureReranker (CrossEncoder)."""
 from __future__ import annotations
 
-import pytest
-
 from src.graph.application.cross_encoder import (
     FeatureReranker,
     _exact_substring_bonus,

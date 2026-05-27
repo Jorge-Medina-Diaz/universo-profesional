@@ -15,7 +15,6 @@ read-only contexts), and most of `search_rubrics` calls — Sprint Q will
 update each specialist's prompt to prefer them.
 """
 from __future__ import annotations
-from src.agents.tools._deps import require_user_id
 
 from typing import Any
 from uuid import UUID
@@ -24,6 +23,7 @@ import structlog
 from agno.run.base import RunContext
 from agno.tools import tool
 
+from src.agents.tools._deps import require_user_id
 from src.graph.application.retrieval import _load_snapshot, hybrid_retrieve
 from src.graph.application.universe_graph import universe_graph_service
 from src.shared.db import with_user_session

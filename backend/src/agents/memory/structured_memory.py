@@ -16,18 +16,17 @@ All tables are RLS-isolated per user.
 """
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, Text, TIMESTAMP
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
+from sqlalchemy import TIMESTAMP, Boolean, Float, ForeignKey, Integer, Text
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.shared.db import Base
-
 
 # ---------------------------------------------------------------------------
 # ORM models

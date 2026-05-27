@@ -507,3 +507,29 @@ class UserRubricSignalOrm(Base):
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# Wire module-level ports so application layer stays import-clean.
+# ---------------------------------------------------------------------------
+
+from src.universe.application.ports import orm as _orm_port  # noqa: E402
+
+_orm_port.ExperienceOrm = ExperienceOrm
+_orm_port.EducationOrm = EducationOrm
+_orm_port.ProjectOrm = ProjectOrm
+_orm_port.SkillOrm = SkillOrm
+_orm_port.CertificationOrm = CertificationOrm
+_orm_port.CourseOrm = CourseOrm
+_orm_port.ReminderOrm = ReminderOrm
+_orm_port.AchievementOrm = AchievementOrm
+_orm_port.InterestOrm = InterestOrm
+_orm_port.LanguageOrm = LanguageOrm
+_orm_port.ArtifactOrm = ArtifactOrm
+_orm_port.EvidenceOrm = EvidenceOrm
+_orm_port.SuggestionOrm = SuggestionOrm
+_orm_port.AvatarOrm = AvatarOrm
+_orm_port.UniverseOrm = UniverseOrm
+_orm_port.AreaStrengthOrm = AreaStrengthOrm
+_orm_port.UserRubricSignalOrm = UserRubricSignalOrm
+_orm_port.ArchitectureDecisionOrm = ArchitectureDecisionOrm

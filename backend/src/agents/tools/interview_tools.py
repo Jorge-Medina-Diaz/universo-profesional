@@ -13,7 +13,6 @@ the Q&A list it composed. Persistence: the Q&A is also written as a note
 with tag `interview_prep:<company_slug>` so the user can re-read later.
 """
 from __future__ import annotations
-from src.agents.tools._deps import require_user_id
 
 from datetime import date as _date
 from typing import Any
@@ -23,6 +22,7 @@ from agno.run.base import RunContext
 from agno.tools import tool
 from sqlalchemy import select
 
+from src.agents.tools._deps import require_user_id
 from src.shared.db import with_user_session
 from src.universe.infrastructure.orm import (
     ExperienceOrm,

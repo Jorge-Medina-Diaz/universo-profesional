@@ -118,22 +118,6 @@ async def with_user_session(user_id: UUID | None):
             await session.commit()
 
 
-def import_all_models() -> None:
-    """Import every ORM module so SQLAlchemy registers tables on `Base.metadata`.
-
-    Called by Alembic env and by the FastAPI lifespan.
-    """
-
-    from src.billing.infrastructure import orm as _billing  # noqa: F401
-    from src.coherence.infrastructure import orm as _coherence  # noqa: F401
-    from src.documents.infrastructure import orm as _documents  # noqa: F401
-    from src.identity.infrastructure import orm as _identity  # noqa: F401
-    from src.integrations.infrastructure import orm as _integrations  # noqa: F401
-    from src.mcp_server.infrastructure import orm as _mcp  # noqa: F401
-    from src.notes.infrastructure import orm as _notes  # noqa: F401
-    from src.universe.infrastructure import orm as _universe  # noqa: F401
-
-
 @event.listens_for(Base.metadata, "after_create")
 def _after_create(target: Any, connection: Any, **_kw: Any) -> None:  # pragma: no cover
     """Best-effort: in tests using `metadata.create_all` (rare; Alembic is canonical)."""

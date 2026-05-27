@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from src.rubrics.application.ingest import ingest_rubrics
+from src.rubrics.infrastructure.repository import RubricRepository
 from src.shared.embeddings import get_embeddings_provider
 
 
@@ -54,6 +55,7 @@ async def _run_ingest(args) -> int:
     summary = await ingest_rubrics(
         root=root,
         embedder=embedder,
+        repo_class=RubricRepository,
         force_reembed=args.force_reembed,
         dry_run=args.dry_run,
     )

@@ -23,7 +23,8 @@ from sqlalchemy import text
 from starlette.responses import Response
 
 from src.shared.config import get_settings
-from src.shared.db import dispose_engine, get_session_factory, import_all_models
+from src.shared.db import dispose_engine, get_session_factory
+from src.shared.orm_loader import import_all_models
 from src.shared.errors import DomainError
 from src.shared.events import get_event_bus
 from src.shared.logging import configure_logging, get_logger
@@ -181,6 +182,20 @@ def _wire_event_subscribers() -> None:
 
 
 def create_app() -> FastAPI:
+    # Wire graph infrastructure ports early so any downstream import
+    # of graph.application modules finds wired module-level variables.
+    import src.graph.infrastructure.age_repository  # noqa: F401
+
+    # Wire universe ORM / repo / task ports before any app code runs.
+    import src.universe.infrastructure.orm  # noqa: F401
+    import src.universe.infrastructure.repositories  # noqa: F401
+    import src.universe.infrastructure.tasks  # noqa: F401
+
+    # Wire integrations infrastructure ports before any app code runs.
+    import src.integrations.infrastructure.github_client  # noqa: F401
+    import src.integrations.infrastructure.linkedin_brightdata_client  # noqa: F401
+    import src.integrations.infrastructure.linkedin_dma_client  # noqa: F401
+
     settings = get_settings()
 
     app = FastAPI(
@@ -307,6 +322,8 @@ def create_app() -> FastAPI:
     app.include_router(coherence_router, prefix="/api/v1/coherence", tags=["coherence"])
 
     # Universe graph — Sprint M onwards (Apache AGE + ESCO).
+    # Wire infrastructure ports before the application layer is imported.
+
     from src.graph.interfaces.api.graph_router import router as graph_router
 
     app.include_router(graph_router, tags=["graph"])

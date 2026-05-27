@@ -20,7 +20,6 @@ import re
 import secrets
 import sys
 import urllib.parse
-from typing import Any
 
 import httpx
 
@@ -166,7 +165,7 @@ async def main() -> int:
             )
         ).json()
         access = tok["access_token"]
-        print(f"✓ MCP OAuth: DCR + authorize + token grant ok")
+        print("✓ MCP OAuth: DCR + authorize + token grant ok")
 
         # tools/list
         r = await c.post(

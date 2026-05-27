@@ -9,7 +9,6 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
-
 from src.coherence.domain.merge_rules import merge_for
 
 

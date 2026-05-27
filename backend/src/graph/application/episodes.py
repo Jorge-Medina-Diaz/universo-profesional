@@ -30,8 +30,8 @@ from uuid import UUID
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.graph.application.ports.age import cypher
 from src.graph.domain import schema
-from src.graph.infrastructure.age_client import cypher
 
 logger = structlog.get_logger(__name__)
 

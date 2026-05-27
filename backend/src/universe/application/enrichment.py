@@ -36,9 +36,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.graph.application.universe_graph import universe_graph_service
 from src.graph.domain import schema
-from src.graph.infrastructure.age_client import cypher as age_cypher
-from src.universe.infrastructure.orm import ExperienceOrm, ProjectOrm, SkillOrm
-from src.universe.infrastructure.tasks import _ENTITY_MAP, refresh_embedding
+from src.graph.application.ports.age import cypher as age_cypher
+from src.universe.application.ports.orm import ExperienceOrm, ProjectOrm, SkillOrm
+from src.universe.application.ports.tasks import ENTITY_MAP as _ENTITY_MAP, refresh_embedding
 
 logger = structlog.get_logger(__name__)
 

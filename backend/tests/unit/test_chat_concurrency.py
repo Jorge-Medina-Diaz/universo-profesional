@@ -7,7 +7,6 @@ pool. These tests exercise it directly (no DB / no LLM).
 from __future__ import annotations
 
 import pytest
-
 from src.agents.interfaces import agui_router as ar
 
 

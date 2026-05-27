@@ -9,8 +9,6 @@ from __future__ import annotations
 from uuid import uuid4
 
 import numpy as np
-import pytest
-
 from src.graph.application.outlier_detection import (
     DETECTABLE_KINDS,
     MIN_SAMPLES,
@@ -20,10 +18,10 @@ from src.graph.application.outlier_detection import (
 
 
 class _FakeResult:
-    def all(self):  # noqa: ANN201
+    def all(self):
         return []
 
-    def first(self):  # noqa: ANN201
+    def first(self):
         # Truthy → the embedding-column existence check passes, so the loader
         # proceeds to the (empty) data query rather than skipping the table.
         return (1,)
@@ -32,7 +30,7 @@ class _FakeResult:
 class _FakeSession:
     """Returns no rows for every query — simulates an empty universe."""
 
-    async def execute(self, *_args, **_kwargs):  # noqa: ANN002, ANN003, ANN201
+    async def execute(self, *_args, **_kwargs):
         return _FakeResult()
 
 

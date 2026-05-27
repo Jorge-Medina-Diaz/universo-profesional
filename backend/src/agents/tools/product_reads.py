@@ -11,7 +11,6 @@ summary, gaps, search). This file is about *product surface* the user already
 interacts with via the rest of the app.
 """
 from __future__ import annotations
-from src.agents.tools._deps import require_user_id
 
 from typing import Any
 from uuid import UUID
@@ -19,6 +18,7 @@ from uuid import UUID
 from agno.run.base import RunContext
 from agno.tools import tool
 
+from src.agents.tools._deps import require_user_id
 from src.shared.db import with_user_session
 
 

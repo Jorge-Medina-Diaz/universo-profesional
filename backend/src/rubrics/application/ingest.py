@@ -14,7 +14,6 @@ import structlog
 
 from src.rubrics.application.markdown_parser import parse_rubric
 from src.rubrics.domain.entities import RubricDocument
-from src.rubrics.infrastructure.repository import RubricRepository
 from src.shared.db import get_session_factory
 from src.shared.embeddings import EmbeddingsProvider
 
@@ -46,6 +45,7 @@ async def ingest_rubrics(
     root: Path,
     embedder: EmbeddingsProvider,
     *,
+    repo_class: Any | None = None,
     force_reembed: bool = False,
     dry_run: bool = False,
 ) -> IngestSummary:
@@ -54,9 +54,12 @@ async def ingest_rubrics(
     if not files:
         logger.warning("rubrics_ingest_no_files", root=str(root))
         return summary
+    if repo_class is None:
+        raise TypeError("repo_class is required")
+
     factory = get_session_factory()
     async with factory() as session:
-        repo = RubricRepository(session)
+        repo = repo_class(session)
         for path in files:
             try:
                 raw = path.read_text(encoding="utf-8")

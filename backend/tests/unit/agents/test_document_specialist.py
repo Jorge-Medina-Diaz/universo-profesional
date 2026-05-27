@@ -21,6 +21,41 @@ def _make_run_context(user_id: str | None) -> RunContext:
     )
 
 
+def make_mock_document(**overrides) -> MagicMock:
+    """Return a pre-configured MagicMock for a DocumentOrm row.
+
+    Defaults represent a typical CV document. Override any attribute via
+    keyword arguments (e.g. kind="cover_letter", content_json={...}).
+    """
+    mock = MagicMock()
+    mock.id = uuid4()
+    mock.kind = "cv"
+    mock.template = "modern"
+    mock.language = "es"
+    mock.tone = "professional"
+    mock.length = "1-page"
+    mock.pdf_path = "./test.pdf"
+    mock.docx_path = None
+    mock.share_token = None
+    mock.job_id = None
+    mock.created_at = MagicMock()
+    mock.created_at.isoformat.return_value = "2026-01-01T00:00:00+00:00"
+    mock.content_json = {
+        "basics": {
+            "name": "Ada Lovelace",
+            "label": "Senior Developer",
+            "summary": "Passionate developer...",
+        },
+        "work": [
+            {"position": "Dev", "name": "Acme", "startDate": "2020-01", "endDate": None}
+        ],
+        "skills": [{"name": "Python"}, {"name": "React"}],
+    }
+    for key, value in overrides.items():
+        setattr(mock, key, value)
+    return mock
+
+
 class TestListDocumentTemplates:
     def test_returns_all_templates(self):
         result = list_document_templates.entrypoint()
@@ -67,30 +102,7 @@ class TestGetDocument:
     async def test_get_document_found(self):
         run_context = _make_run_context(str(uuid4()))
 
-        mock_doc = MagicMock()
-        mock_doc.id = uuid4()
-        mock_doc.kind = "cv"
-        mock_doc.template = "modern"
-        mock_doc.language = "es"
-        mock_doc.tone = "professional"
-        mock_doc.length = "1-page"
-        mock_doc.pdf_path = "./test.pdf"
-        mock_doc.docx_path = None
-        mock_doc.share_token = None
-        mock_doc.job_id = None
-        mock_doc.created_at = MagicMock()
-        mock_doc.created_at.isoformat.return_value = "2026-01-01T00:00:00+00:00"
-        mock_doc.content_json = {
-            "basics": {
-                "name": "Ada Lovelace",
-                "label": "Senior Developer",
-                "summary": "Passionate developer...",
-            },
-            "work": [
-                {"position": "Dev", "name": "Acme", "startDate": "2020-01", "endDate": None}
-            ],
-            "skills": [{"name": "Python"}, {"name": "React"}],
-        }
+        mock_doc = make_mock_document()
 
         mock_session = AsyncMock()
         mock_execute = MagicMock()
@@ -144,23 +156,18 @@ class TestGetDocument:
     async def test_get_document_cover_letter_body(self):
         run_context = _make_run_context(str(uuid4()))
 
-        mock_doc = MagicMock()
-        mock_doc.id = uuid4()
-        mock_doc.kind = "cover_letter"
-        mock_doc.template = "cover-letter-classic"
-        mock_doc.language = "es"
-        mock_doc.tone = "formal"
-        mock_doc.length = None
-        mock_doc.pdf_path = None
-        mock_doc.docx_path = None
-        mock_doc.share_token = None
-        mock_doc.job_id = uuid4()
-        mock_doc.created_at = MagicMock()
-        mock_doc.created_at.isoformat.return_value = "2026-01-01T00:00:00+00:00"
-        mock_doc.content_json = {
-            "basics": {"name": "Ada Lovelace"},
-            "cover_letter_body": "Estimado reclutador...",
-        }
+        mock_doc = make_mock_document(
+            kind="cover_letter",
+            template="cover-letter-classic",
+            tone="formal",
+            length=None,
+            pdf_path=None,
+            job_id=uuid4(),
+            content_json={
+                "basics": {"name": "Ada Lovelace"},
+                "cover_letter_body": "Estimado reclutador...",
+            },
+        )
 
         mock_session = AsyncMock()
         mock_execute = MagicMock()

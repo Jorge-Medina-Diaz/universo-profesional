@@ -8,6 +8,7 @@ from src.shared.errors import NotFoundError, ValidationError
 from src.shared.redis import get_redis
 from src.shared.result import Result, err, ok
 from src.shared.uow import UnitOfWork
+from src.universe.application.crud import _serialize
 from src.universe.application.ports import (
     CareerPreferencesRepository,
     EducationRepository,
@@ -20,8 +21,6 @@ from src.universe.application.ports import (
 )
 from src.universe.domain.entities import CareerPreferences
 from src.universe.domain.universe import Universe
-from src.universe.application.crud import _serialize
-
 
 # --- Universe summary ------------------------------------------------------
 
@@ -301,7 +300,7 @@ class LinkEvidence:
         from uuid import uuid4
 
         from src.shared.security import utc_now
-        from src.universe.infrastructure.orm import EvidenceOrm
+        from src.universe.application.ports.orm import EvidenceOrm
 
         if evidence_entity_type not in {"experience", "project", "achievement", "certification", "course"}:
             return err(ValidationError(f"Unknown evidence type {evidence_entity_type!r}"))
@@ -328,7 +327,7 @@ class ListEvidence:
         from sqlalchemy import desc as sa_desc
         from sqlalchemy import select
 
-        from src.universe.infrastructure.orm import EvidenceOrm
+        from src.universe.application.ports.orm import EvidenceOrm
 
         stmt = (
             select(EvidenceOrm)

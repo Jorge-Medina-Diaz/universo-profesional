@@ -131,3 +131,12 @@ async def scrape_profile(
             f"Profile not retrievable (private or removed): {str(profile)[:200]}",
         )
     return profile
+
+
+# ---------------------------------------------------------------------------
+# Wire module-level ports so application layer stays import-clean.
+# ---------------------------------------------------------------------------
+
+from src.integrations.application.ports import linkedin_brightdata as _port  # noqa: E402
+
+_port.scrape_profile = scrape_profile

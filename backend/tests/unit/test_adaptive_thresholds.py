@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-
 from src.coherence.application.upsert_use_cases import (
     AMBIGUOUS_LOW,
     _adaptive_ambiguous_low,

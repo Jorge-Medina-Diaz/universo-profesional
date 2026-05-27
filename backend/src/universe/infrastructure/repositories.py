@@ -775,3 +775,25 @@ async def update_universe_areas(
     existing.secondary_areas = list(secondary_areas)
     existing.updated_at = utc_now()
     await session.flush()
+
+
+# ---------------------------------------------------------------------------
+# Wire module-level ports so application layer stays import-clean.
+# ---------------------------------------------------------------------------
+
+from src.universe.application.ports import repositories as _repo_port  # noqa: E402
+
+_repo_port.SqlAlchemyEducationRepository = SqlAlchemyEducationRepository
+_repo_port.SqlAlchemyExperienceRepository = SqlAlchemyExperienceRepository
+_repo_port.SqlAlchemyProjectRepository = SqlAlchemyProjectRepository
+_repo_port.SqlAlchemySkillRepository = SqlAlchemySkillRepository
+_repo_port.SqlAlchemyCertificationRepository = SqlAlchemyCertificationRepository
+_repo_port.SqlAlchemyCourseRepository = SqlAlchemyCourseRepository
+_repo_port.SqlAlchemyLanguageRepository = SqlAlchemyLanguageRepository
+_repo_port.SqlAlchemyAchievementRepository = SqlAlchemyAchievementRepository
+_repo_port.SqlAlchemyInterestRepository = SqlAlchemyInterestRepository
+_repo_port.SqlAlchemyArtifactRepository = SqlAlchemyArtifactRepository
+_repo_port.SqlAlchemyArchitectureDecisionRepository = SqlAlchemyArchitectureDecisionRepository
+_repo_port.SqlAlchemyUserRubricSignalRepository = SqlAlchemyUserRubricSignalRepository
+_repo_port.SqlAlchemyAreaStrengthRepository = SqlAlchemyAreaStrengthRepository
+_repo_port.update_universe_areas = update_universe_areas

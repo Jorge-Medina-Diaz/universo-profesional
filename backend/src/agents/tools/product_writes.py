@@ -5,7 +5,6 @@ or `propose_preferences_update` card has received the user's go-ahead. Use them
 as the *commit step* of an HITL flow; do not call them speculatively.
 """
 from __future__ import annotations
-from src.agents.tools._deps import require_user_id
 
 from datetime import UTC, datetime
 from typing import Any
@@ -14,6 +13,7 @@ from uuid import UUID
 from agno.run.base import RunContext
 from agno.tools import tool
 
+from src.agents.tools._deps import require_user_id
 from src.shared.db import with_user_session
 
 VALID_JOB_STATUSES = {

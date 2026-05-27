@@ -98,7 +98,6 @@ def test_pickle_snapshot_roundtrip() -> None:
     from uuid import uuid4
 
     import igraph as ig
-
     from src.graph.application.retrieval import _UserSnapshot
 
     g = ig.Graph(directed=True)

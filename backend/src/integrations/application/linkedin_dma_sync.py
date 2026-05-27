@@ -29,7 +29,7 @@ from src.integrations.domain.linkedin_profile import (
     LinkedInProject,
     LinkedInSkill,
 )
-from src.integrations.infrastructure.linkedin_dma_client import (
+from src.integrations.application.ports.linkedin_dma import (
     DOMAINS,
     fetch_all_domains,
 )

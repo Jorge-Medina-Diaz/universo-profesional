@@ -229,7 +229,7 @@ class IntentRouter:
         # 4. Ultimate fallback
         return Intent(name="expand_universe", confidence=0.5, provider_name="universe_curator")
 
-    async def get_provider(self, intent: Intent) -> "BaseContextProvider":
+    async def get_provider(self, intent: Intent) -> BaseContextProvider:
         """Instantiate the provider selected by the intent."""
         from src.agents.context_providers.document_provider import DocumentContextProvider
         from src.agents.context_providers.universe_provider import UniverseContextProvider

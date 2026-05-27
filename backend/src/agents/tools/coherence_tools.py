@@ -6,7 +6,6 @@ When the agent isn't sure if something already exists, it can call
 `mark_stale` flags an entry as obsolete without deleting it.
 """
 from __future__ import annotations
-from src.agents.tools._deps import require_user_id
 
 from typing import Any
 from uuid import UUID, uuid4
@@ -15,6 +14,7 @@ from agno.run.base import RunContext
 from agno.tools import tool
 from sqlalchemy import text
 
+from src.agents.tools._deps import require_user_id
 from src.coherence.infrastructure.semantic_matcher import PgVectorSemanticMatcher
 from src.shared.db import with_user_session
 

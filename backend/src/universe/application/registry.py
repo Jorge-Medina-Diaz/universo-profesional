@@ -21,7 +21,7 @@ from src.universe.application.use_cases import (
     ProjectCrud,
     SkillCrud,
 )
-from src.universe.infrastructure.repositories import (
+from src.universe.application.ports.repositories import (
     SqlAlchemyAchievementRepository,
     SqlAlchemyArchitectureDecisionRepository,
     SqlAlchemyArtifactRepository,

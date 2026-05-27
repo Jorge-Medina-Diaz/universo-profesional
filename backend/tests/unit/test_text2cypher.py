@@ -8,11 +8,9 @@ Covers:
 """
 from __future__ import annotations
 
-import json
 from uuid import UUID
 
 import pytest
-
 from src.graph.application.text2cypher import (
     CypherResult,
     Text2CypherEngine,
@@ -69,6 +67,7 @@ class TestText2CypherEngineMock:
         # Patch cypher() so execution succeeds without a real DB
         mocker.patch(
             "src.graph.application.text2cypher.cypher",
+            new_callable=mocker.AsyncMock,
             return_value=[{"result": '{"total": 5}::vertex'}],
         )
         mocker.patch(

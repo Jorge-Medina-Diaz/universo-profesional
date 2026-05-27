@@ -7,8 +7,7 @@ These rules configure the merge and matching strategies per kind.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal
-
+from typing import Literal
 
 FieldStrategy = Literal[
     "longest_non_null",

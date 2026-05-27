@@ -51,7 +51,7 @@ class UniverseGraphService:
         callers while new code can inject a mock or alternate backend.
         """
         if graph_repo is None:
-            from src.graph.infrastructure.age_repository import age_graph_repository
+            from src.graph.application.ports.age import age_graph_repository
 
             graph_repo = age_graph_repository
         self._graph_repo = graph_repo

@@ -1,14 +1,12 @@
 """Unit tests for proposal resolution endpoint logic."""
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
-
-from src.agents.interfaces.api.router import ResolveProposalBody, resolve_proposal
 from src.agents.infrastructure.proposal_store import set_proposal
+from src.agents.interfaces.api.router import ResolveProposalBody, resolve_proposal
 
 
 @pytest.fixture

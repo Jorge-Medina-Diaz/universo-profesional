@@ -25,13 +25,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.rubrics.infrastructure.orm import RubricChunkOrm
 from src.shared.embeddings import get_embeddings_service
 from src.universe.domain.entities import UserRubricSignal
-from src.universe.infrastructure.orm import (
+from src.universe.application.ports.orm import (
     ArtifactOrm,
     ExperienceOrm,
     ProjectOrm,
     SkillOrm,
 )
-from src.universe.infrastructure.repositories import (
+from src.universe.application.ports.repositories import (
     SqlAlchemyUserRubricSignalRepository,
 )
 

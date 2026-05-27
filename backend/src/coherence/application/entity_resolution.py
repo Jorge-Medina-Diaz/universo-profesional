@@ -26,8 +26,9 @@ Pipeline stages:
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
@@ -36,7 +37,7 @@ from jellyfish import jaro_winkler_similarity
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.coherence.domain.er_rules import ER_REGISTRY, FieldRule, FieldStrategy, config_for
+from src.coherence.domain.er_rules import FieldRule, FieldStrategy, config_for
 from src.graph.application.universe_graph import universe_graph_service
 from src.graph.domain import schema as graph_schema
 from src.graph.infrastructure.age_client import cypher
@@ -442,59 +443,93 @@ def _apply_field_rules(
     return merged
 
 
+def _resolve_longest_non_null(values: list[Any], _ranking: dict[str, int] | None) -> Any:
+    return max(values, key=lambda x: len(str(x)))
+
+
+def _resolve_earliest(values: list[Any], _ranking: dict[str, int] | None) -> Any:
+    dates = [_to_date(v) for v in values]
+    dates = [d for d in dates if d is not None]
+    return min(dates) if dates else values[0]
+
+
+def _resolve_latest(values: list[Any], _ranking: dict[str, int] | None) -> Any:
+    dates = [_to_date(v) for v in values]
+    dates = [d for d in dates if d is not None]
+    return max(dates) if dates else values[0]
+
+
+def _resolve_max(values: list[Any], _ranking: dict[str, int] | None) -> Any:
+    nums = [_to_number(v) for v in values]
+    nums = [n for n in nums if n is not None]
+    return max(nums) if nums else values[0]
+
+
+def _resolve_max_ranked(values: list[Any], ranking: dict[str, int] | None) -> Any:
+    if ranking is None:
+        raise ValueError("max_ranked requires a ranking dict")
+    return max(values, key=lambda x: ranking.get(str(x), 0))
+
+
+def _resolve_union(values: list[Any], _ranking: dict[str, int] | None) -> Any:
+    out: list[Any] = []
+    seen: set[str] = set()
+    for v in values:
+        if isinstance(v, list):
+            for item in v:
+                key = str(item).strip().lower()
+                if key and key not in seen:
+                    out.append(item)
+                    seen.add(key)
+        else:
+            key = str(v).strip().lower()
+            if key and key not in seen:
+                out.append(v)
+                seen.add(key)
+    return out
+
+
+def _resolve_esco_preferred(values: list[Any], _ranking: dict[str, int] | None) -> Any:
+    # Prefer the value from the row that has an esco_uri (more canonical).
+    # Fallback to longest string.
+    return max(values, key=lambda x: len(str(x)))
+
+
+def _resolve_concatenate_unique(values: list[Any], _ranking: dict[str, int] | None) -> Any:
+    texts: list[str] = []
+    seen_texts: set[str] = set()
+    for v in values:
+        s = str(v).strip()
+        if s and s.lower() not in seen_texts:
+            texts.append(s)
+            seen_texts.add(s.lower())
+    return "\n\n".join(texts) if texts else None
+
+
+def _resolve_preserve_existing(values: list[Any], _ranking: dict[str, int] | None) -> Any:
+    return values[0]
+
+
+_strategies: dict[str, Callable[..., Any]] = {
+    "longest_non_null": _resolve_longest_non_null,
+    "earliest": _resolve_earliest,
+    "latest": _resolve_latest,
+    "max": _resolve_max,
+    "max_ranked": _resolve_max_ranked,
+    "union": _resolve_union,
+    "esco_preferred": _resolve_esco_preferred,
+    "concatenate_unique": _resolve_concatenate_unique,
+    "preserve_existing": _resolve_preserve_existing,
+}
+
+
 def _resolve_field(
     strategy: FieldStrategy, values: list[Any], ranking: dict[str, int] | None
 ) -> Any:
-    if strategy == "longest_non_null":
-        return max(values, key=lambda x: len(str(x)))
-    if strategy == "earliest":
-        dates = [_to_date(v) for v in values]
-        dates = [d for d in dates if d is not None]
-        return min(dates) if dates else values[0]
-    if strategy == "latest":
-        dates = [_to_date(v) for v in values]
-        dates = [d for d in dates if d is not None]
-        return max(dates) if dates else values[0]
-    if strategy == "max":
-        nums = [_to_number(v) for v in values]
-        nums = [n for n in nums if n is not None]
-        return max(nums) if nums else values[0]
-    if strategy == "max_ranked":
-        if ranking is None:
-            raise ValueError("max_ranked requires a ranking dict")
-        return max(values, key=lambda x: ranking.get(str(x), 0))
-    if strategy == "union":
-        out: list[Any] = []
-        seen: set[str] = set()
-        for v in values:
-            if isinstance(v, list):
-                for item in v:
-                    key = str(item).strip().lower()
-                    if key and key not in seen:
-                        out.append(item)
-                        seen.add(key)
-            else:
-                key = str(v).strip().lower()
-                if key and key not in seen:
-                    out.append(v)
-                    seen.add(key)
-        return out
-    if strategy == "esco_preferred":
-        # Prefer the value from the row that has an esco_uri (more canonical).
-        # Fallback to longest string.
-        return max(values, key=lambda x: len(str(x)))
-    if strategy == "concatenate_unique":
-        texts: list[str] = []
-        seen_texts: set[str] = set()
-        for v in values:
-            s = str(v).strip()
-            if s and s.lower() not in seen_texts:
-                texts.append(s)
-                seen_texts.add(s.lower())
-        return "\n\n".join(texts) if texts else None
-    if strategy == "preserve_existing":
-        return values[0]
-    return values[0]
+    resolver = _strategies.get(strategy)
+    if resolver is None:
+        raise ValueError(f"Unknown strategy: {strategy}")
+    return resolver(values, ranking)
 
 
 # ---------------------------------------------------------------------------
@@ -513,7 +548,7 @@ async def _record_provenance(
 ) -> UUID:
     """Write a :MergeEvent vertex and :MERGED_INTO edges to the graph."""
     event_id = uuid4()
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
     await cypher(
         session,
         graph_schema.GRAPH_PERSONAL,

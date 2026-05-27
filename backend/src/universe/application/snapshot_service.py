@@ -17,15 +17,14 @@ The returned shape is identical to GetUniverseSummary so the frontend and
 """
 from __future__ import annotations
 
-from dataclasses import asdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.universe.infrastructure.orm import (
+from src.universe.application.ports.orm import (
     AchievementOrm,
     CertificationOrm,
     CourseOrm,
@@ -35,7 +34,6 @@ from src.universe.infrastructure.orm import (
     LanguageOrm,
     ProjectOrm,
     SkillOrm,
-    UniverseOrm,
 )
 
 

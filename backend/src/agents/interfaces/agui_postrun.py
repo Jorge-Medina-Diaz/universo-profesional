@@ -9,6 +9,7 @@ from sqlalchemy import text
 from src.agents.domain.sources import SOURCE_AGENT_CHAT
 from src.agents.workflows.universe_enrichment import UniverseEnrichmentEngine
 from src.llm_tracking.application.tracker import log_agno_run
+from src.llm_tracking.infrastructure.repository import SqlalchemyLlmUsageLogRepository
 from src.shared.db import with_user_session
 
 logger = structlog.get_logger(__name__)
@@ -76,6 +77,7 @@ async def _persist_agno_usage(session_id: str, user_id: str) -> None:
             run_id = last_run.get("run_id")
             await log_agno_run(
                 session,
+                SqlalchemyLlmUsageLogRepository(session),
                 user_id=uid,
                 run_id=run_id,
                 session_id=session_id,

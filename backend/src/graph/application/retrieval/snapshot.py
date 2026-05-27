@@ -13,10 +13,10 @@ import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.graph.application.ports.age import cypher, ensure_age_loaded
 from src.graph.application.retrieval._helpers import _coerce_uuid, _strip_quotes
 from src.graph.domain import schema
 from src.graph.domain.registry import GRAPH_REGISTRY
-from src.graph.infrastructure.age_client import cypher, ensure_age_loaded
 from src.shared.config import get_settings
 
 logger = structlog.get_logger(__name__)
@@ -177,7 +177,7 @@ async def _load_snapshot(
     names_by_id: dict[UUID, tuple[str, str]] = {}  # id → (kind, name)
     rows_by_kind: dict[str, set[UUID]] = defaultdict(set)
     for row in vertex_rows:
-        from src.graph.infrastructure.age_client import parse_agtype
+        from src.graph.application.ports.age import parse_agtype
 
         entity_id = _coerce_uuid(parse_agtype(row.get("id")))
         kind = _strip_quotes(parse_agtype(row.get("kind")))
@@ -219,7 +219,7 @@ async def _load_snapshot(
         idx_to_esco[idx] = esco_by_id.get(entity_id)
 
     for edge in edge_rows:
-        from src.graph.infrastructure.age_client import parse_agtype
+        from src.graph.application.ports.age import parse_agtype
 
         src_id = _coerce_uuid(parse_agtype(edge.get("a")))
         dst_id = _coerce_uuid(parse_agtype(edge.get("b")))

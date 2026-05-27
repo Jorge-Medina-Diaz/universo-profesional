@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.shared.db import Base  # noqa: E402  (after sys.path tweak)
-from src.shared.db import import_all_models  # noqa: E402
+from src.shared.orm_loader import import_all_models  # noqa: E402
 
 # Force-import all SQLAlchemy models so Alembic's autogenerate sees them.
 import_all_models()

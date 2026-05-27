@@ -5,6 +5,7 @@ Result. Mapping to HTTP / MCP happens in the interfaces layer.
 """
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -130,9 +131,11 @@ class VerifyEmail:
         self,
         users: UserRepository,
         email_tokens: EmailTokenRepository,
+        welcome_emailer: Callable[[UUID], Awaitable[None]] | None = None,
     ) -> None:
         self._users = users
         self._email_tokens = email_tokens
+        self._welcome_emailer = welcome_emailer
 
     async def execute(
         self, *, token: str, uow: UnitOfWork
@@ -155,13 +158,9 @@ class VerifyEmail:
         # Send the welcome email exactly once — when a user transitions from
         # unverified → verified. We swallow errors here so verification itself
         # always succeeds; the email worker handles retries.
-        if was_unverified:
+        if was_unverified and self._welcome_emailer is not None:
             try:
-                from src.identity.infrastructure.tasks import enqueue_transactional_email
-
-                await enqueue_transactional_email(
-                    user_id=user.id, template="welcome", context=None
-                )
+                await self._welcome_emailer(user.id)
             except Exception:
                 pass
         return ok(True)

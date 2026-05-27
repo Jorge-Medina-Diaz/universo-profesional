@@ -28,7 +28,7 @@ class ConnectGithub:
         redirect_uri: str,
         uow: UnitOfWork,
     ) -> dict[str, Any]:
-        from src.integrations.infrastructure.github_client import (
+        from src.integrations.application.ports.github import (
             GithubClient,
             exchange_code_for_token,
         )

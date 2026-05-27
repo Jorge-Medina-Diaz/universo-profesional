@@ -10,13 +10,12 @@ from dataclasses import asdict, dataclass
 from typing import Any, ClassVar
 from uuid import UUID
 
+from src.notes.application.ports import EmbeddingRefreshScheduler, NoteRepository
 from src.notes.domain.entities import Note
-from src.notes.infrastructure.repositories import SqlAlchemyNoteRepository
 from src.shared.errors import NotFoundError, ValidationError
 from src.shared.events import DomainEvent
 from src.shared.result import Result, err, ok
 from src.shared.uow import UnitOfWork
-from src.universe.infrastructure.scheduler import ArqEmbeddingScheduler
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -52,7 +51,7 @@ def _serialize(note: Note) -> dict[str, Any]:
 
 class CreateNote:
     def __init__(
-        self, repo: SqlAlchemyNoteRepository, scheduler: ArqEmbeddingScheduler
+        self, repo: NoteRepository, scheduler: EmbeddingRefreshScheduler
     ) -> None:
         self._repo = repo
         self._scheduler = scheduler
@@ -76,7 +75,7 @@ class CreateNote:
 
 class UpdateNote:
     def __init__(
-        self, repo: SqlAlchemyNoteRepository, scheduler: ArqEmbeddingScheduler
+        self, repo: NoteRepository, scheduler: EmbeddingRefreshScheduler
     ) -> None:
         self._repo = repo
         self._scheduler = scheduler
@@ -111,7 +110,7 @@ class UpdateNote:
 
 
 class ListNotes:
-    def __init__(self, repo: SqlAlchemyNoteRepository) -> None:
+    def __init__(self, repo: NoteRepository) -> None:
         self._repo = repo
 
     async def execute(
@@ -126,7 +125,7 @@ class ListNotes:
 
 
 class GetNote:
-    def __init__(self, repo: SqlAlchemyNoteRepository) -> None:
+    def __init__(self, repo: NoteRepository) -> None:
         self._repo = repo
 
     async def execute(
@@ -139,7 +138,7 @@ class GetNote:
 
 
 class DeleteNote:
-    def __init__(self, repo: SqlAlchemyNoteRepository) -> None:
+    def __init__(self, repo: NoteRepository) -> None:
         self._repo = repo
 
     async def execute(

@@ -8,7 +8,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from src.graph.application.esco_linker import EscoEntityLinker, LinkState
 
 
@@ -48,19 +47,18 @@ async def test_custom_skill_linking_for_mcp() -> None:
         with patch(
             "src.graph.application.esco_linker.normalise",
             return_value="model context protocol",
-        ):
-            with patch(
-                "src.graph.application.esco_linker.feature_reranker.rerank"
-            ) as mock_rerank:
-                # Force rerank score below quarantine so custom ontology is tried.
-                mock_rerank.return_value = [
-                    MagicMock(candidate=MagicMock(uri="esco:fake"), rerank_score=0.5)
-                ]
-                result = await linker.link(
-                    mock_session,
-                    "MCP",
-                    "skill",
-                )
+        ), patch(
+            "src.graph.application.esco_linker.feature_reranker.rerank"
+        ) as mock_rerank:
+            # Force rerank score below quarantine so custom ontology is tried.
+            mock_rerank.return_value = [
+                MagicMock(candidate=MagicMock(uri="esco:fake"), rerank_score=0.5)
+            ]
+            result = await linker.link(
+                mock_session,
+                "MCP",
+                "skill",
+            )
 
     assert result.state == LinkState.LINKED
     assert result.esco_uri == "up:ai/mcp"
@@ -86,18 +84,17 @@ async def test_custom_skill_linking_for_rag() -> None:
         with patch(
             "src.graph.application.esco_linker.normalise",
             return_value="rag pipeline",
-        ):
-            with patch(
-                "src.graph.application.esco_linker.feature_reranker.rerank"
-            ) as mock_rerank:
-                mock_rerank.return_value = [
-                    MagicMock(candidate=MagicMock(uri="esco:fake"), rerank_score=0.5)
-                ]
-                result = await linker.link(
-                    mock_session,
-                    "RAG pipeline",
-                    "skill",
-                )
+        ), patch(
+            "src.graph.application.esco_linker.feature_reranker.rerank"
+        ) as mock_rerank:
+            mock_rerank.return_value = [
+                MagicMock(candidate=MagicMock(uri="esco:fake"), rerank_score=0.5)
+            ]
+            result = await linker.link(
+                mock_session,
+                "RAG pipeline",
+                "skill",
+            )
 
     assert result.state == LinkState.LINKED
     assert result.esco_uri == "up:ai/rag-pipeline"
@@ -124,18 +121,17 @@ async def test_no_fallback_for_common_skill() -> None:
         with patch(
             "src.graph.application.esco_linker.normalise",
             return_value="plumber",
-        ):
-            with patch(
-                "src.graph.application.esco_linker.feature_reranker.rerank"
-            ) as mock_rerank:
-                mock_rerank.return_value = [
-                    MagicMock(candidate=MagicMock(uri="esco:fake"), rerank_score=0.5)
-                ]
-                result = await linker.link(
-                    mock_session,
-                    "plumber",
-                    "skill",
-                )
+        ), patch(
+            "src.graph.application.esco_linker.feature_reranker.rerank"
+        ) as mock_rerank:
+            mock_rerank.return_value = [
+                MagicMock(candidate=MagicMock(uri="esco:fake"), rerank_score=0.5)
+            ]
+            result = await linker.link(
+                mock_session,
+                "plumber",
+                "skill",
+            )
 
     # Custom ontology does not know "plumber" → ORPHAN.
     assert result.state == LinkState.ORPHAN

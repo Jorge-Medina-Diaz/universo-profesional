@@ -15,7 +15,6 @@ on the member name returned in the response metadata.
 from __future__ import annotations
 
 import pytest
-
 from src.agents.factory import STATIC_INSTRUCTIONS, get_universe_team
 
 # ---------------------------------------------------------------------------

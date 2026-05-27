@@ -4,6 +4,7 @@ Each entity exposes: list, create, get-by-id, patch, delete.
 """
 from __future__ import annotations
 
+from datetime import UTC
 from typing import Any
 
 from fastapi import APIRouter, Body, Query
@@ -11,6 +12,7 @@ from pydantic import BaseModel
 
 from src.identity.interfaces.api.deps import CurrentUserId, SessionDep
 from src.shared.uow import unit_of_work
+from src.universe.application.snapshot_service import TemporalSnapshotService
 from src.universe.interfaces.api.deps import (
     AchievementCrudDep,
     CertificationCrudDep,
@@ -27,7 +29,6 @@ from src.universe.interfaces.api.deps import (
     SummaryDep,
     UpdateHeaderDep,
 )
-from src.universe.application.snapshot_service import TemporalSnapshotService
 
 router = APIRouter()
 
@@ -54,13 +55,13 @@ async def get_universe_at(
     or ISO-8601 datetime).  Useful for "what did my CV look like in March?"
     or time-travel debugging.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     # Accept YYYY-MM-DD or full ISO datetime
     try:
         at = datetime.fromisoformat(iso_date.replace("Z", "+00:00"))
     except ValueError:
-        at = datetime.strptime(iso_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        at = datetime.strptime(iso_date, "%Y-%m-%d").replace(tzinfo=UTC)
     svc = TemporalSnapshotService(session)
     return await svc.get_universe_at(user_id=user_id, at=at)
 

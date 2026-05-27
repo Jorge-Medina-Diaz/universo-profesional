@@ -182,3 +182,13 @@ async def fetch_all_domains(access_token: str) -> dict[str, list[dict[str, Any]]
 
     results = await asyncio.gather(*[_safe(d) for d in DOMAINS])
     return dict(results)
+
+
+# ---------------------------------------------------------------------------
+# Wire module-level ports so application layer stays import-clean.
+# ---------------------------------------------------------------------------
+
+from src.integrations.application.ports import linkedin_dma as _port  # noqa: E402
+
+_port.DOMAINS = DOMAINS
+_port.fetch_all_domains = fetch_all_domains

@@ -5,6 +5,7 @@ import uuid
 
 from sqlalchemy import Column, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
+
 from src.shared.db import Base
 
 

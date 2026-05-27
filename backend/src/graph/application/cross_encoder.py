@@ -15,7 +15,6 @@ The reranker is deterministic, fast, and interpretable.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 import structlog
 

@@ -21,9 +21,9 @@ from jose import JWTError
 
 from src.identity.application.use_cases import LoginTokens
 from src.identity.domain.user import User
-from src.identity.infrastructure.repositories import (
-    SqlAlchemyRefreshTokenRepository,
-    SqlAlchemyUserRepository,
+from src.identity.application.ports import (
+    RefreshTokenRepository,
+    UserRepository,
 )
 from src.integrations.application.ports import ExternalAccountRepository
 from src.integrations.domain.external_account import (
@@ -89,8 +89,8 @@ class LinkedInOidcSignIn:
 
     def __init__(
         self,
-        users: SqlAlchemyUserRepository,
-        refresh_tokens: SqlAlchemyRefreshTokenRepository,
+        users: UserRepository,
+        refresh_tokens: RefreshTokenRepository,
         accounts: ExternalAccountRepository,
     ) -> None:
         self._users = users

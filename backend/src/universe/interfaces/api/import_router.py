@@ -64,6 +64,95 @@ async def import_pdf(
     return _CANNED_PDF_PARSE
 
 
+def _find_csv_files(zf: zipfile.ZipFile) -> dict[str, str | None]:
+    names = {n.lower(): n for n in zf.namelist()}
+    return {
+        "positions": next(
+            (n for k, n in names.items() if k.endswith("positions.csv")), None
+        ),
+        "education": next(
+            (n for k, n in names.items() if k.endswith("education.csv")), None
+        ),
+        "skills": next(
+            (n for k, n in names.items() if k.endswith("skills.csv")), None
+        ),
+    }
+
+
+async def _parse_li_experiences(
+    zf: zipfile.ZipFile,
+    filename: str,
+    user_id: CurrentUserId,
+    exp_uc: ExperienceCrudDep,
+    uow: Any,
+) -> int:
+    count = 0
+    with zf.open(filename) as f:
+        reader = csv.DictReader(io.TextIOWrapper(f, "utf-8"))
+        for row in reader:
+            payload = {
+                "organization": row.get("Company Name", "").strip(),
+                "role": row.get("Title", "").strip(),
+                "description": row.get("Description", "").strip() or None,
+                "start_date": _parse_li_date(row.get("Started On")),
+                "end_date": _parse_li_date(row.get("Finished On")),
+                "is_current": not row.get("Finished On"),
+            }
+            if not payload["organization"] or not payload["role"]:
+                continue
+            r = await exp_uc.add(user_id=user_id, payload=payload, uow=uow)
+            if r.is_success:
+                count += 1
+    return count
+
+
+async def _parse_li_educations(
+    zf: zipfile.ZipFile,
+    filename: str,
+    user_id: CurrentUserId,
+    edu_uc: EducationCrudDep,
+    uow: Any,
+) -> int:
+    count = 0
+    with zf.open(filename) as f:
+        reader = csv.DictReader(io.TextIOWrapper(f, "utf-8"))
+        for row in reader:
+            payload = {
+                "institution": row.get("School Name", "").strip(),
+                "degree": row.get("Degree Name", "").strip() or None,
+                "field_of_study": row.get("Notes", "").strip() or None,
+                "start_date": _parse_li_date(row.get("Start Date")),
+                "end_date": _parse_li_date(row.get("End Date")),
+            }
+            if not payload["institution"]:
+                continue
+            r = await edu_uc.add(user_id=user_id, payload=payload, uow=uow)
+            if r.is_success:
+                count += 1
+    return count
+
+
+async def _parse_li_skills(
+    zf: zipfile.ZipFile,
+    filename: str,
+    user_id: CurrentUserId,
+    skill_uc: SkillCrudDep,
+    uow: Any,
+) -> int:
+    count = 0
+    with zf.open(filename) as f:
+        reader = csv.DictReader(io.TextIOWrapper(f, "utf-8"))
+        for row in reader:
+            name = row.get("Name", "").strip()
+            if not name:
+                continue
+            payload = {"name": name, "category": "hard"}
+            r = await skill_uc.add(user_id=user_id, payload=payload, uow=uow)
+            if r.is_success:
+                count += 1
+    return count
+
+
 @router.post("/linkedin")
 async def import_linkedin_zip(
     user_id: CurrentUserId,
@@ -82,64 +171,20 @@ async def import_linkedin_zip(
     summary = {"educations": 0, "experiences": 0, "skills": 0, "errors": []}
     try:
         with zipfile.ZipFile(io.BytesIO(contents)) as zf:
-            names = {n.lower(): n for n in zf.namelist()}
+            files = _find_csv_files(zf)
             async with unit_of_work(session) as uow:
-                # Positions
-                pos_file = next(
-                    (n for k, n in names.items() if k.endswith("positions.csv")), None
-                )
-                if pos_file:
-                    with zf.open(pos_file) as f:
-                        reader = csv.DictReader(io.TextIOWrapper(f, "utf-8"))
-                        for row in reader:
-                            payload = {
-                                "organization": row.get("Company Name", "").strip(),
-                                "role": row.get("Title", "").strip(),
-                                "description": row.get("Description", "").strip() or None,
-                                "start_date": _parse_li_date(row.get("Started On")),
-                                "end_date": _parse_li_date(row.get("Finished On")),
-                                "is_current": not row.get("Finished On"),
-                            }
-                            if not payload["organization"] or not payload["role"]:
-                                continue
-                            r = await exp_uc.add(user_id=user_id, payload=payload, uow=uow)
-                            if r.is_success:
-                                summary["experiences"] += 1
-                # Educations
-                edu_file = next(
-                    (n for k, n in names.items() if k.endswith("education.csv")), None
-                )
-                if edu_file:
-                    with zf.open(edu_file) as f:
-                        reader = csv.DictReader(io.TextIOWrapper(f, "utf-8"))
-                        for row in reader:
-                            payload = {
-                                "institution": row.get("School Name", "").strip(),
-                                "degree": row.get("Degree Name", "").strip() or None,
-                                "field_of_study": row.get("Notes", "").strip() or None,
-                                "start_date": _parse_li_date(row.get("Start Date")),
-                                "end_date": _parse_li_date(row.get("End Date")),
-                            }
-                            if not payload["institution"]:
-                                continue
-                            r = await edu_uc.add(user_id=user_id, payload=payload, uow=uow)
-                            if r.is_success:
-                                summary["educations"] += 1
-                # Skills
-                skill_file = next(
-                    (n for k, n in names.items() if k.endswith("skills.csv")), None
-                )
-                if skill_file:
-                    with zf.open(skill_file) as f:
-                        reader = csv.DictReader(io.TextIOWrapper(f, "utf-8"))
-                        for row in reader:
-                            name = row.get("Name", "").strip()
-                            if not name:
-                                continue
-                            payload = {"name": name, "category": "hard"}
-                            r = await skill_uc.add(user_id=user_id, payload=payload, uow=uow)
-                            if r.is_success:
-                                summary["skills"] += 1
+                if files.get("positions"):
+                    summary["experiences"] = await _parse_li_experiences(
+                        zf, files["positions"], user_id, exp_uc, uow
+                    )
+                if files.get("education"):
+                    summary["educations"] = await _parse_li_educations(
+                        zf, files["education"], user_id, edu_uc, uow
+                    )
+                if files.get("skills"):
+                    summary["skills"] = await _parse_li_skills(
+                        zf, files["skills"], user_id, skill_uc, uow
+                    )
                 await uow.commit()
     except Exception as exc:
         summary["errors"].append(str(exc))
