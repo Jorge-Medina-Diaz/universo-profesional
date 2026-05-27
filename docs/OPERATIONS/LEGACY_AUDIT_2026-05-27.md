@@ -229,6 +229,7 @@ npm install -D globals
 ---
 
 #### 19. Specialists copy-paste
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 6 — factory pattern (`domain_templates.py`).
 **Archivos:** `src/agents/specialists/experience.py`, `skill.py`, `education.py`, `project.py`, `certification.py`, `course.py`, `language.py`, `achievement.py`, `interest.py`...
 **Problema:** Misma estructura 50–150 líneas; solo cambian nombres de entidad.
 **Fix:** Parameterizar por tipo en `domain_templates.py`.
@@ -272,6 +273,7 @@ const work = (resume?.work ?? []) as any[];
 ---
 
 #### 23. `any` masivo en `ConnectionsPage.tsx`
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 5 — tipado con `Connection`, `SyncRun`, `ParsedImport`.
 **Archivo:** `frontend/src/pages/ConnectionsPage.tsx`  
 **Count:** ~15 usos de `any`.  
 **Fix:** Tipar con `Connection`, `SyncRun`, `ParsedImport`.
@@ -279,18 +281,21 @@ const work = (resume?.work ?? []) as any[];
 ---
 
 #### 24. Event handlers manuales en lugar de hooks compartidos
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 5 — migrados a `useClickOutside` y `useEscapeKey`.
 - `NotificationCenter.tsx:139` → debería usar `useClickOutside`
 - `InlineEntityEditor.tsx:75` → debería usar `useEscapeKey`
 
 ---
 
 #### 25. `ComponentType<any>` en Router
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 5 — `ComponentType<unknown>` con typed lazy-wrapper.
 **Archivo:** `frontend/src/app/Router.tsx:202, 205`  
 **Fix:** `ComponentType<unknown>` o typed lazy-wrapper.
 
 ---
 
 #### 26. `useTranslation` importado pero casi sin uso
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 5 — hook eliminado del shell.
 **Archivo:** `frontend/src/app/Layout.tsx`  
 **Problema:** Solo 2 llamadas `t()`. La app es español-only.  
 **Fix:** O i18n completo del shell, o eliminar el hook.
@@ -298,6 +303,7 @@ const work = (resume?.work ?? []) as any[];
 ---
 
 #### 27. `PhotoCropper` — único consumidor
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 5 — inlineado en `PhotoUpload.tsx`.
 **Archivo:** `frontend/src/widgets/PhotoCropper.tsx` (~200 LOC)  
 **Solo consumido por:** `PhotoUpload.tsx`  
 **Fix:** Inlinear en `PhotoUpload.tsx`.
@@ -329,12 +335,14 @@ const work = (resume?.work ?? []) as any[];
 ---
 
 #### 31. `docker-compose.prod.yml` — frontend image nunca buildada en CI
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 6 — añadido build + Trivy scan al job `security` de CI.
 **Problema:** `.github/workflows/ci.yml` solo buildea/scanea backend. El frontend prod nunca se valida.  
 **Fix:** Añadir `docker build -f docker/frontend.prod.Dockerfile` + Trivy scan en CI.
 
 ---
 
 #### 32. Docker Compose `esco-seed` corre Alembic redundante
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 6 — comando del seed container simplificado.
 **Problema:** `esco-seed` hace `alembic upgrade head || true`, pero backend ya depende de `esco-seed`.  
 **Fix:** Simplificar comando del seed container.
 
@@ -345,12 +353,14 @@ const work = (resume?.work ?? []) as any[];
 ### Backend
 
 #### 33. `entities.py` — 16 clases en un archivo (633 líneas)
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 5 — split en 14 módulos (`entities/education.py`, `entities/experience.py`, etc.).
 **Archivo:** `backend/src/universe/domain/entities.py`  
 **Fix:** `entities/education.py`, `entities/experience.py`, etc.
 
 ---
 
 #### 34. `repositories.py` — factory + hand-written mezclados (777 líneas)
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 5 — split en package (`base.py`, `generated.py`, `custom.py`).
 **Archivo:** `backend/src/universe/infrastructure/repositories.py`  
 **Fix:** Split en `base.py`, `generated.py`, `custom.py`.
 
@@ -364,7 +374,7 @@ const work = (resume?.work ?? []) as any[];
 ---
 
 #### 36. `universe_enrichment.py` — 4 niveles de anidación
-**Estado: ⚠️ PARCIALMENTE RESUELTO** — Parcialmente abordado en Sprint 4 — `_try_link_esco()` extraído; revisar estado actual.
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 7 — `_try_link_esco()` extraído y refactorizado.
 **Archivo:** `backend/src/agents/workflows/universe_enrichment.py:210–218`  
 **Fix:** Extraer `async def _try_link_esco()`.
 
@@ -410,6 +420,7 @@ const work = (resume?.work ?? []) as any[];
 ---
 
 #### 42. Timeouts arbitrarios en E2E
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 8 — `asyncio.sleep` reemplazado por PostgreSQL LISTEN/NOTIFY en el endpoint SSE de producción.
 | Archivo | Línea | Issue |
 |---------|-------|-------|
 | `tests/e2e/test_discovery_sse.py` | 127 | `await asyncio.wait_for(_collect(), timeout=8.0)` |
@@ -429,27 +440,32 @@ const work = (resume?.work ?? []) as any[];
 ### Infra
 
 #### 44. `backend/scripts/ingest_esco.py` — superseded
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 8 — fichero eliminado.
 **Problema:** Referenciado en comentario de migración, pero `seed_esco.py` es el activo.  
 **Fix:** Deprecar o eliminar.
 
 ---
 
 #### 45. `scripts/load/` — directorio vacío
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 8 — verificado no vacío; contiene ficheros k6.
 **Fix:** Eliminar si está vacío.
 
 ---
 
 #### 46. WeasyPrint deps en CI — redundante en 2 jobs
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 6 — extraído a composite action reutilizable.
 **Fix:** Cachear capa apt o usar runner image custom.
 
 ---
 
 #### 47. Backend en CI e2e sin healthcheck
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 6 — `sleep 5` reemplazado por loop `curl --retry` en `/healthz`.
 **Fix:** Reemplazar `sleep 5` con `curl --retry` loop en `/healthz`.
 
 ---
 
 #### 48. Falta `npm audit` en CI
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 6 — `npm audit` añadido al job frontend de CI.
 **Fix:** Añadir `npm audit` al job frontend (o `pnpm audit`).
 
 ---
@@ -457,6 +473,7 @@ const work = (resume?.work ?? []) as any[];
 ## 🟢 LOW — Pulido
 
 #### 49. Comentarios ASCII divider (`// ---------------------------------------------------------------------------`)
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 7 — ~60 líneas de dividers ASCII eliminadas.
 **Ubicaciones:** `UniversePage.tsx`, `api.ts`, etc.  
 **Fix:** Trim si afectan legibilidad.
 
@@ -468,6 +485,7 @@ const work = (resume?.work ?? []) as any[];
 ---
 
 #### 51. `lucide-react@^1.16.0` — versión potencialmente stale
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 7 — verificada última versión estable.
 **Fix:** Verificar si hay actualización disponible.
 
 ---
@@ -478,17 +496,19 @@ const work = (resume?.work ?? []) as any[];
 ---
 
 #### 53. Comentarios TODO/FIXME en backend
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 7 — 5 comentarios reformateados a formato con fecha.
 **Count:** 7 (todos en `agents/`). Ninguno bloqueante.
 
 ---
 
 #### 54. `type: ignore[arg-type]` esparcidos
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 7 — 5 supresiones eliminadas tipando los dominios subyacentes.
 **Fix:** Reducir gradualmente a medida que se tipan mejor los dominios.
 
 ---
 
 #### 55. `orjson`, `python-multipart`, `email-validator`, `limits[redis]`, `psycopg[binary]`
-**Estado:** Usadas implícitamente por FastAPI/Pydantic/slowapi/Alembic. Legítimas. Documentar en `pyproject.toml` con comentarios.
+**Estado: ✅ RESUELTO** — Resuelto en Sprint 8 — documentadas con comentarios en `pyproject.toml`.
 
 ---
 
@@ -547,12 +567,9 @@ const work = (resume?.work ?? []) as any[];
 
 ---
 
-## Estado post-Sprint 4 (2026-05-26)
+## Estado post-Sprint 8 (2026-05-27)
 
-Out of 43 actionable items audited, approximately **29 are fully resolved**, **2 are partially resolved**, and **12 remain open**.
+Out of 43 actionable items audited, approximately **40 are fully resolved**, **2 are partially resolved**, and **1 remains open**.
 
-The most significant remaining open items are:
-- **#19** — Specialists copy-paste (`experience.py`, `skill.py`, `education.py`, etc. still need parameterization via `domain_templates.py`).
-- **#23–27** — Frontend hardening (`any` masivo en `ConnectionsPage.tsx`, event handlers manuales, `ComponentType<any>`, `useTranslation` residual, `PhotoCropper` inline).
-- **#31–32** — Infra CI/docker (`docker-compose.prod.yml` frontend image no validada en CI, `esco-seed` con Alembic redundante).
-- **#33–34** — Backend large files (`entities.py` 633 líneas, `repositories.py` 777 líneas).
+The only remaining open item is:
+- **#52** — `docker/postgres.Dockerfile` pre-build image requires registry access.
