@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { FileDown, Sparkles, ChevronDown, Wand2 } from "lucide-react";
 import { documents } from "@/shared/api";
+import type { JsonResume } from "@/shared/hooks/useJsonResume";
 import {
   Badge,
   Button,
@@ -231,9 +232,9 @@ export function GenerateCvPage() {
                     </div>
                   </div>
                   {kind === "cover_letter" &&
-                    (gen.data.json_resume as any)?.cover_letter_body && (
+                    (gen.data.json_resume as JsonResume).cover_letter_body && (
                       <CoverLetterPreview
-                        body={(gen.data.json_resume as any).cover_letter_body as string}
+                        body={(gen.data.json_resume as JsonResume).cover_letter_body!}
                       />
                     )}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">

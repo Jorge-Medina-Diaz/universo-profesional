@@ -218,6 +218,7 @@ async def mark_stale(
                 "run_id": run_context.run_id,
             },
         )
+        await session.execute(text(f"NOTIFY entity_changed, '{user_id}'"))
         return {"ok": True, "entity_id": entity_id, "confidence": 0.3}
 
 

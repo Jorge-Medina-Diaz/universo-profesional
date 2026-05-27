@@ -8,7 +8,7 @@ This is the storage for the system's curated rubrics — criteria, guiding
 questions, seniority signals, anti-patterns and resources per software
 sector. The corpus is global (no `user_id`, no RLS) — it's our source of
 truth, identical for every user, edited by us in markdown and ingested
-via `python -m src.rubrics.cli ingest`.
+via the rubrics application ingest layer.
 
 Two tables:
   - `rubric_documents` holds one row per .md file with full body + metadata

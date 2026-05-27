@@ -191,7 +191,7 @@ export function CareerPreferencesPage() {
             {(p) => (
               <ChipInput
                 {...p}
-                value={draft.working_areas.map((w: any) => w.name ?? String(w))}
+                value={draft.working_areas.map((w) => String(w.name ?? w))}
                 onChange={(arr) =>
                   update(
                     "working_areas",

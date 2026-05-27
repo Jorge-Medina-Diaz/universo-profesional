@@ -54,6 +54,9 @@ class SqlAlchemyChangeLogRepository(ChangeLogRepository):
                 "run_id": agent_run_id,
             },
         )
+        await self._session.execute(
+            text(f"NOTIFY entity_changed, '{user_id}'")
+        )
 
     async def list_for_user(
         self, *, user_id: UUID, limit: int = 50, since: Any | None = None

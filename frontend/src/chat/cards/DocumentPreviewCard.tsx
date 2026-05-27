@@ -20,6 +20,7 @@ import {
 import { documents } from "@/shared/api";
 import { Badge, Button, ChatMessageMotion, cn } from "@/ui";
 import { queryKeys } from "@/shared/queryKeys";
+import type { JsonResume } from "@/shared/hooks/useJsonResume";
 
 export interface DocumentPreviewCardProps {
   documentId: string;
@@ -53,13 +54,11 @@ export function DocumentPreviewCard({
   }
   if (!query.data) return null;
   const doc = query.data;
-  const resume = (doc.content_json ?? {}) as Record<string, any>;
-  const basics = (resume.basics ?? {}) as Record<string, any>;
-  const coverBody = (resume as { cover_letter_body?: unknown }).cover_letter_body as
-    | string
-    | undefined;
-  const work = (resume.work ?? []) as Array<Record<string, any>>;
-  const skills = (resume.skills ?? []) as Array<Record<string, any>>;
+  const resume = (doc.content_json ?? {}) as JsonResume;
+  const basics = resume.basics ?? {};
+  const coverBody = resume.cover_letter_body;
+  const work = resume.work ?? [];
+  const skills = resume.skills ?? [];
   const targetJobTitle = basics.label as string | undefined;
 
   return (

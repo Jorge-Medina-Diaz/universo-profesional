@@ -438,13 +438,11 @@ def _resolve_longest_non_null(values: list[Any], _ranking: dict[str, int] | None
 
 
 def _resolve_earliest(values: list[Any], _ranking: dict[str, int] | None) -> Any:
-    from datetime import date
     dates: list[date] = [d for d in (_to_date(v) for v in values) if d is not None]
     return min(dates) if dates else values[0]
 
 
 def _resolve_latest(values: list[Any], _ranking: dict[str, int] | None) -> Any:
-    from datetime import date
     dates: list[date] = [d for d in (_to_date(v) for v in values) if d is not None]
     return max(dates) if dates else values[0]
 

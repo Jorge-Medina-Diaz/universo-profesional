@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeftRight, FileDown, ChevronDown, MessageSquare } from "lucide-react";
-import { documents, type DocumentDetail } from "@/shared/api";
+import { documents, type DocumentDetail, type DocumentSummary } from "@/shared/api";
 import { useChatState } from "@/chat/state";
 import {
   Badge,
@@ -186,7 +186,7 @@ function DocSelector({
   side: DocSide;
   value: string | undefined;
   onChange: (id: string) => void;
-  documents: any[];
+  documents: DocumentSummary[];
   otherValue: string | undefined;
 }) {
   return (
@@ -226,7 +226,7 @@ function DocPanel({ id, side }: { id: string | undefined; side: DocSide }) {
     enabled: !!id,
   });
   const { basics, work, skills, resume } = useJsonResume(query.data ?? null);
-  const coverBody = (resume as any)?.cover_letter_body as string | undefined;
+  const coverBody = resume?.cover_letter_body;
 
   if (!id) {
     return (

@@ -1,4 +1,5 @@
 export interface JsonResume {
+  cover_letter_body?: string;
   basics?: {
     name?: string;
     label?: string;

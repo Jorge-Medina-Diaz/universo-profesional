@@ -35,6 +35,7 @@ class TestProposalStore:
         assert get_proposal("u1", "p3") is None
 
     def test_cleanup_expired(self):
+        from src.agents.infrastructure import proposal_store as ps
         set_proposal("u1", "p4", entity_type="skill", entity_data={})
         set_proposal("u1", "p5", entity_type="skill", entity_data={})
         ps._store[ps._key("u1", "p4")]["created_at"] = time.time() - 400

@@ -50,9 +50,9 @@ export function DocumentsPage() {
 
   const share = useMutation({
     mutationFn: (id: string) => documents.share(id),
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: queryKeys.documents.all });
-      const url = `${window.location.origin}/#/share/${res?.share_token ?? ""}`;
+      const url = `${window.location.origin}/#/share/${res.share_token}`;
       void navigator.clipboard?.writeText(url).catch(() => {});
       toast.success("Enlace copiado", "Listo para compartir");
     },

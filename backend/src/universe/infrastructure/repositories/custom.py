@@ -1,7 +1,6 @@
 """Custom repositories with specialized queries and helpers."""
 from __future__ import annotations
 
-from typing import Any
 from uuid import UUID
 
 from sqlalchemy import delete, select, update

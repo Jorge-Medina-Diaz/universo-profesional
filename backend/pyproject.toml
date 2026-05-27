@@ -11,14 +11,17 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "gunicorn>=23.0.0",
+    # ASGI toolkit (FastAPI dependency)
     "starlette>=0.40.0",
     # Data validation
     "pydantic>=2.9.0",
     "pydantic-settings>=2.6.0",
+    # Pydantic email validation
     "email-validator>=2.2.0",
     # Database
     "sqlalchemy[asyncio]>=2.0.36",
     "asyncpg>=0.30.0",
+    # Alembic sync driver
     "psycopg[binary]>=3.2.0",
     "alembic>=1.14.0",
     "pgvector>=0.3.6",
@@ -31,7 +34,6 @@ dependencies = [
     "mcp>=1.1.0,<2.0.0",
     # Agents (Agno + LLM providers)
     "agno>=2.6.7,<3.0.0",
-    "ag-ui-protocol>=0.1.0",
     "anthropic>=0.40.0",
     "openai>=1.50.0",
     # Queue
@@ -60,12 +62,18 @@ dependencies = [
     # Mail (mock via SMTP to mailhog)
     "aiosmtplib>=3.0.2",
     # Utils
+    # FastAPI form parsing (OAuth token endpoint)
     "python-multipart>=0.0.17",
+    # Retry logic (LLM calls, external APIs)
     "tenacity>=9.0.0",
+    # FastAPI performance: JSON serialization
     "orjson>=3.10.11",
+    # Rate limiting (Redis-backed)
     "slowapi>=0.1.9",
     "sentry-sdk[fastapi]>=2.18.0",
+    # slowapi rate-limit backend
     "limits[redis]>=3.13.0",
+    # AG-UI protocol (agent streaming)
     "ag-ui-protocol>=0.1.18",
 ]
 

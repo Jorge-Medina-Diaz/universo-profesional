@@ -684,7 +684,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ag-ui-protocol", specifier = ">=0.1.0" },
     { name = "ag-ui-protocol", specifier = ">=0.1.18" },
     { name = "agno", specifier = ">=2.6.7,<3.0.0" },
     { name = "aiosmtplib", specifier = ">=3.0.2" },

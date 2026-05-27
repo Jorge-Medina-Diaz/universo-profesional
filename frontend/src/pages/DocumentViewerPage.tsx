@@ -63,10 +63,10 @@ export function DocumentViewerPage({ id }: { id: string }) {
   });
   const share = useMutation({
     mutationFn: () => documents.share(id),
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: queryKeys.documents.all });
       qc.invalidateQueries({ queryKey: queryKeys.documents.detail(id) });
-      const url = `${window.location.origin}/#/share/${res?.share_token ?? ""}`;
+      const url = `${window.location.origin}/#/share/${res.share_token}`;
       void navigator.clipboard?.writeText(url).catch(() => {});
       toast.success("Enlace copiado", "Listo para compartir");
     },
@@ -83,7 +83,7 @@ export function DocumentViewerPage({ id }: { id: string }) {
   const { basics, work, education, skills, projects, languages, resume } = useJsonResume(
     query.data ?? null,
   );
-  const coverBody = (resume as any)?.cover_letter_body as string | undefined;
+  const coverBody = resume?.cover_letter_body;
 
   if (query.isLoading) return <PageSkeleton />;
   if (!query.data) {

@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
+import asyncpg
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from jose import JWTError
@@ -30,8 +31,10 @@ from src.coherence.infrastructure.semantic_matcher import (
     PgVectorSemanticMatcher,
 )
 from src.identity.interfaces.api.deps import CurrentUserId, SessionDep
+from src.shared.config import get_settings
 from src.shared.db import with_user_session
 from src.shared.errors import UnauthorizedError
+from src.shared.listener import PgListener
 from src.shared.metrics import (
     agent_proposals_confirmed_total,
     agent_proposals_rejected_total,
@@ -278,49 +281,74 @@ async def discovery_progress_stream(request: Request) -> StreamingResponse:
         poll_interval = 3.0  # seconds
         heartbeat_interval = 15.0  # seconds
 
-        while True:
-            now = datetime.now(UTC)
+        settings = get_settings()
+        dsn = settings.database_url.replace("postgresql+asyncpg://", "postgresql://", 1)
 
-            # Graceful disconnect — stop polling and release the generator.
-            if await request.is_disconnected():
-                break
+        listener = None
+        conn = None
+        try:
+            try:
+                conn = await asyncpg.connect(dsn)
+                listener = PgListener(conn)
+            except Exception:
+                # Fallback: if LISTEN/NOTIFY fails, pure polling continues below.
+                listener = None
 
-            # Heartbeat comment to keep proxies / load balancers happy.
-            if now >= heartbeat_due:
-                yield ":heartbeat\n\n"
-                heartbeat_due = now + timedelta(seconds=heartbeat_interval)
+            while True:
+                now = datetime.now(UTC)
 
-            # Poll DB for new change-log rows using a fresh short-lived session.
-            new_rows: list[dict[str, Any]] = []
-            async with with_user_session(uid) as session:
-                sql = """
-                    SELECT entity_type, change_type, source, new_value, changed_at
-                    FROM universe_change_log
-                    WHERE user_id = :uid
-                """
-                params: dict[str, Any] = {"uid": str(uid)}
-                if last_seen_at is not None:
-                    sql += " AND changed_at > :since"
-                    params["since"] = last_seen_at
-                sql += " ORDER BY changed_at ASC"
-                rows = (await session.execute(text(sql), params)).mappings().all()
-                new_rows = [dict(r) for r in rows]
+                # Graceful disconnect — stop polling and release the generator.
+                if await request.is_disconnected():
+                    break
 
-            if new_rows:
-                # Advance watermark to the newest row so the next poll is idempotent.
-                last_seen_at = max(
-                    r["changed_at"] for r in new_rows if r.get("changed_at")
-                )
-                for row in new_rows:
-                    payload = {
-                        "type": "entity_discovered",
-                        "entity_type": row["entity_type"],
-                        "name": _extract_entity_name(row.get("new_value")),
-                        "source": row["source"],
-                    }
-                    yield f"data: {json.dumps(payload)}\n\n"
+                # Heartbeat comment to keep proxies / load balancers happy.
+                if now >= heartbeat_due:
+                    yield ":heartbeat\n\n"
+                    heartbeat_due = now + timedelta(seconds=heartbeat_interval)
 
-            await asyncio.sleep(poll_interval)
+                # Wait for a notification (event-driven wakeup) or timeout.
+                notify_payload: str | None = None
+                if listener is not None:
+                    notify_payload = await listener.get(wait_for=poll_interval)
+                else:
+                    await asyncio.sleep(poll_interval)
+
+                # If a notification arrived for a different user, skip the DB round-trip.
+                if notify_payload is not None and notify_payload != str(uid):
+                    continue
+
+                # Poll DB for new change-log rows using a fresh short-lived session.
+                new_rows: list[dict[str, Any]] = []
+                async with with_user_session(uid) as session:
+                    sql = """
+                        SELECT entity_type, change_type, source, new_value, changed_at
+                        FROM universe_change_log
+                        WHERE user_id = :uid
+                    """
+                    params: dict[str, Any] = {"uid": str(uid)}
+                    if last_seen_at is not None:
+                        sql += " AND changed_at > :since"
+                        params["since"] = last_seen_at
+                    sql += " ORDER BY changed_at ASC"
+                    rows = (await session.execute(text(sql), params)).mappings().all()
+                    new_rows = [dict(r) for r in rows]
+
+                if new_rows:
+                    # Advance watermark to the newest row so the next poll is idempotent.
+                    last_seen_at = max(
+                        r["changed_at"] for r in new_rows if r.get("changed_at")
+                    )
+                    for row in new_rows:
+                        payload = {
+                            "type": "entity_discovered",
+                            "entity_type": row["entity_type"],
+                            "name": _extract_entity_name(row.get("new_value")),
+                            "source": row["source"],
+                        }
+                        yield f"data: {json.dumps(payload)}\n\n"
+        finally:
+            if conn is not None:
+                await conn.close()
 
     return StreamingResponse(
         event_generator(),
