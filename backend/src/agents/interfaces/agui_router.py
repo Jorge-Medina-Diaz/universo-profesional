@@ -61,6 +61,7 @@ from pypdf import PdfReader
 from sqlalchemy import text
 
 from src.agents.context_providers import IntentRouter
+from src.agents.domain.sources import SOURCE_AGENT_CHAT
 from src.agents.factory import get_universe_team
 from src.agents.infrastructure.proposal_store import set_proposal
 from src.agents.workflows.universe_enrichment import UniverseEnrichmentEngine
@@ -990,7 +991,7 @@ async def _enrich_universe_from_chat(
         uid = UUID(user_id)
         async with with_user_session(uid) as session:
             engine = UniverseEnrichmentEngine(session, uid)
-            result = await engine.process(text, source="agent_chat")
+            result = await engine.process(text, source=SOURCE_AGENT_CHAT)
             logger.info(
                 "chat_universe_enriched",
                 user_id=user_id,

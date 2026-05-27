@@ -22,6 +22,7 @@ import {
   toast,
 } from "@/ui";
 import { queryKeys } from "@/shared/queryKeys";
+import { useJsonResume } from "@/shared/hooks/useJsonResume";
 
 type DocSide = "a" | "b";
 
@@ -224,6 +225,9 @@ function DocPanel({ id, side }: { id: string | undefined; side: DocSide }) {
     queryFn: () => documents.get(id!),
     enabled: !!id,
   });
+  const { basics, work, skills, resume } = useJsonResume(query.data ?? null);
+  const coverBody = (resume as any)?.cover_letter_body as string | undefined;
+
   if (!id) {
     return (
       <Card padding="lg" tone="canvas" bordered className="min-h-[200px] flex items-center justify-center">
@@ -245,11 +249,6 @@ function DocPanel({ id, side }: { id: string | undefined; side: DocSide }) {
   if (!query.data) return null;
 
   const doc = query.data;
-  const resume = doc.content_json as Record<string, any> | null;
-  const basics = (resume?.basics ?? {}) as Record<string, any>;
-  const coverBody = (resume as any)?.cover_letter_body as string | undefined;
-  const work = (resume?.work ?? []) as any[];
-  const skills = (resume?.skills ?? []) as any[];
 
   return (
     <Card padding="lg" tone="canvas" bordered className="space-y-4">
@@ -329,7 +328,7 @@ function DocPanel({ id, side }: { id: string | undefined; side: DocSide }) {
                 </div>
                 {(w.highlights ?? []).length > 0 && (
                   <ul className="list-disc pl-4 mt-1 space-y-0.5 text-xs text-ink">
-                    {w.highlights.slice(0, 3).map((h: string, j: number) => (
+                    {(w.highlights ?? []).slice(0, 3).map((h: string, j: number) => (
                       <li key={j}>{h}</li>
                     ))}
                   </ul>

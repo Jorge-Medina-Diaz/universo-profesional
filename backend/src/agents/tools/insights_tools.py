@@ -13,6 +13,7 @@ Both are READ-ONLY. The canonical area keyword map now lives in
 and the agents share a single source of truth.
 """
 from __future__ import annotations
+from src.agents.tools._deps import require_user_id
 
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -80,6 +81,7 @@ def _bonus(have: int, target: int) -> float:
     return have / target
 
 
+@require_user_id
 @tool(
     name="compute_profile_health",
     description=(
@@ -92,8 +94,6 @@ def _bonus(have: int, target: int) -> float:
 )
 async def compute_profile_health(run_context: RunContext) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     user_uuid = UUID(user_id)
     async with with_user_session(user_uuid) as session:
         # Header (UniverseOrm)
@@ -202,6 +202,7 @@ async def compute_profile_health(run_context: RunContext) -> dict[str, Any]:
     }
 
 
+@require_user_id
 @tool(
     name="detect_software_area",
     description=(
@@ -215,8 +216,6 @@ async def compute_profile_health(run_context: RunContext) -> dict[str, Any]:
 )
 async def detect_software_area(run_context: RunContext) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     user_uuid = UUID(user_id)
     async with with_user_session(user_uuid) as session:
         strengths, _primary, _secondary = await load_area_strengths(session, user_uuid)

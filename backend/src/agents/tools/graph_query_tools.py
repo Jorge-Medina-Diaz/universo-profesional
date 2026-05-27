@@ -5,6 +5,7 @@ themselves.  The engine generates openCypher, validates it, executes it on
 AGE, and returns structured results.
 """
 from __future__ import annotations
+from src.agents.tools._deps import require_user_id
 
 from typing import Any
 from uuid import UUID
@@ -14,11 +15,12 @@ from agno.run.base import RunContext
 from agno.tools import tool
 
 from src.graph.application.text2cypher import Text2CypherEngine
-from src.shared.db import get_session_factory, set_rls_user
+from src.shared.db import with_user_session
 
 logger = structlog.get_logger(__name__)
 
 
+@require_user_id
 @tool(
     name="query_graph",
     description=(
@@ -39,16 +41,11 @@ logger = structlog.get_logger(__name__)
 async def query_graph(run_context: RunContext, question: str) -> dict[str, Any]:
     """Run a natural-language graph query and return results."""
     user_id_raw = run_context.user_id
-    if not user_id_raw:
-        return {"ok": False, "error": "missing user_id"}
     user_id = UUID(str(user_id_raw))
 
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, user_id)
+    async with with_user_session(user_id) as session:
         engine = Text2CypherEngine(session, user_id)
         result = await engine.ask(question)
-        await session.commit()
 
     if result.error:
         return {
@@ -75,6 +72,7 @@ async def query_graph(run_context: RunContext, question: str) -> dict[str, Any]:
     }
 
 
+@require_user_id
 @tool(
     name="explain_graph_query",
     description=(
@@ -86,13 +84,9 @@ async def query_graph(run_context: RunContext, question: str) -> dict[str, Any]:
 async def explain_graph_query(run_context: RunContext, question: str) -> dict[str, Any]:
     """Generate Cypher without executing it."""
     user_id_raw = run_context.user_id
-    if not user_id_raw:
-        return {"ok": False, "error": "missing user_id"}
     user_id = UUID(str(user_id_raw))
 
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, user_id)
+    async with with_user_session(user_id) as session:
         engine = Text2CypherEngine(session, user_id)
         result = await engine.generate(question)
 

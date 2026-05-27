@@ -4,6 +4,7 @@ Reads use the same RLS-scoped session pattern as writes. They never mutate
 state, so no UoW is needed.
 """
 from __future__ import annotations
+from src.agents.tools._deps import require_user_id
 
 from typing import Any
 from uuid import UUID
@@ -14,6 +15,7 @@ from agno.tools import tool
 from src.shared.db import with_user_session
 
 
+@require_user_id
 @tool(
     name="get_universe_summary",
     description=(
@@ -24,8 +26,6 @@ from src.shared.db import with_user_session
 )
 async def get_universe_summary(run_context: RunContext) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         from src.universe.application.use_cases import GetUniverseSummary
         from src.universe.infrastructure.repositories import (
@@ -50,6 +50,7 @@ async def get_universe_summary(run_context: RunContext) -> dict[str, Any]:
         return await uc.execute(user_id=user_id)
 
 
+@require_user_id
 @tool(
     name="find_gaps",
     description=(
@@ -59,8 +60,6 @@ async def get_universe_summary(run_context: RunContext) -> dict[str, Any]:
 )
 async def find_gaps(run_context: RunContext) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         # Reuse the rule-based suggestions engine — it already computes the
         # "what's missing / stale" signal we need.
@@ -102,6 +101,7 @@ async def find_gaps(run_context: RunContext) -> dict[str, Any]:
         }
 
 
+@require_user_id
 @tool(
     name="find_incomplete_entities",
     description=(
@@ -118,8 +118,6 @@ async def find_incomplete_entities(
     kind: str | None = None,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"error": "missing user_id"}
     from sqlalchemy import text
 
     from src.graph.domain.registry import (
@@ -164,6 +162,7 @@ async def find_incomplete_entities(
     return {"count": len(out), "incomplete": out[:50]}
 
 
+@require_user_id
 @tool(
     name="search_universe",
     description=(
@@ -177,8 +176,6 @@ async def search_universe(
     top_k: int = 5,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         from src.shared.embeddings import get_embeddings_service
         from src.universe.application.use_cases import SearchUniverse

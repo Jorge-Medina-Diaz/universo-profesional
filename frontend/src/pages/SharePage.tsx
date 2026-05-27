@@ -11,6 +11,7 @@ import {
   Surface,
 } from "@/ui";
 import { queryKeys } from "@/shared/queryKeys";
+import { useJsonResume } from "@/shared/hooks/useJsonResume";
 
 interface SharePayload {
   document_id: string;
@@ -37,6 +38,10 @@ export function SharePage({ token }: { token: string }) {
     queryKey: queryKeys.share.detail(token),
     queryFn: () => fetchShare(token),
     retry: false,
+  });
+
+  const { basics, work, education, skills } = useJsonResume({
+    content_json: query.data?.json_resume,
   });
 
   if (query.isLoading) return <PageSkeleton />;
@@ -68,11 +73,6 @@ export function SharePage({ token }: { token: string }) {
   }
 
   const data = query.data!;
-  const resume = data.json_resume as Record<string, any> | null;
-  const basic = (resume?.basics ?? {}) as Record<string, any>;
-  const work = (resume?.work ?? []) as any[];
-  const education = (resume?.education ?? []) as any[];
-  const skills = (resume?.skills ?? []) as any[];
 
   return (
     <Surface width="md" spacing="md">
@@ -83,8 +83,8 @@ export function SharePage({ token }: { token: string }) {
             Compartido contigo
           </span>
         }
-        title={basic.name ?? "Currículum compartido"}
-        subtitle={basic.label ?? data.kind.toUpperCase()}
+        title={basics.name ?? "Currículum compartido"}
+        subtitle={basics.label ?? data.kind.toUpperCase()}
         actions={
           data.pdf_url && (
             <Button
@@ -115,9 +115,9 @@ export function SharePage({ token }: { token: string }) {
               </Badge>
             )}
           </div>
-          {basic.summary && (
+          {basics.summary && (
             <p className="text-sm text-stone leading-relaxed pt-2 border-t border-ink/5 mt-3">
-              {basic.summary}
+              {basics.summary}
             </p>
           )}
         </Card>

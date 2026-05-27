@@ -9,6 +9,7 @@ Three helpers:
      so the coordinator can resurface the topic in ~10 days.
 """
 from __future__ import annotations
+from src.agents.tools._deps import require_user_id
 
 from datetime import timedelta
 from typing import Any
@@ -54,6 +55,7 @@ def get_domain_template(domain: str) -> dict[str, Any]:
     return {**fallback_template(domain), "is_fallback": True}
 
 
+@require_user_id
 @tool(
     name="add_learning_note",
     description=(
@@ -75,8 +77,6 @@ async def add_learning_note(
     note_id: str | None = None,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         repo = SqlAlchemyNoteRepository(session)
         scheduler = ArqEmbeddingScheduler()
@@ -119,6 +119,7 @@ async def add_learning_note(
         return {"ok": True, "note": result.value}
 
 
+@require_user_id
 @tool(
     name="schedule_learning_followup",
     description=(
@@ -135,8 +136,6 @@ async def schedule_learning_followup(
     note_id: str | None = None,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     domain_slug = domain.strip().lower()
     if not domain_slug:
         return {"ok": False, "error": "missing domain"}

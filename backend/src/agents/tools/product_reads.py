@@ -11,6 +11,7 @@ summary, gaps, search). This file is about *product surface* the user already
 interacts with via the rest of the app.
 """
 from __future__ import annotations
+from src.agents.tools._deps import require_user_id
 
 from typing import Any
 from uuid import UUID
@@ -21,6 +22,7 @@ from agno.tools import tool
 from src.shared.db import with_user_session
 
 
+@require_user_id
 @tool(
     name="list_jobs",
     description=(
@@ -37,8 +39,6 @@ async def list_jobs(
     limit: int = 20,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"error": "missing user_id"}
     from sqlalchemy import desc, select
 
     from src.documents.infrastructure.orm import JobOrm
@@ -76,6 +76,7 @@ async def list_jobs(
         return {"count": len(items), "items": items}
 
 
+@require_user_id
 @tool(
     name="list_documents",
     description=(
@@ -91,8 +92,6 @@ async def list_documents(
     limit: int = 10,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"error": "missing user_id"}
     from sqlalchemy import desc, select
 
     from src.documents.infrastructure.orm import DocumentOrm
@@ -127,6 +126,7 @@ async def list_documents(
         }
 
 
+@require_user_id
 @tool(
     name="get_preferences",
     description=(
@@ -138,8 +138,6 @@ async def list_documents(
 )
 async def get_preferences(run_context: RunContext) -> dict[str, Any] | None:
     user_id = run_context.user_id
-    if not user_id:
-        return {"error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         from src.universe.application.use_cases import GetCareerPreferences
         from src.universe.infrastructure.repositories import (
@@ -150,6 +148,7 @@ async def get_preferences(run_context: RunContext) -> dict[str, Any] | None:
         return await uc.execute(user_id=user_id)
 
 
+@require_user_id
 @tool(
     name="list_reminders",
     description=(
@@ -164,8 +163,6 @@ async def list_reminders(
     limit: int = 20,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         from src.universe.application.reminders import ListReminders
 
@@ -177,6 +174,7 @@ async def list_reminders(
         return {"count": len(items), "items": items}
 
 
+@require_user_id
 @tool(
     name="get_integrations_status",
     description=(
@@ -188,8 +186,6 @@ async def list_reminders(
 )
 async def get_integrations_status(run_context: RunContext) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         from src.integrations.application.connect_disconnect import ListConnections
         from src.integrations.infrastructure.repositories import (
@@ -201,6 +197,7 @@ async def get_integrations_status(run_context: RunContext) -> dict[str, Any]:
         return {"connections": connections, "count": len(connections)}
 
 
+@require_user_id
 @tool(
     name="get_tier",
     description=(
@@ -211,8 +208,6 @@ async def get_integrations_status(run_context: RunContext) -> dict[str, Any]:
 )
 async def get_tier(run_context: RunContext) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         from src.identity.infrastructure.repositories import SqlAlchemyUserRepository
 

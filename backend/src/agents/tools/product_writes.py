@@ -5,6 +5,7 @@ or `propose_preferences_update` card has received the user's go-ahead. Use them
 as the *commit step* of an HITL flow; do not call them speculatively.
 """
 from __future__ import annotations
+from src.agents.tools._deps import require_user_id
 
 from datetime import UTC, datetime
 from typing import Any
@@ -25,6 +26,7 @@ VALID_JOB_STATUSES = {
 }
 
 
+@require_user_id
 @tool(
     name="update_preferences",
     description=(
@@ -42,8 +44,6 @@ async def update_preferences(
     patch: dict[str, Any],
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         from src.universe.application.use_cases import SetCareerPreferences
         from src.universe.infrastructure.repositories import (
@@ -55,6 +55,7 @@ async def update_preferences(
         return {"ok": True, "preferences": result}
 
 
+@require_user_id
 @tool(
     name="dismiss_reminder",
     description=(
@@ -68,8 +69,6 @@ async def dismiss_reminder(
     reminder_id: str,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         from src.universe.application.reminders import DismissReminder
 
@@ -81,6 +80,7 @@ async def dismiss_reminder(
         return {"ok": True}
 
 
+@require_user_id
 @tool(
     name="set_job_status",
     description=(
@@ -96,8 +96,6 @@ async def set_job_status(
     new_status: str,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     if new_status not in VALID_JOB_STATUSES:
         return {"ok": False, "error": f"invalid status '{new_status}'"}
 
@@ -129,6 +127,7 @@ async def set_job_status(
         }
 
 
+@require_user_id
 @tool(
     name="compute_job_match",
     description=(
@@ -143,8 +142,6 @@ async def compute_job_match(
     job_id: str,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
 
     from src.documents.infrastructure.orm import JobOrm
     from src.shared.embeddings import get_embeddings_service

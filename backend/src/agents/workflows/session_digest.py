@@ -23,7 +23,7 @@ import structlog
 
 from src.agents.memory.sliding_window import messages_to_digest, store_digest
 from src.shared.config import get_settings
-from src.shared.db import get_session_factory, set_rls_user
+from src.shared.db import with_user_session
 
 logger = structlog.get_logger(__name__)
 
@@ -85,9 +85,7 @@ def _fallback_digest(messages: list[dict[str, Any]]) -> dict[str, Any]:
 async def run_session_digest(*, user_id: str) -> dict[str, Any]:
     """Recompute the digest for a single user. Returns the new digest dict."""
     session_id = f"main-{user_id}"
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
         older = await messages_to_digest(session, session_id=session_id)
         if older is None:
             logger.debug("session_digest_skipped", user_id=user_id, reason="below_threshold")
@@ -96,7 +94,6 @@ async def run_session_digest(*, user_id: str) -> dict[str, Any]:
         await store_digest(
             session, user_id=user_id, session_id=session_id, digest=digest
         )
-        await session.commit()
         logger.info("session_digest_stored", user_id=user_id, messages=len(older))
         return digest
 

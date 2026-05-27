@@ -21,6 +21,7 @@ import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.agents.domain.sources import SOURCE_AGENT_CHAT
 from src.coherence.application.upsert_use_cases import UpsertUniverseEntity
 from src.coherence.domain.upsert_decision import UpsertStatus
 from src.coherence.infrastructure.change_log_repo import SqlAlchemyChangeLogRepository
@@ -182,7 +183,7 @@ class UniverseEnrichmentEngine:
         self,
         text: str,
         *,
-        source: str = "agent_chat",
+        source: str = SOURCE_AGENT_CHAT,
         resolve_duplicates: bool = True,
         link_esco: bool = True,
     ) -> EnrichmentResult:

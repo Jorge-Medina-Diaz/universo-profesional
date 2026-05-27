@@ -19,6 +19,7 @@ import {
   toast,
 } from "@/ui";
 import { queryKeys } from "@/shared/queryKeys";
+import { useJsonResume } from "@/shared/hooks/useJsonResume";
 
 const SECTION_PROMPTS: Record<string, string> = {
   experience:
@@ -79,6 +80,11 @@ export function DocumentViewerPage({ id }: { id: string }) {
     }
   }, [query.data, query.isLoading, query.isError]);
 
+  const { basics, work, education, skills, projects, languages, resume } = useJsonResume(
+    query.data ?? null,
+  );
+  const coverBody = (resume as any)?.cover_letter_body as string | undefined;
+
   if (query.isLoading) return <PageSkeleton />;
   if (!query.data) {
     return (
@@ -102,21 +108,13 @@ export function DocumentViewerPage({ id }: { id: string }) {
 
   const doc = query.data;
   const isCoverLetter = doc.kind === "cover_letter";
-  const resume = doc.content_json as Record<string, any> | null;
-  const basic = (resume?.basics ?? {}) as Record<string, any>;
-  const coverBody = (resume as any)?.cover_letter_body as string | undefined;
-  const work = (resume?.work ?? []) as any[];
-  const education = (resume?.education ?? []) as any[];
-  const skills = (resume?.skills ?? []) as any[];
-  const projects = (resume?.projects ?? []) as any[];
-  const languages = (resume?.languages ?? []) as any[];
 
   return (
     <Surface width="md" spacing="md">
       <PageHeader
         eyebrow={isCoverLetter ? "Carta" : "CV"}
-        title={basic.name ?? doc.kind.toUpperCase()}
-        subtitle={basic.label ?? `${doc.template} · ${doc.language?.toUpperCase()}`}
+        title={basics.name ?? doc.kind.toUpperCase()}
+        subtitle={basics.label ?? `${doc.template} · ${doc.language?.toUpperCase()}`}
         actions={
           <>
             <Button
@@ -192,13 +190,13 @@ export function DocumentViewerPage({ id }: { id: string }) {
       {/* CV sections — hidden for cover letter */}
       {!isCoverLetter && (
         <>
-          {basic.summary && (
+          {basics.summary && (
             <Reveal delay={0.05}>
               <Card padding="lg">
                 <h2 className="text-heading-sm font-medium tracking-tight mb-3">
                   Resumen
                 </h2>
-                <p className="text-sm text-ink leading-relaxed">{basic.summary}</p>
+                <p className="text-sm text-ink leading-relaxed">{basics.summary}</p>
               </Card>
             </Reveal>
           )}
@@ -231,7 +229,7 @@ export function DocumentViewerPage({ id }: { id: string }) {
                       )}
                       {(w.highlights ?? []).length > 0 && (
                         <ul className="list-disc pl-5 mt-1.5 space-y-1 text-sm text-ink">
-                          {w.highlights.map((h: string, j: number) => (
+                          {(w.highlights ?? []).map((h: string, j: number) => (
                             <li key={j}>{h}</li>
                           ))}
                         </ul>

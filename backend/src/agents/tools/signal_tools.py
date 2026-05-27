@@ -10,6 +10,7 @@ about concrete criteria/signals, not generic areas:
     imports.
 """
 from __future__ import annotations
+from src.agents.tools._deps import require_user_id
 
 from typing import Any
 from uuid import UUID
@@ -24,6 +25,7 @@ from src.universe.application.signal_extraction import (
 )
 
 
+@require_user_id
 @tool(
     name="get_user_rubric_coverage",
     description=(
@@ -42,8 +44,6 @@ async def get_user_rubric_coverage(
     top_k: int = 20,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     user_uuid = UUID(user_id)
     async with with_user_session(user_uuid) as session:
         rows = await list_user_signals_with_chunk(
@@ -85,6 +85,7 @@ async def get_user_rubric_coverage(
     }
 
 
+@require_user_id
 @tool(
     name="recompute_user_signals",
     description=(
@@ -99,8 +100,6 @@ async def recompute_user_signals(
     sector: str | None = None,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     user_uuid = UUID(user_id)
     async with with_user_session(user_uuid) as session:
         result = await extract_user_signals(session, user_uuid, sector=sector)

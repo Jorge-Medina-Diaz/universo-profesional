@@ -35,7 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.graph.domain import schema
 from src.graph.domain.registry import GRAPH_REGISTRY
 from src.graph.infrastructure.age_client import cypher, parse_agtype
-from src.shared.db import get_session_factory, set_rls_user
+from src.shared.db import with_user_session
 
 logger = structlog.get_logger(__name__)
 
@@ -240,18 +240,7 @@ async def run_curator_for_user(*, user_id: str) -> dict[str, Any]:
       • outliers_flagged — IsoForest+LOF agreement runs and writes
         entity_quarantine rows.
     """
-    factory = get_session_factory()
-    summary: dict[str, Any] = {
-        "user_id": user_id,
-        "merge_suggestions_opened": 0,
-        "orphans_cleaned": 0,
-        "confidence_decayed": 0,
-        "outliers_flagged": 0,
-        "edges_inferred": 0,
-        "communities": 0,
-    }
-    async with factory() as session:
-        await set_rls_user(session, UUID(user_id))
+    async with with_user_session(UUID(user_id)) as session:
 
         # Each sweep runs inside its own SAVEPOINT so a failure (e.g. a
         # transient DB error) rolls back only that sweep and leaves the
@@ -340,7 +329,6 @@ async def run_curator_for_user(*, user_id: str) -> dict[str, Any]:
                 "curator_outlier_sweep_failed", user_id=user_id, error=str(exc)
             )
 
-        await session.commit()
     logger.info("curator_run", **summary)
     return summary
 
@@ -352,8 +340,7 @@ async def curator_task(ctx: dict[str, Any], *, user_id: str) -> None:
 
 async def _active_user_ids() -> list[str]:
     """User ids with universe activity in the last 30 days."""
-    factory = get_session_factory()
-    async with factory() as session:
+    async with with_user_session(None) as session:
         rows = (
             await session.execute(
                 text(

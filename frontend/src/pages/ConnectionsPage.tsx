@@ -313,18 +313,7 @@ function LinkedInCard() {
   // DMA credentials get wired up, we'll add a discreet upgrade CTA here.
   const dmaSync = useMutation({
     mutationFn: async () => {
-       
-      console.log("[linkedin/dma] POST /sync — start");
       const r = await integrations.linkedin.dma.sync();
-       
-      console.log("[linkedin/dma] /sync OK", {
-        session_id: r.session_id,
-        counts: Object.fromEntries(
-          Object.entries(r.parsed || {})
-            .filter(([, v]) => Array.isArray(v))
-            .map(([k, v]: [string, any]) => [k, v.length]),
-        ),
-      });
       return r;
     },
     onSuccess: (r) => {
@@ -334,8 +323,6 @@ function LinkedInCard() {
       setParsedSource("dma");
     },
     onError: (e: any) => {
-       
-      console.error("[linkedin/dma] /sync FAILED", e);
       setError(
         `Sync DMA falló (${e?.status ?? "?"}): ${e?.message ?? String(e)}`,
       );

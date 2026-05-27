@@ -6,6 +6,7 @@ When the agent isn't sure if something already exists, it can call
 `mark_stale` flags an entry as obsolete without deleting it.
 """
 from __future__ import annotations
+from src.agents.tools._deps import require_user_id
 
 from typing import Any
 from uuid import UUID, uuid4
@@ -18,6 +19,7 @@ from src.coherence.infrastructure.semantic_matcher import PgVectorSemanticMatche
 from src.shared.db import with_user_session
 
 
+@require_user_id
 @tool(
     name="find_existing",
     description=(
@@ -33,8 +35,6 @@ async def find_existing(
     threshold: float = 0.80,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         matcher = PgVectorSemanticMatcher(session)
         hits = await matcher.find_most_similar(
@@ -47,6 +47,7 @@ async def find_existing(
         return {"ok": True, "matches": hits}
 
 
+@require_user_id
 @tool(
     name="propose_merge_suggestion",
     description=(
@@ -62,8 +63,6 @@ async def propose_merge_suggestion(
     reason: str | None = None,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     if len(candidate_ids) < 2:
         return {"ok": False, "error": "need at least 2 candidates"}
     async with with_user_session(UUID(user_id)) as session:
@@ -97,6 +96,7 @@ async def propose_merge_suggestion(
         return {"ok": True, "suggestion_id": str(sid)}
 
 
+@require_user_id
 @tool(
     name="list_pending_curation",
     description=(
@@ -112,8 +112,6 @@ async def list_pending_curation(
     limit: int = 10,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         suggestions = (
             await session.execute(
@@ -157,6 +155,7 @@ async def list_pending_curation(
     }
 
 
+@require_user_id
 @tool(
     name="mark_stale",
     description=(
@@ -174,8 +173,6 @@ async def mark_stale(
     from src.graph.domain.registry import GRAPH_REGISTRY
 
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     # Iterate GRAPH_REGISTRY (single source of truth): every
     # supports_stale=True entity kind is automatically mark-stale-able.
     # Adding a new vertical adds one registry entry → mark_stale picks it
@@ -224,6 +221,7 @@ async def mark_stale(
         return {"ok": True, "entity_id": entity_id, "confidence": 0.3}
 
 
+@require_user_id
 @tool(
     name="get_recent_activity",
     description=(
@@ -240,8 +238,6 @@ async def get_recent_activity(
     limit: int = 25,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     days = max(1, min(days, 90))
     async with with_user_session(UUID(user_id)) as session:
         rows = (
@@ -291,6 +287,7 @@ async def get_recent_activity(
     }
 
 
+@require_user_id
 @tool(
     name="get_change_history",
     description=(
@@ -306,8 +303,6 @@ async def get_change_history(
     limit: int = 10,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         from src.coherence.infrastructure.change_log_repo import (
             SqlAlchemyChangeLogRepository,

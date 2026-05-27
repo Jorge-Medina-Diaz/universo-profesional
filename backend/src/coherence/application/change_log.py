@@ -8,6 +8,7 @@ from uuid import UUID
 
 from src.coherence.application.ports import ChangeLogRepository
 from src.coherence.domain.upsert_decision import FieldDiff
+from src.shared.serialization import jsonify
 
 
 async def record_create(
@@ -82,27 +83,12 @@ async def record_merge(
             entity_id=entity_id,
             change_type="update",
             field=d.field,
-            old_value=_jsonify(d.old),
-            new_value=_jsonify(d.new),
+            old_value=jsonify(d.old),
+            new_value=jsonify(d.new),
             reason=reason,
             source=source,
             agent_run_id=agent_run_id,
         )
 
 
-def _jsonify(v: Any) -> Any:
-    """Coerce values to JSON-safe primitives for JSONB columns."""
-    from datetime import date, datetime
-    from uuid import UUID as _UUID
 
-    if isinstance(v, datetime):
-        return v.isoformat()
-    if isinstance(v, date):
-        return v.isoformat()
-    if isinstance(v, _UUID):
-        return str(v)
-    if isinstance(v, list):
-        return [_jsonify(x) for x in v]
-    if isinstance(v, dict):
-        return {k: _jsonify(val) for k, val in v.items()}
-    return v

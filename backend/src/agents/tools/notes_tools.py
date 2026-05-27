@@ -5,6 +5,7 @@ universe entity: ongoing learning, opinions, gustos, projects-in-progress
 narratives. Notes can be tagged and later searched semantically.
 """
 from __future__ import annotations
+from src.agents.tools._deps import require_user_id
 
 from typing import Any
 from uuid import UUID
@@ -23,6 +24,7 @@ from src.shared.uow import UnitOfWork
 from src.universe.infrastructure.scheduler import ArqEmbeddingScheduler
 
 
+@require_user_id
 @tool(
     name="add_note",
     description=(
@@ -37,8 +39,6 @@ async def add_note(
     tags: list[str] | None = None,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         uc = CreateNote(SqlAlchemyNoteRepository(session), ArqEmbeddingScheduler())
         uow = UnitOfWork(session)
@@ -54,6 +54,7 @@ async def add_note(
         return {"ok": True, "note": result.value}
 
 
+@require_user_id
 @tool(
     name="update_note",
     description="Patch a note (title / body_md / tags).",
@@ -66,8 +67,6 @@ async def update_note(
     tags: list[str] | None = None,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         uc = UpdateNote(SqlAlchemyNoteRepository(session), ArqEmbeddingScheduler())
         uow = UnitOfWork(session)
@@ -82,6 +81,7 @@ async def update_note(
         return {"ok": True, "note": result.value}
 
 
+@require_user_id
 @tool(
     name="list_notes",
     description="List the user's notes, optionally filtered by tag.",
@@ -92,8 +92,6 @@ async def list_notes(
     limit: int = 20,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         uc = ListNotes(SqlAlchemyNoteRepository(session))
         notes = await uc.execute(

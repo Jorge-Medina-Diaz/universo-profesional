@@ -15,6 +15,7 @@ read-only contexts), and most of `search_rubrics` calls — Sprint Q will
 update each specialist's prompt to prefer them.
 """
 from __future__ import annotations
+from src.agents.tools._deps import require_user_id
 
 from typing import Any
 from uuid import UUID
@@ -25,11 +26,12 @@ from agno.tools import tool
 
 from src.graph.application.retrieval import _load_snapshot, hybrid_retrieve
 from src.graph.application.universe_graph import universe_graph_service
-from src.shared.db import get_session_factory, set_rls_user
+from src.shared.db import with_user_session
 
 logger = structlog.get_logger(__name__)
 
 
+@require_user_id
 @tool(
     name="enrich_universe",
     description=(
@@ -44,19 +46,15 @@ logger = structlog.get_logger(__name__)
 )
 async def enrich_universe(run_context: RunContext) -> dict[str, Any]:
     user_id_raw = run_context.user_id
-    if not user_id_raw:
-        return {"ok": False, "error": "missing user_id"}
     user_id = UUID(str(user_id_raw))
     from src.universe.application.enrichment import enrich_user_graph
 
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, user_id)
+    async with with_user_session(user_id) as session:
         stats = await enrich_user_graph(session, user_id)
-        await session.commit()
     return {"ok": True, "stats": stats.as_dict()}
 
 
+@require_user_id
 @tool(
     name="get_career_pillars",
     description=(
@@ -70,18 +68,15 @@ async def enrich_universe(run_context: RunContext) -> dict[str, Any]:
 )
 async def get_career_pillars(run_context: RunContext) -> dict[str, Any]:
     user_id_raw = run_context.user_id
-    if not user_id_raw:
-        return {"ok": False, "error": "missing user_id", "pillars": []}
     user_id = UUID(str(user_id_raw))
     from src.graph.application.communities import get_communities
 
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, user_id)
+    async with with_user_session(user_id) as session:
         items = await get_communities(session, user_id)
     return {"ok": True, "pillars": items, "count": len(items)}
 
 
+@require_user_id
 @tool(
     name="universe_retrieve",
     description=(
@@ -103,15 +98,8 @@ async def universe_retrieve(
     top_k: int = 12,
 ) -> dict[str, Any]:
     user_id_raw = run_context.user_id
-    if not user_id_raw:
-        return {"ok": False, "error": "missing user_id", "items": []}
     user_id = UUID(str(user_id_raw))
-    factory = get_session_factory()
-    kinds_list = (
-        [k.strip() for k in kinds.split(",") if k.strip()] if kinds else None
-    )
-    async with factory() as session:
-        await set_rls_user(session, user_id)
+    async with with_user_session(user_id) as session:
         items = await hybrid_retrieve(
             session, user_id, query, top_k=top_k, kinds=kinds_list
         )
@@ -130,6 +118,7 @@ async def universe_retrieve(
     }
 
 
+@require_user_id
 @tool(
     name="get_graph_neighbors",
     description=(
@@ -149,15 +138,8 @@ async def get_graph_neighbors(
     include_expired: bool = False,
 ) -> dict[str, Any]:
     user_id_raw = run_context.user_id
-    if not user_id_raw:
-        return {"ok": False, "error": "missing user_id", "items": []}
     user_id = UUID(str(user_id_raw))
-    factory = get_session_factory()
-    edge_kinds_list: list[str] | None = None
-    if edge_kinds:
-        edge_kinds_list = [k.strip() for k in edge_kinds.split(",") if k.strip()]
-    async with factory() as session:
-        await set_rls_user(session, user_id)
+    async with with_user_session(user_id) as session:
         items = await universe_graph_service.neighbors(
             session,
             entity_id=UUID(entity_id),
@@ -182,6 +164,7 @@ async def get_graph_neighbors(
     return {"ok": True, "items": slim}
 
 
+@require_user_id
 @tool(
     name="explain_path",
     description=(
@@ -198,17 +181,13 @@ async def explain_path(
     max_len: int = 4,
 ) -> dict[str, Any]:
     user_id_raw = run_context.user_id
-    if not user_id_raw:
-        return {"ok": False, "error": "missing user_id", "paths": []}
     user_id = UUID(str(user_id_raw))
     if max_len < 1 or max_len > 6:
         return {"ok": False, "error": "max_len must be 1..6", "paths": []}
     # AGE 1.5 lacks shortestPath()/relationships()/nodes(); compute over the
     # in-memory igraph snapshot instead (per-user graphs are tiny, and the
     # snapshot already carries names for a readable path).
-    factory = get_session_factory()
-    async with factory() as session:
-        await set_rls_user(session, user_id)
+    async with with_user_session(user_id) as session:
         snap = await _load_snapshot(session, user_id)
     try:
         src = snap.id_to_idx.get(UUID(from_entity_id))

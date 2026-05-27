@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
+from src.agents.domain.sources import SOURCE_AGENT_CHAT
 from src.shared.errors import ValidationError
 
 
@@ -16,7 +17,7 @@ class Note:
     body_md: str
     title: str | None = None
     tags: list[str] = field(default_factory=list)
-    source: str = "agent_chat"
+    source: str = SOURCE_AGENT_CHAT
     source_metadata: dict[str, Any] | None = None
     confidence: float = 1.0
     visibility: str = "private"
@@ -32,7 +33,7 @@ class Note:
         body_md: str,
         title: str | None = None,
         tags: list[str] | None = None,
-        source: str = "agent_chat",
+        source: str = SOURCE_AGENT_CHAT,
         source_metadata: dict[str, Any] | None = None,
     ) -> Note:
         if not (body_md or "").strip():

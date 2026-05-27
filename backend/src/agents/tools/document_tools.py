@@ -4,6 +4,7 @@ These tools let specialists query available templates and fetch document
 metadata without exhausting the LLM context window.
 """
 from __future__ import annotations
+from src.agents.tools._deps import require_user_id
 
 from pathlib import Path
 from typing import Any
@@ -109,6 +110,7 @@ def get_document_template(name: str) -> dict[str, Any]:
     return meta
 
 
+@require_user_id
 @tool(
     name="get_document",
     description=(
@@ -124,8 +126,6 @@ async def get_document(
 ) -> dict[str, Any]:
     """Fetch a single document's metadata and content summary."""
     user_id = run_context.user_id
-    if not user_id:
-        return {"error": "missing user_id"}
 
     async with with_user_session(UUID(user_id)) as session:
         stmt = select(DocumentOrm).where(

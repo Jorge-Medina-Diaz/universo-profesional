@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -18,6 +18,8 @@ from jose import JWTError
 from pydantic import BaseModel
 from sqlalchemy import text
 from src.agents.context_providers import IntentRouter
+from src.agents.domain.intents import INTENT_GENERAL_CHAT
+from src.agents.domain.sources import SOURCE_AGENT_CHAT
 from src.agents.infrastructure.proposal_store import delete_proposal, get_proposal
 from src.agents.memory.self_learning import SelfLearningEngine, UserFeedback
 from src.coherence.application.upsert_use_cases import UpsertUniverseEntity
@@ -36,6 +38,7 @@ from src.shared.metrics import (
     agent_proposals_total,
 )
 from src.shared.security import decode_jwt
+from src.shared.serialization import jsonify
 from src.shared.uow import unit_of_work
 from src.universe.application.discovery_service import DiscoveryProgressService
 
@@ -119,7 +122,7 @@ async def resolve_proposal(
             user_id=user_id,
             payload=entity_data,
             uow=uow,
-            source="agent_chat",
+            source=SOURCE_AGENT_CHAT,
             chat_session_id=proposal.get("thread_id"),
         )
         await uow.commit()
@@ -131,21 +134,11 @@ async def resolve_proposal(
         status=outcome.status.value,
         entity_id=str(outcome.entity_id) if outcome.entity_id else None,
         diffs=[
-            {"field": d.field, "old": _jsonify(d.old), "new": _jsonify(d.new)}
+            {"field": d.field, "old": jsonify(d.old), "new": jsonify(d.new)}
             for d in outcome.diffs
         ],
         reason=outcome.reason,
     )
-
-
-def _jsonify(v: Any) -> Any:
-    if isinstance(v, (datetime, date)):
-        return v.isoformat()
-    if isinstance(v, UUID):
-        return str(v)
-    if isinstance(v, list):
-        return [_jsonify(x) for x in v]
-    return v
 
 
 @router.post("/route")
@@ -163,7 +156,7 @@ async def classify_intent(
         body = {}
     message = body.get("message", "")
     if not message:
-        return {"intent": "general_chat", "provider": "universe_curator", "confidence": 0.0}
+        return {"intent": INTENT_GENERAL_CHAT, "provider": "universe_curator", "confidence": 0.0}
 
     router = IntentRouter(session, UUID(user_id))
     intent = await router.classify(message)

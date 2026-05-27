@@ -10,6 +10,7 @@ The `propose_artifact` HITL tool lives in `ui_widgets.py` (external
 execution by the React layer).
 """
 from __future__ import annotations
+from src.agents.tools._deps import require_user_id
 
 from datetime import UTC, datetime
 from typing import Any
@@ -18,6 +19,7 @@ from uuid import UUID
 from agno.run.base import RunContext
 from agno.tools import tool
 
+from src.agents.domain.sources import SOURCE_AGENT_CHAT
 from src.shared.db import with_user_session
 from src.universe.application.shape_service import (
     _infer_shape,
@@ -34,6 +36,7 @@ def _now_utc() -> datetime:
     return datetime.now(UTC)
 
 
+@require_user_id
 @tool(
     name="get_universe_shape",
     description=(
@@ -48,8 +51,6 @@ def _now_utc() -> datetime:
 )
 async def get_universe_shape(run_context: RunContext) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     user_uuid = UUID(user_id)
     async with with_user_session(user_uuid) as session:
         strengths, primary, secondary = await load_area_strengths(session, user_uuid)
@@ -81,6 +82,7 @@ async def get_universe_shape(run_context: RunContext) -> dict[str, Any]:
     }
 
 
+@require_user_id
 @tool(
     name="recompute_universe_shape",
     description=(
@@ -91,8 +93,6 @@ async def get_universe_shape(run_context: RunContext) -> dict[str, Any]:
 )
 async def recompute_universe_shape(run_context: RunContext) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     user_uuid = UUID(user_id)
     async with with_user_session(user_uuid) as session:
         result = await compute_area_strengths(session, user_uuid)
@@ -105,6 +105,7 @@ async def recompute_universe_shape(run_context: RunContext) -> dict[str, Any]:
     }
 
 
+@require_user_id
 @tool(
     name="list_artifacts",
     description=(
@@ -120,8 +121,6 @@ async def list_artifacts(
     type: str | None = None,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     user_uuid = UUID(user_id)
     async with with_user_session(user_uuid) as session:
         repo = SqlAlchemyArtifactRepository(session)
@@ -144,6 +143,7 @@ async def list_artifacts(
     }
 
 
+@require_user_id
 @tool(
     name="upsert_artifact",
     description=(
@@ -165,8 +165,6 @@ async def upsert_artifact(
     linked_skill_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     user_uuid = UUID(user_id)
 
     skill_uuids: list[UUID] = []
@@ -194,7 +192,7 @@ async def upsert_artifact(
             description=description,
             venue=venue,
         )
-        artifact.source = "agent_chat"
+        artifact.source = SOURCE_AGENT_CHAT
         artifact.created_at = _now_utc()
         artifact.updated_at = _now_utc()
         await repo.add(artifact)
@@ -210,7 +208,7 @@ async def upsert_artifact(
             entity_id=artifact.id,
             user_id=user_uuid,
             kind="artifact",
-            source="agent_chat",
+            source=SOURCE_AGENT_CHAT,
         )
         for sid in skill_uuids:
             await universe_graph_service.upsert_edge(
@@ -219,7 +217,7 @@ async def upsert_artifact(
                 source_id=artifact.id,
                 target_id=sid,
                 user_id=user_uuid,
-                source="agent_chat",
+                source=SOURCE_AGENT_CHAT,
             )
         if project_uuid is not None:
             await universe_graph_service.upsert_edge(
@@ -228,7 +226,7 @@ async def upsert_artifact(
                 source_id=artifact.id,
                 target_id=project_uuid,
                 user_id=user_uuid,
-                source="agent_chat",
+                source=SOURCE_AGENT_CHAT,
             )
     return {
         "ok": True,

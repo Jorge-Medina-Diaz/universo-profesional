@@ -29,6 +29,7 @@ import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.agents.domain.sources import SOURCE_AGENT_CHAT
 from src.coherence.application.change_log import (
     record_create,
     record_merge,
@@ -201,7 +202,7 @@ class UpsertUniverseEntity:
         user_id: str,
         payload: dict[str, Any],
         uow: UnitOfWork,
-        source: str = "agent_chat",
+        source: str = SOURCE_AGENT_CHAT,
         agent_run_id: str | None = None,
         chat_session_id: str | None = None,
         op_hint: str | None = None,

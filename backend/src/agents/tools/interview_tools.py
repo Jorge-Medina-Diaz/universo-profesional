@@ -13,6 +13,7 @@ the Q&A list it composed. Persistence: the Q&A is also written as a note
 with tag `interview_prep:<company_slug>` so the user can re-read later.
 """
 from __future__ import annotations
+from src.agents.tools._deps import require_user_id
 
 from datetime import date as _date
 from typing import Any
@@ -31,6 +32,7 @@ from src.universe.infrastructure.orm import (
 )
 
 
+@require_user_id
 @tool(
     name="get_job_for_interview",
     description=(
@@ -47,8 +49,6 @@ async def get_job_for_interview(
     job_id: str,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     from src.documents.infrastructure.orm import JobOrm  # local import to avoid cycles
 
     async with with_user_session(UUID(user_id)) as session:
@@ -75,6 +75,7 @@ async def get_job_for_interview(
         }
 
 
+@require_user_id
 @tool(
     name="get_interview_context_blob",
     description=(
@@ -86,8 +87,6 @@ async def get_job_for_interview(
 )
 async def get_interview_context_blob(run_context: RunContext) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     user_uuid = UUID(user_id)
     parts: list[str] = []
     async with with_user_session(user_uuid) as session:

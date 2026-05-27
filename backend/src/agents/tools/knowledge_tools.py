@@ -5,6 +5,7 @@ retriever covers structured entities; this covers long unstructured
 documents the user has uploaded or imported.
 """
 from __future__ import annotations
+from src.agents.tools._deps import require_user_id
 
 from typing import Any
 from uuid import UUID
@@ -19,6 +20,7 @@ from src.shared.db import with_user_session
 logger = structlog.get_logger(__name__)
 
 
+@require_user_id
 @tool(
     name="search_knowledge",
     description=(
@@ -38,8 +40,6 @@ async def search_knowledge(
     tags: list[str] | None = None,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id", "results": []}
     async with with_user_session(UUID(str(user_id))) as session:
         results = await _search(
             session,

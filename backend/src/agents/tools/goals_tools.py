@@ -8,6 +8,7 @@ domain/use-case layer because the entity is too simple to justify it.
 can track granular progress without another table.
 """
 from __future__ import annotations
+from src.agents.tools._deps import require_user_id
 
 from datetime import date as _date
 from typing import Any
@@ -40,6 +41,7 @@ def _serialize(g: GoalOrm) -> dict[str, Any]:
     }
 
 
+@require_user_id
 @tool(
     name="add_goal",
     description=(
@@ -60,8 +62,6 @@ async def add_goal(
     subtasks: list[str] | None = None,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     if horizon not in VALID_HORIZONS:
         return {"ok": False, "error": f"horizon must be one of {sorted(VALID_HORIZONS)}"}
     title = (title or "").strip()
@@ -98,6 +98,7 @@ async def add_goal(
         return {"ok": True, "goal": _serialize(goal)}
 
 
+@require_user_id
 @tool(
     name="list_goals",
     description=(
@@ -112,8 +113,6 @@ async def list_goals(
     limit: int = 20,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         stmt = select(GoalOrm).where(GoalOrm.user_id == UUID(user_id))
         if status and status != "*":
@@ -128,6 +127,7 @@ async def list_goals(
         return {"ok": True, "count": len(rows), "goals": [_serialize(g) for g in rows]}
 
 
+@require_user_id
 @tool(
     name="update_goal",
     description=(
@@ -148,8 +148,6 @@ async def update_goal(
     subtasks: list[str] | None = None,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         goal = (
             await session.execute(
@@ -191,6 +189,7 @@ async def update_goal(
         return {"ok": True, "goal": _serialize(goal)}
 
 
+@require_user_id
 @tool(
     name="mark_subtask_done",
     description=(
@@ -205,8 +204,6 @@ async def mark_subtask_done(
     subtask_title: str,
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
     async with with_user_session(UUID(user_id)) as session:
         goal = (
             await session.execute(

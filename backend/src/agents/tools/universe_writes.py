@@ -14,6 +14,7 @@ whether to merge or create, it emits a suggestion and the result includes
 `status='suggested'` for the chat layer to render a DiffCard.
 """
 from __future__ import annotations
+from src.agents.tools._deps import require_user_id
 
 from typing import Any
 from uuid import UUID
@@ -21,10 +22,12 @@ from uuid import UUID
 from agno.run.base import RunContext
 from agno.tools import tool
 
+from src.agents.domain.sources import SOURCE_AGENT_CHAT
 from src.coherence.application.upsert_use_cases import UpsertUniverseEntity
 from src.coherence.infrastructure.change_log_repo import SqlAlchemyChangeLogRepository
 from src.coherence.infrastructure.semantic_matcher import PgVectorSemanticMatcher
 from src.shared.db import with_user_session
+from src.shared.serialization import jsonify
 from src.shared.uow import UnitOfWork
 
 
@@ -39,8 +42,6 @@ async def _run_upsert(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     user_id = run_context.user_id
-    if not user_id:
-        return {"ok": False, "error": "missing user_id"}
 
     async with with_user_session(UUID(user_id)) as session:
         change_log = SqlAlchemyChangeLogRepository(session)
@@ -54,7 +55,7 @@ async def _run_upsert(
             user_id=user_id,
             payload=payload,
             uow=uow,
-            source="agent_chat",
+            source=SOURCE_AGENT_CHAT,
             agent_run_id=run_context.run_id,
         )
         await uow.commit()
@@ -64,7 +65,7 @@ async def _run_upsert(
             "status": outcome.status.value,
             "entity_id": str(outcome.entity_id) if outcome.entity_id else None,
             "diffs": [
-                {"field": d.field, "old": _jsonify(d.old), "new": _jsonify(d.new)}
+                {"field": d.field, "old": jsonify(d.old), "new": jsonify(d.new)}
                 for d in outcome.diffs
             ],
             "suggestion_id": str(outcome.suggestion_id)
@@ -74,22 +75,10 @@ async def _run_upsert(
         }
 
 
-def _jsonify(v: Any) -> Any:
-    from datetime import date, datetime
-    from uuid import UUID as _UUID
-
-    if isinstance(v, (datetime, date)):
-        return v.isoformat()
-    if isinstance(v, _UUID):
-        return str(v)
-    if isinstance(v, list):
-        return [_jsonify(x) for x in v]
-    return v
-
-
 # --- Per-entity upsert tools ------------------------------------------------
 
 
+@require_user_id
 @tool(
     name="upsert_experience",
     description=(
@@ -125,6 +114,7 @@ async def upsert_experience(
     )
 
 
+@require_user_id
 @tool(
     name="upsert_education",
     description="Persist or merge an education entry.",
@@ -156,6 +146,7 @@ async def upsert_education(
     )
 
 
+@require_user_id
 @tool(
     name="upsert_project",
     description="Persist or merge a project entry.",
@@ -191,6 +182,7 @@ async def upsert_project(
     )
 
 
+@require_user_id
 @tool(
     name="upsert_skill",
     description=(
@@ -232,6 +224,7 @@ async def upsert_skill(
     )
 
 
+@require_user_id
 @tool(
     name="upsert_certification",
     description="Persist or merge a certification entry.",
@@ -259,6 +252,7 @@ async def upsert_certification(
     )
 
 
+@require_user_id
 @tool(
     name="upsert_course",
     description="Persist or merge a course entry.",
@@ -286,6 +280,7 @@ async def upsert_course(
     )
 
 
+@require_user_id
 @tool(
     name="upsert_language",
     description="Persist or merge a language entry (ISO-639-1 + CEFR).",
@@ -306,6 +301,7 @@ async def upsert_language(
     )
 
 
+@require_user_id
 @tool(
     name="upsert_achievement",
     description="Persist or merge an achievement / award / publication / patent.",
@@ -331,6 +327,7 @@ async def upsert_achievement(
     )
 
 
+@require_user_id
 @tool(
     name="upsert_interest",
     description="Persist or merge a professional or personal interest entry.",

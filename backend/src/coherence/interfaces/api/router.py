@@ -23,6 +23,7 @@ from src.coherence.infrastructure.semantic_matcher import (
     PgVectorSemanticMatcher,
 )
 from src.identity.interfaces.api.deps import CurrentUserId, SessionDep
+from src.shared.serialization import jsonify
 from src.shared.uow import unit_of_work
 
 router = APIRouter()
@@ -80,7 +81,7 @@ async def upsert(
         status=outcome.status.value,
         entity_id=str(outcome.entity_id) if outcome.entity_id else None,
         diffs=[
-            {"field": d.field, "old": _jsonify(d.old), "new": _jsonify(d.new)}
+            {"field": d.field, "old": jsonify(d.old), "new": jsonify(d.new)}
             for d in outcome.diffs
         ],
         suggestion_id=str(outcome.suggestion_id) if outcome.suggestion_id else None,
@@ -111,14 +112,4 @@ async def list_changes(
     return await repo.list_for_user(user_id=UUID(user_id), limit=limit)
 
 
-def _jsonify(v: Any) -> Any:
-    from datetime import date, datetime
-    from uuid import UUID
 
-    if isinstance(v, (datetime, date)):
-        return v.isoformat()
-    if isinstance(v, UUID):
-        return str(v)
-    if isinstance(v, list):
-        return [_jsonify(x) for x in v]
-    return v
