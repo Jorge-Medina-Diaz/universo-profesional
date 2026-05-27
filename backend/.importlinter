@@ -6,10 +6,10 @@ root_packages =
 name = Clean architecture layering
 type = layers
 layers =
-    src.interfaces
-    src.infrastructure
-    src.application
-    src.domain
+    interfaces
+    infrastructure
+    application
+    domain
 containers =
     src.identity
     src.universe
@@ -23,3 +23,4 @@ containers =
     src.notes
     src.rubrics
     src.integrations
+    src.llm_tracking

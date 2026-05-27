@@ -339,7 +339,7 @@ El backend valida en startup (`validate_production_ready()`) que no haya valores
 
 - **Auth:** JWT RS256 con TTL de acceso 15 min y refresh 30 días. Claves RSA generadas automáticamente en primer arranque; deben persistir en volumen.
 - **Contraseñas:** hasheadas con Argon2.
-- **2FA:** soportada vía TOTP (pyOTP).
+- **2FA:** no implementada en MVP (pyOTP disponible como dependencia para futura activación).
 - **OAuth 2.1 AS propio:** implementa RFC 8414 (metadata), 9728 (DPoP), 8707 (PKCE), 7591 (DCR). Consent automático en dev; explícito en prod.
 - **Rate limiting:** slowapi + limits con backend Redis. Límites específicos para MCP (`MCP_RATE_LIMIT_PER_MINUTE/HOUR/DAY`).
 - **CORS:** restringido explícitamente; en prod nunca debe incluir localhost.

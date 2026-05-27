@@ -1,7 +1,7 @@
 """Agent Architecture v2: Knowledge namespaces + Structured Memory.
 
-Revision ID: 0024
-Revises: 0023
+Revision ID: 0025
+Revises: 0024
 Create Date: 2026-05-26
 
 1. Adds `namespace` to knowledge_documents / knowledge_chunks so the same
@@ -20,8 +20,8 @@ from alembic import op
 from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects import postgresql
 
-revision: str = "0024"
-down_revision: str | None = "0023"
+revision: str = "0025"
+down_revision: str | None = "0024"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
