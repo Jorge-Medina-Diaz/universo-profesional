@@ -4,8 +4,11 @@
 #   - pgvector: dense embeddings (existing HNSW indexes)
 #   - Apache AGE: openCypher over relational, used for the graph universe.
 #
-# AGE is built from source against the same PG16 server that pgvector ships
-# with. The build is heavy (~3 min cold) but cached afterwards.
+# Trade-off: there is no reliable pre-built image for PG16 that bundles both
+# pgvector and Apache AGE. Community images (e.g. sohamthakurdesai/postgres-age-pgvector)
+# target PG15, and apache/age is a standalone server rather than an extension
+# layer on top of pgvector. Building AGE from source adds ~3 min on a cold
+# build, but Docker layer caching eliminates that cost afterwards.
 ARG AGE_REF=PG16/v1.5.0-rc0
 
 FROM pgvector/pgvector:pg16 AS age-builder

@@ -1,0 +1,10 @@
+name: Setup WeasyPrint system dependencies
+description: Install libcairo, pango, and other system packages required by WeasyPrint
+runs:
+  using: composite
+  steps:
+    - name: System deps for WeasyPrint
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libcairo2 libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf-2.0-0 shared-mime-info fonts-dejavu
+      shell: bash

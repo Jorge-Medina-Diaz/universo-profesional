@@ -38,10 +38,8 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v4
-      - name: System deps for WeasyPrint
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libcairo2 libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf-2.0-0 shared-mime-info fonts-dejavu
+      - name: Setup WeasyPrint system dependencies
+        uses: ./.github/actions/setup-weasyprint
       - name: Install uv
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - name: Install deps
@@ -116,6 +114,10 @@ jobs:
       - name: Install
         working-directory: frontend
         run: npm install --include=dev
+      - name: Audit dependencies
+        working-directory: frontend
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
       - name: Lint
         working-directory: frontend
         run: npm run lint
@@ -163,10 +165,8 @@ jobs:
           node-version: "22"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
-      - name: System deps for WeasyPrint
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libcairo2 libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf-2.0-0 shared-mime-info fonts-dejavu
+      - name: Setup WeasyPrint system dependencies
+        uses: ./.github/actions/setup-weasyprint
       - name: Install uv
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - name: Install backend deps
@@ -248,11 +248,22 @@ jobs:
         uses: docker/setup-buildx-action@v3
       - name: Build backend image
         run: docker build -f docker/backend.Dockerfile -t cvs-saas-backend:latest .
-      - name: Trivy image scan
+      - name: Trivy backend image scan
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: image
           image-ref: cvs-saas-backend:latest
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+      - name: Build frontend image
+        run: docker build -f docker/frontend.prod.Dockerfile -t cvs-frontend:ci .
+      - name: Trivy frontend image scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: image
+          image-ref: cvs-frontend:ci
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: "1"

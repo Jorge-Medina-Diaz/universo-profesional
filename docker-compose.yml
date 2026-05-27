@@ -81,7 +81,7 @@ services:
       postgres:
         condition: service_healthy
     command: >
-      sh -c "python -m alembic upgrade head || true; python -m scripts.seed_esco --sample-only"
+      sh -c "python -m scripts.seed_esco --sample-only"
     restart: on-failure
 
   backend:

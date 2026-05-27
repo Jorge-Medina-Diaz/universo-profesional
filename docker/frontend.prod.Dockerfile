@@ -16,11 +16,11 @@ ENV NODE_ENV=production \
 WORKDIR /build
 
 # Copy manifests first so the layer cache survives source-only edits.
-COPY package.json package-lock.json* ./
-RUN npm ci
+COPY frontend/package.json ./
+RUN npm install --include=dev && npm install --include=dev @rollup/rollup-linux-x64-gnu @esbuild/linux-x64 --no-save
 
 # Then the source tree.
-COPY . .
+COPY frontend/ .
 
 # VITE_* env can be baked at build time via Docker build args. Fly.io etc.
 # expose them with `--build-arg VITE_API_BASE_URL=...`.

@@ -728,10 +728,10 @@ def _extract_date(row: dict[str, Any], field: str) -> date | None:
     val = row.get(field)
     if val is None:
         return None
-    if isinstance(val, date):
-        return val
     if isinstance(val, datetime):
         return val.date()
+    if isinstance(val, date):
+        return val
     if isinstance(val, str):
         try:
             return date.fromisoformat(val)
@@ -743,10 +743,10 @@ def _extract_date(row: dict[str, Any], field: str) -> date | None:
 def _to_date(val: Any) -> date | None:
     if val is None:
         return None
-    if isinstance(val, date):
-        return val
     if isinstance(val, datetime):
         return val.date()
+    if isinstance(val, date):
+        return val
     if isinstance(val, str):
         try:
             return date.fromisoformat(val)
