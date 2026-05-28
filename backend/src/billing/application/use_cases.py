@@ -36,6 +36,16 @@ class GetOrCreateSubscription:
         return sub
 
 
+class CreateTrialSubscription:
+    def __init__(self, repo: SubscriptionRepository) -> None:
+        self._repo = repo
+
+    async def execute(self, user_id: UUID, now: datetime) -> Subscription:
+        sub = Subscription.trial_for(user_id, now)
+        await self._repo.upsert(sub)
+        return sub
+
+
 class CheckQuota:
     def __init__(self, subs: SubscriptionRepository, quotas: QuotaRepository) -> None:
         self._subs = subs

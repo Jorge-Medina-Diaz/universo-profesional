@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 from uuid import UUID
 
@@ -66,6 +66,22 @@ class Subscription:
             trial_ends_at=None,
             current_period_start=None,
             current_period_end=None,
+            cancel_at=None,
+            created_at=now,
+            updated_at=now,
+        )
+
+    @classmethod
+    def trial_for(cls, user_id: UUID, now: datetime) -> Subscription:
+        return cls(
+            user_id=user_id,
+            plan="premium",
+            status="trialing",
+            stripe_customer_id=None,
+            stripe_subscription_id=None,
+            trial_ends_at=now + timedelta(days=7),
+            current_period_start=now,
+            current_period_end=now + timedelta(days=7),
             cancel_at=None,
             created_at=now,
             updated_at=now,

@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, status
 
+from src.billing.application.use_cases import CreateTrialSubscription
 from src.identity.application.use_cases import (
     Login,
     RefreshAccess,
@@ -15,6 +16,7 @@ from src.identity.application.use_cases import (
 )
 from src.identity.interfaces.api.deps import (
     SessionDep,
+    create_trial_subscription_dep,
     get_request_meta,
     login_dep,
     refresh_dep,
@@ -37,6 +39,7 @@ from src.identity.interfaces.api.schemas import (
 from src.shared.config import get_settings
 from src.shared.metrics import logins_total
 from src.shared.rate_limit import limiter
+from src.shared.security import utc_now
 from src.shared.uow import unit_of_work
 
 router = APIRouter()
@@ -48,6 +51,7 @@ async def register(
     request: Request,
     body: RegisterRequest,
     uc: Annotated[RegisterUser, Depends(register_user_dep)],
+    trial_uc: Annotated[CreateTrialSubscription, Depends(create_trial_subscription_dep)],
     session: SessionDep,
 ) -> RegisterResponse:
     async with unit_of_work(session) as uow:
@@ -61,8 +65,9 @@ async def register(
         if result.is_failure:
             assert result.is_failure
             raise result.error  # type: ignore[union-attr]
-        await uow.commit()
         payload = result.value  # type: ignore[union-attr]
+        await trial_uc.execute(user_id=payload.user_id, now=utc_now())
+        await uow.commit()
 
     settings = get_settings()
     return RegisterResponse(

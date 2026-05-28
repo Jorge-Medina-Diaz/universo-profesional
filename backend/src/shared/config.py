@@ -20,7 +20,7 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    env: Literal["development", "test", "production"] = "development"
+    env: Literal["development", "test", "production", "staging"] = "development"
 
     # In dev/test, mark new accounts as email-verified at registration time so
     # nobody has to fish through Mailhog or paste a link from the JSON response.

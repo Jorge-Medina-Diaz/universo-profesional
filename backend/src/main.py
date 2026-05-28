@@ -264,6 +264,7 @@ def create_app() -> FastAPI:
     from src.identity.interfaces.api.router import router as identity_router
     from src.identity.interfaces.api.users_router import router as users_router
     from src.mcp_server.interfaces.oauth_router import router as oauth_router
+    from src.mcp_server.interfaces.stats_router import router as mcp_stats_router
     from src.mcp_server.interfaces.well_known_router import router as well_known_router
     from src.mcp_server.server import create_mcp_app
     from src.shared.legal_router import router as legal_router
@@ -304,6 +305,7 @@ def create_app() -> FastAPI:
         tags=["auth", "linkedin"],
     )
     app.include_router(oauth_router, prefix="/auth/oauth", tags=["oauth"])
+    app.include_router(mcp_stats_router, prefix="/api/v1/mcp", tags=["mcp"])
     app.include_router(well_known_router, tags=["well-known"])
     app.mount("/mcp", create_mcp_app())
     app.include_router(legal_router, tags=["legal"])

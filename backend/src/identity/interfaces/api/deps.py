@@ -8,6 +8,8 @@ from fastapi import Depends, Header, Request
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.billing.application.use_cases import CreateTrialSubscription
+from src.billing.infrastructure.repositories import SqlAlchemySubscriptionRepository
 from src.identity.application.use_cases import (
     DeleteAccount,
     ExportUserData,
@@ -47,6 +49,10 @@ def register_user_dep(session: SessionDep) -> RegisterUser:
         SqlAlchemyEmailTokenRepository(session),
         get_email_sender(),
     )
+
+
+def create_trial_subscription_dep(session: SessionDep) -> CreateTrialSubscription:
+    return CreateTrialSubscription(SqlAlchemySubscriptionRepository(session))
 
 
 def verify_email_dep(session: SessionDep) -> VerifyEmail:

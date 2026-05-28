@@ -105,7 +105,9 @@ def _create_sdk_server() -> Server:
     async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         start = time.perf_counter()
         ok = True
-        error_msg: str | None = None
+        error_code: str | None = None
+        user_id: UUID | None = None
+        client_id: UUID | None = None
 
         try:
             # Auth from request context (the POST request)
@@ -115,7 +117,7 @@ def _create_sdk_server() -> Server:
             if auth is None:
                 raise PermissionError("Unauthorized")
 
-            user_id, _client_id, scopes = auth
+            user_id, client_id, scopes = auth
 
             # Scope check
             required = _TOOL_SCOPES.get(name)
@@ -131,13 +133,29 @@ def _create_sdk_server() -> Server:
             return [TextContent(type="text", text=text)]
         except Exception as exc:
             ok = False
-            error_msg = f"{type(exc).__name__}: {exc}"
+            error_code = type(exc).__name__
             # Return as text so the client sees the error inline
-            return [TextContent(type="text", text=json.dumps({"error": error_msg}))]
+            return [TextContent(type="text", text=json.dumps({"error": f"{error_code}: {exc}"}))]
         finally:
             latency = int((time.perf_counter() - start) * 1000)
             mcp_invocations_total.labels(tool=name or "unknown", ok=str(ok).lower()).inc()
             mcp_latency_seconds.labels(tool=name or "unknown").observe(latency / 1000.0)
+            if user_id is not None:
+                try:
+                    factory = get_session_factory()
+                    async with factory() as session:
+                        store = OAuthStore(session)
+                        await store.log_invocation(
+                            user_id=user_id,
+                            client_id=client_id,
+                            tool_name=name or "unknown",
+                            ok=ok,
+                            latency_ms=latency,
+                            error_code=error_code,
+                        )
+                        await session.commit()
+                except Exception:
+                    pass
 
     return server
 
