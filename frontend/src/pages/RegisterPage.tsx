@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { auth, useAuthStore } from "@/shared/api";
 import { integrations } from "@/shared/api-extra";
-import { Button, Card, Field, Input, Reveal, Stagger } from "@/ui";
+import { Badge, Button, Card, Field, Input, Reveal, Stagger } from "@/ui";
 import { AuthHero } from "./_auth/AuthHero";
 import { queryKeys } from "@/shared/queryKeys";
 
@@ -103,11 +103,14 @@ export function RegisterPage() {
       <div className="flex items-center justify-center px-4 py-12 md:py-16">
         <div className="w-full max-w-md">
           <Reveal>
+            <Badge tone="sunbeam" size="sm" icon={<span aria-hidden>🎁</span>} className="mb-3 border border-sunbeam/30">
+              7 días de Premium gratis
+            </Badge>
             <h1 className="font-display text-[34px] md:text-heading-lg leading-[1.05] text-ink mb-2">
               {t("auth.register")}
             </h1>
             <p className="text-stone mb-8">
-              Sin tarjeta. En menos de 5 minutos tendrás tu universo montado.
+              7 días de prueba Premium gratis. Sin tarjeta. En menos de 5 minutos tendrás tu universo montado.
             </p>
           </Reveal>
 

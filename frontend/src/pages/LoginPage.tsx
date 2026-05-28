@@ -49,9 +49,9 @@ export function LoginPage() {
       try {
         const summary = await universe.summary();
         const hasData =
-          summary.counts.experiences > 0 ||
-          summary.counts.educations > 0 ||
-          summary.counts.skills > 0;
+          summary.counts?.experiences > 0 ||
+          summary.counts?.educations > 0 ||
+          summary.counts?.skills > 0;
         if (!hasData) target = "#/onboarding";
       } catch {
         /* ignore, default to home */

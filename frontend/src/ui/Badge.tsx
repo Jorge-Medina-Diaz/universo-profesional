@@ -1,7 +1,7 @@
 import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "./cn";
 
-type Tone = "leaf" | "sunbeam" | "stone" | "ink" | "amber" | "danger";
+type Tone = "leaf" | "sunbeam" | "stone" | "ink" | "amber" | "danger" | "nova";
 type Size = "sm" | "md";
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
@@ -18,6 +18,7 @@ const tones: Record<Tone, string> = {
   ink: "bg-ink text-canvas",
   amber: "bg-amber-100 text-amber-900",
   danger: "bg-red-50 text-red-700",
+  nova: "bg-nova-soft text-nova-ink",
 };
 
 const dotColors: Record<Tone, string> = {
@@ -27,6 +28,7 @@ const dotColors: Record<Tone, string> = {
   ink: "bg-canvas",
   amber: "bg-amber-500",
   danger: "bg-red-500",
+  nova: "bg-nova",
 };
 
 const sizes: Record<Size, string> = {

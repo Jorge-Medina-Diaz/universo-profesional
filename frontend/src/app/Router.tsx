@@ -29,6 +29,7 @@ const DocumentsPage = lazyPage(() => import("@/pages/DocumentsPage"), "Documents
 const McpConnectPage = lazyPage(() => import("@/pages/McpConnectPage"), "McpConnectPage");
 const SettingsPage = lazyPage(() => import("@/pages/SettingsPage"), "SettingsPage");
 const BillingPage = lazyPage(() => import("@/pages/BillingPage"), "BillingPage");
+const CheckoutMockPage = lazy(() => import("@/pages/CheckoutMockPage"));
 const OnboardingPage = lazyPage(() => import("@/pages/OnboardingPage"), "OnboardingPage");
 const ConnectionsPage = lazyPage(() => import("@/pages/ConnectionsPage"), "ConnectionsPage");
 const OnboardingChatPage = lazyPage(
@@ -92,7 +93,7 @@ export function Router() {
     path.startsWith("/share/") ||
     path.startsWith("/auth/");
 
-  const hasData = summaryQuery.data
+  const hasData = summaryQuery.data?.counts
     ? summaryQuery.data.counts.experiences > 0 ||
       summaryQuery.data.counts.educations > 0 ||
       summaryQuery.data.counts.skills > 0
@@ -156,6 +157,7 @@ function resolveRoute(path: string, query: URLSearchParams, isAuthed: boolean) {
   if (path === "/mcp") return <McpConnectPage />;
   if (path === "/settings") return <SettingsPage />;
   if (path === "/billing") return <BillingPage />;
+  if (path === "/billing/checkout-mock") return <CheckoutMockPage />;
   if (path === "/usage") return <UsagePage />;
   if (path === "/activity") return <ActivityPage />;
   if (path === "/preferences") return <CareerPreferencesPage />;

@@ -111,6 +111,20 @@ const config: Config = {
         280: "280ms",
         420: "420ms",
       },
+      animation: {
+        marquee: "marquee 35s linear infinite",
+        "gradient-shift": "gradient-shift 8s ease infinite",
+      },
+      keyframes: {
+        marquee: {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-33.333%)" },
+        },
+        "gradient-shift": {
+          "0%, 100%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+        },
+      },
     },
   },
   plugins: [],

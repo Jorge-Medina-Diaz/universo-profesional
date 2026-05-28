@@ -561,6 +561,18 @@ export const billing = {
     }),
 };
 
+export interface McpStats {
+  total_invocations: number;
+  invocations_today: number;
+  invocations_this_week: number;
+  top_tools: { tool_name: string; count: number }[];
+  recent_errors: number;
+}
+
+export const mcp = {
+  stats: () => api<McpStats>("/api/v1/mcp/stats"),
+};
+
 export interface Plan {
   id: string;
   name: string;

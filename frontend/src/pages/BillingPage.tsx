@@ -80,6 +80,32 @@ export function BillingPage() {
         }
       />
 
+      {sub.data?.status === "trialing" && sub.data?.trial_ends_at && (
+        <Reveal delay={0.1}>
+          <Card
+            padding="md"
+            className="bg-sunbeam/10 border-sunbeam/30 flex items-center justify-between gap-4 flex-wrap"
+          >
+            <div>
+              <h3 className="text-sm font-medium text-ink">
+                Estás en tu prueba gratuita de Premium
+              </h3>
+              <p className="text-xs text-stone mt-0.5">
+                Finaliza el {new Date(sub.data.trial_ends_at).toLocaleDateString()}.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => portal.mutate()}
+              loading={portal.isPending}
+            >
+              Gestionar suscripción
+            </Button>
+          </Card>
+        </Reveal>
+      )}
+
       <Stagger className="grid md:grid-cols-3 gap-4 md:gap-6" delayStep={0.07}>
         {plans.data?.plans.map((p: Plan) => {
           const isCurrent = sub.data?.plan === p.id;

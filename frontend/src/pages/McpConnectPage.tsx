@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Copy, Check, Terminal, ShieldCheck, Sparkles } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Copy, Check, Terminal, ShieldCheck, Sparkles, BarChart3, Radio } from "lucide-react";
 import {
   Badge,
   Button,
@@ -10,6 +11,8 @@ import {
   Surface,
   cn,
 } from "@/ui";
+import { mcp } from "@/shared/api";
+import { queryKeys } from "@/shared/queryKeys";
 
 type ClientId = "claude" | "codex" | "cursor" | "windsurf";
 
@@ -67,6 +70,14 @@ export function McpConnectPage() {
   const [tab, setTab] = useState<ClientId>("claude");
   const active = CLIENTS.find((c) => c.id === tab) ?? CLIENTS[0];
 
+  const stats = useQuery({
+    queryKey: queryKeys.mcp.stats,
+    queryFn: () => mcp.stats(),
+    retry: false,
+  });
+
+  const hasData = stats.data && stats.data.total_invocations > 0;
+
   return (
     <Surface width="lg" spacing="md">
       <PageHeader
@@ -101,6 +112,30 @@ export function McpConnectPage() {
               >
                 /.well-known/oauth-authorization-server
               </a>
+            </span>
+          </div>
+        </Card>
+
+        <Card padding="lg">
+          <div className="flex items-center gap-3 mb-3">
+            <span
+              aria-hidden
+              className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-canvas text-ink"
+            >
+              <Radio size={16} />
+            </span>
+            <h2 className="text-heading-sm font-medium tracking-tight">
+              Auto-descubrimiento
+            </h2>
+          </div>
+          <p className="text-sm text-stone mb-3">
+            Clientes compatibles con SEP-1649 pueden detectar este servidor automáticamente.
+          </p>
+          <CopyableCode value={`${base}/.well-known/mcp/server-card.json`} />
+          <div className="flex items-center gap-2 mt-3 text-xs text-stone">
+            <Sparkles size={14} className="text-sunbeam-ink" />
+            <span>
+              Expone transporte, OAuth, scopes y catálogo de tools en un solo JSON.
             </span>
           </div>
         </Card>
@@ -168,6 +203,88 @@ export function McpConnectPage() {
               + ~30 más en /mcp/v1/list_tools
             </Badge>
           </div>
+        </Card>
+
+        <Card padding="lg">
+          <div className="flex items-center gap-3 mb-4">
+            <span
+              aria-hidden
+              className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-surface text-ink"
+            >
+              <BarChart3 size={16} />
+            </span>
+            <h2 className="text-heading-sm font-medium tracking-tight">
+              Tu actividad MCP
+            </h2>
+          </div>
+
+          {stats.isLoading ? (
+            <div className="h-24 rounded-card bg-canvas animate-pulse" />
+          ) : !hasData ? (
+            <p className="text-sm text-stone">
+              Aún no has usado MCP. Conecta tu cliente arriba para empezar.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-card bg-canvas p-3 text-center">
+                  <div className="text-2xl font-semibold text-ink">
+                    {stats.data.total_invocations}
+                  </div>
+                  <div className="text-xs text-stone mt-0.5">Total</div>
+                </div>
+                <div className="rounded-card bg-canvas p-3 text-center">
+                  <div className="text-2xl font-semibold text-ink">
+                    {stats.data.invocations_today}
+                  </div>
+                  <div className="text-xs text-stone mt-0.5">Hoy</div>
+                </div>
+                <div className="rounded-card bg-canvas p-3 text-center">
+                  <div className="text-2xl font-semibold text-ink">
+                    {stats.data.invocations_this_week}
+                  </div>
+                  <div className="text-xs text-stone mt-0.5">Esta semana</div>
+                </div>
+              </div>
+
+              {stats.data.top_tools.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-medium text-stone uppercase tracking-wider mb-2">
+                    Top herramientas
+                  </h3>
+                  <div className="flex flex-col gap-2">
+                    {stats.data.top_tools.map((tool) => {
+                      const max = stats.data!.top_tools[0].count;
+                      const pct = max > 0 ? (tool.count / max) * 100 : 0;
+                      return (
+                        <div key={tool.tool_name} className="flex items-center gap-3">
+                          <span className="text-xs text-ink w-32 truncate shrink-0">
+                            {tool.tool_name}
+                          </span>
+                          <div className="flex-1 h-2 rounded-full bg-canvas overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-leaf transition-all"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-stone w-8 text-right shrink-0">
+                            {tool.count}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {stats.data.recent_errors > 0 && (
+                <div className="flex items-center gap-2 text-xs text-stone">
+                  <span className="inline-block w-2 h-2 rounded-full bg-red-500" />
+                  <span>{stats.data.recent_errors} errores recientes</span>
+                </div>
+              )}
+            </div>
+          )}
         </Card>
       </Stagger>
     </Surface>

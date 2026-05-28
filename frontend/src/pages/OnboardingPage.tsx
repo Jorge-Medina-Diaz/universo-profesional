@@ -96,9 +96,9 @@ export function OnboardingPage() {
 
   const hasData =
     summary.data &&
-    (summary.data.counts.experiences > 0 ||
-      summary.data.counts.educations > 0 ||
-      summary.data.counts.skills > 0);
+    (summary.data.counts?.experiences > 0 ||
+      summary.data.counts?.educations > 0 ||
+      summary.data.counts?.skills > 0);
 
   const setStep = (next: Step) => {
     setStepState(next);
@@ -395,7 +395,7 @@ function HeadlineStage({ onNext, onSkip }: { onNext: () => void; onSkip: () => v
 /* ------------------------------------------------------------------ */
 /* Preferences stage                                                  */
 
-function PreferencesStage({ onSkip }: { onNext: () => void; onSkip: () => void }) {
+function PreferencesStage({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }) {
   return (
     <Stage
       icon={<Sparkles size={20} />}
@@ -404,7 +404,7 @@ function PreferencesStage({ onSkip }: { onNext: () => void; onSkip: () => void }
       body="Cuéntanos qué buscas (rol, salario, remoto, perks…) para que el agente adapte mejor cada CV."
     >
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => (window.location.hash = "#/preferences")} leadingIcon={<Sparkles size={14} />}>
+        <Button onClick={onNext} leadingIcon={<Sparkles size={14} />}>
           Definir preferencias
         </Button>
         <Button variant="ghost" onClick={onSkip} trailingIcon={<ArrowRight size={14} />}>

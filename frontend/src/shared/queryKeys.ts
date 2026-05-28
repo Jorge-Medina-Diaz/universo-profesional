@@ -104,4 +104,7 @@ export const queryKeys = {
     usage: ["llm", "usage"] as const,
     sessions: ["llm", "sessions"] as const,
   },
+  mcp: {
+    stats: ["mcp", "stats"] as const,
+  },
 } as const;
