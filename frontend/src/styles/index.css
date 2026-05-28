@@ -1144,3 +1144,214 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ================================================================ *
+ * LANDING COSMOS — self-contained dark "career cosmos" theme.
+ * Scoped to `.landing-cosmos` so it never bleeds into the light app
+ * (auth pages, dashboard) which keep the global Pirsch palette.
+ * The public marketing landing is the "trailer"; the product is light.
+ * ================================================================ */
+.landing-cosmos {
+  /* Deep-space ink — a hair warm/green so the brand accents feel native. */
+  --cos-bg: #07080a;
+  --cos-bg-2: #0b0d10;
+  --cos-ink: #f4f1ea;          /* warm off-white — matches cream brand */
+  --cos-stone: #9c988e;        /* muted body text */
+  --cos-faint: #6c6962;        /* tertiary / captions */
+  --cos-hairline: rgba(244, 241, 234, 0.10);
+  --cos-hairline-strong: rgba(244, 241, 234, 0.18);
+  --cos-panel: rgba(255, 255, 255, 0.028);
+  --cos-panel-raised: rgba(255, 255, 255, 0.05);
+
+  /* Accents (brand trio) reused as the star hues. */
+  --cos-sun: #ffda6e;
+  --cos-leaf: #6ece9d;
+  --cos-nova: #00d4aa;
+
+  position: relative;
+  background-color: var(--cos-bg);
+  color: var(--cos-ink);
+  font-family: var(--font-dm-sans);
+  isolation: isolate;
+  overflow-x: clip;
+}
+
+/* Atmospheric backdrop — drifting nebulae + faint starfield grid.
+ * Lives on ::before (gradients) and ::after (star dots) so content sits above. */
+.landing-cosmos::before {
+  content: "";
+  position: fixed;
+  inset: -10% -10% -10% -10%;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(48% 38% at 22% 14%, rgba(110, 206, 157, 0.10) 0%, transparent 60%),
+    radial-gradient(42% 34% at 82% 30%, rgba(0, 212, 170, 0.09) 0%, transparent 60%),
+    radial-gradient(50% 42% at 68% 88%, rgba(255, 218, 110, 0.07) 0%, transparent 62%),
+    radial-gradient(60% 60% at 50% 50%, rgba(11, 13, 16, 0) 0%, var(--cos-bg) 78%);
+  animation: cosmos-nebula 30s ease-in-out infinite;
+}
+.landing-cosmos::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: radial-gradient(rgba(244, 241, 234, 0.10) 0.5px, transparent 0.5px);
+  background-size: 34px 34px;
+  mask-image: radial-gradient(70% 60% at 50% 30%, #000 0%, transparent 85%);
+  -webkit-mask-image: radial-gradient(70% 60% at 50% 30%, #000 0%, transparent 85%);
+}
+@keyframes cosmos-nebula {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(0, -1.4%, 0) scale(1.04); }
+}
+
+/* Typography helpers inside the cosmos. */
+.landing-cosmos .cos-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.022em;
+  line-height: 1.0;
+  color: var(--cos-ink);
+  font-optical-sizing: auto;
+}
+.landing-cosmos .cos-muted { color: var(--cos-stone); }
+.landing-cosmos .cos-faint { color: var(--cos-faint); }
+
+/* Faded headline tail — replaces the broken white-on-white pattern. */
+.cos-dim { color: rgba(244, 241, 234, 0.34); }
+
+/* Eyebrow / section label. */
+.cos-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--cos-stone);
+}
+.cos-eyebrow::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent, var(--cos-leaf));
+  box-shadow: 0 0 10px 1px var(--accent, var(--cos-leaf));
+}
+
+/* Glass panel — the workhorse surface. */
+.cos-panel {
+  background: var(--cos-panel);
+  border: 1px solid var(--cos-hairline);
+  border-radius: 20px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.cos-panel-raised {
+  background: var(--cos-panel-raised);
+  border: 1px solid var(--cos-hairline-strong);
+}
+
+/* Pill / chip. */
+.cos-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cos-ink);
+  background: var(--cos-panel);
+  border: 1px solid var(--cos-hairline);
+  backdrop-filter: blur(8px);
+}
+
+/* Primary CTA — luminous sunbeam. */
+.cos-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 22px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #2a2003;
+  background: linear-gradient(180deg, #ffe48f 0%, var(--cos-sun) 100%);
+  box-shadow: 0 0 0 1px rgba(255, 218, 110, 0.4), 0 10px 30px -10px rgba(255, 218, 110, 0.55);
+  transition: transform 200ms var(--ease-pirsch), box-shadow 200ms var(--ease-pirsch);
+}
+.cos-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 1px rgba(255, 218, 110, 0.5), 0 16px 44px -12px rgba(255, 218, 110, 0.7);
+}
+.cos-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 20px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--cos-ink);
+  background: transparent;
+  border: 1px solid var(--cos-hairline-strong);
+  transition: background 200ms var(--ease-pirsch), border-color 200ms var(--ease-pirsch);
+}
+.cos-btn-ghost:hover {
+  background: var(--cos-panel);
+  border-color: rgba(244, 241, 234, 0.32);
+}
+
+/* Hairline divider used between bands. */
+.cos-rule { border-color: var(--cos-hairline); }
+
+/* Region label floating over the constellation (crisp DOM text). */
+.cos-region-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--cos-ink);
+  background: rgba(8, 9, 11, 0.55);
+  border: 1px solid var(--cos-hairline);
+  padding: 4px 11px;
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.cos-region-label::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--cl-color, var(--cos-leaf));
+  box-shadow: 0 0 9px 1px var(--cl-color, var(--cos-leaf));
+}
+
+/* Marquee fade-out edges for the integrations strip. */
+.cos-marquee-mask {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+
+/* Soft entrance used by canvas-adjacent DOM (region labels). */
+@keyframes cos-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

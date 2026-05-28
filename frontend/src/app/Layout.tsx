@@ -54,6 +54,18 @@ export function Layout({ title, isAuthed, children }: Props) {
 
   const isFullBleed = isAuthed && path === "/";
 
+  // Public marketing landing owns the whole viewport: it ships its own
+  // dark "cosmos" nav + footer, so the light app chrome must step aside.
+  const isLanding = !isAuthed && path === "/";
+  if (isLanding) {
+    return (
+      <>
+        {children}
+        <CookieConsentBanner />
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-canvas text-ink">
       <header className="sticky top-0 z-30 bg-canvas/80 backdrop-blur-md hairline-b">
@@ -135,7 +147,7 @@ export function Layout({ title, isAuthed, children }: Props) {
         {children}
       </main>
 
-      {!isFullBleed && (
+      {!isFullBleed && path !== "/" && (
         <footer className="hairline-t bg-canvas py-6 mt-8 hidden md:block">
           <div className="max-w-7xl mx-auto px-4 md:px-8 text-xs text-stone flex flex-wrap gap-3 justify-between">
             <span>© {new Date().getFullYear()} Universo Profesional</span>
