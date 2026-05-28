@@ -17,11 +17,10 @@
 
 services:
   postgres:
-    image: ${POSTGRES_IMAGE:?POSTGRES_IMAGE required — set in .env.production or use ghcr.io/<owner>/cvs-postgres:latest}
-    # Fallback to local build if image not available:
-    # build:
-    #   context: ./docker
-    #   dockerfile: postgres.Dockerfile
+    build:
+      context: ./docker
+      dockerfile: postgres.Dockerfile
+    image: cvs-saas-postgres:latest
     container_name: cvs-postgres
     restart: unless-stopped
     environment:
@@ -51,11 +50,14 @@ services:
       retries: 5
 
   backend:
+    build:
+      context: ./backend
+      dockerfile: ../docker/backend.Dockerfile
     image: ${BACKEND_IMAGE:-cvs-saas-backend:latest}
     container_name: cvs-backend
     restart: unless-stopped
     environment:
-      ENV: production
+      ENV: ${ENV:-staging}
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL required}
       DATABASE_URL_SYNC: ${DATABASE_URL_SYNC}
       REDIS_URL: ${REDIS_URL:?REDIS_URL required}
@@ -93,11 +95,11 @@ services:
         condition: service_healthy
 
   worker:
-    image: ${BACKEND_IMAGE:-cvs-saas-backend:latest}
+    image: cvs-saas-backend:latest
     container_name: cvs-worker
     restart: unless-stopped
     environment:
-      ENV: production
+      ENV: ${ENV:-staging}
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL required}
       DATABASE_URL_SYNC: ${DATABASE_URL_SYNC}
       REDIS_URL: ${REDIS_URL:?REDIS_URL required}
@@ -123,6 +125,11 @@ services:
     command: ["arq", "src.shared.worker.WorkerSettings"]
 
   frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.prod.Dockerfile
+      args:
+        VITE_API_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:8000}
     image: ${FRONTEND_IMAGE:-cvs-saas-frontend:latest}
     container_name: cvs-frontend
     restart: unless-stopped
@@ -130,6 +137,17 @@ services:
       - "${FRONTEND_PORT:-8080}:8080"
     depends_on:
       - backend
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: cvs-mailhog
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+    environment:
+      MH_UI_BIND_ADDR: 0.0.0.0:8025
+      MH_API_BIND_ADDR: 0.0.0.0:8025
+      MH_SMTP_BIND_ADDR: 0.0.0.0:1025
 
 volumes:
   postgres_data:

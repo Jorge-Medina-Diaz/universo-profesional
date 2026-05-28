@@ -40,7 +40,8 @@ FROM nginx:1.27-alpine AS runtime
 # Drop privileges. The official nginx image already supports running as
 # user `nginx` (UID 101) — we just need to make sure the writable paths
 # are owned by that user so the worker processes can bind / write logs.
-RUN chown -R nginx:nginx /var/cache/nginx /var/log/nginx /etc/nginx/conf.d
+RUN chown -R nginx:nginx /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /run && \
+    sed -i 's|pid /run/nginx.pid|pid /tmp/nginx.pid|' /etc/nginx/nginx.conf
 
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder --chown=nginx:nginx /build/dist /usr/share/nginx/html

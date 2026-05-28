@@ -21,6 +21,7 @@ export default defineConfig({
     },
   },
   build: {
+    sourcemap: true,
     // Heavy syntax-highlighter chunks (mermaid, shiki) live in their own
     // bundles below; raise the warning threshold accordingly.
     chunkSizeWarningLimit: 1000,
