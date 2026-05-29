@@ -117,15 +117,17 @@ export function SettingsPage() {
                 }
               />
               <Row
-                label="MFA"
+                label="MFA (2FA)"
                 value={
                   me.data.mfa_enabled ? (
                     <Badge tone="leaf" size="sm">
                       Activo
                     </Badge>
                   ) : (
-                    <Badge tone="stone" size="sm">
-                      Desactivado
+                    // No enrolment endpoints yet — show an honest "coming soon"
+                    // instead of a dead "Desactivado" affordance with no action.
+                    <Badge tone="amber" size="sm" title="Disponible próximamente">
+                      Próximamente
                     </Badge>
                   )
                 }
