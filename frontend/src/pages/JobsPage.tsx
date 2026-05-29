@@ -18,6 +18,7 @@ import {
   Wand2,
   RefreshCw,
   Loader2,
+  CalendarClock,
 } from "lucide-react";
 import { jobs, type JobRow, type JobStatus } from "@/shared/api";
 import { usePullToRefresh } from "@/shared/usePullToRefresh";
@@ -422,6 +423,9 @@ export function JobsPage() {
               onDelete={(id) => remove.mutate(id)}
               onAutopilot={(job) => setAutopilotJob(job)}
               onRecomputeScore={(id) => computeScore.mutate(id)}
+              onSetNextAction={(id, date) =>
+                patch.mutate({ id, body: { next_action_at: date } })
+              }
               recomputingId={computeScore.isPending ? computeScore.variables ?? null : null}
               focusedJobId={focusedJobId}
             />
@@ -489,6 +493,7 @@ function KanbanColumn({
   onDelete,
   onAutopilot,
   onRecomputeScore,
+  onSetNextAction,
   recomputingId,
   focusedJobId,
 }: {
@@ -499,6 +504,7 @@ function KanbanColumn({
   onDelete: (id: string) => void;
   onAutopilot: (job: JobRow) => void;
   onRecomputeScore: (id: string) => void;
+  onSetNextAction: (id: string, date: string) => void;
   recomputingId: string | null;
   focusedJobId: string | null;
 }) {
@@ -564,6 +570,7 @@ function KanbanColumn({
               onDelete={() => onDelete(j.id)}
               onAutopilot={() => onAutopilot(j)}
               onRecomputeScore={() => onRecomputeScore(j.id)}
+              onSetNextAction={(date) => onSetNextAction(j.id, date)}
               recomputing={recomputingId === j.id}
               focused={focusedJobId === j.id}
             />
@@ -589,6 +596,7 @@ function KanbanCard({
   onDelete,
   onAutopilot,
   onRecomputeScore,
+  onSetNextAction,
   recomputing,
   focused,
 }: {
@@ -599,6 +607,7 @@ function KanbanCard({
   onDelete: () => void;
   onAutopilot: () => void;
   onRecomputeScore: () => void;
+  onSetNextAction: (date: string) => void;
   recomputing: boolean;
   focused: boolean;
 }) {
@@ -669,6 +678,22 @@ function KanbanCard({
       {job.company_name && (
         <p className="text-xs text-stone truncate">{job.company_name}</p>
       )}
+      <label
+        className="mt-2 flex items-center gap-1.5 text-[11px] text-stone"
+        title="Fecha de seguimiento — crea un recordatorio"
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <CalendarClock size={12} className={cn(job.next_action_at && "text-nova")} />
+        <input
+          type="date"
+          draggable={false}
+          value={job.next_action_at ? job.next_action_at.slice(0, 10) : ""}
+          onChange={(e) => onSetNextAction(e.target.value)}
+          className="bg-transparent outline-none text-[11px] text-stone focus:text-ink"
+          aria-label="Fecha de seguimiento"
+        />
+      </label>
       <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
         {job.match_score != null ? (
           <Popover

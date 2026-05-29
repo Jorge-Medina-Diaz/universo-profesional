@@ -38,10 +38,17 @@ class JobPatch(BaseModel):
     status: str | None = None
     notes: str | None = None
     applied_at: str | None = None
+    # ISO date/datetime for a follow-up; "" clears it. Setting it creates a
+    # job_followup reminder so the tracker drives the reminders engine.
+    next_action_at: str | None = None
     title: str | None = None
     company_name: str | None = None
     url: str | None = None
     position: float | None = None
+
+
+# Statuses past which a follow-up reminder no longer makes sense.
+_TERMINAL_STATUSES = {"rejected", "archived", "offer"}
 
 
 class JobReorder(BaseModel):
@@ -65,6 +72,7 @@ def _to_dict(row: JobOrm) -> dict[str, Any]:
         "status": tracker.get("status", "interested"),
         "notes": tracker.get("notes"),
         "applied_at": tracker.get("applied_at"),
+        "next_action_at": tracker.get("next_action_at"),
         "match_score": tracker.get("match_score"),
         # Full per-dimension breakdown (dimensions/strengths/gaps/keyword_coverage)
         # cached alongside the headline score so the Kanban scorecard can render
@@ -159,6 +167,8 @@ async def patch_job(
         tracker["notes"] = body.notes
     if body.applied_at is not None:
         tracker["applied_at"] = body.applied_at
+    if body.next_action_at is not None:
+        tracker["next_action_at"] = body.next_action_at or None
     if body.position is not None:
         tracker["position"] = float(body.position)
     parsed["_tracker"] = tracker
@@ -169,8 +179,82 @@ async def patch_job(
         row.company_name = body.company_name
     if body.url is not None:
         row.url = body.url
+
+    # Keep the follow-up reminder in sync whenever the date or status changed.
+    if body.next_action_at is not None or body.status is not None:
+        await _sync_job_followup_reminder(session, row, tracker)
+
     await session.commit()
     return _to_dict(row)
+
+
+async def _sync_job_followup_reminder(
+    session: Any, row: JobOrm, tracker: dict[str, Any]
+) -> None:
+    """Upsert/dismiss a `job_followup` reminder from the job's next_action_at.
+
+    Wires the application tracker into the reminders engine: a follow-up date
+    becomes a due reminder (surfaced in the bell + RemindersPage + the daily
+    digest email); clearing it or moving the job to a terminal status dismisses
+    the reminder. Best-effort — never blocks the job update.
+    """
+    from datetime import datetime
+
+    from sqlalchemy import select
+
+    from src.shared.security import utc_now
+    from src.universe.application.ports.orm import ReminderOrm
+
+    next_action = tracker.get("next_action_at")
+    status = tracker.get("status", "interested")
+    title = row.title or row.company_name or "tu oferta"
+
+    existing = (
+        await session.execute(
+            select(ReminderOrm)
+            .where(ReminderOrm.user_id == row.user_id)
+            .where(ReminderOrm.kind == "job_followup")
+            .where(ReminderOrm.subject_id == row.id)
+            .where(ReminderOrm.dismissed_at.is_(None))
+        )
+    ).scalar_one_or_none()
+
+    # No active follow-up wanted → dismiss any open reminder.
+    if not next_action or status in _TERMINAL_STATUSES:
+        if existing is not None:
+            existing.dismissed_at = utc_now()
+        return
+
+    try:
+        due_at = datetime.fromisoformat(str(next_action).replace("Z", "+00:00"))
+        if due_at.tzinfo is None:
+            due_at = due_at.replace(tzinfo=UTC)
+    except ValueError:
+        return  # malformed date — leave reminders untouched
+
+    body_text = f"Haz seguimiento de «{title}»."
+    if existing is not None:
+        existing.due_at = due_at
+        existing.title = f"Seguimiento: {title}"
+        existing.body = body_text
+        existing.dispatched_at = None  # re-arm the digest for the new date
+    else:
+        from uuid import uuid4
+
+        session.add(
+            ReminderOrm(
+                id=uuid4(),
+                user_id=row.user_id,
+                kind="job_followup",
+                subject_type="job",
+                subject_id=row.id,
+                title=f"Seguimiento: {title}",
+                body=body_text,
+                due_at=due_at,
+                payload={"job_id": str(row.id)},
+                created_at=utc_now(),
+            )
+        )
 
 
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -279,3 +363,34 @@ async def compute_score(
     row.description_parsed = parsed
     await session.commit()
     return _to_dict(row)
+
+
+@router.get("/{job_id}/documents")
+async def job_documents(
+    job_id: str,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> list[dict[str, Any]]:
+    """Documents (CVs/cover letters) generated for this job — links the tracker
+    to the artifacts produced for each application."""
+    from src.documents.infrastructure.orm import DocumentOrm
+
+    rows = (
+        await session.execute(
+            select(DocumentOrm)
+            .where(DocumentOrm.user_id == UUID(user_id))
+            .where(DocumentOrm.job_id == UUID(job_id))
+            .order_by(desc(DocumentOrm.created_at))
+        )
+    ).scalars().all()
+    return [
+        {
+            "id": str(d.id),
+            "kind": d.kind,
+            "template": d.template,
+            "language": d.language,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+            "has_pdf": bool(d.pdf_path),
+        }
+        for d in rows
+    ]

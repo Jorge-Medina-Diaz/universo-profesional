@@ -40,6 +40,7 @@ const REMINDER_KIND_META: Record<
 > = {
   cert_expiring: { label: "Certificación", tone: "amber", Icon: AlertTriangle },
   course_stale: { label: "Curso en pausa", tone: "stone", Icon: Calendar },
+  job_followup: { label: "Seguimiento", tone: "sunbeam", Icon: Briefcase },
 };
 
 interface JobAlert {

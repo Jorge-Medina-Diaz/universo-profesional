@@ -6,7 +6,7 @@
  * to read + act on a longer list.
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Bell, Calendar, Check, RefreshCw, Mail } from "lucide-react";
+import { AlertTriangle, Bell, Briefcase, Calendar, Check, RefreshCw, Mail } from "lucide-react";
 import { account, universe, type ReminderRow } from "@/shared/api";
 import { queryKeys } from "@/shared/queryKeys";
 import {
@@ -28,6 +28,7 @@ const KIND_META: Record<
 > = {
   cert_expiring: { label: "Certificación", tone: "amber", Icon: AlertTriangle },
   course_stale: { label: "Curso en pausa", tone: "stone", Icon: Calendar },
+  job_followup: { label: "Seguimiento", tone: "sunbeam", Icon: Briefcase },
 };
 
 export function RemindersPage() {

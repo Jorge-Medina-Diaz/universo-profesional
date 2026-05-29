@@ -530,13 +530,21 @@ export const jobs = {
     body: Partial<
       Pick<
         JobRow,
-        "status" | "notes" | "applied_at" | "title" | "company_name" | "url" | "position"
+        | "status"
+        | "notes"
+        | "applied_at"
+        | "next_action_at"
+        | "title"
+        | "company_name"
+        | "url"
+        | "position"
       >
     >,
   ) => api<JobRow>(`/api/v1/jobs/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   remove: (id: string) => api<void>(`/api/v1/jobs/${id}`, { method: "DELETE" }),
   computeScore: (id: string) =>
     api<JobRow>(`/api/v1/jobs/${id}/score`, { method: "POST" }),
+  documents: (id: string) => api<JobDocument[]>(`/api/v1/jobs/${id}/documents`),
   reorder: (items: Array<{ id: string; position: number; status?: JobStatus }>) =>
     api<{ updated: number }>("/api/v1/jobs/reorder", {
       method: "POST",
@@ -576,10 +584,21 @@ export interface JobRow {
   status: JobStatus;
   notes: string | null;
   applied_at: string | null;
+  /** Follow-up date; setting it creates a job_followup reminder. */
+  next_action_at: string | null;
   match_score: number | null;
   /** Per-dimension breakdown cached on the job once /score has run. */
   match: MatchBreakdown | null;
   position: number | null;
+}
+
+export interface JobDocument {
+  id: string;
+  kind: string;
+  template: string;
+  language: string;
+  created_at: string | null;
+  has_pdf: boolean;
 }
 
 export const notes = {
