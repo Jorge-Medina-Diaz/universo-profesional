@@ -1,23 +1,28 @@
-"""In-memory proposal cache with TTL.
+"""Redis-backed proposal cache with TTL.
 
-For MVP we use a simple dict keyed by ``proposal:{user_id}:{proposal_id}``.
-In production this should be backed by Redis so proposals survive process
-restarts and work across replicas.
+HITL proposals must survive process restarts and be shared across workers /
+replicas: the process that *stores* a proposal during the agent run is rarely
+the one that *resolves* the user's confirm/reject click. A module-level dict
+silently lost proposals under any multi-worker deployment, so the confirm card
+404'd. We back the store with the shared async Redis client (also used by arq),
+keyed by ``proposal:{user_id}:{proposal_id}`` with a native key TTL.
 """
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
+from src.shared.redis import get_redis
+
 _PROPOSAL_TTL_SECONDS = 300  # 5 minutes
-_store: dict[str, dict[str, Any]] = {}
 
 
 def _key(user_id: str, proposal_id: str) -> str:
     return f"proposal:{user_id}:{proposal_id}"
 
 
-def set_proposal(
+async def set_proposal(
     user_id: str,
     proposal_id: str,
     *,
@@ -28,8 +33,8 @@ def set_proposal(
     reason: str = "Propuesta generada por el agente",
     thread_id: str | None = None,
 ) -> None:
-    """Store a pending proposal."""
-    _store[_key(user_id, proposal_id)] = {
+    """Store a pending proposal with a native Redis TTL."""
+    payload = {
         "entity_type": entity_type,
         "entity_data": entity_data,
         "action": action,
@@ -38,30 +43,32 @@ def set_proposal(
         "thread_id": thread_id,
         "created_at": time.time(),
     }
+    await get_redis().set(
+        _key(user_id, proposal_id),
+        json.dumps(payload, default=str),
+        ex=_PROPOSAL_TTL_SECONDS,
+    )
 
 
-def get_proposal(user_id: str, proposal_id: str) -> dict[str, Any] | None:
-    """Retrieve a proposal if it exists and hasn't expired."""
-    key = _key(user_id, proposal_id)
-    item = _store.get(key)
-    if item is None:
+async def get_proposal(user_id: str, proposal_id: str) -> dict[str, Any] | None:
+    """Retrieve a proposal if it exists and hasn't expired (Redis handles TTL)."""
+    raw = await get_redis().get(_key(user_id, proposal_id))
+    if raw is None:
         return None
-    if time.time() - item["created_at"] > _PROPOSAL_TTL_SECONDS:
-        _store.pop(key, None)
+    try:
+        return json.loads(raw)
+    except (ValueError, TypeError):
         return None
-    return item
 
 
-def delete_proposal(user_id: str, proposal_id: str) -> None:
-    _store.pop(_key(user_id, proposal_id), None)
+async def delete_proposal(user_id: str, proposal_id: str) -> None:
+    await get_redis().delete(_key(user_id, proposal_id))
 
 
-def cleanup_expired() -> int:
-    """Remove expired entries. Returns number removed."""
-    now = time.time()
-    expired = [
-        k for k, v in _store.items() if now - v["created_at"] > _PROPOSAL_TTL_SECONDS
-    ]
-    for k in expired:
-        _store.pop(k, None)
-    return len(expired)
+async def cleanup_expired() -> int:
+    """No-op: Redis expires keys natively via the per-key TTL.
+
+    Kept for backwards compatibility with any caller that scheduled a periodic
+    sweep; always returns 0 because there is nothing to clean.
+    """
+    return 0

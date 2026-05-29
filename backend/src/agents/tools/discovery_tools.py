@@ -12,12 +12,14 @@ from typing import Any
 import structlog
 from agno.tools import tool
 
+from src.agents.tools._deps import require_user_id
 from src.graph.application.universe_graph import universe_graph_service
 from src.graph.domain import schema as graph_schema
 
 logger = structlog.get_logger(__name__)
 
 
+@require_user_id
 @tool(description="Get a completeness score for each dimension of the user's profile.")
 async def get_profile_completeness(run_context: Any) -> dict[str, Any]:
     """Return counts and coverage % for every entity kind in the user's graph.
@@ -89,6 +91,7 @@ Profile summary:
 """
 
 
+@require_user_id
 @tool(description="Suggest natural discovery questions based on profile gaps.")
 async def suggest_discovery_questions(run_context: Any) -> dict[str, Any]:
     """Return conversational questions tailored to the user's actual profile gaps.
@@ -102,7 +105,6 @@ async def suggest_discovery_questions(run_context: Any) -> dict[str, Any]:
     from src.shared.config import get_settings
 
     user_id = UUID(str(run_context.user_id))
-    session = run_context.session
     settings = get_settings()
 
     completeness = await get_profile_completeness(run_context)

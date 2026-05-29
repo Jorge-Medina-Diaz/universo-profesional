@@ -11,10 +11,12 @@ import structlog
 from agno.tools import tool
 
 from src.agents.memory.self_learning import SelfLearningEngine, UserFeedback
+from src.agents.tools._deps import require_user_id
 
 logger = structlog.get_logger(__name__)
 
 
+@require_user_id
 @tool(description="Record user feedback after a proposal or action.")
 async def record_agent_feedback(
     run_context: Any,

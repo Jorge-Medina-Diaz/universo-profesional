@@ -74,16 +74,11 @@ async def store_digest(
 ) -> None:
     """Persist the digest payload into chat_session_meta.metadata.
 
-    We piggy-back on the existing `title` row (one per user) by adding a
-    `metadata` column at first use. ALTER TABLE inside transaction is fine
-    against Postgres and idempotent.
+    We piggy-back on the existing `title` row (one per user). The `metadata`
+    column is provided by Alembic migration 0027 — we no longer run a runtime
+    ALTER TABLE here (it took an AccessExclusiveLock and serialised all digest
+    writes under concurrent arq workers).
     """
-    await session.execute(
-        text(
-            "ALTER TABLE chat_session_meta "
-            "ADD COLUMN IF NOT EXISTS metadata JSONB"
-        )
-    )
     import json
 
     await session.execute(

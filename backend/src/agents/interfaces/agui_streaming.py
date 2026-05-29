@@ -87,6 +87,11 @@ _AGENT_UNAVAILABLE_MSG = (
     "Inténtalo de nuevo en unos minutos."
 )
 
+# Single-entity HITL proposals: each gets a generated proposal_id injected into
+# its args and resolves via POST /proposals/{id}/resolve -> coherence upsert,
+# where entity_type = name.replace("propose_", "") must be a valid universe
+# kind. (propose_skill_batch is deliberately excluded — it commits per-skill
+# client-side via its own renderAndWaitForResponse card, not this path.)
 _PROPOSAL_TOOLS = {
     "propose_experience",
     "propose_skill",
@@ -94,10 +99,16 @@ _PROPOSAL_TOOLS = {
     "propose_education",
     "propose_certification",
     "propose_goal",
+    "propose_course",
+    "propose_language",
+    "propose_achievement",
+    "propose_interest",
+    "propose_artifact",
+    "propose_architecture_decision",
 }
 
 
-def _inject_proposal_metadata(ev: Any, user_id: str | None) -> None:
+async def _inject_proposal_metadata(ev: Any, user_id: str | None) -> None:
     """Detect proposal tool calls, generate IDs, store in cache, inject into args.
 
     Mutates the event's tools in-place so the AG-UI converter forwards the
@@ -116,7 +127,7 @@ def _inject_proposal_metadata(ev: Any, user_id: str | None) -> None:
         proposal_id = str(uuid.uuid4())
         entity_type = name.replace("propose_", "")
 
-        set_proposal(
+        await set_proposal(
             user_id=user_id or "anonymous",
             proposal_id=proposal_id,
             entity_type=entity_type,
@@ -135,7 +146,7 @@ def _inject_proposal_metadata(ev: Any, user_id: str | None) -> None:
         agent_proposals_total.labels(entity_type=entity_type, action="create").inc()
 
 
-def _adapt_team_pause(ev: Any, user_id: str | None = None) -> Any:
+async def _adapt_team_pause(ev: Any, user_id: str | None = None) -> Any:
     """Convert a TEAM-level RunPausedEvent into an AGENT-level one.
 
     This is a controlled workaround for Agno's AG-UI converter, which
@@ -147,7 +158,7 @@ def _adapt_team_pause(ev: Any, user_id: str | None = None) -> Any:
     if not getattr(ev, "is_paused", False):
         return ev
     if isinstance(ev, _AgentRunPausedEvent):
-        _inject_proposal_metadata(ev, user_id)
+        await _inject_proposal_metadata(ev, user_id)
         return ev
 
     has_ext = any(
@@ -163,7 +174,7 @@ def _adapt_team_pause(ev: Any, user_id: str | None = None) -> Any:
     conv.__class__ = _AgentRunPausedEvent
     conv.event = _RunEvent.run_paused
     conv.content = None  # drop "Team run paused…" plumbing text
-    _inject_proposal_metadata(conv, user_id)
+    await _inject_proposal_metadata(conv, user_id)
     return conv
 
 
@@ -179,7 +190,7 @@ async def _surface_team_external_tools(
     """
     async for ev in raw:
         try:
-            adapted = _adapt_team_pause(ev, user_id=user_id)
+            adapted = await _adapt_team_pause(ev, user_id=user_id)
         except Exception as exc:
             logger.error(
                 "agui_team_pause_adapter_failed",
@@ -359,9 +370,25 @@ async def _clean_event_stream(
         except Exception:  # never let cleanup break the stream
             pass
         yield encoder.encode(event)
-    # Defensive: flush any unterminated buffers.
+    # Defensive: flush any unterminated buffers with a proper START + CONTENT +
+    # END sequence. Emitting START alone left the message bubble permanently
+    # open (CopilotKit shows a never-ending spinner).
     for buf in buffers.values():
+        mid = buf["start"].message_id
         yield encoder.encode(buf["start"])
+        cleaned = _HITL_NOTICE_RE.sub(" ", buf["text"])
+        cleaned = _EXTERNAL_EXEC_NOTICE_RE.sub(" ", cleaned).strip()
+        if cleaned:
+            yield encoder.encode(
+                TextMessageContentEvent(
+                    type=EventType.TEXT_MESSAGE_CONTENT,
+                    message_id=mid,
+                    delta=cleaned,
+                )
+            )
+        yield encoder.encode(
+            TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=mid)
+        )
 
 
 async def _stream_chat(
@@ -531,6 +558,19 @@ async def _event_stream(
             )
         except Exception:
             yield 'data: {"type":"RUN_ERROR","message":"internal error"}\n\n'
+        # Close the run as well: CopilotKit v1.57 leaves the client stuck in a
+        # permanently-"running" state if RUN_ERROR is not followed by
+        # RUN_FINISHED. Wrapped in its own guard so it can never break the SSE.
+        try:
+            yield encoder.encode(
+                RunFinishedEvent(
+                    type=EventType.RUN_FINISHED,
+                    thread_id=enforced_thread_id,
+                    run_id=run_input.run_id or "",
+                )
+            )
+        except Exception:
+            pass
     finally:
         if acquired:
             await _release_stream_slot(user_id)

@@ -79,7 +79,22 @@ def _sanitise_content_list(content: list[Any]) -> list[Any]:
         if btype == "tool_result":
             fixed = _fix_tool_result_content(_block_attr(block, "content"))
             if fixed is not None:
-                block = {**block, "content": fixed} if isinstance(block, dict) else block
+                if isinstance(block, dict):
+                    block = {**block, "content": fixed}
+                else:
+                    # SDK object (not a dict): the old code kept it unchanged, so
+                    # the repaired content was silently discarded and Anthropic
+                    # still received the empty tool_result this sanitiser exists
+                    # to prevent. Rebuild as a plain dict, preserving the linking
+                    # tool_use_id and error flag.
+                    rebuilt: dict[str, Any] = {"type": "tool_result", "content": fixed}
+                    tool_use_id = _block_attr(block, "tool_use_id")
+                    if tool_use_id is not None:
+                        rebuilt["tool_use_id"] = tool_use_id
+                    is_error = _block_attr(block, "is_error")
+                    if is_error is not None:
+                        rebuilt["is_error"] = is_error
+                    block = rebuilt
         out.append(block)
     return out
 

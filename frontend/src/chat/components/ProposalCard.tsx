@@ -18,7 +18,7 @@ import {
   X,
   Pencil,
 } from "lucide-react";
-import { Badge, Button, ChatMessageMotion, Input, Textarea, cn } from "@/ui";
+import { Badge, Button, ChatMessageMotion, Input, Textarea, cn, toast } from "@/ui";
 import { resolveProposal } from "../actions/shared";
 import type { UpsertResponse } from "../actions/types";
 
@@ -123,8 +123,11 @@ export function ProposalCard({
       const resp = await resolveProposal(payload.proposal_id, "confirm");
       setMode("success");
       onResolved?.({ action: "confirm", response: resp });
-    } catch {
-      // silently fail — UI already in error state
+    } catch (e) {
+      toast.error(
+        "No se pudo guardar la propuesta",
+        e instanceof Error ? e.message : undefined,
+      );
     } finally {
       setPending(false);
     }
@@ -150,8 +153,11 @@ export function ProposalCard({
       const resp = await resolveProposal(payload.proposal_id, "modify", modified);
       setMode("success");
       onResolved?.({ action: "modify", response: resp });
-    } catch {
-      // silently fail — UI already in error state
+    } catch (e) {
+      toast.error(
+        "No se pudieron guardar los cambios",
+        e instanceof Error ? e.message : undefined,
+      );
     } finally {
       setPending(false);
     }
@@ -163,8 +169,11 @@ export function ProposalCard({
       const resp = await resolveProposal(payload.proposal_id, "reject");
       setMode("rejected");
       onResolved?.({ action: "reject", response: resp });
-    } catch {
-      // silently fail — UI already in error state
+    } catch (e) {
+      toast.error(
+        "No se pudo rechazar la propuesta",
+        e instanceof Error ? e.message : undefined,
+      );
     } finally {
       setPending(false);
     }

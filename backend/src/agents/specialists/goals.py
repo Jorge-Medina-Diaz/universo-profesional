@@ -15,7 +15,6 @@ def build_goals_specialist(*, db):  # type: ignore[no-untyped-def]
         suggest_discovery_questions,
     )
     from src.agents.tools.goals_tools import (
-        add_goal,
         list_goals,
         mark_subtask_done,
         update_goal,
@@ -32,7 +31,6 @@ def build_goals_specialist(*, db):  # type: ignore[no-untyped-def]
         db=db,
         tools=[
             list_goals,
-            add_goal,
             update_goal,
             mark_subtask_done,
             propose_goal,
@@ -96,7 +94,9 @@ def build_goals_specialist(*, db):  # type: ignore[no-untyped-def]
             "en un endpoint propio + escribir test'. Si score < 0.55, ignora y usa tu juicio.",
             # Capture via HITL
             "Emite `propose_goal(title, horizon, description, target_date, subtasks)`. "
-            "NUNCA `add_goal` directamente — siempre vía HITL. El usuario confirma y el frontend persiste.",
+            "La creación de metas SOLO existe vía HITL: el usuario confirma la "
+            "tarjeta y el frontend persiste. (No tienes ninguna herramienta de "
+            "escritura directa de metas.)",
             # Progress tracking
             "SEGUIMIENTO: cuando el usuario pregunte '¿cómo voy con X?' o '¿qué metas tengo?', "
             "invoca `list_goals` y luego `present_widget(kind='goals_progress', "

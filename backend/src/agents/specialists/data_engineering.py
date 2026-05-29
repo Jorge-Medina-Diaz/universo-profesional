@@ -16,9 +16,9 @@ def build_data_engineering_specialist(*, db):  # type: ignore[no-untyped-def]
         present_deep_dive,
         present_widget,
         propose_artifact,
+        propose_project,
         propose_skill_batch,
     )
-    from src.agents.tools.universe_writes import upsert_project, upsert_skill
 
     return build_specialist(
         name="data_engineering_specialist",
@@ -33,8 +33,7 @@ def build_data_engineering_specialist(*, db):  # type: ignore[no-untyped-def]
             present_widget,
             propose_skill_batch,
             propose_artifact,
-            upsert_project,
-            upsert_skill,
+            propose_project,
         ],
         instructions=[
             "Eres el specialist de DATA ENGINEERING. Capturas el stack de "
@@ -62,10 +61,12 @@ def build_data_engineering_specialist(*, db):  # type: ignore[no-untyped-def]
             "options=['ninguno','Kafka batch','Kafka real-time','Flink','Kinesis','Pub/Sub']},"
             "{id='governance', kind='multi_chips', label='Governance', "
             "options=['lineage','catalog','quality tests','PII tagging','RLS','none']}])`.",
-            "PASO 3 — Tras card OK: `upsert_project` con name=<nombre dado>, "
+            "PASO 3 — Tras card OK: `propose_project` (NUNCA escribas directamente; "
+            "el usuario confirma la tarjeta) con name=<nombre dado>, "
             "project_type='work' (o lo que aplique), tech_stack=[transform + "
-            "warehouse + orchestration + streaming], domain_tags=['data_eng']. "
-            "Adicionalmente `propose_skill_batch` para herramientas individuales.",
+            "warehouse + orchestration + streaming], description=<incluye el dominio "
+            "data_eng y un resumen del stack>. Adicionalmente `propose_skill_batch` "
+            "para herramientas individuales.",
             "PASO 4 — `present_widget(kind='data_stack_topology', "
             "title='Topología de datos', data={sources, transforms, "
             "warehouse, orchestration, streaming, governance})`.",

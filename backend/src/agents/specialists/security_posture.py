@@ -15,7 +15,6 @@ def build_security_posture_specialist(*, db):  # type: ignore[no-untyped-def]
         propose_certification,
         propose_skill,
     )
-    from src.agents.tools.universe_writes import upsert_certification, upsert_skill
 
     return build_specialist(
         name="security_posture_specialist",
@@ -31,8 +30,6 @@ def build_security_posture_specialist(*, db):  # type: ignore[no-untyped-def]
             propose_skill,
             propose_certification,
             propose_artifact,
-            upsert_skill,
-            upsert_certification,
         ],
         instructions=[
             "Eres el specialist de POSTURA DE SEGURIDAD. Capturas qué áreas "

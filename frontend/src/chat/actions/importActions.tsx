@@ -1,5 +1,6 @@
 import { useCopilotAction } from "@copilotkit/react-core";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "@/ui";
 import { integrations } from "@/shared/api-extra";
 import { queryKeys } from "@/shared/queryKeys";
 import { EntryCard } from "../cards/EntryCard";
@@ -114,8 +115,14 @@ export function useImportActions(
       qc.invalidateQueries({ queryKey: queryKeys.coherence.changes });
       if (lastResp) setLastOutcome({ kind: "import", resp: lastResp });
       if (failed.length) {
-        // Errors are surfaced in the response JSON; toast would need importing
-        // from @/ui. Kept minimal to avoid circular deps.
+        const detail = failed
+          .slice(0, 3)
+          .map((f) => `${f.kind}: ${f.error}`)
+          .join(" · ");
+        toast.error(
+          `No se pudieron importar ${failed.length} elemento(s)`,
+          failed.length > 3 ? `${detail} …` : detail,
+        );
       }
       return { committed, total };
     } finally {

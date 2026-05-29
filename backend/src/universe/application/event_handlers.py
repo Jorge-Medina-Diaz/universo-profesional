@@ -49,7 +49,45 @@ async def on_entry_removed(event: DomainEvent) -> None:
         entity_id=event.entity_id_str,
         user_id=str(event.user_id) if event.user_id else None,
     )
+    # Mirror the SQL deletion into the AGE graph: without this the vertex stays
+    # active (valid_to IS NULL) forever, polluting PPR / snapshot / community
+    # detection for every future query (zombie vertices).
+    if event.user_id and event.entity_id_str:
+        _schedule_graph_vertex_delete(event.entity_id_str, event.user_id)
     _maybe_schedule_shape_recompute(event.entity_type, event.user_id)
+
+
+def _schedule_graph_vertex_delete(entity_id_str: str, user_id: UUID) -> None:
+    """Fire-and-forget soft-delete of the entity's AGE vertex + snapshot bust."""
+    try:
+        asyncio.get_running_loop().create_task(
+            _soft_delete_graph_vertex_safe(entity_id_str, user_id)
+        )
+    except RuntimeError:
+        logger.debug("graph_vertex_delete_skipped_no_loop", user_id=str(user_id))
+
+
+async def _soft_delete_graph_vertex_safe(entity_id_str: str, user_id: UUID) -> None:
+    from src.graph.application.retrieval.snapshot import invalidate_snapshot
+    from src.graph.application.universe_graph import universe_graph_service
+    from src.shared.db import get_session_factory, set_rls_user
+
+    try:
+        factory = get_session_factory()
+        async with factory() as session:
+            await set_rls_user(session, user_id)
+            await universe_graph_service.soft_delete_entity(
+                session, entity_id=UUID(entity_id_str), user_id=user_id
+            )
+            await session.commit()
+        await invalidate_snapshot(user_id)
+    except Exception as exc:
+        logger.warning(
+            "graph_vertex_soft_delete_failed",
+            user_id=str(user_id),
+            entity_id=entity_id_str,
+            error=str(exc),
+        )
 
 
 def _maybe_schedule_shape_recompute(entity_type: str, user_id: UUID | None) -> None:

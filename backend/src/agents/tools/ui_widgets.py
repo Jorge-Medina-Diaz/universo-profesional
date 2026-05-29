@@ -569,11 +569,13 @@ _HITL_TOOLS: list[dict[str, Any]] = [
             "with collapsible sections (summary / experience / skills / cover body). "
             "Display-only — no confirmation needed. Pass `document_id`. Optional "
             "`offer_regenerate=true` adds a 'Regenerar' CTA so the user can jump "
-            "to the generator pre-filled."
+            "to the generator pre-filled. Optional `offer_variant=true` adds a "
+            "'Generar variante' CTA (e.g. a version tailored to another job)."
         ),
         "params": [
             {"name": "document_id", "type": "str"},
             {"name": "offer_regenerate", "type": "bool | None", "default": None},
+            {"name": "offer_variant", "type": "bool | None", "default": None},
         ],
     },
     {

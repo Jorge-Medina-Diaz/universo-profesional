@@ -19,8 +19,9 @@ def build_agent_system_specialist(*, db):  # type: ignore[no-untyped-def]
         present_deep_dive,
         present_widget,
         propose_artifact,
+        propose_project,
+        propose_skill,
     )
-    from src.agents.tools.universe_writes import upsert_project, upsert_skill
 
     return build_specialist(
         name="agent_system_specialist",
@@ -34,8 +35,8 @@ def build_agent_system_specialist(*, db):  # type: ignore[no-untyped-def]
             present_deep_dive,
             present_widget,
             propose_artifact,
-            upsert_project,
-            upsert_skill,
+            propose_project,
+            propose_skill,
         ],
         instructions=[
             "Eres el specialist de SISTEMAS AGÉNTICOS. Tu trabajo es capturar y "
@@ -67,13 +68,15 @@ def build_agent_system_specialist(*, db):  # type: ignore[no-untyped-def]
             "'online thumbs', 'HITL', 'judge LLM', 'sin eval aún']}, {id='scale', "
             "kind='scale', label='Escala/madurez', min=1, max=5}])`. Pre-pobla con "
             "tecnologías ya mencionadas.",
-            # Step 3 — persist as project
+            # Step 3 — propose the project (HITL: user confirms the card)
             "PASO 3 — Cuando el deep-dive vuelve con payload válido, llama "
-            "`upsert_project` con: name=<nombre que el usuario haya dado, p.ej. "
-            "'Sistema multi-agent ventas'>, project_type='side' u 'oss' o 'work' "
-            "según contexto, tech_stack=<stack chips>, domain_tags=['ai_agents'], "
-            "description=<resumen 1-2 frases componiendo stack + orchestration + "
-            "memory + evaluation>, impact=<si el usuario lo mencionó>.",
+            "`propose_project` (NUNCA escribas directamente) con: name=<nombre que "
+            "el usuario haya dado, p.ej. 'Sistema multi-agent ventas'>, "
+            "project_type='side' u 'oss' o 'work' según contexto, "
+            "tech_stack=<stack chips>, description=<resumen 1-2 frases componiendo "
+            "stack + orchestration + memory + evaluation; menciona el dominio "
+            "ai_agents aquí>, impact=<si el usuario lo mencionó>. El usuario "
+            "confirma/edita/rechaza la tarjeta antes de que se persista.",
             # Step 4 — artifact if there's a public URL
             "PASO 4 — Si el usuario mencionó repo público, talk, blog o paper sobre "
             "el sistema, llama `propose_artifact(type=..., title=..., url=..., "

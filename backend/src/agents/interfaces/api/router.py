@@ -79,7 +79,7 @@ async def resolve_proposal(
     On *reject*: records negative feedback in the self-learning loop.
     On *modify*: merges user edits into the stored payload, then upserts.
     """
-    proposal = get_proposal(str(user_id), proposal_id)
+    proposal = await get_proposal(str(user_id), proposal_id)
     if proposal is None:
         raise HTTPException(status_code=404, detail="Proposal not found or expired")
 
@@ -105,7 +105,7 @@ async def resolve_proposal(
         )
         await engine.record(feedback)
         await session.commit()
-        delete_proposal(str(user_id), proposal_id)
+        await delete_proposal(str(user_id), proposal_id)
         agent_proposals_rejected_total.labels(entity_type=entity_type).inc()
         return ResolveProposalResponse(status="rejected", reason="Rejected by user")
 
@@ -130,7 +130,7 @@ async def resolve_proposal(
         )
         await uow.commit()
 
-    delete_proposal(str(user_id), proposal_id)
+    await delete_proposal(str(user_id), proposal_id)
     agent_proposals_confirmed_total.labels(entity_type=entity_type).inc()
 
     return ResolveProposalResponse(

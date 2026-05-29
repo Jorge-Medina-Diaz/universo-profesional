@@ -254,6 +254,33 @@ def merge_interest(existing: dict[str, Any], payload: dict[str, Any]) -> MergePl
     return MergePlan(entity_id=existing["id"], merged_payload=merged, diffs=diffs)
 
 
+def merge_artifact(existing: dict[str, Any], payload: dict[str, Any]) -> MergePlan:
+    merged = dict(existing)
+    merged["type"] = existing.get("type") or payload.get("type")
+    merged["title"] = existing.get("title") or payload.get("title")
+    merged["url"] = existing.get("url") or payload.get("url")
+    merged["year"] = existing.get("year") or payload.get("year")
+    merged["description"] = _better_of(existing.get("description"), payload.get("description"))
+    merged["venue"] = existing.get("venue") or payload.get("venue")
+    diffs = _collect_diffs(existing, merged)
+    return MergePlan(entity_id=existing["id"], merged_payload=merged, diffs=diffs)
+
+
+def merge_architecture_decision(existing: dict[str, Any], payload: dict[str, Any]) -> MergePlan:
+    merged = dict(existing)
+    merged["title"] = existing.get("title") or payload.get("title")
+    merged["context"] = _better_of(existing.get("context"), payload.get("context"))
+    merged["decision"] = _better_of(existing.get("decision"), payload.get("decision"))
+    merged["consequences"] = _better_of(existing.get("consequences"), payload.get("consequences"))
+    # Status may advance (proposed -> accepted -> superseded); prefer incoming.
+    merged["status"] = payload.get("status") or existing.get("status")
+    old_tags = existing.get("tags") or []
+    new_tags = payload.get("tags") or []
+    merged["tags"] = list(dict.fromkeys([*old_tags, *new_tags]))
+    diffs = _collect_diffs(existing, merged)
+    return MergePlan(entity_id=existing["id"], merged_payload=merged, diffs=diffs)
+
+
 MERGE_FUNCTIONS = {
     "skill": merge_skill,
     "experience": merge_experience,
@@ -264,6 +291,8 @@ MERGE_FUNCTIONS = {
     "language": merge_language,
     "achievement": merge_achievement,
     "interest": merge_interest,
+    "artifact": merge_artifact,
+    "architecture_decision": merge_architecture_decision,
 }
 
 

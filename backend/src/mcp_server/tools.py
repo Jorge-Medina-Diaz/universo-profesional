@@ -281,7 +281,7 @@ async def _create_entity(*, user_id: UUID, args: dict[str, Any]) -> dict[str, An
         raise ValueError(f"Unknown entity type: {entity_type}")
 
     proposal_id = str(uuid.uuid4())
-    set_proposal(
+    await set_proposal(
         str(user_id),
         proposal_id,
         entity_type=entity_type,
@@ -308,7 +308,7 @@ async def _update_entity(*, user_id: UUID, args: dict[str, Any]) -> dict[str, An
         raise ValueError(f"Unknown entity type: {entity_type}")
 
     proposal_id = str(uuid.uuid4())
-    set_proposal(
+    await set_proposal(
         str(user_id),
         proposal_id,
         entity_type=entity_type,
@@ -335,7 +335,7 @@ async def _delete_entity(*, user_id: UUID, args: dict[str, Any]) -> dict[str, An
         raise ValueError(f"Unknown entity type: {entity_type}")
 
     proposal_id = str(uuid.uuid4())
-    set_proposal(
+    await set_proposal(
         str(user_id),
         proposal_id,
         entity_type=entity_type,

@@ -18,7 +18,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { documents } from "@/shared/api";
-import { Badge, Button, ChatMessageMotion, cn } from "@/ui";
+import { Badge, Button, ChatMessageMotion, cn, toast } from "@/ui";
 import { queryKeys } from "@/shared/queryKeys";
 import type { JsonResume } from "@/shared/hooks/useJsonResume";
 
@@ -227,16 +227,25 @@ export function DocumentPreviewCard({
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => {
-              documents.share(doc.id).then((res) => {
+            onClick={async () => {
+              try {
+                const res = await documents.share(doc.id);
                 if (res.share_url) {
-                  navigator.clipboard?.writeText(res.share_url).catch(() => {});
+                  await navigator.clipboard?.writeText(res.share_url);
+                  toast.success("Enlace para compartir copiado al portapapeles");
+                } else {
+                  toast.success("Documento compartido");
                 }
-              });
+              } catch (e) {
+                toast.error(
+                  "No se pudo crear el enlace para compartir",
+                  e instanceof Error ? e.message : undefined,
+                );
+              }
             }}
             leadingIcon={<FolderOpen size={12} />}
           >
-            Guardar
+            Copiar enlace
           </Button>
         </div>
       </div>
