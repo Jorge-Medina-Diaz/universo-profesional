@@ -53,9 +53,10 @@ export function LandingPage() {
     <div className="landing-cosmos min-h-screen">
       <SiteNav />
 
-      <LivingHero />
+      <main id="main" tabIndex={-1} className="outline-none">
+        <LivingHero />
 
-      <LogoMarquee />
+        <LogoMarquee />
 
       <OldWayNewWay />
 
@@ -219,6 +220,8 @@ export function LandingPage() {
               >
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  aria-expanded={openFaq === i}
+                  aria-controls={`faq-panel-${i}`}
                   className="flex w-full items-center justify-between p-5 text-left"
                 >
                   <span className="pr-4 text-sm font-medium text-[var(--cos-ink)]">{faq.q}</span>
@@ -230,6 +233,8 @@ export function LandingPage() {
                   />
                 </button>
                 <motion.div
+                  id={`faq-panel-${i}`}
+                  role="region"
                   initial={false}
                   animate={{
                     height: openFaq === i ? "auto" : 0,
@@ -245,6 +250,7 @@ export function LandingPage() {
           </div>
         </div>
       </section>
+      </main>
 
       {/* Footer */}
       <footer className="border-t border-[var(--cos-hairline)] py-14">

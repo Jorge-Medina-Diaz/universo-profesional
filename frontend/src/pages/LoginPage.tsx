@@ -151,7 +151,7 @@ export function LoginPage() {
                   <p role="alert" className="text-sm text-red-700">{error}</p>
                 </Card>
               )}
-              <Button type="submit" fullWidth size="lg" loading={loading}>
+              <Button type="submit" variant="cta" fullWidth size="lg" loading={loading}>
                 {loading ? t("common.loading") : t("auth.loginCta")}
               </Button>
               <div className="text-sm flex justify-between pt-2">

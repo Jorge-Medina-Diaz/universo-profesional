@@ -17,6 +17,11 @@ function useCountUp(target: number, duration = 2000, trigger = true) {
 
   useEffect(() => {
     if (!trigger) return;
+    // Respect reduced-motion: jump straight to the target, skip the rAF loop.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setCount(target);
+      return;
+    }
     startRef.current = performance.now();
     const step = (now: number) => {
       const elapsed = now - startRef.current;

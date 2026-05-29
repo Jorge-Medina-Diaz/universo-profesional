@@ -122,10 +122,14 @@ export const CommandPalette = forwardRef<CommandPaletteHandle, Props>(
         className="command-palette"
         role="listbox"
         aria-label="Comandos disponibles"
+        aria-activedescendant={
+          filtered[activeIndex] ? `command-option-${filtered[activeIndex].id}` : undefined
+        }
       >
         {filtered.map((cmd, i) => (
           <button
             key={cmd.id}
+            id={`command-option-${cmd.id}`}
             ref={(el) => { itemRefs.current[i] = el; }}
             type="button"
             role="option"

@@ -110,7 +110,12 @@ function AgentOrb({ thinking = false }: { thinking?: boolean }) {
 /** Calm three-dot pulse shown while the agent is thinking (no content yet). */
 function ThinkingDots() {
   return (
-    <div className="flex items-center gap-2 pt-1.5" aria-label="El agente está pensando">
+    <div
+      className="flex items-center gap-2 pt-1.5"
+      role="status"
+      aria-live="polite"
+      aria-label="El agente está pensando"
+    >
       <span className="thinking-dots">
         <i /> <i /> <i />
       </span>

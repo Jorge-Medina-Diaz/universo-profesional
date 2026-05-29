@@ -19,7 +19,7 @@ export function LogoMarquee() {
         Funciona con tu mundo
       </p>
       <div className="cos-marquee-mask relative flex overflow-hidden">
-        <div className="flex shrink-0 animate-marquee items-center gap-12 px-6">
+        <div className="flex shrink-0 motion-safe:animate-marquee items-center gap-12 px-6">
           {items.map((item, i) => (
             <div
               key={`${item.name}-${i}`}

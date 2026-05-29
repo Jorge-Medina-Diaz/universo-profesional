@@ -188,7 +188,7 @@ export function RegisterPage() {
                   <p role="alert" className="text-sm text-red-700">{error}</p>
                 </Card>
               )}
-              <Button type="submit" fullWidth size="lg" loading={loading}>
+              <Button type="submit" variant="cta" fullWidth size="lg" loading={loading}>
                 {loading ? t("common.loading") : t("auth.registerCta")}
               </Button>
               <p className="text-sm text-stone text-center pt-2">

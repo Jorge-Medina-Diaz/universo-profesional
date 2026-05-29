@@ -389,9 +389,22 @@ export function SemanticConstellation({
 
     rafRef.current = requestAnimationFrame(draw);
 
+    // Pause the draw loop while the tab is hidden — a backgrounded animation
+    // wastes CPU/battery for a purely decorative backdrop. Resume on return.
+    const onVisibility = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+      } else if (!rafRef.current) {
+        rafRef.current = requestAnimationFrame(draw);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
       ro.disconnect();
       themeObserver.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
       cancelAnimationFrame(rafRef.current);
       if (allowPointer) {
         wrap.removeEventListener("mousemove", onMove);

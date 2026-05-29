@@ -33,7 +33,7 @@ export function AuthHero({ title, subtitle }: AuthHeroProps) {
 
       <div className="relative space-y-6 max-w-md">
         <Reveal delay={0.08}>
-          <h2 className="text-[40px] xl:text-[52px] font-medium leading-[1.05] tracking-tight text-ink">
+          <h2 className="font-display text-[40px] xl:text-[52px] leading-[1.05] tracking-tight text-ink">
             {title}
           </h2>
         </Reveal>

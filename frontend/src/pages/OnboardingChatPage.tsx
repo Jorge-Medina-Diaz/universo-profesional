@@ -4,13 +4,11 @@
  * Chat is the primary surface; the shortcut tiles offer the high-leverage
  * import paths up top (GitHub / LinkedIn / PDF).
  */
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { FileText, ArrowRight, Sparkles } from "lucide-react";
 import { GitHubIcon } from "@/ui/icons";
 import { Button, Card, PageHeader, Reveal, Skeleton, Stagger, Surface } from "@/ui";
 import { enableCopilot, useCopilotReady } from "@/app/CopilotProvider";
-
-enableCopilot();
 
 const CopilotSurface = lazy(() =>
   import("./_chat/CopilotSurface").then((m) => ({ default: m.CopilotSurface })),
@@ -72,6 +70,13 @@ const SHORTCUTS: Shortcut[] = [
 
 export function OnboardingChatPage() {
   const ready = useCopilotReady();
+
+  // Warm up CopilotKit only when this surface actually mounts (mirrors
+  // HomePage/UniversePage), avoiding a module-eval race with the provider.
+  useEffect(() => {
+    enableCopilot();
+  }, []);
+
   return (
     <div className="bg-canvas pb-24 md:pb-12">
       <Surface width="lg" spacing="md">

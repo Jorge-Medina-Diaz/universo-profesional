@@ -1,0 +1,25 @@
+# Universo Profesional
+
+> Un SaaS de grafo de conocimiento profesional versionado que sustituye al CV estático: un agente de IA conversacional mantiene tu trayectoria viva y genera CVs y cartas adaptados a cada oferta.
+
+## Qué es
+
+Universo Profesional convierte tu carrera en un grafo de conocimiento vivo —experiencias, educación, proyectos, habilidades, certificaciones e idiomas conectados entre sí— en lugar de un documento estático. El grafo está versionado: crece, se conecta y evoluciona contigo en el tiempo.
+
+Conversas con un agente de IA en lenguaje natural. Le cuentas tu semana o tu trayectoria y el agente estructura la información, la fusiona en el grafo y mantiene tu perfil al día sin formularios ni plantillas. A partir de ese grafo genera CVs y cartas de presentación adaptados a cada oferta o perfil.
+
+Es agnóstico por diseño: funciona igual en ingeniería de software, sanidad, arquitectura, marketing, educación u hostelería. Exporta a PDF, DOCX y JSON Resume; tus datos son tuyos.
+
+## MCP nativo
+
+Universo Profesional expone un servidor MCP (Model Context Protocol) remoto con OAuth 2.1, de modo que agentes como Claude, Cursor o Codex pueden gestionar tu perfil y generar documentos en lenguaje natural a través del estándar abierto.
+
+## Privacidad y datos
+
+RGPD desde el origen, hosting en la UE, cifrado en reposo y en tránsito, y aislamiento por usuario en base de datos. No se entrenan modelos con tus datos sin tu consentimiento.
+
+## Enlaces
+
+- [Crear una cuenta](/#/register)
+- [Servidor MCP](/#/mcp)
+- [Privacidad](/#/legal/privacy)

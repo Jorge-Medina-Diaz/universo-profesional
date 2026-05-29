@@ -92,8 +92,13 @@ class CopilotErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    void error;
-    void info;
+    // Crash diagnostics must never be silent (see [[no-silent-errors]]).
+    console.error("CopilotKit crashed", error, info);
+    // Report to Sentry if available. Dynamic import keeps the SDK out of the
+    // main bundle, matching how `shared/sentry.ts` loads it lazily.
+    void import("@sentry/react")
+      .then((Sentry) => Sentry.captureException(error))
+      .catch(() => {});
   }
 
   render() {

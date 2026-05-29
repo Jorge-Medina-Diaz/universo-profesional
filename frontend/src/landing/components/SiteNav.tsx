@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Menu, X, ArrowRight, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/shared/useTheme";
@@ -44,6 +44,7 @@ function ThemeToggleButton({ className = "" }: { className?: string }) {
 export function SiteNav() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const sheetRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -59,6 +60,49 @@ export function SiteNav() {
     };
   }, [open]);
 
+  // Focus management for the mobile sheet: trap Tab within it while open and
+  // close on Escape. Focus the first interactive element on open.
+  useEffect(() => {
+    if (!open) return;
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+
+    const focusable = () =>
+      Array.from(
+        sheet.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => el.offsetParent !== null);
+
+    focusable()[0]?.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = focusable();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey) {
+        if (active === first || !sheet.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
   return (
     <>
       <motion.header
@@ -67,6 +111,13 @@ export function SiteNav() {
         transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
         className="fixed inset-x-0 top-0 z-50"
       >
+        {/* Skip-to-content — first focusable element, hidden until focused */}
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[70] focus:rounded-full focus:border focus:border-[var(--cos-hairline-strong)] focus:bg-[var(--cos-bg-2)] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--cos-ink)]"
+        >
+          Saltar al contenido
+        </a>
         <div
           className={`mx-auto flex max-w-7xl items-center justify-between px-5 transition-all duration-300 md:px-8 ${
             scrolled ? "py-3" : "py-5"
@@ -159,6 +210,10 @@ export function SiteNav() {
               onClick={() => setOpen(false)}
             />
             <motion.nav
+              ref={sheetRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Menú de navegación"
               initial={{ y: -16, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: -16, opacity: 0 }}
