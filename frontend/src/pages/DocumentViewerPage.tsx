@@ -153,6 +153,16 @@ export function DocumentViewerPage({ id }: { id: string }) {
             >
               JSON
             </Button>
+            <Button
+              variant="outline"
+              onClick={() =>
+                window.open(`/api/v1/documents/${id}/europass`, "_blank", "noopener,noreferrer")
+              }
+              leadingIcon={<Braces size={14} />}
+              title="Descargar en formato Europass (modelo CV de la UE)"
+            >
+              Europass
+            </Button>
             {doc.has_pdf && (
               <Button
                 variant="cta"

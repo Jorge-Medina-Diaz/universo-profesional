@@ -239,6 +239,28 @@ async def download_json(
     )
 
 
+@router.get("/{document_id}/europass")
+async def download_europass(
+    document_id: str,
+    user_id: CurrentUserId,
+    uc: GetDocDep,
+) -> JSONResponse:
+    """Download the CV mapped to the Europass CV JSON model."""
+    from src.documents.application.europass import to_europass
+
+    result = await uc.execute(user_id=user_id, document_id=document_id)
+    if result.is_failure:
+        raise result.error  # type: ignore[union-attr]
+    doc = result.value  # type: ignore[union-attr]
+    europass = to_europass(doc["content_json"])
+    return JSONResponse(
+        content=europass,
+        headers={
+            "Content-Disposition": f'attachment; filename="europass-cv-{document_id}.json"'
+        },
+    )
+
+
 @router.post("/{document_id}/share")
 async def share_document(
     document_id: str,
