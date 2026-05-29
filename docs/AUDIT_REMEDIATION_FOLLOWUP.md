@@ -29,27 +29,38 @@
 
 ---
 
-## M4 — Net-new features (greenfield; not started — execution spec)
+## M4 — Net-new features ✅ SHIPPED (May 2026)
 
-These are new product capabilities (the user opted into "everything incl. net-new"). They were **not** half-built: shipping partial backend endpoints / broken UI affordances would re-introduce the exact issues the audit flagged, and the backend can't be exercised end-to-end through the Windows bind-mount-limited dev container. Each below is scoped and ready to build as a focused, independently-verifiable change.
+All M4 features are now built, verified, and committed on `audit/remediation-cosmos`.
+Each was exercised live against the running dev stack (force-recreated container)
+where possible; the two runtime gaps that genuinely can't be tested in this
+environment are called out explicitly.
 
-### MFA / TOTP (highest value — security; fixes the SettingsPage affordance)
-- Fields already exist: `User.mfa_secret`, `User.mfa_enabled` (domain + ORM) — **no migration needed**. `pyotp` is already a dependency; encrypt the secret with the existing Fernet `TOKEN_ENCRYPTION_KEY`.
-- Backend (identity): `POST /me/mfa/setup` → generate secret, store encrypted (enabled=False), return `otpauth://` URI + secret; `POST /me/mfa/verify` → `pyotp.TOTP(secret).verify(code)`, set `mfa_enabled=True`; `POST /me/mfa/disable` → verify code/password, clear secret + flag.
-- **Login challenge (the risky part — touches core auth):** `Login.execute` returns `{mfa_required: true, mfa_token}` (short-lived) when `mfa_enabled`; new `POST /auth/mfa-challenge` exchanges `mfa_token` + code for the real token pair. Verify thoroughly (login is critical-path).
-- FE: SettingsPage enrol (QR via a lib-free `<img>` to a QR data-URL or text secret) → verify → enabled; disable flow. Replace the "Próximamente" badge (set in M4-partial) with the live toggle.
+### MFA / TOTP — ✅ done (`feat(mfa)`)
+- Native RFC 6238 TOTP in `src/shared/totp.py` (no `pyotp` dep — validated against the RFC vectors). Secret Fernet-encrypted.
+- `SetupMfa`/`ConfirmMfa`/`DisableMfa` + `POST /users/me/mfa/{setup,confirm,disable}`; login MFA gate returns `{mfa_required, mfa_token}` (distinct JWT audience) → `POST /auth/mfa` exchanges code for tokens.
+- FE: LoginPage code step + SettingsPage enrol/disable (replaces the "Próximamente" badge).
+- **Verified live end-to-end** (register→setup→confirm→gated login→wrong-code 401→tokens→disable).
 
-### S3 storage adapter (production durability)
-- `config.storage_provider="s3"` is accepted but no impl exists → files on ephemeral disk are lost on redeploy. Implement `S3StorageAdapter(aioboto3)` behind the existing `StoragePort`; wire into renderer + file-download endpoints; keep `FilesystemStorageAdapter` for local dev (MinIO optional). Add a startup assertion if `storage_provider=s3` but unconfigured. Needs bucket/IAM provisioning.
+### S3 storage adapter — ✅ done (`feat(storage)`)
+- `src/shared/storage.py`: `StoragePort` + `FilesystemStorageAdapter` (default; resolves legacy absolute paths) + `S3StorageAdapter` (aioboto3, lazy-imported) + cached `get_storage()` that fails loud if `s3` selected but unconfigured. Renderer renders to bytes + persists via the port (returns a relative key); downloads + avatars stream via the port.
+- **Filesystem path verified live** (generate-cv → PDF/DOCX/JSON download). ⚠️ **The S3 runtime path is code-complete but unexercised here** — needs an S3 bucket + `aioboto3` installed (not in this dev container).
 
-### Match-scoring breakdown (contained, FE-leaning)
-- `jobs.computeScore(id)` currently surfaces only a single `match_score` %. Extend the backend match use case to return per-dimension scores (skills / experience / education / culture), then render them in a popover on `JobsPage` `KanbanCard` (hover the score badge). Confirm the backend response shape first — if it only returns a number, the dimensional compute is the bulk of the work.
+### Match-scoring breakdown — ✅ done (`feat(match)`)
+- Shared `compute_match_breakdown` (used by `/jobs/{id}/score` + the `match_job_to_profile` MCP tool) returns grounded per-dimension scores (skills/experience/education — **no fabricated "culture" score**) + keyword coverage + gaps/strengths. FE: Popover scorecard on the Kanban badge. Fixed a latent empty-universe = 50% bug.
 
-### JSON-Resume / Europass export (interoperability)
-- CV generation already produces `json_resume`. Add a validated **JSON-Resume** download (endpoint returns the stored `content_json` as a downloadable file; FE export menu button). **Europass** = a v3 JSON-LD schema mapping from the universe entities — larger; build after JSON-Resume.
+### JSON-Resume / Europass export — ✅ done (`feat(documents)`)
+- JSON-Resume already served at `/documents/{id}/json`; now also surfaced (with DOCX) on the document viewer. **Europass**: `GET /documents/{id}/europass` maps `content_json` → the Europass CV JSON model (SkillsPassport→LearnerInfo); pure mapper, unit-tested; FE export button. Verified live.
 
-### Application tracker · Reminders · BYOK (need product design first)
-- Each is a mini-product (new bounded context / module + UI). Per the plan they warrant a brief brainstorm before building (status pipeline shape for the tracker; reminder triggers/cadence + arq scheduling; BYOK key storage + provider-switch UX). Build each as its own slice with its own migration, RLS, and tests. App-tracker + reminders should route writes through the coherence engine (fractal principle).
+### Reminders — ✅ done (`feat(reminders)`)
+- The model/scan/routes/bell pre-existed; added the missing loop: `reminders_cron` (07:00 UTC) fans out `process_reminders_task` per user → scans + emails a `reminders_digest` (es/en) of due reminders, marks dispatched. `users.notify_email_reminders` opt-out (migration 0029) + `/users/me/notifications`. New `/reminders` page + Settings entry. Verified (worker registers task+cron, template renders, opt-out gates send).
+
+### Application tracker — ✅ done (`feat(jobs)`)
+- The Kanban already provided the status pipeline; added `next_action_at` follow-up dates that **create/dismiss `job_followup` reminders** (tracker↔reminders), `GET /jobs/{id}/documents` linking, and a card date control. Verified live (set→reminder, clear/terminal→dismissed).
+
+### BYOK (Pro) — ✅ done (`feat(byok)`)
+- `user_llm_credentials` (migration 0030, RLS) Fernet-encrypted; `GET/PUT/DELETE /agents/llm-key` (PUT Pro-gated + validated, never leaks the key). Injection: `_build_model` honours a `_byok_override` contextvar; the global cached team is untouched for non-BYOK users; `build_team_for_user` builds a per-user team (separately cached) when a key exists. FE: Pro-gated Settings card.
+- **Verified**: endpoints (gating/validation/no-leak) live, and `_build_model` swaps to the BYOK key under the contextvar. ⚠️ **A full agent *run* consuming a BYOK key needs a real distinct key** (not available in dev) — the injection mechanism itself is proven.
 
 ## M5b — Deeper per-page cosmos (foundation shipped; per-page application remaining)
 
