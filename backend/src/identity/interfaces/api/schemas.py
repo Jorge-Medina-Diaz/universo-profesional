@@ -69,6 +69,29 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user_id: str
     email: str
+    # Set when the account has MFA enabled: the client must call /auth/mfa with
+    # mfa_token + the TOTP code to obtain real tokens. access/refresh are empty
+    # in that case.
+    mfa_required: bool = False
+    mfa_token: str | None = None
+
+
+class MfaLoginRequest(BaseModel):
+    mfa_token: str
+    code: str = Field(min_length=6, max_length=10)
+
+
+class MfaCodeRequest(BaseModel):
+    code: str = Field(min_length=6, max_length=10)
+
+
+class MfaSetupResponse(BaseModel):
+    secret: str
+    otpauth_uri: str
+
+
+class MfaStatusResponse(BaseModel):
+    mfa_enabled: bool
 
 
 class RefreshRequest(BaseModel):

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.billing.application.use_cases import CreateTrialSubscription
 from src.billing.infrastructure.repositories import SqlAlchemySubscriptionRepository
 from src.identity.application.use_cases import (
+    CompleteMfaLogin,
     DeleteAccount,
     ExportUserData,
     GetCurrentUser,
@@ -77,6 +78,13 @@ def login_dep(session: SessionDep) -> Login:
 
 def refresh_dep(session: SessionDep) -> RefreshAccess:
     return RefreshAccess(
+        SqlAlchemyUserRepository(session),
+        SqlAlchemyRefreshTokenRepository(session),
+    )
+
+
+def complete_mfa_login_dep(session: SessionDep) -> CompleteMfaLogin:
+    return CompleteMfaLogin(
         SqlAlchemyUserRepository(session),
         SqlAlchemyRefreshTokenRepository(session),
     )

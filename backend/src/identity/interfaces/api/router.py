@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Request, status
 
 from src.billing.application.use_cases import CreateTrialSubscription
 from src.identity.application.use_cases import (
+    CompleteMfaLogin,
     Login,
     RefreshAccess,
     RegisterUser,
@@ -16,6 +17,7 @@ from src.identity.application.use_cases import (
 )
 from src.identity.interfaces.api.deps import (
     SessionDep,
+    complete_mfa_login_dep,
     create_trial_subscription_dep,
     get_request_meta,
     login_dep,
@@ -28,6 +30,7 @@ from src.identity.interfaces.api.deps import (
 from src.identity.interfaces.api.schemas import (
     GenericOkResponse,
     LoginRequest,
+    MfaLoginRequest,
     PasswordResetConfirm,
     PasswordResetRequest,
     RefreshRequest,
@@ -104,6 +107,47 @@ async def login(
         result = await uc.execute(
             email=str(body.email),
             password=body.password,
+            user_agent=meta["user_agent"],
+            ip_address=meta["ip_address"],
+            uow=uow,
+        )
+        if result.is_failure:
+            raise result.error  # type: ignore[union-attr]
+        await uow.commit()
+        tokens = result.value  # type: ignore[union-attr]
+    if tokens.mfa_required:
+        # Password OK but a second factor is required — no session yet.
+        return TokenResponse(
+            access_token="",
+            refresh_token="",
+            user_id=tokens.user_id,
+            email=tokens.email,
+            mfa_required=True,
+            mfa_token=tokens.mfa_token,
+        )
+    logins_total.inc()
+    return TokenResponse(
+        access_token=tokens.access_token,
+        refresh_token=tokens.refresh_token,
+        user_id=tokens.user_id,
+        email=tokens.email,
+    )
+
+
+@router.post("/mfa", response_model=TokenResponse)
+@limiter.limit("10/15minutes")
+async def mfa_login(
+    request: Request,
+    body: MfaLoginRequest,
+    uc: Annotated[CompleteMfaLogin, Depends(complete_mfa_login_dep)],
+    session: SessionDep,
+) -> TokenResponse:
+    """Second step of an MFA login: exchange the mfa_token + TOTP code."""
+    meta = get_request_meta(request)
+    async with unit_of_work(session) as uow:
+        result = await uc.execute(
+            mfa_token=body.mfa_token,
+            code=body.code,
             user_agent=meta["user_agent"],
             ip_address=meta["ip_address"],
             uow=uow,

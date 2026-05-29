@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
+from uuid import UUID
 
 from src.identity.application.ports import (
     EmailSender,
@@ -17,6 +18,7 @@ from src.identity.application.ports import (
     UserRepository,
 )
 from src.identity.domain.user import User
+from src.shared import totp
 from src.shared.config import get_settings
 from src.shared.errors import (
     ConflictError,
@@ -24,9 +26,12 @@ from src.shared.errors import (
     UnauthorizedError,
     ValidationError,
 )
+from src.shared.fernet import decrypt as _fernet_decrypt
+from src.shared.fernet import encrypt as _fernet_encrypt
 from src.shared.metrics import user_registered_total
 from src.shared.result import Result, err, ok
 from src.shared.security import (
+    decode_jwt,
     encode_jwt,
     generate_token,
     hash_password,
@@ -37,6 +42,21 @@ from src.shared.security import (
 )
 from src.shared.uow import UnitOfWork
 from src.shared.value_objects import Email
+
+# Distinct audience for the short-lived token minted after a correct password
+# when MFA is enabled — it is exchanged for real session tokens via /auth/mfa
+# and must never be accepted as an access token.
+_MFA_AUDIENCE = "cvs-saas-mfa"
+_MFA_TTL_MINUTES = 5
+
+
+def _encrypt_mfa_secret(secret: str) -> str:
+    """Fernet-encrypt a TOTP secret for at-rest storage in users.mfa_secret."""
+    return _fernet_encrypt(secret).decode("ascii")
+
+
+def _decrypt_mfa_secret(stored: str) -> str:
+    return _fernet_decrypt(stored.encode("ascii"))
 
 
 @dataclass(frozen=True)
@@ -175,6 +195,56 @@ class LoginTokens:
     refresh_token: str
     user_id: str
     email: str
+    # When MFA is enabled the password step returns no session tokens; instead
+    # mfa_required=True + a short-lived mfa_token the client exchanges for the
+    # real pair via /auth/mfa.
+    mfa_required: bool = False
+    mfa_token: str | None = None
+
+
+async def _issue_session_tokens(
+    refresh_tokens: RefreshTokenRepository,
+    user: User,
+    *,
+    now: Any,
+    user_agent: str | None,
+    ip_address: str | None,
+    uow: UnitOfWork,
+) -> LoginTokens:
+    """Mint the access + refresh pair for a fully-authenticated user.
+
+    Shared by the password-only path (`Login`) and the MFA completion path
+    (`CompleteMfaLogin`) so token issuance lives in exactly one place.
+    """
+    settings = get_settings()
+    access = encode_jwt(
+        {
+            "sub": str(user.id),
+            "email": str(user.email),
+            "iss": settings.canonical_base_url,
+            "aud": "cvs-saas-api",
+            "iat": int(now.timestamp()),
+            "exp": int(utc_in(minutes=settings.jwt_access_ttl_minutes).timestamp()),
+            "scope": "user",
+        }
+    )
+    refresh = generate_token(48)
+    refresh_h = hash_token(refresh)
+    refresh_exp = utc_in(days=settings.jwt_refresh_ttl_days)
+    await refresh_tokens.store(
+        user_id=user.id,
+        token_hash=refresh_h,
+        expires_at=refresh_exp,
+        user_agent=user_agent,
+        ip_address=ip_address,
+    )
+    uow.add_events(user.pop_events())
+    return LoginTokens(
+        access_token=access,
+        refresh_token=refresh,
+        user_id=str(user.id),
+        email=str(user.email),
+    )
 
 
 class Login:
@@ -204,41 +274,177 @@ class Login:
         if not user.is_verified:
             return err(UnauthorizedError("Email not verified"))
 
+        # MFA gate: password is correct, but if the user enrolled a second
+        # factor we must NOT hand out session tokens yet. Mint a short-lived,
+        # single-purpose mfa_token the client exchanges (with the TOTP code)
+        # via /auth/mfa. record_login is deferred until the factor is verified.
+        if user.mfa_enabled and user.mfa_secret:
+            now = utc_now()
+            settings = get_settings()
+            mfa_token = encode_jwt(
+                {
+                    "sub": str(user.id),
+                    "iss": settings.canonical_base_url,
+                    "aud": _MFA_AUDIENCE,
+                    "iat": int(now.timestamp()),
+                    "exp": int(utc_in(minutes=_MFA_TTL_MINUTES).timestamp()),
+                    "purpose": "mfa",
+                }
+            )
+            return ok(
+                LoginTokens(
+                    access_token="",
+                    refresh_token="",
+                    user_id=str(user.id),
+                    email=str(user.email),
+                    mfa_required=True,
+                    mfa_token=mfa_token,
+                )
+            )
+
         now = utc_now()
         user.record_login(now=now)
         await self._users.save(user)
-
-        settings = get_settings()
-        access = encode_jwt(
-            {
-                "sub": str(user.id),
-                "email": str(user.email),
-                "iss": settings.canonical_base_url,
-                "aud": "cvs-saas-api",
-                "iat": int(now.timestamp()),
-                "exp": int(utc_in(minutes=settings.jwt_access_ttl_minutes).timestamp()),
-                "scope": "user",
-            }
-        )
-        refresh = generate_token(48)
-        refresh_h = hash_token(refresh)
-        refresh_exp = utc_in(days=settings.jwt_refresh_ttl_days)
-        await self._refresh_tokens.store(
-            user_id=user.id,
-            token_hash=refresh_h,
-            expires_at=refresh_exp,
-            user_agent=user_agent,
-            ip_address=ip_address,
-        )
-        uow.add_events(user.pop_events())
         return ok(
-            LoginTokens(
-                access_token=access,
-                refresh_token=refresh,
-                user_id=str(user.id),
-                email=str(user.email),
+            await _issue_session_tokens(
+                self._refresh_tokens,
+                user,
+                now=now,
+                user_agent=user_agent,
+                ip_address=ip_address,
+                uow=uow,
             )
         )
+
+
+class CompleteMfaLogin:
+    """Second step of an MFA login: exchange (mfa_token, code) for tokens."""
+
+    def __init__(
+        self,
+        users: UserRepository,
+        refresh_tokens: RefreshTokenRepository,
+    ) -> None:
+        self._users = users
+        self._refresh_tokens = refresh_tokens
+
+    async def execute(
+        self,
+        *,
+        mfa_token: str,
+        code: str,
+        user_agent: str | None,
+        ip_address: str | None,
+        uow: UnitOfWork,
+    ) -> Result[LoginTokens, UnauthorizedError]:
+        try:
+            claims = decode_jwt(mfa_token, audience=_MFA_AUDIENCE)
+        except Exception:
+            return err(UnauthorizedError("Invalid or expired MFA token"))
+        if claims.get("purpose") != "mfa" or not claims.get("sub"):
+            return err(UnauthorizedError("Invalid MFA token"))
+
+        user = await self._users.get_by_id(UUID(str(claims["sub"])))
+        if (
+            user is None
+            or user.is_deleted
+            or not user.mfa_enabled
+            or not user.mfa_secret
+        ):
+            return err(UnauthorizedError("MFA not available"))
+
+        secret = _decrypt_mfa_secret(user.mfa_secret)
+        if not totp.verify(secret, code):
+            return err(UnauthorizedError("Invalid MFA code"))
+
+        now = utc_now()
+        user.record_login(now=now)
+        await self._users.save(user)
+        return ok(
+            await _issue_session_tokens(
+                self._refresh_tokens,
+                user,
+                now=now,
+                user_agent=user_agent,
+                ip_address=ip_address,
+                uow=uow,
+            )
+        )
+
+
+@dataclass(frozen=True)
+class MfaSetup:
+    secret: str
+    otpauth_uri: str
+
+
+class SetupMfa:
+    """Begin MFA enrolment: generate + store an (unconfirmed) secret."""
+
+    def __init__(self, users: UserRepository) -> None:
+        self._users = users
+
+    async def execute(self, *, user_id: str) -> Result[MfaSetup, NotFoundError | ConflictError]:
+        user = await self._users.get_by_id(UUID(user_id))
+        if user is None or user.is_deleted:
+            return err(NotFoundError("User not found"))
+        if user.mfa_enabled:
+            return err(ConflictError("MFA already enabled"))
+        secret = totp.generate_secret()
+        user.mfa_secret = _encrypt_mfa_secret(secret)
+        user.mfa_enabled = False
+        await self._users.save(user)
+        return ok(
+            MfaSetup(
+                secret=secret,
+                otpauth_uri=totp.provisioning_uri(secret, account_name=str(user.email)),
+            )
+        )
+
+
+class ConfirmMfa:
+    """Finish enrolment: verify a code against the pending secret, enable MFA."""
+
+    def __init__(self, users: UserRepository) -> None:
+        self._users = users
+
+    async def execute(
+        self, *, user_id: str, code: str
+    ) -> Result[bool, NotFoundError | UnauthorizedError]:
+        user = await self._users.get_by_id(UUID(user_id))
+        if user is None or user.is_deleted:
+            return err(NotFoundError("User not found"))
+        if not user.mfa_secret:
+            return err(UnauthorizedError("MFA setup not started"))
+        secret = _decrypt_mfa_secret(user.mfa_secret)
+        if not totp.verify(secret, code):
+            return err(UnauthorizedError("Invalid MFA code"))
+        user.mfa_enabled = True
+        await self._users.save(user)
+        return ok(True)
+
+
+class DisableMfa:
+    """Turn MFA off — requires a valid current code to prevent lockout abuse."""
+
+    def __init__(self, users: UserRepository) -> None:
+        self._users = users
+
+    async def execute(
+        self, *, user_id: str, code: str
+    ) -> Result[bool, NotFoundError | UnauthorizedError]:
+        user = await self._users.get_by_id(UUID(user_id))
+        if user is None or user.is_deleted:
+            return err(NotFoundError("User not found"))
+        if not user.mfa_enabled or not user.mfa_secret:
+            return err(UnauthorizedError("MFA is not enabled"))
+        secret = _decrypt_mfa_secret(user.mfa_secret)
+        if not totp.verify(secret, code):
+            return err(UnauthorizedError("Invalid MFA code"))
+        user.mfa_secret = None
+        user.mfa_enabled = False
+        await self._users.save(user)
+        return ok(True)
 
 
 # --- RefreshAccess ---------------------------------------------------------

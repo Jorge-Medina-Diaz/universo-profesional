@@ -244,13 +244,45 @@ export const auth = {
   verify: (token: string) =>
     api("/api/v1/auth/verify", { method: "POST", body: JSON.stringify({ token }), authRequired: false }),
   login: (b: { email: string; password: string }) =>
-    api<{ access_token: string; refresh_token: string; user_id: string; email: string }>(
-      "/api/v1/auth/login",
-      { method: "POST", body: JSON.stringify(b), authRequired: false },
-    ),
+    api<TokenResponse>("/api/v1/auth/login", {
+      method: "POST",
+      body: JSON.stringify(b),
+      authRequired: false,
+    }),
+  mfaLogin: (b: { mfa_token: string; code: string }) =>
+    api<TokenResponse>("/api/v1/auth/mfa", {
+      method: "POST",
+      body: JSON.stringify(b),
+      authRequired: false,
+    }),
   me: () => api<MeResponse>("/api/v1/users/me"),
   deleteMe: () => api("/api/v1/users/me", { method: "DELETE" }),
+  mfa: {
+    setup: () =>
+      api<{ secret: string; otpauth_uri: string }>("/api/v1/users/me/mfa/setup", {
+        method: "POST",
+      }),
+    confirm: (code: string) =>
+      api<{ mfa_enabled: boolean }>("/api/v1/users/me/mfa/confirm", {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      }),
+    disable: (code: string) =>
+      api<{ mfa_enabled: boolean }>("/api/v1/users/me/mfa/disable", {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      }),
+  },
 };
+
+export interface TokenResponse {
+  access_token: string;
+  refresh_token: string;
+  user_id: string;
+  email: string;
+  mfa_required?: boolean;
+  mfa_token?: string | null;
+}
 
 export interface MeResponse {
   user_id: string;

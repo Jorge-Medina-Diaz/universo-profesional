@@ -11,10 +11,13 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response, StreamingResponse
 
 from src.identity.application.use_cases import (
+    ConfirmMfa,
     DeleteAccount,
+    DisableMfa,
     ExportUserData,
     GetCurrentUser,
     SetUserTier,
+    SetupMfa,
 )
 from src.identity.infrastructure.photo_storage import (
     delete_avatar,
@@ -32,6 +35,9 @@ from src.identity.interfaces.api.deps import (
 from src.identity.interfaces.api.schemas import (
     CurrentUserResponse,
     GenericOkResponse,
+    MfaCodeRequest,
+    MfaSetupResponse,
+    MfaStatusResponse,
     NotificationPrefsRequest,
     NotificationPrefsResponse,
     SetTierRequest,
@@ -92,6 +98,54 @@ async def set_tier(
         tier=dto.tier,
         tier_updated_at=dto.tier_updated_at,
     )
+
+
+@router.post("/me/mfa/setup", response_model=MfaSetupResponse)
+async def mfa_setup(
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> MfaSetupResponse:
+    """Begin MFA enrolment — returns the secret + otpauth URI for the QR code.
+
+    MFA isn't active until /me/mfa/confirm succeeds with a valid code.
+    """
+    uc = SetupMfa(SqlAlchemyUserRepository(session))
+    result = await uc.execute(user_id=user_id)
+    if result.is_failure:
+        raise result.error  # type: ignore[union-attr]
+    await session.commit()
+    setup = result.value  # type: ignore[union-attr]
+    return MfaSetupResponse(secret=setup.secret, otpauth_uri=setup.otpauth_uri)
+
+
+@router.post("/me/mfa/confirm", response_model=MfaStatusResponse)
+async def mfa_confirm(
+    body: MfaCodeRequest,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> MfaStatusResponse:
+    """Finish enrolment: verify a code against the pending secret + enable MFA."""
+    uc = ConfirmMfa(SqlAlchemyUserRepository(session))
+    result = await uc.execute(user_id=user_id, code=body.code)
+    if result.is_failure:
+        raise result.error  # type: ignore[union-attr]
+    await session.commit()
+    return MfaStatusResponse(mfa_enabled=True)
+
+
+@router.post("/me/mfa/disable", response_model=MfaStatusResponse)
+async def mfa_disable(
+    body: MfaCodeRequest,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> MfaStatusResponse:
+    """Disable MFA — requires a valid current TOTP code."""
+    uc = DisableMfa(SqlAlchemyUserRepository(session))
+    result = await uc.execute(user_id=user_id, code=body.code)
+    if result.is_failure:
+        raise result.error  # type: ignore[union-attr]
+    await session.commit()
+    return MfaStatusResponse(mfa_enabled=False)
 
 
 @router.get("/me/notifications", response_model=NotificationPrefsResponse)

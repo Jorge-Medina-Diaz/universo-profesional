@@ -21,6 +21,7 @@ import {
   Badge,
   Button,
   Card,
+  Input,
   PageHeader,
   Reveal,
   Stagger,
@@ -121,14 +122,12 @@ export function SettingsPage() {
                 label="MFA (2FA)"
                 value={
                   me.data.mfa_enabled ? (
-                    <Badge tone="leaf" size="sm">
+                    <Badge tone="leaf" size="sm" dot>
                       Activo
                     </Badge>
                   ) : (
-                    // No enrolment endpoints yet — show an honest "coming soon"
-                    // instead of a dead "Desactivado" affordance with no action.
-                    <Badge tone="amber" size="sm" title="Disponible próximamente">
-                      Próximamente
+                    <Badge tone="stone" size="sm">
+                      Desactivado
                     </Badge>
                   )
                 }
@@ -189,6 +188,14 @@ export function SettingsPage() {
               </Button>
             )}
           </div>
+        </Card>
+
+        <Card padding="lg">
+          <SectionHeader icon={<ShieldCheck size={16} />} title="Verificación en dos pasos (2FA)" />
+          <MfaCard
+            enabled={me.data?.mfa_enabled ?? false}
+            onChanged={() => qc.invalidateQueries({ queryKey: queryKeys.me.all })}
+          />
         </Card>
 
         <Card padding="lg">
@@ -295,5 +302,167 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
       <dt className="text-stone text-xs uppercase tracking-wider self-center">{label}</dt>
       <dd className="col-span-2 text-ink break-words">{value}</dd>
     </>
+  );
+}
+
+function MfaCard({ enabled, onChanged }: { enabled: boolean; onChanged: () => void }) {
+  const [mode, setMode] = useState<"idle" | "enrolling" | "disabling">("idle");
+  const [secret, setSecret] = useState<string | null>(null);
+  const [uri, setUri] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const reset = () => {
+    setMode("idle");
+    setSecret(null);
+    setUri(null);
+    setCode("");
+  };
+
+  const startEnroll = async () => {
+    setBusy(true);
+    try {
+      const r = await auth.mfa.setup();
+      setSecret(r.secret);
+      setUri(r.otpauth_uri);
+      setMode("enrolling");
+    } catch (e) {
+      toast.error("No pudimos iniciar el 2FA", (e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirm = async () => {
+    setBusy(true);
+    try {
+      await auth.mfa.confirm(code);
+      toast.success("2FA activado", "Te pediremos un código al iniciar sesión.");
+      reset();
+      onChanged();
+    } catch (e) {
+      toast.error("Código incorrecto", (e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disable = async () => {
+    setBusy(true);
+    try {
+      await auth.mfa.disable(code);
+      toast.success("2FA desactivado");
+      reset();
+      onChanged();
+    } catch (e) {
+      toast.error("No pudimos desactivar el 2FA", (e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const CodeInput = (
+    <Input
+      inputMode="numeric"
+      pattern="[0-9]*"
+      maxLength={6}
+      autoComplete="one-time-code"
+      value={code}
+      onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+      placeholder="123456"
+      className="max-w-[160px] tracking-[0.3em] text-center"
+    />
+  );
+
+  // Enabled → offer disable (code-gated).
+  if (enabled) {
+    if (mode === "disabling") {
+      return (
+        <div className="space-y-3">
+          <p className="text-sm text-stone max-w-prose">
+            Introduce un código de tu app de autenticación para desactivar el 2FA.
+          </p>
+          {CodeInput}
+          <div className="flex gap-2">
+            <Button variant="danger" onClick={disable} loading={busy} disabled={code.length < 6}>
+              Desactivar 2FA
+            </Button>
+            <Button variant="ghost" onClick={reset} disabled={busy}>
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <p className="text-sm text-stone max-w-prose">
+          El 2FA está <span className="text-ink font-medium">activo</span>. Pedimos un
+          código de tu app al iniciar sesión.
+        </p>
+        <Button variant="outline" onClick={() => setMode("disabling")}>
+          Desactivar
+        </Button>
+      </div>
+    );
+  }
+
+  // Not enabled, mid-enrolment → show secret + confirm.
+  if (mode === "enrolling" && secret) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-stone max-w-prose">
+          Añade esta clave a tu app de autenticación (Google Authenticator, Authy,
+          1Password…) y luego introduce el código de 6 dígitos para confirmar.
+        </p>
+        <div className="rounded-card border border-hairline bg-field p-3 flex items-center justify-between gap-3">
+          <code className="text-sm text-ink break-all font-mono tracking-wider">{secret}</code>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              navigator.clipboard
+                ?.writeText(secret)
+                .then(() => toast.success("Clave copiada"))
+                .catch(() => toast.error("No se pudo copiar"));
+            }}
+          >
+            Copiar
+          </Button>
+        </div>
+        {uri && (
+          <a
+            href={uri}
+            className="inline-block text-xs text-nova-ink underline underline-offset-2"
+          >
+            Abrir en mi app de autenticación
+          </a>
+        )}
+        <div className="space-y-2">
+          {CodeInput}
+          <div className="flex gap-2">
+            <Button variant="cta" onClick={confirm} loading={busy} disabled={code.length < 6}>
+              Confirmar y activar
+            </Button>
+            <Button variant="ghost" onClick={reset} disabled={busy}>
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Not enabled, idle.
+  return (
+    <div className="flex items-center justify-between gap-4 flex-wrap">
+      <p className="text-sm text-stone max-w-prose">
+        Añade una capa extra de seguridad: además de tu contraseña, pediremos un código
+        de un solo uso de tu app de autenticación.
+      </p>
+      <Button variant="cta" onClick={startEnroll} loading={busy}>
+        Activar 2FA
+      </Button>
+    </div>
   );
 }

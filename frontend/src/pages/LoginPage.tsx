@@ -16,6 +16,9 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [oauthError, setOauthError] = useState<string | null>(null);
+  // MFA second step: set once the password is accepted but a TOTP code is required.
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
 
   const linkedinProbe = useQuery({
     queryKey: queryKeys.linkedin.probe,
@@ -32,34 +35,64 @@ export function LoginPage() {
     if (e) setOauthError(decodeURIComponent(e));
   }, []);
 
+  const finishLogin = async (tokens: {
+    access_token: string;
+    refresh_token: string;
+    user_id: string;
+    email: string;
+  }) => {
+    setTokens({
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      userId: tokens.user_id,
+      email: tokens.email,
+    });
+
+    // Route new users (empty universe) straight to onboarding — but only if
+    // they haven't already been through it, so returning users who skipped
+    // onboarding aren't funnelled back every login.
+    let target = "#/";
+    try {
+      const summary = await universe.summary();
+      const hasData =
+        summary.counts?.experiences > 0 ||
+        summary.counts?.educations > 0 ||
+        summary.counts?.skills > 0;
+      if (!hasData && !isOnboardingComplete(tokens.user_id)) target = "#/onboarding";
+    } catch {
+      /* ignore, default to home */
+    }
+    window.location.hash = target;
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
       const tokens = await auth.login({ email, password });
-      setTokens({
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        userId: tokens.user_id,
-        email: tokens.email,
-      });
-
-      // Route new users (empty universe) straight to onboarding — but only if
-      // they haven't already been through it, so returning users who skipped
-      // onboarding aren't funnelled back every login.
-      let target = "#/";
-      try {
-        const summary = await universe.summary();
-        const hasData =
-          summary.counts?.experiences > 0 ||
-          summary.counts?.educations > 0 ||
-          summary.counts?.skills > 0;
-        if (!hasData && !isOnboardingComplete(tokens.user_id)) target = "#/onboarding";
-      } catch {
-        /* ignore, default to home */
+      if (tokens.mfa_required && tokens.mfa_token) {
+        // Password OK, but a second factor is required — show the code step.
+        setMfaToken(tokens.mfa_token);
+        setLoading(false);
+        return;
       }
-      window.location.hash = target;
+      await finishLogin(tokens);
+    } catch (e: unknown) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onSubmitMfa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfaToken) return;
+    setError(null);
+    setLoading(true);
+    try {
+      const tokens = await auth.mfaLogin({ mfa_token: mfaToken, code: mfaCode });
+      await finishLogin(tokens);
     } catch (e: unknown) {
       setError((e as Error).message);
     } finally {
@@ -91,9 +124,64 @@ export function LoginPage() {
             <h1 className="font-display text-[34px] md:text-heading-lg leading-[1.05] text-ink mb-2">
               {t("auth.login")}
             </h1>
-            <p className="text-stone mb-8">Entra con tu cuenta para continuar.</p>
+            <p className="text-stone mb-8">
+              {mfaToken
+                ? "Verificación en dos pasos: introduce el código de tu app de autenticación."
+                : "Entra con tu cuenta para continuar."}
+            </p>
           </Reveal>
 
+          {mfaToken ? (
+            <form onSubmit={onSubmitMfa}>
+              <Stagger className="space-y-4" delayStep={0.04} initialDelay={0.06}>
+                <Field label="Código de verificación" required>
+                  {(p) => (
+                    <Input
+                      {...p}
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      value={mfaCode}
+                      onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
+                      placeholder="123456"
+                      autoFocus
+                      required
+                    />
+                  )}
+                </Field>
+                {error && (
+                  <Card tone="canvas" bordered padding="sm" className="border-red-200 bg-red-50/60">
+                    <p role="alert" className="text-sm text-red-700">{error}</p>
+                  </Card>
+                )}
+                <Button
+                  type="submit"
+                  variant="cta"
+                  fullWidth
+                  size="lg"
+                  loading={loading}
+                  disabled={mfaCode.length < 6}
+                >
+                  {loading ? t("common.loading") : "Verificar"}
+                </Button>
+                <div className="text-sm flex justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMfaToken(null);
+                      setMfaCode("");
+                      setError(null);
+                    }}
+                    className="text-stone hover:text-ink transition-colors"
+                  >
+                    ← Volver
+                  </button>
+                </div>
+              </Stagger>
+            </form>
+          ) : (
+          <>
           {linkedinAvailable && (
             <Reveal delay={0.06}>
               <button
@@ -164,6 +252,8 @@ export function LoginPage() {
               </div>
             </Stagger>
           </form>
+          </>
+          )}
         </div>
       </div>
     </div>
