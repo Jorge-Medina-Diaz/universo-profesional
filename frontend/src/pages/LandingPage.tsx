@@ -258,8 +258,8 @@ export function LandingPage() {
               <span className="cos-display text-base text-[var(--cos-ink)]">Universo Profesional</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-[var(--cos-stone)]">
-              <a href="#/privacy" className="transition-colors hover:text-[var(--cos-ink)]">Privacidad</a>
-              <a href="#/terms" className="transition-colors hover:text-[var(--cos-ink)]">Términos</a>
+              <a href="#/legal/privacy" className="transition-colors hover:text-[var(--cos-ink)]">Privacidad</a>
+              <a href="#/legal/terms" className="transition-colors hover:text-[var(--cos-ink)]">Términos</a>
               <a href="#/mcp" className="transition-colors hover:text-[var(--cos-ink)]">MCP</a>
             </div>
             <p className="text-xs text-[var(--cos-faint)]">

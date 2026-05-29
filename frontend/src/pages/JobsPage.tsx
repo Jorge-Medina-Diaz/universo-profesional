@@ -152,13 +152,15 @@ export function JobsPage() {
     mutationFn: ({ id, body }: { id: string; body: Parameters<typeof jobs.patch>[1] }) =>
       jobs.patch(id, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.jobs.all }),
+    onError: (e: unknown) =>
+      toast.error("No se pudo actualizar la candidatura", (e as Error).message),
   });
 
   const reorder = useMutation({
     mutationFn: (items: Parameters<typeof jobs.reorder>[0]) => jobs.reorder(items),
     onMutate: async (items) => {
       await qc.cancelQueries({ queryKey: queryKeys.jobs.all });
-      const previous = qc.getQueryData<JobRow[]>(["jobs"]);
+      const previous = qc.getQueryData<JobRow[]>(queryKeys.jobs.all);
       if (previous) {
         const byId = new Map(items.map((i) => [i.id, i]));
         const next = previous.map((j) => {
@@ -179,12 +181,12 @@ export function JobsPage() {
           if (bp != null) return 1;
           return (b.created_at ?? "").localeCompare(a.created_at ?? "");
         });
-        qc.setQueryData(["jobs"], next);
+        qc.setQueryData(queryKeys.jobs.all, next);
       }
       return { previous };
     },
     onError: (e: unknown, _vars, ctx) => {
-      if (ctx?.previous) qc.setQueryData(["jobs"], ctx.previous);
+      if (ctx?.previous) qc.setQueryData(queryKeys.jobs.all, ctx.previous);
       toast.error("No pudimos reordenar", (e as Error).message);
     },
     onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.jobs.all }),
@@ -193,6 +195,8 @@ export function JobsPage() {
   const remove = useMutation({
     mutationFn: (id: string) => jobs.remove(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.jobs.all }),
+    onError: (e: unknown) =>
+      toast.error("No se pudo eliminar la candidatura", (e as Error).message),
   });
 
   const { pulling, progress } = usePullToRefresh(() => {

@@ -1,7 +1,7 @@
 """LLM usage tracking API — user-facing cost and token dashboards."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -25,7 +25,7 @@ async def get_usage_summary(
     Defaults to the current month. Includes total cost, total tokens,
     breakdown by model, and breakdown by agent/specialist.
     """
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     year = year or now.year
     month = month or now.month
 

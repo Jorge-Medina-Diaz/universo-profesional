@@ -106,6 +106,7 @@ export function useGenericActions(
             toast.success("Meta creada");
             respond?.(JSON.stringify({ ok: true, goal: r }));
           } catch (e) {
+            toast.error("No se pudo crear la meta", (e as Error).message);
             respond?.(`error: ${(e as Error).message}`);
           } finally {
             setSaving(null);
@@ -534,6 +535,7 @@ export function useGenericActions(
             qc.invalidateQueries({ queryKey: queryKeys.suggestions.all });
             respond?.("Done.");
           } catch (e) {
+            toast.error("No se pudo aplicar la sugerencia", (e as Error).message);
             respond?.(`Error: ${(e as Error).message}`);
           } finally {
             setSaving(null);

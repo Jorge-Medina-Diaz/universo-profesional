@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -31,6 +32,7 @@ export function SettingsPage() {
   const qc = useQueryClient();
   const me = useQuery({ queryKey: queryKeys.me.all, queryFn: () => auth.me() });
   const clear = useAuthStore((s) => s.clear);
+  const [deleting, setDeleting] = useState(false);
 
   const setTier = useMutation({
     mutationFn: (tier: "free" | "pro") => account.setTier(tier),
@@ -66,9 +68,15 @@ export function SettingsPage() {
 
   const deleteAccount = async () => {
     if (!confirm(t("settings.deleteConfirm"))) return;
-    await auth.deleteMe();
-    clear();
-    window.location.hash = "#/";
+    setDeleting(true);
+    try {
+      await auth.deleteMe();
+      clear();
+      window.location.hash = "#/";
+    } catch (e) {
+      setDeleting(false);
+      toast.error("No pudimos borrar tu cuenta", (e as Error).message);
+    }
   };
 
   const isPro = me.data?.tier === "pro";
@@ -220,6 +228,8 @@ export function SettingsPage() {
             <Button
               variant="danger"
               onClick={deleteAccount}
+              loading={deleting}
+              disabled={deleting}
               leadingIcon={<Trash2 size={14} />}
             >
               {t("settings.deleteAccount")}

@@ -582,21 +582,21 @@ async def _event_stream(
         )
         # Post-run usage tracking — fire-and-forget so we never block the stream.
         with contextlib.suppress(Exception):
-            _background_tasks.add(
-                asyncio.create_task(_persist_agno_usage(enforced_thread_id, user_id))
-            )
+            _t = asyncio.create_task(_persist_agno_usage(enforced_thread_id, user_id))
+            _background_tasks.add(_t)
+            _t.add_done_callback(_background_tasks.discard)
         # Post-run universe enrichment — every user message is a potential
         # source of new professional knowledge. Fire-and-forget so the SSE
         # closes immediately for the client.
         with contextlib.suppress(Exception):
             user_text = _last_user_text(run_input.messages)
             if user_text:
-                _background_tasks.add(
-                    asyncio.create_task(
-                        _enrich_universe_from_chat(
-                            user_id=user_id,
-                            text=user_text,
-                            thread_id=enforced_thread_id,
-                        )
+                _t = asyncio.create_task(
+                    _enrich_universe_from_chat(
+                        user_id=user_id,
+                        text=user_text,
+                        thread_id=enforced_thread_id,
                     )
                 )
+                _background_tasks.add(_t)
+                _t.add_done_callback(_background_tasks.discard)

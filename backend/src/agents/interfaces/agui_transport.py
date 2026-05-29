@@ -1,6 +1,7 @@
 """REST endpoint handlers (FastAPI route functions) for AG-UI."""
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Body, Query, Request
@@ -54,7 +55,7 @@ async def agui_threads(
     except UnauthorizedError:
         return {"threads": [], "joinCode": None, "nextCursor": None}
 
-    now = "2026-05-19T00:00:00Z"
+    now = datetime.now(UTC).isoformat()
     return {
         "threads": [
             {

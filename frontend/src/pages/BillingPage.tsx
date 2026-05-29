@@ -62,6 +62,8 @@ export function BillingPage() {
   const cancel = useMutation({
     mutationFn: () => billing.cancel(),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.billing.subscription }),
+    onError: (e: unknown) =>
+      toast.error("No se pudo cancelar la suscripción", (e as Error).message),
   });
 
   return (

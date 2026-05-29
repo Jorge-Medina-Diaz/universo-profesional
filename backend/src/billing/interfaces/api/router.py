@@ -126,6 +126,29 @@ async def cancel_subscription(
     return {"plan": sub.plan, "status": sub.status}
 
 
+def _plan_from_subscription_object(data_object: dict[str, Any], settings: Any) -> str | None:
+    """Derive our plan from a Stripe subscription object.
+
+    Prefers the active price id (portal-initiated plan changes alter the price,
+    not just the status), then falls back to the metadata we set at checkout.
+    Returns None when it can't be determined (caller keeps the current plan).
+    """
+    try:
+        items = ((data_object.get("items") or {}).get("data")) or []
+        price_id = items[0].get("price", {}).get("id") if items else None
+    except (AttributeError, IndexError, TypeError):
+        price_id = None
+    if price_id:
+        if price_id == settings.stripe_price_pro_monthly:
+            return "pro"
+        if price_id == settings.stripe_price_premium_monthly:
+            return "premium"
+    meta_plan = (data_object.get("metadata") or {}).get("plan")
+    if meta_plan in {"premium", "pro"}:
+        return meta_plan
+    return None
+
+
 # --- Stripe webhook (production) -----------------------------------------
 
 
@@ -168,13 +191,28 @@ async def stripe_webhook(
 
     event = json.loads(raw_body.decode("utf-8"))
     event_type = event.get("type", "")
+    event_id = event.get("id")
     data_object = (event.get("data") or {}).get("object") or {}
-    logger.info("stripe_webhook_received", event_type=event_type, id=event.get("id"))
+    logger.info("stripe_webhook_received", event_type=event_type, id=event_id)
 
     from uuid import UUID
 
+    from sqlalchemy import text as _sql_text
+
     from src.billing.infrastructure.repositories import SqlAlchemySubscriptionRepository
     from src.shared.security import utc_now
+
+    # Idempotency: Stripe retries delivery on any non-2xx/timeout with the SAME
+    # event id, so a previously-processed event must be a no-op (don't upgrade
+    # a user twice or re-send the receipt). See migration 0028.
+    if event_id:
+        seen = await session.execute(
+            _sql_text("SELECT 1 FROM stripe_processed_events WHERE event_id = :eid"),
+            {"eid": event_id},
+        )
+        if seen.first() is not None:
+            logger.info("stripe_webhook_duplicate", id=event_id, event_type=event_type)
+            return {"ok": True, "duplicate": True}
 
     subs = SqlAlchemySubscriptionRepository(session)
 
@@ -195,6 +233,21 @@ async def stripe_webhook(
                 return UUID(str(v))
             except ValueError:
                 pass
+        # Invoice events carry only `customer` — map it to our local row.
+        customer = data_object.get("customer")
+        if customer:
+            row = await session.execute(
+                _sql_text(
+                    "SELECT user_id FROM subscriptions WHERE stripe_customer_id = :cust LIMIT 1"
+                ),
+                {"cust": str(customer)},
+            )
+            found = row.scalar_one_or_none()
+            if found is not None:
+                try:
+                    return UUID(str(found))
+                except ValueError:
+                    pass
         return None
 
     try:
@@ -243,6 +296,11 @@ async def stripe_webhook(
             # bumps them back to free.
             status = str(data_object.get("status") or "")
             sub.status = status or sub.status
+            # Portal-initiated upgrades/downgrades change the price, not just
+            # the status — keep our plan in sync too.
+            new_plan = _plan_from_subscription_object(data_object, settings)
+            if new_plan:
+                sub.plan = new_plan
             period_end = data_object.get("current_period_end")
             if isinstance(period_end, int):
                 from datetime import datetime
@@ -268,13 +326,48 @@ async def stripe_webhook(
             await subs.upsert(sub)
             await session.commit()
 
-        # invoice.paid / invoice.payment_failed are observability-only today.
+        elif event_type == "invoice.payment_failed":
+            uid = await _resolve_user_id()
+            if uid is None:
+                return {"ok": True, "skipped": "no user_id"}
+            sub = await subs.get(uid)
+            if sub is not None and sub.status != "canceled":
+                sub.status = "past_due"
+                sub.updated_at = utc_now()
+                await subs.upsert(sub)
+                await session.commit()
+                stripe_conversion_total.labels(
+                    plan=sub.plan, event="payment_failed"
+                ).inc()
+
+        elif event_type == "invoice.paid":
+            # A successful payment after a failure clears the dunning state.
+            uid = await _resolve_user_id()
+            if uid is None:
+                return {"ok": True, "skipped": "no user_id"}
+            sub = await subs.get(uid)
+            if sub is not None and sub.status == "past_due":
+                sub.status = "active"
+                sub.updated_at = utc_now()
+                await subs.upsert(sub)
+                await session.commit()
 
     except Exception as exc:
-        logger.exception("stripe_webhook_handler_failed", error=str(exc))
-        # Return 200 anyway — Stripe retries with the SAME event id, and
-        # we already logged it. Retrying buggy handlers just floods the log.
-        return {"ok": False, "error": str(exc)}
+        logger.exception("stripe_webhook_handler_failed", id=event_id, error=str(exc))
+        # Do NOT mark the event processed; signal failure so Stripe retries with
+        # the same id (the idempotency guard above makes replays safe).
+        raise HTTPException(status_code=500, detail="webhook handler failed") from exc
+
+    # Mark processed only after a successful handler run.
+    if event_id:
+        await session.execute(
+            _sql_text(
+                "INSERT INTO stripe_processed_events (event_id, event_type) "
+                "VALUES (:eid, :etype) ON CONFLICT (event_id) DO NOTHING"
+            ),
+            {"eid": event_id, "etype": event_type},
+        )
+        await session.commit()
 
     return {"ok": True}
 
@@ -300,7 +393,9 @@ async def webhook_test(
     is the authenticated path.
     """
     settings = get_settings()
-    if settings.is_prod:
+    # Local dev/test only — never staging or prod. There's no signature here,
+    # so anyone could call it to flip arbitrary users onto Pro.
+    if settings.env not in ("development", "test"):
         raise HTTPException(status_code=404)
 
     from uuid import UUID

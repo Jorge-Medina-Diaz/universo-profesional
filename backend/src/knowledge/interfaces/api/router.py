@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
+import structlog
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
@@ -19,6 +20,8 @@ from src.knowledge.application.use_cases import (
     search_knowledge,
 )
 from src.shared.uow import unit_of_work
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 
@@ -92,10 +95,23 @@ async def upload_document(
             "extract_knowledge_document", user_id=user_id, document_id=str(doc_id)
         )
         queued = True
-    except Exception:
+        extraction_warning: str | None = None
+    except Exception as exc:
         queued = False
+        logger.warning(
+            "knowledge_extraction_enqueue_failed",
+            document_id=str(doc_id),
+            error=str(exc),
+        )
+        extraction_warning = (
+            "El documento se guardó, pero la extracción automática no pudo "
+            "encolarse. Vuelve a intentarlo más tarde."
+        )
 
-    return {"document_id": str(doc_id), "extraction_queued": queued}
+    result: dict[str, Any] = {"document_id": str(doc_id), "extraction_queued": queued}
+    if extraction_warning:
+        result["extraction_warning"] = extraction_warning
+    return result
 
 
 @router.get("/documents")

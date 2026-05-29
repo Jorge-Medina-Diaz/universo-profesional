@@ -59,7 +59,7 @@ export function useImportActions(
         ctaLabel="Ir a Conexiones"
         onConfirm={async () => {
           setSaving("brightdata");
-          window.location.assign("/connections");
+          window.location.hash = "#/connections";
           respond?.("Redirected to /connections.");
           setSaving(null);
         }}
@@ -79,7 +79,7 @@ export function useImportActions(
         pending={false}
         ctaLabel="Ir a Conexiones"
         onConfirm={() => {
-          window.location.assign("/connections");
+          window.location.hash = "#/connections";
           respond?.("Redirected to /connections.");
         }}
         onReject={() => respond?.("Cancelled.")}

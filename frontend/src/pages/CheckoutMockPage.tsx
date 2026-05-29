@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, CreditCard, Loader2 } from "lucide-react";
-import { api } from "../shared/api";
-import { Button } from "../ui/Button";
-import { Card } from "../ui/Card";
+import { api } from "@/shared/api";
+import { Button, Card } from "@/ui";
 
 const PLAN_NAMES: Record<string, string> = {
   premium: "Premium",
@@ -14,9 +13,12 @@ const PLAN_PRICES: Record<string, string> = {
   pro: "19,99 €/mes",
 };
 
-export default function CheckoutMockPage() {
+export function CheckoutMockPage() {
   const query = useMemo(() => {
-    const params = new URLSearchParams(window.location.search);
+    // The app uses a hash router, so params live in the hash fragment
+    // (e.g. "#/billing/checkout-mock?plan=pro"), not window.location.search.
+    const q = (window.location.hash || "").split("?")[1] ?? "";
+    const params = new URLSearchParams(q);
     return {
       plan: params.get("plan") ?? "premium",
       userId: params.get("user_id") ?? "",

@@ -372,6 +372,10 @@ class CourseCrud(_EntityCrud):
             if hasattr(item, k):
                 setattr(item, k, v)
         await self._repo.update(item)
+        # Refresh the embedding so semantic dedup / dense retrieval don't keep
+        # using a stale vector after a title/platform edit (every other
+        # Crud.update does this; CourseCrud.update was the only one missing it).
+        await self._scheduler.enqueue(entity_type="course", entity_id=item.id)
         uow.add_event(
             EntryUpdated(
                 user_id=UUID(user_id),

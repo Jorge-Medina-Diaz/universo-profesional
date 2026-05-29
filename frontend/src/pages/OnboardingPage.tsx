@@ -84,6 +84,7 @@ function syncUrl(step: Step) {
 }
 
 export function OnboardingPage() {
+  const qc = useQueryClient();
   const [step, setStepState] = useState<Step>(() => {
     return readStepFromUrl() ?? readStepFromStorage() ?? "welcome";
   });
@@ -220,8 +221,12 @@ export function OnboardingPage() {
               >
                 <Button
                   size="lg"
-                  onClick={() => {
+                  onClick={async () => {
                     localStorage.removeItem(STORAGE_KEY);
+                    // Refetch the universe summary BEFORE navigating so the
+                    // Router's onboarding gate re-evaluates with fresh data and
+                    // doesn't bounce the user back here on a stale cache.
+                    await qc.invalidateQueries({ queryKey: queryKeys.universe.summary });
                     window.location.hash = "#/universe";
                   }}
                   trailingIcon={<ArrowRight size={14} />}

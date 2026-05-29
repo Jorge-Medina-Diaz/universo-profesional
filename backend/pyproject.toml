@@ -210,16 +210,8 @@ exclude_lines = [
     "if __name__ == .__main__.:",
 ]
 
-[tool.importlinter]
-root_package = "src"
-
-[[tool.importlinter.contracts]]
-name = "Clean Architecture layering"
-type = "layers"
-layers = [
-    "src.interfaces",
-    "src.infrastructure",
-    "src.application",
-    "src.domain",
-]
-ignore_imports = []
+# NOTE: import-linter config lives in `backend/.importlinter` (the correct
+# per-bounded-context contract). It must NOT be duplicated here — import-linter
+# prefers pyproject.toml when present, and the old flat contract here
+# (src.interfaces/src.infrastructure/...) does not match this DDD layout, so it
+# passed vacuously while the real contract never ran. See AGENTS.md §13.5.

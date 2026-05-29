@@ -75,10 +75,10 @@ export function DocumentViewerPage({ id }: { id: string }) {
   });
 
   useEffect(() => {
-    if (!query.data && !query.isLoading && query.isError) {
+    if (query.isError) {
       toast.error("Documento no encontrado");
     }
-  }, [query.data, query.isLoading, query.isError]);
+  }, [query.isError]);
 
   const { basics, work, education, skills, projects, languages, resume } = useJsonResume(
     query.data ?? null,

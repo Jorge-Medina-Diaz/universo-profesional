@@ -94,7 +94,12 @@ async def generate_cv(
         SqlAlchemySubscriptionRepository(session),
         SqlAlchemyQuotaRepository(session),
     )
-    quota_result = await quota.execute(user_id=user_id, resource="cv_generated")
+    # Cover letters have their own monthly cap (monthly_cover_letters) — without
+    # this branch a Free user could mint unlimited cover letters under the CV cap.
+    quota_resource = (
+        "cover_letter_generated" if body.kind == "cover_letter" else "cv_generated"
+    )
+    quota_result = await quota.execute(user_id=user_id, resource=quota_resource)
     if quota_result.is_failure:
         raise quota_result.error  # type: ignore[union-attr]
 
@@ -114,8 +119,8 @@ async def generate_cv(
         )
         if result.is_failure:
             raise result.error  # type: ignore[union-attr]
-        # Increment quota
-        await quota.increment(user_id=user_id, resource="cv_generated")
+        # Increment the matching quota bucket (CV vs cover letter).
+        await quota.increment(user_id=user_id, resource=quota_resource)
         await uow.commit()
         dto = result.value  # type: ignore[union-attr]
         cv_generated_total.labels(kind=body.kind).inc()

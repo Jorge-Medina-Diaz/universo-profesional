@@ -32,6 +32,10 @@ class SqlalchemyLlmUsageLogRepository:
             agent=log.agent,
         )
         self._session.add(orm)
+        # Flush immediately so the cost row is sent to the DB within the current
+        # transaction rather than lingering as a pending add that an autoflush
+        # gap (or a sibling read-only session close) could drop.
+        await self._session.flush()
 
     async def get_monthly_summary(
         self, user_id: UUID, year: int, month: int

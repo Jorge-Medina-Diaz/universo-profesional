@@ -29,7 +29,7 @@ const DocumentsPage = lazyPage(() => import("@/pages/DocumentsPage"), "Documents
 const McpConnectPage = lazyPage(() => import("@/pages/McpConnectPage"), "McpConnectPage");
 const SettingsPage = lazyPage(() => import("@/pages/SettingsPage"), "SettingsPage");
 const BillingPage = lazyPage(() => import("@/pages/BillingPage"), "BillingPage");
-const CheckoutMockPage = lazy(() => import("@/pages/CheckoutMockPage"));
+const CheckoutMockPage = lazyPage(() => import("@/pages/CheckoutMockPage"), "CheckoutMockPage");
 const OnboardingPage = lazyPage(() => import("@/pages/OnboardingPage"), "OnboardingPage");
 const ConnectionsPage = lazyPage(() => import("@/pages/ConnectionsPage"), "ConnectionsPage");
 const OnboardingChatPage = lazyPage(

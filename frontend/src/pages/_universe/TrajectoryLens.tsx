@@ -8,6 +8,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Stagger } from "@/ui/motion";
+import { toast } from "@/ui";
 import { universe } from "@/shared/api";
 import { KIND_COLORS, KIND_LABELS } from "@/shared/kindColors";
 import type { GraphSelection } from "@/graph/GraphView";
@@ -107,17 +108,26 @@ export function TrajectoryLens({
     queryKey: queryKeys.trajectory.all,
     staleTime: 30_000,
     queryFn: async () => {
-      const results = await Promise.all(
+      const settled = await Promise.allSettled(
         DATED_KINDS.map(async (kind) => {
-          try {
-            const rows = (await universe.list(kind)) as Record<string, unknown>[];
-            return rows.map((r) => toEvent(kind, r)).filter((e): e is TimelineEvent => !!e);
-          } catch {
-            return [] as TimelineEvent[];
-          }
+          const rows = (await universe.list(kind)) as Record<string, unknown>[];
+          return rows.map((r) => toEvent(kind, r)).filter((e): e is TimelineEvent => !!e);
         }),
       );
-      return results.flat();
+      const failures = settled.filter(
+        (s): s is PromiseRejectedResult => s.status === "rejected",
+      );
+      if (failures.length) {
+        toast.error(
+          "No se pudieron cargar algunas categorías de la trayectoria",
+          failures[0].reason instanceof Error ? failures[0].reason.message : undefined,
+        );
+      }
+      return settled
+        .filter(
+          (s): s is PromiseFulfilledResult<TimelineEvent[]> => s.status === "fulfilled",
+        )
+        .flatMap((s) => s.value);
     },
   });
 

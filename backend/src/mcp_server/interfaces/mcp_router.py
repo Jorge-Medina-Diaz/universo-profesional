@@ -155,6 +155,28 @@ async def mcp_endpoint(
                 ),
                 status_code=403,
             )
+        # Per-call quota gate — EVERY MCP tool consumes the user's daily MCP
+        # allowance, and the free tier has no MCP access at all. CheckQuota(
+        # resource="mcp_call") enforces both. Previously only generate_cv gated
+        # this, so ~35 other tools bypassed billing entirely.
+        from src.billing.application.use_cases import CheckQuota
+        from src.billing.infrastructure.repositories import (
+            SqlAlchemyQuotaRepository,
+            SqlAlchemySubscriptionRepository,
+        )
+
+        _quota = CheckQuota(
+            SqlAlchemySubscriptionRepository(session),
+            SqlAlchemyQuotaRepository(session),
+        )
+        _qr = await _quota.execute(user_id=str(user_id), resource="mcp_call")
+        if _qr.is_failure:
+            return JSONResponse(
+                _err_response(
+                    code=-32003, message=str(_qr.error), request_id=rpc_id
+                ),
+                status_code=429,
+            )
         start = time.perf_counter()
         ok = True
         error_code = None
@@ -162,6 +184,9 @@ async def mcp_endpoint(
             result = await tool.handler(
                 session=session, user_id=user_id, client_id=client_id, args=args
             )
+            # Count the call only after it succeeded — failures must not burn
+            # the user's daily allowance.
+            await _quota.increment(user_id=str(user_id), resource="mcp_call")
             payload = {"content": [{"type": "text", "text": json.dumps(result, default=str)}]}
             await session.commit()
             return JSONResponse(_ok_response(result=payload, request_id=rpc_id))

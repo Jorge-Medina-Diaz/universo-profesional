@@ -305,15 +305,14 @@ async def _h_generate_cv(*, session, user_id, client_id, args):
     from src.shared.embeddings import get_embeddings_service
     from src.universe.infrastructure.semantic_search import PgVectorSemanticSearch
 
+    # NOTE: the daily `mcp_call` quota is enforced centrally in mcp_router for
+    # every tool (check before + increment after success), so it is NOT handled
+    # here anymore — that avoids double-counting and the previous "increment
+    # before generation" bug. We only enforce the CV-specific monthly cap here.
     quota = CheckQuota(
         SqlAlchemySubscriptionRepository(session),
         SqlAlchemyQuotaRepository(session),
     )
-    qr = await quota.execute(user_id=str(user_id), resource="mcp_call")
-    if qr.is_failure:
-        raise qr.error  # type: ignore[union-attr]
-    await quota.increment(user_id=str(user_id), resource="mcp_call")
-
     qr2 = await quota.execute(user_id=str(user_id), resource="cv_generated")
     if qr2.is_failure:
         raise qr2.error  # type: ignore[union-attr]
