@@ -13,7 +13,7 @@ export function GradientGlowCard({ children, className = "" }: Props) {
       {/* Glow */}
       <div className="absolute -inset-4 rounded-[40px] bg-gradient-to-br from-sunbeam/10 via-leaf/10 to-nova/10 blur-2xl opacity-40" />
       {/* Content */}
-      <div className="relative rounded-[32px] bg-canvas border border-ink/[0.04] p-10 md:p-16">
+      <div className="relative rounded-[32px] bg-[var(--cos-panel-raised)] border border-[var(--cos-hairline)] p-10 md:p-16">
         {children}
       </div>
     </div>

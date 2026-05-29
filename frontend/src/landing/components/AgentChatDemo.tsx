@@ -73,15 +73,15 @@ export function AgentChatDemo() {
   const visible = messages.slice(0, msgIdx + 1);
 
   return (
-    <section className="py-32 md:py-40 bg-surface-base overflow-hidden">
+    <section className="py-32 md:py-40 bg-[var(--cos-bg-2)] overflow-hidden">
       <div className="max-w-6xl mx-auto px-6">
         <div className="text-center mb-16">
-          <h2 className="font-display text-ink text-4xl md:text-6xl leading-[1.05] tracking-tight mb-6">
+          <h2 className="font-display text-[var(--cos-ink)] text-4xl md:text-6xl leading-[1.05] tracking-tight mb-6">
             Habla con tu
             <br />
-            <span className="text-stone">carrera.</span>
+            <span className="text-[var(--cos-stone)]">carrera.</span>
           </h2>
-          <p className="text-lg text-stone max-w-md mx-auto">
+          <p className="text-lg text-[var(--cos-stone)] max-w-md mx-auto">
             En lenguaje natural. Sin formularios. Sin plantillas.
           </p>
         </div>
@@ -94,8 +94,8 @@ export function AgentChatDemo() {
               onClick={() => setTab(t.id)}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
                 t.id === tab
-                  ? "bg-ink text-canvas"
-                  : "text-stone hover:text-ink hover:bg-gray-100"
+                  ? "bg-[var(--cos-ink)] text-[var(--cos-on-ink)]"
+                  : "text-[var(--cos-stone)] hover:text-[var(--cos-ink)] hover:bg-[var(--cos-fill)]"
               }`}
             >
               {t.label}
@@ -105,11 +105,11 @@ export function AgentChatDemo() {
 
         {/* Chat mockup */}
         <div className="max-w-lg mx-auto">
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 overflow-hidden">
+          <div className="rounded-2xl border border-[var(--cos-hairline)] bg-[var(--cos-panel)] overflow-hidden">
             {/* Header */}
-            <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-200">
-              <div className="w-2 h-2 rounded-full bg-[#00d4aa] animate-pulse" />
-              <span className="text-xs text-stone">Agente MCP activo</span>
+            <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--cos-hairline)]">
+              <div className="w-2 h-2 rounded-full bg-[var(--cos-nova)] animate-pulse" />
+              <span className="text-xs text-[var(--cos-stone)]">Agente MCP activo</span>
             </div>
 
             {/* Messages */}
@@ -126,14 +126,14 @@ export function AgentChatDemo() {
                     className={`flex ${msg.from === "user" ? "justify-end" : "justify-start"}`}
                   >
                     {msg.from === "card" ? (
-                      <div className="bg-white border border-gray-200 rounded-xl p-4 max-w-[85%] shadow-sm">
-                        <div className="text-[11px] text-stone mb-1">{msg.text}</div>
-                        <div className="text-sm font-medium text-ink mb-3">{msg.entity}</div>
+                      <div className="bg-[var(--cos-panel-raised)] border border-[var(--cos-hairline)] rounded-xl p-4 max-w-[85%] shadow-sm">
+                        <div className="text-[11px] text-[var(--cos-stone)] mb-1">{msg.text}</div>
+                        <div className="text-sm font-medium text-[var(--cos-ink)] mb-3">{msg.entity}</div>
                         <div className="flex gap-2">
-                          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#6ece9d]/20 text-[#4a9e6f] text-xs font-medium">
+                          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--cos-leaf)]/20 text-[#4a9e6f] text-xs font-medium">
                             <Check size={12} /> Confirmar
                           </button>
-                          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 border border-gray-200 text-stone text-xs font-medium">
+                          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--cos-fill)] border border-[var(--cos-hairline)] text-[var(--cos-stone)] text-xs font-medium">
                             <X size={12} /> Rechazar
                           </button>
                         </div>
@@ -142,8 +142,8 @@ export function AgentChatDemo() {
                       <div
                         className={`max-w-[80%] px-3.5 py-2.5 rounded-2xl text-sm ${
                           msg.from === "user"
-                            ? "bg-ink text-canvas rounded-br-md"
-                            : "bg-gray-100 text-ink rounded-bl-md"
+                            ? "bg-[var(--cos-ink)] text-[var(--cos-on-ink)] rounded-br-md"
+                            : "bg-[var(--cos-fill)] text-[var(--cos-ink)] rounded-bl-md"
                         }`}
                       >
                         {msg.text}
@@ -160,12 +160,12 @@ export function AgentChatDemo() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  <div className="bg-gray-100 rounded-2xl rounded-bl-md px-3.5 py-2.5">
+                  <div className="bg-[var(--cos-fill)] rounded-2xl rounded-bl-md px-3.5 py-2.5">
                     <div className="flex gap-1">
                       {[0, 1, 2].map((i) => (
                         <motion.div
                           key={i}
-                          className="w-1.5 h-1.5 rounded-full bg-stone"
+                          className="w-1.5 h-1.5 rounded-full bg-[var(--cos-stone)]"
                           animate={{ y: [0, -4, 0] }}
                           transition={{ repeat: Infinity, duration: 0.6, delay: i * 0.15 }}
                         />
@@ -177,12 +177,12 @@ export function AgentChatDemo() {
             </div>
 
             {/* Input */}
-            <div className="px-4 py-3 border-t border-gray-200 flex items-center gap-2">
-              <div className="flex-1 h-9 rounded-lg bg-gray-100 border border-gray-200 flex items-center px-3">
-                <span className="text-xs text-gray-400">Escribe a tu agente...</span>
+            <div className="px-4 py-3 border-t border-[var(--cos-hairline)] flex items-center gap-2">
+              <div className="flex-1 h-9 rounded-lg bg-[var(--cos-fill)] border border-[var(--cos-hairline)] flex items-center px-3">
+                <span className="text-xs text-[var(--cos-faint)]">Escribe a tu agente...</span>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-ink flex items-center justify-center">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <div className="w-8 h-8 rounded-lg bg-[var(--cos-ink)] text-[var(--cos-on-ink)] flex items-center justify-center">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M22 2L11 13" />
                   <path d="M22 2l-7 20-4-9-9-4 20-7z" />
                 </svg>

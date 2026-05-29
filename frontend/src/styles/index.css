@@ -25,11 +25,23 @@
   --color-leafy-green: #6ece9d;
   --color-leaf-soft: #e0f2e7;
   --color-leaf-ink: #1f5238;
+  /* Hover shades for the accent buttons — tokenised so they can't drift from
+   * the base accent (previously hardcoded as magic hex in Button/DropZone). */
+  --color-sunbeam-hover: #ffcf45;
+  --color-leaf-hover: #5cc28d;
 
   /* Surfaces */
   --surface-canvas: #ffffff;
   --surface-card-surface: #f8f5ed;
   --surface-overlay: rgba(10, 10, 10, 0.4);
+  /* Layer depth (Linear-style) — light values; the dark theme overrides below.
+   * Declared here too so components using bg-surface-base/raised render in BOTH
+   * themes (previously only existed under data-theme="dark"). */
+  --surface-base: #fbf9f3;
+  --surface-raised: #ffffff;
+  /* Form-field fill — semantic token so dark mode LIGHTENS the field instead of
+   * darkening an already-dark surface (bg-black/[0.04] inverted in dark). */
+  --surface-field: rgba(10, 10, 10, 0.04);
 
   /* Typography — scale */
   --font-dm-sans: "DM Sans", Inter, ui-sans-serif, system-ui, -apple-system,
@@ -121,7 +133,9 @@
   --surface-base: #16140f;
   --surface-raised: #1e1c16;
   --surface-overlay: rgba(0, 0, 0, 0.6);
-  --surface-overlay: rgba(0, 0, 0, 0.6);
+  --surface-field: rgba(243, 239, 230, 0.06);
+  --color-sunbeam-hover: #f5d05f;
+  --color-leaf-hover: #6ece9d;
 
   --glow-leaf: 0 0 20px rgba(92, 194, 141, 0.20);
   --glow-sunbeam: 0 0 24px rgba(241, 200, 75, 0.25);
@@ -1341,7 +1355,9 @@
 }
 .cos-btn-ghost:hover {
   background: var(--cos-panel);
-  border-color: rgba(244, 241, 234, 0.32);
+  /* Theme-aware so the border stays visible in light mode (was a hardcoded
+   * cream rgba that vanished against the light cream canvas). */
+  border-color: var(--cos-hairline-strong);
 }
 
 /* Hairline divider used between bands. */

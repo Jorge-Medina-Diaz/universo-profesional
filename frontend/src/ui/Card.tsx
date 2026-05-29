@@ -1,7 +1,7 @@
 import { forwardRef, type HTMLAttributes } from "react";
 import { cn } from "./cn";
 
-type Tone = "surface" | "canvas" | "ink";
+type Tone = "surface" | "canvas" | "ink" | "glass";
 type Padding = "sm" | "md" | "lg" | "none";
 
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
@@ -16,6 +16,11 @@ const tones: Record<Tone, string> = {
   surface: "bg-surface text-ink",
   canvas: "bg-canvas text-ink",
   ink: "bg-ink text-canvas",
+  // Cosmos glass — translucent canvas + blur + hairline. The app counterpart to
+  // the landing's .cos-panel; use for floating/elevated surfaces (chat,
+  // inspector, featured cards) where depth should read against the backdrop.
+  glass:
+    "bg-[color-mix(in_srgb,var(--surface-canvas)_80%,transparent)] text-ink border border-hairline backdrop-blur-md",
 };
 
 const paddings: Record<Padding, string> = {

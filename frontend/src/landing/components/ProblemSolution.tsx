@@ -36,8 +36,8 @@ export function ProblemSolution() {
     <section className="py-20 md:py-28 overflow-hidden">
       <div className="max-w-5xl mx-auto px-6">
         <div className="text-center mb-14">
-          <span className="eyebrow text-stone/60 mb-3 block">El problema real</span>
-          <h2 className="font-display text-heading-lg text-ink">
+          <span className="eyebrow text-[var(--cos-stone)]/60 mb-3 block">El problema real</span>
+          <h2 className="font-display text-heading-lg text-[var(--cos-ink)]">
             Tu carrera está atrapada en documentos muertos
           </h2>
         </div>
@@ -48,7 +48,7 @@ export function ProblemSolution() {
             {step !== "solution" && (
               <motion.div
                 key="before"
-                className="relative bg-canvas rounded-2xl border border-red-100 p-6 shadow-soft overflow-hidden"
+                className="relative bg-[var(--cos-panel)] rounded-2xl border border-red-100 p-6 shadow-soft overflow-hidden"
                 initial={{ opacity: 0, x: -40 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -40, scale: 0.95 }}
@@ -69,7 +69,7 @@ export function ProblemSolution() {
                       transition={{ delay: i * 0.15 }}
                     >
                       <item.icon size={16} className="text-red-400 shrink-0" />
-                      <span className="text-sm text-ink/70 line-through decoration-red-300">
+                      <span className="text-sm text-[var(--cos-ink)]/70 line-through decoration-red-300">
                         {item.label}
                       </span>
                       <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">
@@ -121,7 +121,7 @@ export function ProblemSolution() {
             {step !== "problem" && (
               <motion.div
                 key="after"
-                className="relative bg-canvas rounded-2xl border border-leaf/20 p-6 shadow-soft overflow-hidden"
+                className="relative bg-[var(--cos-panel)] rounded-2xl border border-leaf/20 p-6 shadow-soft overflow-hidden"
                 initial={{ opacity: 0, x: 40 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 40, scale: 0.95 }}
@@ -168,9 +168,9 @@ export function ProblemSolution() {
                       transition={{ delay: 0.3 + i * 0.12, type: "spring", damping: 10 }}
                     >
                       <div
-                        className={`w-4 h-4 rounded-full ${node.color} shadow-sm ring-2 ring-white`}
+                        className={`w-4 h-4 rounded-full ${node.color} shadow-sm ring-2 ring-[var(--cos-bg)]`}
                       />
-                      <span className="text-[10px] text-stone/70 mt-1 whitespace-nowrap bg-white/80 px-1.5 py-0.5 rounded-full">
+                      <span className="text-[10px] text-[var(--cos-stone)]/70 mt-1 whitespace-nowrap bg-[var(--cos-label-bg)] px-1.5 py-0.5 rounded-full">
                         {node.label}
                       </span>
                     </motion.div>
@@ -190,7 +190,7 @@ export function ProblemSolution() {
                 </div>
 
                 <div className="flex items-center justify-between mt-2">
-                  <span className="text-[10px] text-stone/50">6 entidades • 8 conexiones • vivo</span>
+                  <span className="text-[10px] text-[var(--cos-stone)]/50">6 entidades • 8 conexiones • vivo</span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-leaf-soft text-leaf-ink font-medium">
                     actualizado hace 2 min
                   </span>
@@ -201,13 +201,13 @@ export function ProblemSolution() {
         </div>
 
         <motion.p
-          className="text-center text-body text-stone max-w-lg mx-auto mt-10"
+          className="text-center text-body text-[var(--cos-stone)] max-w-lg mx-auto mt-10"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
         >
           Universo Profesional reemplaza documentos estáticos por un{" "}
-          <span className="font-display text-ink">grafo de conocimiento vivo</span>{" "}
+          <span className="font-display text-[var(--cos-ink)]">grafo de conocimiento vivo</span>{" "}
           que crece, se conecta y evoluciona contigo.
         </motion.p>
       </div>

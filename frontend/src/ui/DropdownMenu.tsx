@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 import { useClickOutside } from "@/shared/useClickOutside";
 import { useEscapeKey } from "@/shared/useEscapeKey";
 import { cn } from "./cn";

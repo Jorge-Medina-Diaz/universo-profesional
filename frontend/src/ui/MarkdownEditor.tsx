@@ -66,7 +66,7 @@ export function MarkdownEditor({
   };
 
   return (
-    <div className="rounded-input bg-black/[0.04] focus-within:bg-black/[0.06] border border-transparent focus-within:border-ink transition-colors duration-180 ease-pirsch overflow-hidden">
+    <div className="rounded-input bg-field border border-transparent focus-within:border-ink transition-colors duration-180 ease-pirsch overflow-hidden">
       <div className="flex items-center justify-between gap-1 px-2 py-1.5 border-b border-ink/5">
         <div className="flex items-center gap-0.5">
           <ToolbarButton onClick={() => wrapSelection("**")} label="Negrita">
@@ -89,7 +89,7 @@ export function MarkdownEditor({
           type="button"
           onClick={() => setShowPreview((v) => !v)}
           aria-pressed={showPreview}
-          className="inline-flex items-center gap-1 text-[11px] text-stone hover:text-ink transition-colors px-2 py-1 rounded-btn hover:bg-black/[0.04]"
+          className="inline-flex items-center gap-1 text-[11px] text-stone hover:text-ink transition-colors px-2 py-1 rounded-btn hover:bg-field"
         >
           {showPreview ? <EyeOff size={11} /> : <Eye size={11} />}
           {showPreview ? "Ocultar preview" : "Ver preview"}

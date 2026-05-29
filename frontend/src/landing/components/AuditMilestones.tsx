@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { motion } from "motion/react";
 import { Target, TrendingUp, Check, Circle, CircleDot } from "lucide-react";
 import { SectionHeading } from "./SectionHeading";
@@ -81,6 +81,7 @@ export function AuditMilestones() {
   const [tab, setTab] = useState(0);
   const track = TRACKS[tab];
   const circ = 2 * Math.PI * 52;
+  const gradId = useId();
 
   return (
     <section className="relative py-28 md:py-36">
@@ -138,7 +139,7 @@ export function AuditMilestones() {
                     cy="60"
                     r="52"
                     fill="none"
-                    stroke="url(#auditGrad)"
+                    stroke={`url(#${gradId})`}
                     strokeWidth="8"
                     strokeLinecap="round"
                     strokeDasharray={circ}
@@ -148,7 +149,7 @@ export function AuditMilestones() {
                     transition={{ duration: 1.1, ease: EASE }}
                   />
                   <defs>
-                    <linearGradient id="auditGrad" x1="0" y1="0" x2="1" y2="1">
+                    <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
                       <stop offset="0%" stopColor="#ffda6e" />
                       <stop offset="100%" stopColor="#6ece9d" />
                     </linearGradient>

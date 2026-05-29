@@ -15,7 +15,7 @@ export interface ChipInputProps {
 const TONES = {
   leaf: "bg-leaf-soft text-leaf-ink",
   sunbeam: "bg-sunbeam-soft text-sunbeam-ink",
-  stone: "bg-black/[0.04] text-stone",
+  stone: "bg-field text-stone",
   ink: "bg-ink text-canvas",
 };
 
@@ -51,7 +51,7 @@ export function ChipInput({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-input bg-black/[0.04] px-3 py-2 min-h-[44px] focus-within:bg-black/[0.06] border border-transparent focus-within:border-ink transition-colors duration-180 ease-pirsch">
+    <div className="flex flex-wrap items-center gap-1.5 rounded-input bg-field px-3 py-2 min-h-[44px] border border-transparent focus-within:border-ink transition-colors duration-180 ease-pirsch">
       {value.map((v) => (
         <span
           key={v}

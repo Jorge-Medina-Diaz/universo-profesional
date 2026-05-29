@@ -16,9 +16,10 @@ export function SectionHeading({
   align?: "center" | "left";
   accent?: string;
 }) {
-  const alignCls = align === "center" ? "text-center items-center" : "text-left items-start";
+  const alignCls =
+    align === "center" ? "mx-auto text-center items-center" : "mx-0 text-left items-start";
   return (
-    <div className={`mx-auto flex max-w-2xl flex-col ${alignCls} ${align === "center" ? "" : "mx-0"}`}>
+    <div className={`flex max-w-2xl flex-col ${alignCls}`}>
       {eyebrow && (
         <motion.span
           initial={{ opacity: 0, y: 10 }}

@@ -67,7 +67,7 @@ export function Layout({ title, isAuthed, children }: Props) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-canvas text-ink">
+    <div className="min-h-screen flex flex-col constellation-bg text-ink">
       <header className="sticky top-0 z-30 bg-canvas/80 backdrop-blur-md hairline-b">
         <div className="mx-auto w-full max-w-7xl px-4 md:px-8 h-16 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
           {/* Left zone: primary sections */}
@@ -129,7 +129,7 @@ export function Layout({ title, isAuthed, children }: Props) {
                 <Button variant="ghost" size="sm" onClick={() => (window.location.hash = "#/login")}>
                   Entrar
                 </Button>
-                <Button size="sm" onClick={() => (window.location.hash = "#/register")}>
+                <Button variant="cta" size="sm" onClick={() => (window.location.hash = "#/register")}>
                   Crear cuenta
                 </Button>
               </div>

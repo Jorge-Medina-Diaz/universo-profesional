@@ -1,7 +1,7 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { cn } from "./cn";
 
-type Variant = "primary" | "secondary" | "ghost" | "outline" | "danger";
+type Variant = "primary" | "secondary" | "ghost" | "outline" | "danger" | "cta";
 type Size = "sm" | "md" | "lg";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -24,13 +24,21 @@ const sizes: Record<Size, string> = {
 
 const variants: Record<Variant, string> = {
   primary:
-    "bg-sunbeam text-ink hover:bg-[#ffcf45] hover:-translate-y-[1px] active:translate-y-0 shadow-soft hover:shadow-glow-sunbeam",
+    "bg-sunbeam text-ink hover:bg-sunbeam-hover hover:-translate-y-[1px] active:translate-y-0 shadow-soft hover:shadow-glow-sunbeam",
   secondary:
-    "bg-leaf text-ink hover:bg-[#5cc28d] hover:-translate-y-[1px] active:translate-y-0 shadow-soft hover:shadow-glow-leaf",
+    "bg-leaf text-ink hover:bg-leaf-hover hover:-translate-y-[1px] active:translate-y-0 shadow-soft hover:shadow-glow-leaf",
   ghost: "bg-transparent text-ink hover:bg-black/5",
   outline:
     "bg-transparent text-ink border border-ink/15 hover:bg-black/5 hover:border-ink/30",
   danger: "bg-red-500 text-white hover:bg-red-600",
+  // Luminous cosmos CTA — pill + sunbeam gradient + glow. Mirrors the landing's
+  // .cos-btn-primary so the landing->register hand-off feels continuous. Use
+  // for the few hero/primary conversion actions (register, generate, upgrade).
+  cta:
+    "!rounded-full bg-gradient-to-b from-[#ffe48f] to-sunbeam text-[#2a2003] font-semibold " +
+    "shadow-[0_0_0_1px_rgba(255,218,110,0.4),0_10px_30px_-10px_rgba(255,218,110,0.55)] " +
+    "hover:-translate-y-[2px] active:translate-y-0 " +
+    "hover:shadow-[0_0_0_1px_rgba(255,218,110,0.5),0_16px_44px_-12px_rgba(255,218,110,0.7)]",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(

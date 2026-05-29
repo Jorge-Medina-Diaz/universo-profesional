@@ -15,16 +15,21 @@ const config: Config = {
         stone: "var(--color-muted-stone)",
         canvas: "var(--surface-canvas)",
         surface: "var(--surface-card-surface)",
+        "surface-base": "var(--surface-base)",
+        "surface-raised": "var(--surface-raised)",
+        field: "var(--surface-field)",
         hairline: "var(--hairline)",
         sunbeam: {
           DEFAULT: "var(--color-sunbeam-yellow)",
           soft: "var(--color-sunbeam-soft)",
           ink: "var(--color-sunbeam-ink)",
+          hover: "var(--color-sunbeam-hover)",
         },
         leaf: {
           DEFAULT: "var(--color-leafy-green)",
           soft: "var(--color-leaf-soft)",
           ink: "var(--color-leaf-ink)",
+          hover: "var(--color-leaf-hover)",
         },
         nova: {
           DEFAULT: "var(--color-nova)",

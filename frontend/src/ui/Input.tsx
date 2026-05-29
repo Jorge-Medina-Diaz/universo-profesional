@@ -2,9 +2,9 @@ import { forwardRef, type InputHTMLAttributes, type TextareaHTMLAttributes } fro
 import { cn } from "./cn";
 
 const fieldBase =
-  "block w-full rounded-input bg-black/[0.04] text-ink placeholder:text-stone " +
+  "block w-full rounded-input bg-field text-ink placeholder:text-stone " +
   "px-4 py-3 text-sm font-normal transition-colors duration-180 ease-pirsch " +
-  "border border-transparent focus:outline-none focus:border-ink focus:bg-black/[0.06]";
+  "border border-transparent focus:outline-none focus:border-ink";
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   invalid?: boolean;
