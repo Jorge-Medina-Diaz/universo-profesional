@@ -1171,6 +1171,7 @@
   --cos-edge: rgba(20, 19, 15, 0.12);         /* constellation cross edges */
   --cos-track: rgba(20, 19, 15, 0.10);        /* progress / ring tracks */
   --cos-scrim: rgba(20, 19, 15, 0.45);        /* mobile menu overlay */
+  --cos-hero-scrim-rgb: 251, 249, 243;        /* hero legibility veil (cream) */
 
   /* Accents (brand trio) reused as the star hues — stable across themes. */
   --cos-sun: #ffda6e;
@@ -1205,6 +1206,7 @@
   --cos-edge: rgba(244, 241, 234, 0.07);
   --cos-track: rgba(244, 241, 234, 0.10);
   --cos-scrim: rgba(5, 6, 8, 0.7);
+  --cos-hero-scrim-rgb: 7, 8, 10;             /* hero legibility veil (deep space) */
 }
 
 /* Atmospheric backdrop — drifting nebulae + faint starfield grid.

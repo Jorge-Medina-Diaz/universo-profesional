@@ -52,7 +52,7 @@ export function LivingHero() {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "linear-gradient(105deg, var(--cos-bg) 0%, rgba(7,8,10,0.86) 34%, rgba(7,8,10,0.35) 62%, rgba(7,8,10,0) 100%)",
+            "linear-gradient(105deg, var(--cos-bg) 0%, rgba(var(--cos-hero-scrim-rgb),0.86) 34%, rgba(var(--cos-hero-scrim-rgb),0.35) 62%, rgba(var(--cos-hero-scrim-rgb),0) 100%)",
         }}
       />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[var(--cos-bg)] to-transparent" />
