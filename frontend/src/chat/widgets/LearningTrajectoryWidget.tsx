@@ -72,7 +72,7 @@ export function LearningTrajectoryWidget({
       <ol className="flex flex-col gap-2 relative pl-6">
         <span
           aria-hidden
-          className="absolute left-[10px] top-2 bottom-2 w-px bg-black/[0.08]"
+          className="absolute left-[10px] top-2 bottom-2 w-px bg-ink/[0.08]"
         />
         {items.map((it, i) => {
           const meta = KIND_META[it.kind ?? "signal"] ?? KIND_META.signal;

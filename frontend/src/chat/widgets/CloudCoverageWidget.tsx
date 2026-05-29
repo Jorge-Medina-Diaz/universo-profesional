@@ -63,7 +63,7 @@ export function CloudCoverageWidget({ data }: { data: CloudCoverageData }) {
             return (
               <div
                 key={p}
-                className="rounded-card bg-white border border-black/[0.05] px-3 py-2"
+                className="rounded-card bg-surface border border-hairline px-3 py-2"
               >
                 <div className="flex items-center justify-between gap-2 mb-1.5">
                   <Badge tone="stone" className={PROVIDER_TONE[p]}>
@@ -82,7 +82,7 @@ export function CloudCoverageWidget({ data }: { data: CloudCoverageData }) {
                     services.map((s, i) => (
                       <span
                         key={i}
-                        className="text-[10px] bg-black/[0.04] text-ink/85 px-1.5 py-0.5 rounded-full"
+                        className="text-[10px] bg-ink/[0.05] text-ink/85 px-1.5 py-0.5 rounded-full"
                       >
                         {s}
                       </span>
@@ -98,7 +98,7 @@ export function CloudCoverageWidget({ data }: { data: CloudCoverageData }) {
           {legacyServices.map((s, i) => (
             <span
               key={i}
-              className="text-[11px] bg-black/[0.04] text-ink/85 px-2 py-1 rounded-full"
+              className="text-[11px] bg-ink/[0.05] text-ink/85 px-2 py-1 rounded-full"
             >
               {s}
             </span>

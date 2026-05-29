@@ -100,7 +100,7 @@ export function GoalProgressWidget({ data }: { data: GoalProgressWidgetData }) {
             </div>
             {total > 0 ? (
               <>
-                <div className="h-1.5 w-full rounded-full bg-black/[0.06] overflow-hidden">
+                <div className="h-1.5 w-full rounded-full bg-ink/[0.06] overflow-hidden">
                   <div
                     className="h-full bg-leaf transition-all duration-280"
                     style={{ width: `${progress}%` }}

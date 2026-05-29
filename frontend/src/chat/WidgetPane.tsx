@@ -70,7 +70,7 @@ export function WidgetPane({ className, compact = false }: WidgetPaneProps) {
           <button
             type="button"
             onClick={clearWidgets}
-            className="inline-flex items-center gap-1 text-xs text-stone hover:text-ink transition-colors px-2 py-1 rounded-btn hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1 focus-visible:outline-none"
+            className="inline-flex items-center gap-1 text-xs text-stone hover:text-ink transition-colors px-2 py-1 rounded-btn hover:bg-ink/[0.04] focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1 focus-visible:outline-none"
             aria-label="Limpiar todos los widgets"
           >
             <Trash2 size={12} />

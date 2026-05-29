@@ -280,7 +280,7 @@ function ChipOption({
         "text-xs rounded-tag px-3 py-1.5 border cursor-pointer transition-colors duration-180 ease-pirsch focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1",
         checked
           ? "bg-ink text-canvas border-ink"
-          : "bg-canvas border-ink/15 hover:border-ink/30 hover:bg-black/[0.02] text-ink",
+          : "bg-canvas border-ink/15 hover:border-ink/30 hover:bg-ink/[0.02] text-ink",
       )}
       aria-pressed={checked}
     >

@@ -147,7 +147,7 @@ export function NotesPage() {
             >
               Chat
             </Button>
-            <Button onClick={startNew} leadingIcon={<Plus size={14} />}>
+            <Button variant="cta" onClick={startNew} leadingIcon={<Plus size={14} />}>
               Nueva nota
             </Button>
           </>
@@ -260,27 +260,29 @@ export function NotesPage() {
       )}
 
       {!query.isLoading && (query.data ?? []).length === 0 && !isEditing && (
-        <Card padding="lg">
-          <EmptyState
-            icon={<MessageSquare size={24} />}
-            title="Todavía no hay notas"
-            description='Cuéntale al agente algo como "estas semanas he estado investigando RAG" y se creará la primera nota automáticamente. O créala tú aquí.'
-            action={
-              <Button onClick={startNew} leadingIcon={<Plus size={14} />}>
-                Crear primera nota
-              </Button>
-            }
-            secondaryAction={
-              <Button
-                variant="outline"
-                onClick={() => (window.location.hash = "#/")}
-                leadingIcon={<MessageSquare size={14} />}
-              >
-                Ir al chat
-              </Button>
-            }
-          />
-        </Card>
+        <Reveal>
+          <Card padding="lg" tone="glass">
+            <EmptyState
+              icon={<MessageSquare size={24} />}
+              title="Todavía no hay notas"
+              description='Cuéntale al agente algo como "estas semanas he estado investigando RAG" y se creará la primera nota automáticamente. O créala tú aquí.'
+              action={
+                <Button variant="cta" onClick={startNew} leadingIcon={<Plus size={14} />}>
+                  Crear primera nota
+                </Button>
+              }
+              secondaryAction={
+                <Button
+                  variant="outline"
+                  onClick={() => (window.location.hash = "#/")}
+                  leadingIcon={<MessageSquare size={14} />}
+                >
+                  Ir al chat
+                </Button>
+              }
+            />
+          </Card>
+        </Reveal>
       )}
 
       {items.length > 0 && (

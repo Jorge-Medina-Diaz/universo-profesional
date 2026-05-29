@@ -14,6 +14,7 @@ import {
   PageHeader,
   ProgressSteps,
   Reveal,
+  Select,
   Surface,
   Textarea,
   cn,
@@ -139,30 +140,18 @@ export function GenerateCvPage() {
                 <TemplateGallery value={template} onChange={setTemplate} />
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <Field label="Plantilla">
-                  {(p) => (
-                    <Select
-                      {...p}
-                      value={template}
-                      onChange={(e) => setTemplate(e.target.value)}
-                    >
-                      <option value="ats-classic">ATS clásica</option>
-                      <option value="modern">Moderna (2 columnas)</option>
-                      <option value="minimal">Minimal (serif)</option>
-                    </Select>
-                  )}
-                </Field>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Field label="Idioma">
                   {(p) => (
                     <Select
                       {...p}
                       value={language}
-                      onChange={(e) => setLanguage(e.target.value as "es" | "en")}
-                    >
-                      <option value="es">{t("cv.languageEs")}</option>
-                      <option value="en">{t("cv.languageEn")}</option>
-                    </Select>
+                      onChange={(v) => setLanguage(v as "es" | "en")}
+                      options={[
+                        { value: "es", label: t("cv.languageEs") },
+                        { value: "en", label: t("cv.languageEn") },
+                      ]}
+                    />
                   )}
                 </Field>
                 <Field label="Tono">
@@ -170,17 +159,19 @@ export function GenerateCvPage() {
                     <Select
                       {...p}
                       value={tone}
-                      onChange={(e) => setTone(e.target.value)}
-                    >
-                      <option value="professional">{t("cv.toneProfessional")}</option>
-                      <option value="conversational">{t("cv.toneConversational")}</option>
-                    </Select>
+                      onChange={setTone}
+                      options={[
+                        { value: "professional", label: t("cv.toneProfessional") },
+                        { value: "conversational", label: t("cv.toneConversational") },
+                      ]}
+                    />
                   )}
                 </Field>
               </div>
 
               <Button
                 type="submit"
+                variant="cta"
                 size="lg"
                 fullWidth
                 loading={gen.isPending}
@@ -202,9 +193,8 @@ export function GenerateCvPage() {
         <Reveal delay={0.08}>
           <Card
             padding="lg"
-            tone="canvas"
-            bordered
-            className="lg:sticky lg:top-24 flex flex-col gap-4"
+            tone="glass"
+            className="lg:sticky lg:top-24 flex flex-col gap-4 glow-hover-nova"
           >
             <div className="flex items-center gap-2 text-sm font-medium text-ink">
               <Sparkles size={16} className="text-leaf-ink" />
@@ -224,7 +214,7 @@ export function GenerateCvPage() {
                   className="space-y-4"
                 >
                   <div className="space-y-2">
-                    <Badge tone="leaf" dot>
+                    <Badge tone="nova" dot>
                       Documento listo
                     </Badge>
                     <div className="text-xs text-stone font-mono break-all">
@@ -539,32 +529,6 @@ function DownloadLink({
       </div>
       <span className="text-xs text-ink truncate w-full">{label}</span>
     </a>
-  );
-}
-
-interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
-  invalid?: boolean;
-}
-function Select({ className, children, ...rest }: SelectProps) {
-  return (
-    <div className="relative">
-      <select
-        {...rest}
-        className={cn(
-          "appearance-none block w-full rounded-input bg-black/[0.04] text-ink",
-          "px-4 py-3 text-sm font-normal transition-colors duration-180 ease-pirsch",
-          "border border-transparent focus:outline-none focus:border-ink focus:bg-black/[0.06]",
-          "pr-9 cursor-pointer",
-          className,
-        )}
-      >
-        {children}
-      </select>
-      <ChevronDown
-        size={16}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-stone pointer-events-none"
-      />
-    </div>
   );
 }
 

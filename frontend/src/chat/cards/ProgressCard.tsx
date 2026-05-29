@@ -75,7 +75,7 @@ export function ProgressCard({
                     ? "Ocultar (la tarea sigue en segundo plano)"
                     : "Cerrar")
                 }
-                className="w-7 h-7 inline-flex items-center justify-center rounded-full text-stone hover:text-ink hover:bg-black/[0.04] transition-colors"
+                className="w-7 h-7 inline-flex items-center justify-center rounded-full text-stone hover:text-ink hover:bg-ink/[0.04] transition-colors"
               >
                 <X size={12} />
               </button>

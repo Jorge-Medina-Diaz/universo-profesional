@@ -63,7 +63,7 @@ export function CompareDocumentsPage({ initialA, initialB }: { initialA?: string
   if (docs.length < 2) {
     return (
       <Surface width="md" spacing="md">
-        <Card padding="lg" className="text-center space-y-3">
+        <Card padding="lg" tone="glass" className="text-center space-y-3">
           <ArrowLeftRight size={28} className="mx-auto text-stone" />
           <h2 className="text-heading-sm font-medium tracking-tight">
             Necesitas al menos 2 documentos
@@ -71,7 +71,9 @@ export function CompareDocumentsPage({ initialA, initialB }: { initialA?: string
           <p className="text-sm text-stone">
             Genera otro CV o carta para empezar a comparar.
           </p>
-          <Button onClick={() => (window.location.hash = "#/cv/new")}>Generar otro</Button>
+          <Button variant="cta" onClick={() => (window.location.hash = "#/cv/new")}>
+            Generar otro
+          </Button>
         </Card>
       </Surface>
     );
@@ -98,6 +100,7 @@ export function CompareDocumentsPage({ initialA, initialB }: { initialA?: string
         subtitle="Útil para A/B testing entre plantillas o intentos sobre la misma oferta."
         actions={
           <Button
+            variant="cta"
             onClick={askChat}
             disabled={!queryA.data || !queryB.data}
             leadingIcon={<MessageSquare size={14} />}

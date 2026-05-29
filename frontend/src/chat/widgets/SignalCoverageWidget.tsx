@@ -61,7 +61,7 @@ export function SignalCoverageWidget({ data }: { data: SignalCoverageData }) {
           return (
             <li
               key={i}
-              className="rounded-card bg-white border border-black/[0.05] px-3 py-2 flex flex-col gap-1"
+              className="rounded-card bg-surface border border-hairline px-3 py-2 flex flex-col gap-1"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] text-stone tabular-nums">

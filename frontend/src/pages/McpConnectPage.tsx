@@ -199,7 +199,7 @@ export function McpConnectPage() {
             ))}
           </ul>
           <div className="mt-4 pt-4 border-t border-ink/5">
-            <Badge tone="stone" size="sm">
+            <Badge tone="nova" size="sm">
               + ~30 más en /mcp/v1/list_tools
             </Badge>
           </div>

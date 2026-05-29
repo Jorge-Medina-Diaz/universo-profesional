@@ -95,6 +95,7 @@ export function DocumentsPage() {
               </Button>
             )}
             <Button
+              variant="cta"
               onClick={() => (window.location.hash = "#/cv/new")}
               leadingIcon={<Sparkles size={14} />}
             >
@@ -113,18 +114,23 @@ export function DocumentsPage() {
       )}
 
       {list.data?.length === 0 && (
-        <Card padding="lg">
-          <EmptyState
-            icon={<FileText size={24} />}
-            title="Aún no has generado documentos"
-            description="Pega una oferta de trabajo y el agente genera un CV adaptado en segundos."
-            action={
-              <Button onClick={() => (window.location.hash = "#/cv/new")}>
-                Generar mi primer CV
-              </Button>
-            }
-          />
-        </Card>
+        <Reveal>
+          <Card padding="lg" tone="glass">
+            <EmptyState
+              icon={<FileText size={24} />}
+              title="Aún no has generado documentos"
+              description="Pega una oferta de trabajo y el agente genera un CV adaptado en segundos."
+              action={
+                <Button
+                  variant="cta"
+                  onClick={() => (window.location.hash = "#/cv/new")}
+                >
+                  Generar mi primer CV
+                </Button>
+              }
+            />
+          </Card>
+        </Reveal>
       )}
 
       {list.data && list.data.length > 0 && (

@@ -67,7 +67,7 @@ export function PortfolioRadarWidget({ data }: { data: PortfolioRadarData }) {
         {items.slice(0, 8).map((it, i) => (
           <li
             key={i}
-            className="rounded-card bg-white border border-black/[0.05] px-3 py-2 flex flex-col gap-1.5"
+            className="rounded-card bg-surface border border-hairline px-3 py-2 flex flex-col gap-1.5"
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
@@ -117,7 +117,7 @@ export function PortfolioRadarWidget({ data }: { data: PortfolioRadarData }) {
       </ul>
 
       {data.missing_signals?.length ? (
-        <div className="flex flex-col gap-1 border-t border-black/[0.05] pt-2">
+        <div className="flex flex-col gap-1 border-t border-hairline pt-2">
           <span className="uppercase tracking-wide text-stone font-medium text-[10px]">
             Signals que la oferta pide y te faltan
           </span>
@@ -156,7 +156,7 @@ function ScoreBar({ score }: { score: number }) {
     s >= 75 ? "bg-leaf-ink" : s >= 50 ? "bg-sunbeam-ink" : "bg-amber-500";
   return (
     <div className="flex items-center gap-1.5">
-      <div className="h-1.5 w-12 rounded-full bg-black/[0.06] overflow-hidden">
+      <div className="h-1.5 w-12 rounded-full bg-ink/[0.06] overflow-hidden">
         <div className={`h-full ${tone}`} style={{ width: `${s}%` }} />
       </div>
       <span className="text-[10px] text-stone tabular-nums w-7 text-right">

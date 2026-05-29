@@ -71,7 +71,7 @@ export function UsagePage() {
       {query.isLoading ? (
         <PageSkeleton />
       ) : !data ? (
-        <Card padding="lg" className="text-center space-y-3">
+        <Card tone="glass" padding="lg" className="text-center space-y-3">
           <h3 className="text-heading-sm font-medium tracking-tight">
             Sin datos de uso
           </h3>
@@ -101,7 +101,7 @@ function CostGauge({ data }: { data: UsageResponse }) {
 
   return (
     <Reveal>
-      <Card padding="lg" tone="surface">
+      <Card padding="lg" tone="glass">
         <div className="flex items-center gap-3 mb-4">
           <TrendingUp size={18} className="text-stone" />
           <h2 className="text-heading-sm font-medium tracking-tight">

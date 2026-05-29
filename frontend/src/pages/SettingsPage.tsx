@@ -179,6 +179,7 @@ export function SettingsPage() {
               </Button>
             ) : (
               <Button
+                variant="cta"
                 onClick={() => setTier.mutate("pro")}
                 loading={setTier.isPending}
                 title="En producción esto abriría Stripe."

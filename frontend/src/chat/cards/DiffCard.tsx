@@ -46,7 +46,7 @@ export function DiffCard({ title, diffs, status }: DiffCardProps) {
       <ChatMessageMotion>
         <div className="rounded-card bg-surface p-5 max-w-md shadow-soft border border-ink/[0.06]">
           <div className="flex items-start gap-3">
-            <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-black/5 text-stone shrink-0">
+            <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-ink/[0.05] text-stone shrink-0">
               <MinusCircle size={18} />
             </span>
             <div className="min-w-0">

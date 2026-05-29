@@ -116,7 +116,7 @@ export function RemindersBanner({
             markDismissed();
             setDismissed(true);
           }}
-          className="w-6 h-6 inline-flex items-center justify-center rounded-full hover:bg-black/[0.05] transition-colors shrink-0"
+          className="w-6 h-6 inline-flex items-center justify-center rounded-full hover:bg-ink/[0.05] transition-colors shrink-0"
         >
           <X size={12} />
         </button>

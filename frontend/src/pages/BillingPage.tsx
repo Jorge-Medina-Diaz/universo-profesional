@@ -85,6 +85,7 @@ export function BillingPage() {
       {sub.data?.status === "trialing" && sub.data?.trial_ends_at && (
         <Reveal delay={0.1}>
           <Card
+            tone="glass"
             padding="md"
             className="bg-sunbeam/10 border-sunbeam/30 flex items-center justify-between gap-4 flex-wrap"
           >
@@ -180,6 +181,7 @@ function PlanCard({
 }) {
   return (
     <Card
+      tone={highlighted ? "glass" : "surface"}
       padding="lg"
       className={cn(
         "flex flex-col gap-5 relative overflow-hidden",
@@ -250,7 +252,7 @@ function PlanCard({
         ) : (
           <Button
             fullWidth
-            variant={highlighted ? "primary" : "outline"}
+            variant={highlighted ? "cta" : "outline"}
             onClick={onUpgrade}
             loading={upgradeLoading}
           >

@@ -70,7 +70,7 @@ const SHAPE_TONE: Record<string, { tone: string; label: string }> = {
   T: { tone: "bg-sunbeam-soft text-sunbeam-ink", label: "T-shape · profundo + ancho" },
   π: { tone: "bg-sunbeam-soft text-sunbeam-ink", label: "π-shape · dos fortalezas" },
   M: { tone: "bg-amber-100 text-amber-800", label: "M-shape · polyglot amplio" },
-  none: { tone: "bg-black/[0.05] text-stone", label: "Sin perfil aún" },
+  none: { tone: "bg-ink/[0.05] text-stone", label: "Sin perfil aún" },
 };
 
 const MAX_DEPTH = 10; // years cap for radius scaling
@@ -127,7 +127,7 @@ function SignalsBlock({
   const visible = areas.filter((a) => signalsByArea[a]);
   if (visible.length === 0) return null;
   return (
-    <div className="flex flex-col gap-3 border-t border-black/[0.05] pt-3">
+    <div className="flex flex-col gap-3 border-t border-hairline pt-3">
       <div className="text-[11px] uppercase tracking-wide text-stone font-medium">
         Signals concretos
       </div>
@@ -246,7 +246,7 @@ function RadarSvg({ strengths }: { strengths: AreaStrengthData[] }) {
           r={r}
           fill="none"
           stroke="currentColor"
-          className="text-black/[0.06]"
+          className="text-ink/[0.06]"
           strokeDasharray={idx === rings.length - 1 ? undefined : "2 3"}
         />
       ))}
@@ -259,7 +259,7 @@ function RadarSvg({ strengths }: { strengths: AreaStrengthData[] }) {
           x2={a.xEnd}
           y2={a.yEnd}
           stroke="currentColor"
-          className="text-black/[0.08]"
+          className="text-ink/[0.08]"
         />
       ))}
       {/* polygon */}
@@ -285,8 +285,7 @@ function RadarSvg({ strengths }: { strengths: AreaStrengthData[] }) {
             cx={x}
             cy={y}
             r={s.is_primary ? 5 : 3.5}
-            className={tone.fill}
-            stroke="white"
+            className={`${tone.fill} stroke-surface`}
             strokeWidth={1.5}
           />
         );

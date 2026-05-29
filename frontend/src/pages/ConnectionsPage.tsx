@@ -20,13 +20,14 @@ import {
   Button,
   Card,
   DropZone,
+  Input,
   PageHeader,
   Reveal,
   Stagger,
   Surface,
   toast,
 } from "@/ui";
-import { GitHubIcon } from "@/ui/icons";
+import { GitHubIcon, LinkedInIcon } from "@/ui/icons";
 import {
   ImportPreviewTable,
   type ImportPreviewSection,
@@ -451,12 +452,17 @@ function LinkedInCard() {
   })();
 
   return (
-    <section className="card">
-      <header className="flex items-start gap-3">
-        <span aria-hidden className="text-2xl leading-none bg-[#0a66c2] text-white px-1.5 rounded font-bold">in</span>
-        <div className="flex-1 min-w-0">
-          <h2 className="font-semibold">LinkedIn</h2>
-          <p className="text-sm text-stone">
+    <Card padding="lg">
+      <header className="flex items-start gap-4">
+        <span
+          aria-hidden
+          className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-ink text-canvas shrink-0"
+        >
+          <LinkedInIcon size={20} />
+        </span>
+        <div className="flex-1 min-w-0 space-y-1">
+          <h2 className="text-heading-sm font-medium tracking-tight text-ink">LinkedIn</h2>
+          <p className="text-sm text-stone leading-relaxed">
             Trae tu experiencia, educación, skills, certificaciones y proyectos
             sin reescribir nada.
           </p>
@@ -508,15 +514,19 @@ function LinkedInCard() {
               </p>
             </div>
             {oidcConn ? (
-              <span className="badge-brand whitespace-nowrap">vinculada</span>
+              <Badge tone="leaf" dot className="whitespace-nowrap">
+                vinculada
+              </Badge>
             ) : (
-              <button
-                className="btn-secondary text-xs whitespace-nowrap"
+              <Button
+                variant="secondary"
+                size="sm"
+                className="whitespace-nowrap"
                 onClick={() => linkOidc.mutate()}
-                disabled={linkOidc.isPending}
+                loading={linkOidc.isPending}
               >
                 Vincular LinkedIn
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -546,17 +556,17 @@ function LinkedInCard() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap items-center">
-          <button
-            className={dmaUsesFixture ? "btn-secondary" : "btn-primary"}
+          <Button
+            variant={dmaUsesFixture ? "secondary" : "primary"}
             onClick={() => dmaSync.mutate()}
-            disabled={dmaSync.isPending}
+            loading={dmaSync.isPending}
           >
             {dmaSync.isPending
               ? "Sincronizando…"
               : dmaUsesFixture
                 ? "Probar con datos de muestra"
                 : "Sincronizar perfil"}
-          </button>
+          </Button>
           {dmaConn && (
             <button
               className="text-xs text-stone hover:text-red-600 underline"
@@ -616,35 +626,38 @@ function LinkedInCard() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap items-center">
-          <input
+          <Input
             type="url"
             placeholder="https://www.linkedin.com/in/tu-usuario"
             value={brightdataUrl}
             onChange={(e) => setBrightdataUrl(e.target.value)}
-            className="input flex-1 min-w-[200px] text-xs"
+            className="flex-1 min-w-[200px]"
           />
           {isPro ? (
-            <button
-              className="btn-primary text-xs whitespace-nowrap"
+            <Button
+              size="sm"
+              className="whitespace-nowrap"
               onClick={() =>
                 brightdataSync.mutate({
                   linkedin_url: brightdataUrl.trim() || undefined,
                   fresh: brightdataFresh,
                 })
               }
-              disabled={brightdataSync.isPending}
+              loading={brightdataSync.isPending}
             >
               {brightdataSync.isPending ? "Buscando…" : "Importar (PRO)"}
-            </button>
+            </Button>
           ) : (
-            <button
-              className="btn-secondary text-xs whitespace-nowrap"
+            <Button
+              variant="cta"
+              size="sm"
+              className="whitespace-nowrap"
               onClick={() => upgradePro.mutate()}
-              disabled={upgradePro.isPending}
+              loading={upgradePro.isPending}
               title="En producción este botón llevaría a Stripe. En dev: activa PRO directamente."
             >
               {upgradePro.isPending ? "Activando…" : "Pasar a PRO (dev)"}
-            </button>
+            </Button>
           )}
         </div>
         {isPro && (
@@ -700,15 +713,14 @@ function LinkedInCard() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <button
-            className={
-              dmaUsesFixture && brightdataUsesFixture ? "btn-primary" : "btn-secondary text-xs"
-            }
+          <Button
+            variant={dmaUsesFixture && brightdataUsesFixture ? "primary" : "secondary"}
+            size={dmaUsesFixture && brightdataUsesFixture ? "md" : "sm"}
             onClick={() => inputRef.current?.click()}
-            disabled={parseUpload.isPending}
+            loading={parseUpload.isPending}
           >
             {parseUpload.isPending ? "Procesando…" : "Subir ZIP de LinkedIn"}
-          </button>
+          </Button>
           <input
             ref={inputRef}
             type="file"
@@ -743,7 +755,7 @@ function LinkedInCard() {
           />
         </div>
       )}
-    </section>
+    </Card>
   );
 }
 

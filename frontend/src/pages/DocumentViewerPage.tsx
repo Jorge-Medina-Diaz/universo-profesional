@@ -89,7 +89,7 @@ export function DocumentViewerPage({ id }: { id: string }) {
   if (!query.data) {
     return (
       <Surface width="md" spacing="md">
-        <Card padding="lg" className="text-center space-y-3">
+        <Card padding="lg" tone="glass" className="text-center space-y-3">
           <FileText size={32} className="mx-auto text-stone" />
           <h2 className="text-heading-sm font-medium tracking-tight">
             Documento no encontrado
@@ -134,6 +134,7 @@ export function DocumentViewerPage({ id }: { id: string }) {
             </Button>
             {doc.has_pdf && (
               <Button
+                variant="cta"
                 onClick={() =>
                   window.open(`/api/v1/documents/${id}/pdf`, "_blank", "noopener,noreferrer")
                 }
@@ -147,9 +148,9 @@ export function DocumentViewerPage({ id }: { id: string }) {
       />
 
       <Reveal>
-        <Card padding="lg" className="space-y-2">
+        <Card padding="lg" tone="glass" className="space-y-2">
           <div className="flex flex-wrap gap-2">
-            <Badge tone="leaf" size="sm">
+            <Badge tone="nova" size="sm" dot>
               {doc.kind}
             </Badge>
             <Badge tone="stone" size="sm">

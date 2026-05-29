@@ -130,7 +130,7 @@ export function InterviewQAWidget({ data }: { data: InterviewQAData }) {
                 <button
                   type="button"
                   onClick={() => toggle(i)}
-                  className="w-full flex items-start justify-between gap-2 px-3 py-2 text-left hover:bg-black/[0.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1"
+                  className="w-full flex items-start justify-between gap-2 px-3 py-2 text-left hover:bg-ink/[0.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1"
                   aria-expanded={isOpen}
                 >
                   <div className="flex items-start gap-2 flex-1 min-w-0">

@@ -107,6 +107,7 @@ export function CareerPreferencesPage() {
         subtitle="Cuanto más afinado, mejor adapta tus CVs y prioriza ofertas. Todo opcional."
         actions={
           <Button
+            variant="cta"
             onClick={() => save.mutate()}
             loading={save.isPending}
             disabled={!dirty}
@@ -361,7 +362,7 @@ export function CareerPreferencesPage() {
       {dirty && (
         <Reveal>
           <div className="sticky bottom-4 md:bottom-6 flex justify-center">
-            <Card padding="sm" className="flex items-center gap-3 shadow-lift bg-canvas/95 backdrop-blur-md">
+            <Card tone="glass" padding="sm" className="flex items-center gap-3 shadow-lift">
               <Badge tone="sunbeam" dot>
                 Cambios sin guardar
               </Badge>

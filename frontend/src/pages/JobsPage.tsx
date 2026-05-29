@@ -297,7 +297,11 @@ export function JobsPage() {
                 Lista
               </ViewTab>
             </div>
-            <Button onClick={() => setCreating(true)} leadingIcon={<Plus size={14} />}>
+            <Button
+              variant="cta"
+              onClick={() => setCreating(true)}
+              leadingIcon={<Plus size={14} />}
+            >
               Añadir oferta
             </Button>
           </>
@@ -383,7 +387,7 @@ export function JobsPage() {
 
       {isEmpty && (
         <Reveal>
-          <Card padding="lg" className="text-center space-y-3">
+          <Card padding="lg" tone="glass" className="text-center space-y-3">
             <Briefcase size={32} className="mx-auto text-stone" />
             <h3 className="text-heading-sm font-medium tracking-tight">
               Aún no estás siguiendo ninguna oferta
@@ -393,7 +397,11 @@ export function JobsPage() {
               desde una oferta también queda registrada automáticamente.
             </p>
             <div className="pt-2">
-              <Button onClick={() => setCreating(true)} leadingIcon={<Plus size={14} />}>
+              <Button
+                variant="cta"
+                onClick={() => setCreating(true)}
+                leadingIcon={<Plus size={14} />}
+              >
                 Añadir tu primera oferta
               </Button>
             </div>
@@ -669,7 +677,7 @@ function KanbanCard({
             title={hasJD ? "Recalcular match" : "Sin descripción para recalcular"}
             className="inline-flex items-center gap-1 disabled:cursor-not-allowed"
           >
-            <Badge tone="leaf" size="sm">
+            <Badge tone="nova" size="sm">
               {recomputing ? "…" : `${job.match_score}% match`}
             </Badge>
             {hasJD && !recomputing && (

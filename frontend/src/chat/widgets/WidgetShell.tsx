@@ -52,7 +52,7 @@ export function WidgetShell({
             type="button"
             onClick={() => onTogglePin(widget.id)}
             className={cn(
-              "w-7 h-7 rounded-full grid place-items-center text-stone hover:text-ink hover:bg-black/[0.04] transition-colors focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1 focus-visible:outline-none",
+              "w-7 h-7 rounded-full grid place-items-center text-stone hover:text-ink hover:bg-ink/[0.04] transition-colors focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1 focus-visible:outline-none",
               widget.pinned && "text-ink",
             )}
             aria-label={widget.pinned ? "Quitar anclaje" : "Anclar widget"}
@@ -64,7 +64,7 @@ export function WidgetShell({
           <button
             type="button"
             onClick={() => onRemove(widget.id)}
-            className="w-7 h-7 rounded-full grid place-items-center text-stone hover:text-ink hover:bg-black/[0.04] transition-colors focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1 focus-visible:outline-none"
+            className="w-7 h-7 rounded-full grid place-items-center text-stone hover:text-ink hover:bg-ink/[0.04] transition-colors focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1 focus-visible:outline-none"
             aria-label="Cerrar widget"
           >
             <X size={14} />

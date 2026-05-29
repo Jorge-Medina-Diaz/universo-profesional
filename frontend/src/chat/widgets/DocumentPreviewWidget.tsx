@@ -20,7 +20,7 @@ export function DocumentPreviewWidget({ data }: { data: DocPreviewData }) {
     return <p className="text-sm text-stone">Sin documento referenciado.</p>;
   }
   return (
-    <div className="rounded-card bg-white border border-black/[0.05] px-3 py-3 flex flex-col gap-2">
+    <div className="rounded-card bg-surface border border-hairline px-3 py-3 flex flex-col gap-2">
       <div className="flex items-center gap-2">
         <span
           aria-hidden

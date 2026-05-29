@@ -109,7 +109,7 @@ export function ActivityPage() {
       {query.isLoading ? (
         <PageSkeleton />
       ) : grouped.length === 0 ? (
-        <Card padding="lg" className="text-center space-y-3">
+        <Card tone="glass" padding="lg" className="text-center space-y-3">
           <span
             aria-hidden
             className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-leaf-soft text-leaf-ink mx-auto"

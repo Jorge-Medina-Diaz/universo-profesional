@@ -137,7 +137,7 @@ export function ArchitectureDecisionProposalCard({
                     "px-2.5 py-1 text-[11px] rounded-full transition-all border",
                     status === s.id
                       ? `${s.tone} border-transparent`
-                      : "bg-white text-stone border-ink/[0.08] hover:border-ink/[0.2]",
+                      : "bg-surface text-stone border-hairline hover:border-ink/[0.2]",
                   )}
                 >
                   {s.label}

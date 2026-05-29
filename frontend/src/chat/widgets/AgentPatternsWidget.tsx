@@ -80,7 +80,7 @@ function PatternCard({ pattern }: { pattern: AgentPattern }) {
     : pattern.evaluation;
   const memory = pattern.memory ? MEMORY_LABEL[pattern.memory] ?? pattern.memory : null;
   return (
-    <div className="rounded-card bg-white shadow-sm border border-black/[0.05] px-3 py-2.5 flex flex-col gap-2">
+    <div className="rounded-card bg-surface border border-hairline px-3 py-2.5 flex flex-col gap-2">
       <div className="flex items-start justify-between gap-2">
         <div className="text-sm font-medium text-ink leading-snug">
           {pattern.name ?? "Sistema agéntico"}

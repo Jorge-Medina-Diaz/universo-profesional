@@ -60,7 +60,7 @@ export function UniverseDrawer({ open, onClose }: UniverseDrawerProps) {
               type="button"
               onClick={onClose}
               aria-label="Cerrar"
-              className="w-9 h-9 rounded-full grid place-items-center text-stone hover:text-ink hover:bg-black/[0.04] transition-colors"
+              className="w-9 h-9 rounded-full grid place-items-center text-stone hover:text-ink hover:bg-ink/[0.04] transition-colors"
             >
               <X size={18} />
             </button>
@@ -347,9 +347,9 @@ function DrawerLink({ href, children }: { href: string; children: React.ReactNod
 function Skeleton() {
   return (
     <div className="space-y-3" aria-hidden>
-      <div className="h-4 w-32 bg-black/[0.04] rounded animate-pulse" />
-      <div className="h-20 bg-black/[0.04] rounded-card animate-pulse" />
-      <div className="h-20 bg-black/[0.04] rounded-card animate-pulse" />
+      <div className="h-4 w-32 bg-ink/[0.06] rounded animate-pulse" />
+      <div className="h-20 bg-ink/[0.06] rounded-card animate-pulse" />
+      <div className="h-20 bg-ink/[0.06] rounded-card animate-pulse" />
     </div>
   );
 }
