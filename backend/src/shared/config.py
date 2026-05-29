@@ -61,6 +61,15 @@ class Settings(BaseSettings):
     # --- Storage ---
     storage_root: Path = Path("/app/var/documents")
     storage_provider: Literal["filesystem", "s3"] = "filesystem"
+    # S3 (only used when storage_provider="s3"). endpoint_url lets you point at
+    # MinIO / R2 / any S3-compatible store; leave None for AWS. Credentials may
+    # also come from the ambient AWS chain (IAM role) — leave the keys None then.
+    s3_bucket: str | None = None
+    s3_region: str = "eu-west-1"
+    s3_prefix: str = "documents"
+    s3_endpoint_url: str | None = None
+    s3_access_key_id: str | None = None
+    s3_secret_access_key: str | None = None
 
     # --- JWT keys ---
     jwt_private_key_path: Path = Path("/app/var/keys/jwt_private.pem")

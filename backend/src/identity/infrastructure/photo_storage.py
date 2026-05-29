@@ -1,8 +1,7 @@
-"""Profile photo upload + validation + filesystem storage."""
+"""Profile photo upload + validation + pluggable storage (filesystem or S3)."""
 from __future__ import annotations
 
 import io
-from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -10,8 +9,8 @@ import structlog
 from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.shared.config import get_settings
 from src.shared.security import utc_now
+from src.shared.storage import get_storage
 from src.universe.infrastructure.orm import AvatarOrm
 
 logger = structlog.get_logger(__name__)
@@ -23,10 +22,9 @@ ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
 EXT_BY_MIME = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 
 
-def _avatar_dir() -> Path:
-    root = Path(str(get_settings().storage_root)).parent / "avatars"
-    root.mkdir(parents=True, exist_ok=True)
-    return root
+def _avatar_key(filename: str) -> str:
+    """Storage key for an avatar — `avatars/<user_id>.<ext>`."""
+    return f"avatars/{filename}"
 
 
 def _validate_and_normalize(data: bytes, mime: str | None) -> tuple[bytes, str, int, int, str]:
@@ -72,15 +70,14 @@ async def save_avatar(
     original_filename: str | None,
 ) -> dict[str, Any]:
     normalized, mime, w, h, ext = _validate_and_normalize(data, mime)
-    path = _avatar_dir() / f"{user_id}.{ext}"
-    # Clean up any previous extension for this user
-    for previous in _avatar_dir().glob(f"{user_id}.*"):
-        if previous != path:
-            try:
-                previous.unlink()
-            except Exception:
-                pass
-    path.write_bytes(normalized)
+    storage = get_storage()
+    filename = f"{user_id}.{ext}"
+    # Clean up any previous extension for this user (no listing on the storage
+    # port, so delete the other known extensions explicitly).
+    for other_ext in EXT_BY_MIME.values():
+        if other_ext != ext:
+            await storage.delete(_avatar_key(f"{user_id}.{other_ext}"))
+    await storage.save(_avatar_key(filename), normalized, content_type=mime)
 
     existing = await session.get(AvatarOrm, user_id)
     if existing is None:
@@ -89,7 +86,7 @@ async def save_avatar(
                 user_id=user_id,
                 mime_type=mime,
                 size_bytes=len(normalized),
-                filename=path.name,
+                filename=filename,
                 width=w,
                 height=h,
                 uploaded_at=utc_now(),
@@ -98,7 +95,7 @@ async def save_avatar(
     else:
         existing.mime_type = mime
         existing.size_bytes = len(normalized)
-        existing.filename = path.name
+        existing.filename = filename
         existing.width = w
         existing.height = h
         existing.uploaded_at = utc_now()
@@ -116,20 +113,19 @@ async def load_avatar(session: AsyncSession, user_id: UUID) -> tuple[bytes, str]
     row = await session.get(AvatarOrm, user_id)
     if row is None:
         return None
-    path = _avatar_dir() / row.filename
-    if not path.exists():
+    storage = get_storage()
+    key = _avatar_key(row.filename)
+    if not await storage.exists(key):
         return None
-    return path.read_bytes(), row.mime_type
+    return await storage.read(key), row.mime_type
 
 
 async def delete_avatar(session: AsyncSession, user_id: UUID) -> bool:
     row = await session.get(AvatarOrm, user_id)
     if row is None:
         return False
-    path = _avatar_dir() / row.filename
     try:
-        if path.exists():
-            path.unlink()
+        await get_storage().delete(_avatar_key(row.filename))
     except Exception:
         pass
     await session.delete(row)

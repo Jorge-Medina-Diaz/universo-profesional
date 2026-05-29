@@ -1,12 +1,27 @@
-"""Unit tests: document template rendering, PDF and DOCX generation."""
+"""Unit tests: document template rendering, PDF and DOCX generation.
+
+The renderer now returns a storage *key* (relative path) and writes through the
+configured storage backend (filesystem in tests). We point storage_root at a
+tmp dir and clear the cached storage adapter so each test is isolated.
+"""
 from __future__ import annotations
 
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from src.documents.infrastructure.renderer import WeasyPrintRenderer, _ensure_user_dir
+from src.documents.infrastructure.renderer import WeasyPrintRenderer
 from src.shared.config import get_settings
+from src.shared.storage import get_storage
+
+
+@pytest.fixture
+def storage_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    monkeypatch.setattr(get_settings(), "storage_provider", "filesystem")
+    monkeypatch.setattr(get_settings(), "storage_root", tmp_path)
+    get_storage.cache_clear()  # rebuild the adapter against tmp_path
+    yield tmp_path
+    get_storage.cache_clear()
 
 
 @pytest.fixture
@@ -44,38 +59,30 @@ def sample_resume() -> dict:
 
 
 @pytest.mark.asyncio
-async def test_render_pdf_creates_file(sample_resume: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(get_settings(), "storage_root", tmp_path)
+async def test_render_pdf_creates_file(sample_resume: dict, storage_tmp: Path) -> None:
     renderer = WeasyPrintRenderer()
     user_id = uuid4()
-    path = await renderer.render_pdf(
-        content_json=sample_resume,
-        template="ats-classic",
-        language="en",
-        user_id=user_id,
+    key = await renderer.render_pdf(
+        content_json=sample_resume, template="ats-classic", language="en", user_id=user_id
     )
-    assert Path(path).exists()  # noqa: ASYNC240
-    assert Path(path).suffix in (".pdf", ".html")
+    assert key.startswith(f"{user_id}/")
+    assert Path(key).suffix in (".pdf", ".html")
+    assert (storage_tmp / key).exists()  # noqa: ASYNC240
 
 
 @pytest.mark.asyncio
-async def test_render_docx_creates_file(sample_resume: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(get_settings(), "storage_root", tmp_path)
+async def test_render_docx_creates_file(sample_resume: dict, storage_tmp: Path) -> None:
     renderer = WeasyPrintRenderer()
     user_id = uuid4()
-    path = await renderer.render_docx(
-        content_json=sample_resume,
-        template="ats-classic",
-        language="en",
-        user_id=user_id,
+    key = await renderer.render_docx(
+        content_json=sample_resume, template="ats-classic", language="en", user_id=user_id
     )
-    assert Path(path).exists()  # noqa: ASYNC240
-    assert Path(path).suffix == ".docx"
+    assert key.endswith(".docx")
+    assert (storage_tmp / key).exists()  # noqa: ASYNC240
 
 
 @pytest.mark.asyncio
-async def test_render_cover_letter_docx(sample_resume: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(get_settings(), "storage_root", tmp_path)
+async def test_render_cover_letter_docx(sample_resume: dict, storage_tmp: Path) -> None:
     renderer = WeasyPrintRenderer()
     user_id = uuid4()
     cover_letter = {
@@ -83,33 +90,18 @@ async def test_render_cover_letter_docx(sample_resume: dict, tmp_path: Path, mon
         "meta": {"target_company": "Acme", "target_title": "Engineer"},
         "cover_letter_body": "Dear hiring manager,\n\nI am excited...",
     }
-    path = await renderer.render_docx(
-        content_json=cover_letter,
-        template="cover-letter-classic",
-        language="en",
-        user_id=user_id,
+    key = await renderer.render_docx(
+        content_json=cover_letter, template="cover-letter-classic", language="en", user_id=user_id
     )
-    assert Path(path).exists()  # noqa: ASYNC240
-    assert Path(path).suffix == ".docx"
+    assert key.endswith(".docx")
+    assert (storage_tmp / key).exists()  # noqa: ASYNC240
 
 
 @pytest.mark.asyncio
-async def test_render_pdf_fallback_on_bad_template(sample_resume: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(get_settings(), "storage_root", tmp_path)
+async def test_render_pdf_fallback_on_bad_template(sample_resume: dict, storage_tmp: Path) -> None:
     renderer = WeasyPrintRenderer()
     user_id = uuid4()
-    path = await renderer.render_pdf(
-        content_json=sample_resume,
-        template="nonexistent-template",
-        language="en",
-        user_id=user_id,
+    key = await renderer.render_pdf(
+        content_json=sample_resume, template="nonexistent-template", language="en", user_id=user_id
     )
-    assert Path(path).exists()  # noqa: ASYNC240
-
-
-def test_ensure_user_dir_creates_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(get_settings(), "storage_root", tmp_path)
-    user_id = uuid4()
-    d = _ensure_user_dir(user_id)
-    assert d.exists()
-    assert d.name == str(user_id)
+    assert (storage_tmp / key).exists()  # noqa: ASYNC240

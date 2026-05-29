@@ -7,7 +7,7 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from src.documents.application.use_cases import (
@@ -27,6 +27,7 @@ from src.documents.infrastructure.repositories import (
 from src.identity.interfaces.api.deps import CurrentUserId, SessionDep, current_user_id
 from src.shared.embeddings import get_embeddings_service
 from src.shared.metrics import cv_generated_total
+from src.shared.storage import get_storage
 from src.shared.uow import unit_of_work
 from src.universe.infrastructure.semantic_search import PgVectorSemanticSearch
 
@@ -154,13 +155,20 @@ async def get_document(
     return result.value
 
 
+async def _read_blob_or_404(key: str | None, *, not_found: str) -> bytes:
+    storage = get_storage()
+    if not key or not await storage.exists(key):
+        raise HTTPException(status_code=404, detail=not_found)
+    return await storage.read(key)
+
+
 @router.get("/{document_id}/pdf")
 async def download_pdf(
     document_id: str,
     user_id: CurrentUserId,
     uc: GetDocDep,
     session: SessionDep,
-) -> FileResponse:
+) -> Response:
     from uuid import UUID
 
     from sqlalchemy import select
@@ -174,11 +182,16 @@ async def download_pdf(
             .where(DocumentOrm.user_id == UUID(user_id))
         )
     ).scalar_one_or_none()
-    if row is None or not row.pdf_path or not Path(row.pdf_path).exists():
+    if row is None:
         raise HTTPException(status_code=404, detail="PDF not found")
+    data = await _read_blob_or_404(row.pdf_path, not_found="PDF not found")
     suffix = Path(row.pdf_path).suffix.lower() or ".pdf"
     media = "application/pdf" if suffix == ".pdf" else "text/html"
-    return FileResponse(row.pdf_path, media_type=media, filename=f"cv-{document_id}{suffix}")
+    return Response(
+        content=data,
+        media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="cv-{document_id}{suffix}"'},
+    )
 
 
 @router.get("/{document_id}/docx")
@@ -186,7 +199,7 @@ async def download_docx(
     document_id: str,
     user_id: CurrentUserId,
     session: SessionDep,
-) -> FileResponse:
+) -> Response:
     from uuid import UUID
 
     from sqlalchemy import select
@@ -200,12 +213,13 @@ async def download_docx(
             .where(DocumentOrm.user_id == UUID(user_id))
         )
     ).scalar_one_or_none()
-    if row is None or not row.docx_path or not Path(row.docx_path).exists():
+    if row is None:
         raise HTTPException(status_code=404, detail="DOCX not found")
-    return FileResponse(
-        row.docx_path,
+    data = await _read_blob_or_404(row.docx_path, not_found="DOCX not found")
+    return Response(
+        content=data,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        filename=f"cv-{document_id}.docx",
+        headers={"Content-Disposition": f'attachment; filename="cv-{document_id}.docx"'},
     )
 
 
@@ -272,16 +286,16 @@ async def resolve_share_token(token: str, session: SessionDep) -> dict[str, Any]
 
 
 @public_router.get("/{token}/pdf")
-async def get_share_pdf(token: str, session: SessionDep) -> FileResponse:
+async def get_share_pdf(token: str, session: SessionDep) -> Response:
     repo = SqlAlchemyDocumentRepository(session)
     doc = await repo.get_by_share_token(token)
-    if doc is None or not doc.pdf_path:
+    if doc is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    path = Path(doc.pdf_path)
-    if not path.exists():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    return FileResponse(
-        path,
-        media_type="application/pdf",
-        filename=f"cv-{doc.id}.pdf",
+    data = await _read_blob_or_404(doc.pdf_path, not_found="not_found")
+    suffix = Path(doc.pdf_path).suffix.lower() or ".pdf"
+    media = "application/pdf" if suffix == ".pdf" else "text/html"
+    return Response(
+        content=data,
+        media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="cv-{doc.id}{suffix}"'},
     )

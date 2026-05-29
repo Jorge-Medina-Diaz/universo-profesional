@@ -43,6 +43,8 @@ dependencies = [
     "weasyprint>=63.0",
     "python-docx>=1.1.2",
     "jinja2>=3.1.4",
+    # Object storage (only used when STORAGE_PROVIDER=s3; lazy-imported)
+    "aioboto3>=13.2.0",
     # Files / parsing
     "pypdf>=5.1.0",
     # Graph / ontology / retrieval (Universe v2)

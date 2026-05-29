@@ -10,6 +10,7 @@ all section headers as actual <h2> tags so parsers recognize structure.
 from __future__ import annotations
 
 import asyncio
+import io
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -18,7 +19,7 @@ import structlog
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from src.documents.application.ports import Renderer
-from src.shared.config import get_settings
+from src.shared.storage import get_storage
 
 logger = structlog.get_logger(__name__)
 
@@ -50,21 +51,23 @@ class WeasyPrintRenderer(Renderer):
 
         html = tmpl.render(resume=content_json, language=language)
 
-        out_dir = _ensure_user_dir(user_id)
-        out_path = out_dir / f"{_uuid4_short()}.pdf"
-
+        key = f"{user_id}/{_uuid4_short()}.pdf"
         try:
             from weasyprint import HTML
 
-            await asyncio.to_thread(
-                lambda: HTML(string=html, base_url=str(_TEMPLATES_DIR)).write_pdf(str(out_path))
+            # write_pdf(target=None) returns the PDF as bytes — render in a
+            # thread, then hand the bytes to the storage backend (filesystem or
+            # S3) so durability is the storage layer's concern, not WeasyPrint's.
+            pdf_bytes: bytes = await asyncio.to_thread(
+                lambda: HTML(string=html, base_url=str(_TEMPLATES_DIR)).write_pdf()
             )
+            await get_storage().save(key, pdf_bytes, content_type="application/pdf")
         except Exception as exc:
             logger.warning("pdf_render_failed_fallback_html", error=str(exc))
-            # Fallback: persist HTML so the path is still meaningful
-            out_path = out_path.with_suffix(".html")
-            await asyncio.to_thread(out_path.write_text, html, encoding="utf-8")
-        return str(out_path)
+            # Fallback: persist HTML so the document is still retrievable.
+            key = key[:-4] + ".html"
+            await get_storage().save(key, html.encode("utf-8"), content_type="text/html")
+        return key
 
     async def render_docx(
         self,
@@ -106,10 +109,7 @@ class WeasyPrintRenderer(Renderer):
             body = content_json.get("cover_letter_body") or basics.get("summary") or ""
             for para in body.split("\n\n"):
                 doc.add_paragraph(para.strip())
-            out_dir = _ensure_user_dir(user_id)
-            out_path = out_dir / f"{_uuid4_short()}.docx"
-            await asyncio.to_thread(doc.save, str(out_path))
-            return str(out_path)
+            return await _save_docx(doc, user_id)
 
         if basics.get("name"):
             doc.add_heading(basics["name"], level=1)
@@ -173,17 +173,19 @@ class WeasyPrintRenderer(Renderer):
                 )
             )
 
-        out_dir = _ensure_user_dir(user_id)
-        out_path = out_dir / f"{_uuid4_short()}.docx"
-        await asyncio.to_thread(doc.save, str(out_path))
-        return str(out_path)
+        return await _save_docx(doc, user_id)
 
 
-def _ensure_user_dir(user_id: UUID) -> Path:
-    root = get_settings().storage_root
-    out = root / str(user_id)
-    out.mkdir(parents=True, exist_ok=True)
-    return out
+_DOCX_MEDIA = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+async def _save_docx(doc: Any, user_id: UUID) -> str:
+    """Serialize a python-docx Document to bytes and store it; return the key."""
+    buffer = io.BytesIO()
+    await asyncio.to_thread(doc.save, buffer)
+    key = f"{user_id}/{_uuid4_short()}.docx"
+    await get_storage().save(key, buffer.getvalue(), content_type=_DOCX_MEDIA)
+    return key
 
 
 def _uuid4_short() -> str:
