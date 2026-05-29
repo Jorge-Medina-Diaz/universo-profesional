@@ -105,7 +105,7 @@ export function AuditMilestones() {
               onClick={() => setTab(i)}
               className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-300 ${
                 i === tab
-                  ? "bg-[var(--cos-ink)] text-[#0a0a0a]"
+                  ? "bg-[var(--cos-ink)] text-[var(--cos-on-ink)]"
                   : "border border-[var(--cos-hairline)] text-[var(--cos-stone)] hover:text-[var(--cos-ink)]"
               }`}
             >
@@ -131,7 +131,7 @@ export function AuditMilestones() {
             <div className="flex items-center gap-6">
               <div className="relative h-32 w-32 shrink-0">
                 <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-                  <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(244,241,234,0.1)" strokeWidth="8" />
+                  <circle cx="60" cy="60" r="52" fill="none" style={{ stroke: "var(--cos-track)" }} strokeWidth="8" />
                   <motion.circle
                     key={track.id}
                     cx="60"

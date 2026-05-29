@@ -136,7 +136,7 @@ export function ProactiveCapture() {
               onClick={() => setTab(i)}
               className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-300 ${
                 i === tab
-                  ? "bg-[var(--cos-ink)] text-[#0a0a0a]"
+                  ? "bg-[var(--cos-ink)] text-[var(--cos-on-ink)]"
                   : "border border-[var(--cos-hairline)] text-[var(--cos-stone)] hover:text-[var(--cos-ink)]"
               }`}
             >
@@ -211,9 +211,9 @@ export function ProactiveCapture() {
               <Bubble who="agent" show={step >= 4} text={script.agentDone} accent />
 
               {/* composer (static) */}
-              <div className="mt-auto flex items-center gap-2 rounded-2xl border border-[var(--cos-hairline)] bg-[rgba(255,255,255,0.02)] px-4 py-2.5">
+              <div className="mt-auto flex items-center gap-2 rounded-2xl border border-[var(--cos-hairline)] bg-[var(--cos-fill)] px-4 py-2.5">
                 <span className="flex-1 text-sm text-[var(--cos-faint)]">Cuéntale a tu agente…</span>
-                <span className="grid h-7 w-7 place-items-center rounded-lg bg-[var(--cos-ink)] text-[#0a0a0a]">
+                <span className="grid h-7 w-7 place-items-center rounded-lg bg-[var(--cos-ink)] text-[var(--cos-on-ink)]">
                   <CornerDownLeft size={13} />
                 </span>
               </div>
@@ -246,7 +246,7 @@ export function ProactiveCapture() {
                       : { opacity: 0, y: 12, scale: 0.95 }
                   }
                   transition={{ delay: step >= 4 ? i * 0.12 : 0, duration: 0.4, ease: EASE }}
-                  className="flex items-center gap-3 rounded-xl border border-[var(--cos-hairline)] bg-[rgba(255,255,255,0.025)] px-3.5 py-3"
+                  className="flex items-center gap-3 rounded-xl border border-[var(--cos-hairline)] bg-[var(--cos-fill)] px-3.5 py-3"
                 >
                   <span
                     className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -301,10 +301,10 @@ function Bubble({
           <div
             className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
               who === "user"
-                ? "rounded-br-md bg-[var(--cos-ink)] text-[#0a0a0a]"
+                ? "rounded-br-md bg-[var(--cos-ink)] text-[var(--cos-on-ink)]"
                 : accent
                   ? "rounded-bl-md border border-[#6ece9d]/30 bg-[#6ece9d]/10 text-[var(--cos-ink)]"
-                  : "rounded-bl-md border border-[var(--cos-hairline)] bg-[rgba(255,255,255,0.03)] text-[var(--cos-ink)]"
+                  : "rounded-bl-md border border-[var(--cos-hairline)] bg-[var(--cos-fill)] text-[var(--cos-ink)]"
             }`}
           >
             {text}
@@ -318,7 +318,7 @@ function Bubble({
 function Typing() {
   return (
     <div className="flex justify-start">
-      <div className="rounded-2xl rounded-bl-md border border-[var(--cos-hairline)] bg-[rgba(255,255,255,0.03)] px-3.5 py-3">
+      <div className="rounded-2xl rounded-bl-md border border-[var(--cos-hairline)] bg-[var(--cos-fill)] px-3.5 py-3">
         <div className="flex gap-1">
           {[0, 1, 2].map((i) => (
             <motion.span

@@ -104,6 +104,7 @@ export function SemanticConstellation({
   const rafRef = useRef(0);
   const sizeRef = useRef({ w: 0, h: 0 });
   const pointerRef = useRef({ x: -9999, y: -9999, tx: 0, ty: 0, cx: 0, cy: 0 });
+  const darkRef = useRef(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -112,6 +113,18 @@ export function SemanticConstellation({
     if (!canvas || !wrap) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    // Theme-aware: read the global data-theme and track live toggles so the
+    // canvas edge/anchor colours flip with light/dark without a rebuild.
+    const readDark = () => {
+      darkRef.current = document.documentElement.dataset.theme === "dark";
+    };
+    readDark();
+    const themeObserver = new MutationObserver(readDark);
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const coarse = window.matchMedia("(max-width: 768px)").matches;
@@ -296,11 +309,11 @@ export function SemanticConstellation({
         ctx!.moveTo(a.x, a.y);
         ctx!.quadraticCurveTo(cx, cy, b.x, b.y);
         if (e.cross) {
-          ctx!.strokeStyle = `rgba(244,241,234,0.07)`;
+          ctx!.strokeStyle = darkRef.current ? "rgba(244,241,234,0.07)" : "rgba(20,19,15,0.1)";
           ctx!.lineWidth = 0.6;
         } else {
           const [r, g, bl] = hexToRgb(e.color);
-          ctx!.strokeStyle = `rgba(${r},${g},${bl},0.22)`;
+          ctx!.strokeStyle = `rgba(${r},${g},${bl},${darkRef.current ? 0.22 : 0.32})`;
           ctx!.lineWidth = 0.8;
         }
         ctx!.stroke();
@@ -364,7 +377,7 @@ export function SemanticConstellation({
         // core
         ctx!.beginPath();
         ctx!.arc(n.x, n.y, pulseR, 0, Math.PI * 2);
-        ctx!.fillStyle = n.anchor ? "#fffaf0" : n.color;
+        ctx!.fillStyle = n.anchor ? (darkRef.current ? "#fffaf0" : "#141310") : n.color;
         ctx!.globalAlpha = n.anchor ? 1 : 0.55 + Math.sin(n.pulse) * 0.25;
         ctx!.fill();
         ctx!.globalAlpha = 1;
@@ -378,6 +391,7 @@ export function SemanticConstellation({
 
     return () => {
       ro.disconnect();
+      themeObserver.disconnect();
       cancelAnimationFrame(rafRef.current);
       if (allowPointer) {
         wrap.removeEventListener("mousemove", onMove);

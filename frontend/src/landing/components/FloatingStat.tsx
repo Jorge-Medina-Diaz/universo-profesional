@@ -40,7 +40,7 @@ export function FloatingStat({
   prefix = "",
   label,
   duration = 2000,
-  accent = "#f4f1ea",
+  accent = "var(--cos-ink)",
 }: Props) {
   const [inView, setInView] = useState(false);
   const ref = useRef<HTMLDivElement>(null);

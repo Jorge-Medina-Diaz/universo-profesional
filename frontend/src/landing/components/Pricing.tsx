@@ -93,7 +93,7 @@ export function Pricing() {
               transition={{ duration: 0.55, delay: i * 0.1, ease: EASE }}
               className={`relative flex flex-col rounded-3xl p-6 md:p-7 ${
                 tier.featured
-                  ? "border border-[#ffda6e]/40 bg-[rgba(255,255,255,0.04)]"
+                  ? "border border-[#ffda6e]/40 bg-[var(--cos-fill-strong)]"
                   : "cos-panel"
               }`}
               style={
@@ -136,7 +136,7 @@ export function Pricing() {
                 className={`group mt-7 inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-all ${
                   tier.featured
                     ? "cos-btn-primary"
-                    : "border border-[var(--cos-hairline-strong)] text-[var(--cos-ink)] hover:bg-[rgba(255,255,255,0.05)]"
+                    : "border border-[var(--cos-hairline-strong)] text-[var(--cos-ink)] hover:bg-[var(--cos-fill-strong)]"
                 }`}
               >
                 {tier.cta}

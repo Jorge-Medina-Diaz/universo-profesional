@@ -46,7 +46,7 @@ export function McpSection() {
                   transition={{ delay: i * 0.1, ease: EASE }}
                   className="flex items-start gap-3.5"
                 >
-                  <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[var(--cos-hairline)] bg-[rgba(255,255,255,0.03)] text-[#00d4aa]">
+                  <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[var(--cos-hairline)] bg-[var(--cos-fill)] text-[#00d4aa]">
                     <f.icon size={16} />
                   </span>
                   <div>

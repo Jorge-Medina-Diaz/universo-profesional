@@ -113,7 +113,7 @@ export function LivingHero() {
             className="mt-5 flex items-center gap-2 text-sm text-[var(--cos-faint)]"
           >
             <span>Hecho para</span>
-            <span className="inline-flex h-7 items-center overflow-hidden rounded-full border border-[var(--cos-hairline)] bg-[rgba(255,255,255,0.03)] px-3">
+            <span className="inline-flex h-7 items-center overflow-hidden rounded-full border border-[var(--cos-hairline)] bg-[var(--cos-fill)] px-3">
               <AnimatePresence mode="wait">
                 <motion.span
                   key={PROFESSIONS[profIndex]}

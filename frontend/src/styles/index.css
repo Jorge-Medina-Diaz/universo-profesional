@@ -1152,18 +1152,27 @@
  * The public marketing landing is the "trailer"; the product is light.
  * ================================================================ */
 .landing-cosmos {
-  /* Deep-space ink — a hair warm/green so the brand accents feel native. */
-  --cos-bg: #07080a;
-  --cos-bg-2: #0b0d10;
-  --cos-ink: #f4f1ea;          /* warm off-white — matches cream brand */
-  --cos-stone: #9c988e;        /* muted body text */
-  --cos-faint: #6c6962;        /* tertiary / captions */
-  --cos-hairline: rgba(244, 241, 234, 0.10);
-  --cos-hairline-strong: rgba(244, 241, 234, 0.18);
-  --cos-panel: rgba(255, 255, 255, 0.028);
-  --cos-panel-raised: rgba(255, 255, 255, 0.05);
+  /* ---- LIGHT (default) — warm "paper" constellation ------------------ */
+  --cos-bg: #fbf9f3;           /* warm cream canvas */
+  --cos-bg-2: #f3efe6;
+  --cos-ink: #14130f;          /* near-black warm ink */
+  --cos-stone: #5f5a51;        /* muted body text */
+  --cos-faint: #8a857b;        /* tertiary / captions */
+  --cos-hairline: rgba(20, 19, 15, 0.10);
+  --cos-hairline-strong: rgba(20, 19, 15, 0.16);
+  --cos-panel: rgba(255, 255, 255, 0.62);
+  --cos-panel-raised: rgba(255, 255, 255, 0.86);
+  --cos-fill: rgba(20, 19, 15, 0.035);        /* subtle surface inside panels */
+  --cos-fill-strong: rgba(20, 19, 15, 0.06);
+  --cos-on-ink: #fbf9f3;       /* text on an ink-coloured (dark) button */
+  --cos-dim-color: rgba(20, 19, 15, 0.32);    /* faded headline tail */
+  --cos-label-bg: rgba(255, 255, 255, 0.74);  /* region label chip */
+  --cos-star: rgba(20, 19, 15, 0.07);         /* starfield dots */
+  --cos-edge: rgba(20, 19, 15, 0.12);         /* constellation cross edges */
+  --cos-track: rgba(20, 19, 15, 0.10);        /* progress / ring tracks */
+  --cos-scrim: rgba(20, 19, 15, 0.45);        /* mobile menu overlay */
 
-  /* Accents (brand trio) reused as the star hues. */
+  /* Accents (brand trio) reused as the star hues — stable across themes. */
   --cos-sun: #ffda6e;
   --cos-leaf: #6ece9d;
   --cos-nova: #00d4aa;
@@ -1174,6 +1183,28 @@
   font-family: var(--font-dm-sans);
   isolation: isolate;
   overflow-x: clip;
+}
+
+/* ---- DARK — deep-space ink (the cinematic variant) ------------------- */
+:root[data-theme="dark"] .landing-cosmos {
+  --cos-bg: #07080a;
+  --cos-bg-2: #0b0d10;
+  --cos-ink: #f4f1ea;
+  --cos-stone: #9c988e;
+  --cos-faint: #6c6962;
+  --cos-hairline: rgba(244, 241, 234, 0.10);
+  --cos-hairline-strong: rgba(244, 241, 234, 0.18);
+  --cos-panel: rgba(255, 255, 255, 0.028);
+  --cos-panel-raised: rgba(255, 255, 255, 0.05);
+  --cos-fill: rgba(255, 255, 255, 0.03);
+  --cos-fill-strong: rgba(255, 255, 255, 0.05);
+  --cos-on-ink: #0a0a0a;
+  --cos-dim-color: rgba(244, 241, 234, 0.34);
+  --cos-label-bg: rgba(8, 9, 11, 0.55);
+  --cos-star: rgba(244, 241, 234, 0.10);
+  --cos-edge: rgba(244, 241, 234, 0.07);
+  --cos-track: rgba(244, 241, 234, 0.10);
+  --cos-scrim: rgba(5, 6, 8, 0.7);
 }
 
 /* Atmospheric backdrop — drifting nebulae + faint starfield grid.
@@ -1198,7 +1229,7 @@
   z-index: -2;
   pointer-events: none;
   opacity: 0.5;
-  background-image: radial-gradient(rgba(244, 241, 234, 0.10) 0.5px, transparent 0.5px);
+  background-image: radial-gradient(var(--cos-star) 0.5px, transparent 0.5px);
   background-size: 34px 34px;
   mask-image: radial-gradient(70% 60% at 50% 30%, #000 0%, transparent 85%);
   -webkit-mask-image: radial-gradient(70% 60% at 50% 30%, #000 0%, transparent 85%);
@@ -1221,7 +1252,7 @@
 .landing-cosmos .cos-faint { color: var(--cos-faint); }
 
 /* Faded headline tail — replaces the broken white-on-white pattern. */
-.cos-dim { color: rgba(244, 241, 234, 0.34); }
+.cos-dim { color: var(--cos-dim-color, rgba(20, 19, 15, 0.32)); }
 
 /* Eyebrow / section label. */
 .cos-eyebrow {
@@ -1327,7 +1358,7 @@
   letter-spacing: 0.13em;
   text-transform: uppercase;
   color: var(--cos-ink);
-  background: rgba(8, 9, 11, 0.55);
+  background: var(--cos-label-bg, rgba(255, 255, 255, 0.74));
   border: 1px solid var(--cos-hairline);
   padding: 4px 11px;
   border-radius: 999px;

@@ -62,7 +62,7 @@ export function OldWayNewWay() {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.08, ease: EASE }}
-                  className="flex items-center gap-3 rounded-xl border border-[var(--cos-hairline)] bg-[rgba(255,255,255,0.02)] px-4 py-3"
+                  className="flex items-center gap-3 rounded-xl border border-[var(--cos-hairline)] bg-[var(--cos-fill)] px-4 py-3"
                 >
                   <FileX2 size={15} className="shrink-0 text-[#e06a5b]/70" />
                   <span className="text-sm text-[var(--cos-stone)] line-through decoration-[var(--cos-faint)]/50">

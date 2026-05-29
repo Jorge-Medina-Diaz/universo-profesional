@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Menu, X, ArrowRight } from "lucide-react";
+import { Menu, X, ArrowRight, Sun, Moon } from "lucide-react";
+import { useTheme } from "@/shared/useTheme";
 
 const LINKS = [
   { label: "Producto", href: "#producto" },
@@ -11,6 +12,33 @@ const LINKS = [
 
 function go(hash: string) {
   window.location.hash = hash;
+}
+
+function ThemeToggleButton({ className = "" }: { className?: string }) {
+  const { theme, toggle } = useTheme();
+  const isDark = theme === "dark";
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={isDark ? "Activar tema claro" : "Activar tema oscuro"}
+      aria-pressed={isDark}
+      className={`grid h-10 w-10 place-items-center rounded-full border border-[var(--cos-hairline)] text-[var(--cos-stone)] transition-colors hover:text-[var(--cos-ink)] hover:bg-[var(--cos-fill-strong)] ${className}`}
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={isDark ? "moon" : "sun"}
+          initial={{ opacity: 0, rotate: -90, scale: 0.6 }}
+          animate={{ opacity: 1, rotate: 0, scale: 1 }}
+          exit={{ opacity: 0, rotate: 90, scale: 0.6 }}
+          transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
+          aria-hidden
+        >
+          {isDark ? <Moon size={16} /> : <Sun size={16} />}
+        </motion.span>
+      </AnimatePresence>
+    </button>
+  );
 }
 
 export function SiteNav() {
@@ -55,7 +83,7 @@ export function SiteNav() {
           >
             <span className="relative grid h-7 w-7 place-items-center">
               <span className="absolute h-2.5 w-2.5 rounded-full bg-[#ffda6e] shadow-[0_0_14px_2px_rgba(255,218,110,0.7)]" />
-              <span className="absolute h-7 w-7 rounded-full border border-[rgba(244,241,234,0.18)]" />
+              <span className="absolute h-7 w-7 rounded-full border border-[var(--cos-hairline-strong)]" />
               <span className="absolute h-1 w-1 -translate-x-3 -translate-y-1.5 rounded-full bg-[#6ece9d]" />
               <span className="absolute h-1 w-1 translate-x-2.5 translate-y-2 rounded-full bg-[#00d4aa]" />
             </span>
@@ -68,7 +96,7 @@ export function SiteNav() {
           <nav
             className={`pointer-events-auto absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 rounded-full border px-2 py-1.5 backdrop-blur-md transition-all duration-300 lg:flex ${
               scrolled
-                ? "border-[var(--cos-hairline)] bg-[rgba(255,255,255,0.04)]"
+                ? "border-[var(--cos-hairline)] bg-[var(--cos-fill-strong)]"
                 : "border-transparent bg-transparent"
             }`}
           >
@@ -76,7 +104,7 @@ export function SiteNav() {
               <a
                 key={l.href}
                 href={l.href}
-                className="rounded-full px-3.5 py-1.5 text-sm text-[var(--cos-stone)] transition-colors hover:bg-[rgba(255,255,255,0.05)] hover:text-[var(--cos-ink)]"
+                className="rounded-full px-3.5 py-1.5 text-sm text-[var(--cos-stone)] transition-colors hover:bg-[var(--cos-fill-strong)] hover:text-[var(--cos-ink)]"
               >
                 {l.label}
               </a>
@@ -85,6 +113,7 @@ export function SiteNav() {
 
           {/* Right actions */}
           <div className="flex items-center gap-2">
+            <ThemeToggleButton className="hidden sm:grid" />
             <button
               onClick={() => go("#/login")}
               className="hidden rounded-full px-4 py-2 text-sm font-medium text-[var(--cos-stone)] transition-colors hover:text-[var(--cos-ink)] sm:block"
@@ -93,7 +122,7 @@ export function SiteNav() {
             </button>
             <button
               onClick={() => go("#/register")}
-              className="group hidden items-center gap-1.5 rounded-full bg-[var(--cos-ink)] px-4 py-2 text-sm font-semibold text-[#0a0a0a] transition-transform hover:-translate-y-0.5 sm:inline-flex"
+              className="group hidden items-center gap-1.5 rounded-full bg-[var(--cos-ink)] px-4 py-2 text-sm font-semibold text-[var(--cos-on-ink)] transition-transform hover:-translate-y-0.5 sm:inline-flex"
             >
               Crear universo
               <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
@@ -126,7 +155,7 @@ export function SiteNav() {
             className="fixed inset-0 z-[60] lg:hidden"
           >
             <div
-              className="absolute inset-0 bg-[rgba(5,6,8,0.7)] backdrop-blur-sm"
+              className="absolute inset-0 bg-[var(--cos-scrim)] backdrop-blur-sm"
               onClick={() => setOpen(false)}
             />
             <motion.nav
@@ -138,13 +167,16 @@ export function SiteNav() {
             >
               <div className="flex items-center justify-between px-2 py-1.5">
                 <span className="cos-display text-base text-[var(--cos-ink)]">Universo</span>
-                <button
-                  aria-label="Cerrar menú"
-                  onClick={() => setOpen(false)}
-                  className="grid h-9 w-9 place-items-center rounded-full border border-[var(--cos-hairline)] text-[var(--cos-ink)]"
-                >
-                  <X size={18} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <ThemeToggleButton />
+                  <button
+                    aria-label="Cerrar menú"
+                    onClick={() => setOpen(false)}
+                    className="grid h-9 w-9 place-items-center rounded-full border border-[var(--cos-hairline)] text-[var(--cos-ink)]"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
               <div className="mt-2 flex flex-col">
                 {LINKS.map((l) => (
@@ -152,7 +184,7 @@ export function SiteNav() {
                     key={l.href}
                     href={l.href}
                     onClick={() => setOpen(false)}
-                    className="rounded-2xl px-3 py-3 text-[15px] text-[var(--cos-ink)] transition-colors hover:bg-[rgba(255,255,255,0.05)]"
+                    className="rounded-2xl px-3 py-3 text-[15px] text-[var(--cos-ink)] transition-colors hover:bg-[var(--cos-fill-strong)]"
                   >
                     {l.label}
                   </a>

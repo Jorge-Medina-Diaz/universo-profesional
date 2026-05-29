@@ -14,14 +14,10 @@ function readStoredTheme(): Theme | null {
 }
 
 function resolveInitial(): Theme {
+  // Light by default; respect an explicit stored choice. We intentionally do
+  // NOT auto-follow prefers-color-scheme so the public landing opens light.
   const stored = readStoredTheme();
   if (stored) return stored;
-  if (
-    typeof window !== "undefined" &&
-    window.matchMedia?.("(prefers-color-scheme: dark)").matches
-  ) {
-    return "dark";
-  }
   return "light";
 }
 

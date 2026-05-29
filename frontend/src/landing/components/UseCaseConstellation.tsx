@@ -123,14 +123,14 @@ export function UseCaseConstellation() {
                   onClick={() => setActive(c.id)}
                   className={`flex shrink-0 items-center gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-medium transition-all duration-300 lg:w-full ${
                     on
-                      ? "border-[var(--cos-hairline-strong)] bg-[rgba(255,255,255,0.05)] text-[var(--cos-ink)]"
+                      ? "border-[var(--cos-hairline-strong)] bg-[var(--cos-fill-strong)] text-[var(--cos-ink)]"
                       : "border-[var(--cos-hairline)] text-[var(--cos-stone)] hover:text-[var(--cos-ink)]"
                   }`}
                 >
                   <span
                     className="grid h-8 w-8 shrink-0 place-items-center rounded-lg"
                     style={{
-                      backgroundColor: on ? `${c.accent}22` : "rgba(255,255,255,0.04)",
+                      backgroundColor: on ? `${c.accent}22` : "var(--cos-fill-strong)",
                       color: on ? c.accent : "var(--cos-faint)",
                     }}
                   >
@@ -171,7 +171,7 @@ export function UseCaseConstellation() {
                     {current.captures.map((cap) => (
                       <span
                         key={cap}
-                        className="rounded-full border border-[var(--cos-hairline)] bg-[rgba(255,255,255,0.03)] px-3 py-1.5 text-xs text-[var(--cos-stone)]"
+                        className="rounded-full border border-[var(--cos-hairline)] bg-[var(--cos-fill)] px-3 py-1.5 text-xs text-[var(--cos-stone)]"
                       >
                         {cap}
                       </span>

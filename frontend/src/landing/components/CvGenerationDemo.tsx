@@ -50,7 +50,7 @@ export function CvGenerationDemo() {
                   key={p.id}
                   className={`flex items-center gap-4 rounded-xl border px-5 py-4 transition-all duration-500 ${
                     active
-                      ? "border-[var(--cos-hairline-strong)] bg-[rgba(255,255,255,0.04)]"
+                      ? "border-[var(--cos-hairline-strong)] bg-[var(--cos-fill-strong)]"
                       : "border-[var(--cos-hairline)] bg-transparent"
                   }`}
                   animate={{ scale: active ? 1.015 : 1 }}
@@ -58,10 +58,10 @@ export function CvGenerationDemo() {
                   <div
                     className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg text-xs font-bold transition-colors duration-300 ${
                       active
-                        ? "bg-[var(--cos-ink)] text-[#0a0a0a]"
+                        ? "bg-[var(--cos-ink)] text-[var(--cos-on-ink)]"
                         : done
                           ? "bg-[#6ece9d]/20 text-[#6ece9d]"
-                          : "bg-[rgba(255,255,255,0.05)] text-[var(--cos-faint)]"
+                          : "bg-[var(--cos-fill-strong)] text-[var(--cos-faint)]"
                     }`}
                   >
                     {done ? "✓" : i + 1}
@@ -115,7 +115,7 @@ export function CvGenerationDemo() {
                     <div className="mb-3 text-[11px] uppercase tracking-wider text-[var(--cos-faint)]">
                       Descripción de la oferta
                     </div>
-                    <div className="rounded-xl border border-[var(--cos-hairline)] bg-[rgba(255,255,255,0.02)] p-4 text-sm leading-relaxed text-[var(--cos-stone)]">
+                    <div className="rounded-xl border border-[var(--cos-hairline)] bg-[var(--cos-fill)] p-4 text-sm leading-relaxed text-[var(--cos-stone)]">
                       "Buscamos un <span className="text-[var(--cos-ink)]">Backend Engineer</span> con
                       experiencia en <span className="text-[var(--cos-ink)]">sistemas distribuidos</span>,{" "}
                       <span className="text-[var(--cos-ink)]">PostgreSQL</span> y pipelines de datos a{" "}
@@ -159,14 +159,14 @@ export function CvGenerationDemo() {
                     ].map((item, i) => (
                       <motion.div
                         key={item.label}
-                        className="flex items-center justify-between rounded-lg border border-[var(--cos-hairline)] bg-[rgba(255,255,255,0.02)] p-3"
+                        className="flex items-center justify-between rounded-lg border border-[var(--cos-hairline)] bg-[var(--cos-fill)] p-3"
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: i * 0.15 }}
                       >
                         <span className="text-xs text-[var(--cos-ink)]">{item.label}</span>
                         <div className="flex items-center gap-2">
-                          <div className="h-1 w-16 overflow-hidden rounded-full bg-[rgba(244,241,234,0.1)]">
+                          <div className="h-1 w-16 overflow-hidden rounded-full bg-[var(--cos-track)]">
                             <motion.div
                               className="h-full rounded-full bg-[#6ece9d]"
                               initial={{ width: 0 }}
@@ -195,7 +195,7 @@ export function CvGenerationDemo() {
                     ].map((bullet, i) => (
                       <motion.div
                         key={i}
-                        className="flex items-start gap-2.5 rounded-lg border border-[var(--cos-hairline)] bg-[rgba(255,255,255,0.02)] p-3"
+                        className="flex items-start gap-2.5 rounded-lg border border-[var(--cos-hairline)] bg-[var(--cos-fill)] p-3"
                         initial={{ opacity: 0, x: -8 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: i * 0.2 }}
@@ -213,12 +213,12 @@ export function CvGenerationDemo() {
                       Documentos listos
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-xl border border-[var(--cos-hairline)] bg-[rgba(255,255,255,0.03)] p-4 text-center">
+                      <div className="rounded-xl border border-[var(--cos-hairline)] bg-[var(--cos-fill)] p-4 text-center">
                         <FileText size={18} className="mx-auto mb-2 text-[#ffda6e]" />
                         <div className="mb-1 text-xs font-medium text-[var(--cos-ink)]">CV.pdf</div>
                         <div className="text-[10px] text-[var(--cos-faint)]">ATS-friendly</div>
                       </div>
-                      <div className="rounded-xl border border-[var(--cos-hairline)] bg-[rgba(255,255,255,0.03)] p-4 text-center">
+                      <div className="rounded-xl border border-[var(--cos-hairline)] bg-[var(--cos-fill)] p-4 text-center">
                         <FileType2 size={18} className="mx-auto mb-2 text-[#6ece9d]" />
                         <div className="mb-1 text-xs font-medium text-[var(--cos-ink)]">Carta.docx</div>
                         <div className="text-[10px] text-[var(--cos-faint)]">Editable</div>
