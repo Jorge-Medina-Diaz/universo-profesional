@@ -5,7 +5,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { FileDown, Share2, ArrowLeft, Sparkles, FileText, Pencil } from "lucide-react";
+import { FileDown, Share2, ArrowLeft, Sparkles, FileText, Pencil, Braces } from "lucide-react";
 import { documents } from "@/shared/api";
 import { useChatState } from "@/chat/state";
 import {
@@ -131,6 +131,27 @@ export function DocumentViewerPage({ id }: { id: string }) {
               leadingIcon={<Share2 size={14} />}
             >
               Compartir
+            </Button>
+            {doc.has_docx && (
+              <Button
+                variant="outline"
+                onClick={() =>
+                  window.open(`/api/v1/documents/${id}/docx`, "_blank", "noopener,noreferrer")
+                }
+                leadingIcon={<FileText size={14} />}
+              >
+                DOCX
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() =>
+                window.open(`/api/v1/documents/${id}/json`, "_blank", "noopener,noreferrer")
+              }
+              leadingIcon={<Braces size={14} />}
+              title="Descargar como JSON Resume (jsonresume.org)"
+            >
+              JSON
             </Button>
             {doc.has_pdf && (
               <Button
