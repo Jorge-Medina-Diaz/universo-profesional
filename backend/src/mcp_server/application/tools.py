@@ -268,21 +268,22 @@ async def _h_get_activity(*, session, user_id, client_id, args):
 async def _h_match_job(*, session, user_id, client_id, args):
     from src.documents.infrastructure.job_parser import MockJobParser
 
+    from src.documents.application.match_scoring import compute_match_breakdown
+
     parser = MockJobParser()
     parsed = await parser.parse(url=args.get("job_url"), description=args.get("job_description"))
     deps = _session_only_deps(session)
     jd_text = parsed.get("description_raw") or " ".join(str(v) for v in parsed.values())
     vec = await deps["embedder"].embed(jd_text)
     retrieved = await deps["search"].search(user_id=user_id, embedding=vec, top_k=20)
-    avg = sum(r["score"] for r in retrieved) / len(retrieved) if retrieved else 0.0
-    match_score = int(round(max(0.0, min(1.0, (avg + 1) / 2)) * 100))
-    your_skills = {s.name.lower() for s in await deps["skill_repo"].list(user_id)}
-    needed = {k.lower() for k in parsed.get("ats_keywords", [])}
+    your_skills = [s.name for s in await deps["skill_repo"].list(user_id)]
+    breakdown = compute_match_breakdown(
+        retrieved=retrieved,
+        needed_keywords=list(parsed.get("ats_keywords", [])),
+        your_skills=your_skills,
+    )
     return {
-        "match_score": match_score,
-        "gaps": sorted(needed - your_skills),
-        "strengths": sorted(your_skills & needed),
-        "suggested_keywords": list(parsed.get("ats_keywords", []))[:15],
+        **breakdown,
         "parsed_jd": parsed,
         "retrieved": retrieved[:10],
     }

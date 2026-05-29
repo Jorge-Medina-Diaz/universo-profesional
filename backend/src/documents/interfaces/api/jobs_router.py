@@ -66,6 +66,10 @@ def _to_dict(row: JobOrm) -> dict[str, Any]:
         "notes": tracker.get("notes"),
         "applied_at": tracker.get("applied_at"),
         "match_score": tracker.get("match_score"),
+        # Full per-dimension breakdown (dimensions/strengths/gaps/keyword_coverage)
+        # cached alongside the headline score so the Kanban scorecard can render
+        # without re-running the match.
+        "match": tracker.get("match"),
         "position": tracker.get("position"),
     }
 
@@ -230,10 +234,12 @@ async def compute_score(
     user_id: CurrentUserId,
     session: SessionDep,
 ) -> dict[str, Any]:
-    """Compute match score against the user's universe and cache it on the job.
+    """Compute the match score against the user's universe and cache it.
 
-    Reuses the same heuristic as the `match_job_to_profile` MCP tool:
-    embed the JD text, retrieve top entities, average similarity.
+    Reuses the same heuristic as the `match_job_to_profile` MCP tool (embed the
+    JD, retrieve top entities, average similarity) and then derives a grounded
+    per-dimension breakdown (skills / experience / education) plus the keyword
+    gaps and strengths via the shared `compute_match_breakdown` helper.
     """
     row = await session.get(JobOrm, UUID(job_id))
     if row is None or str(row.user_id) != user_id:
@@ -241,19 +247,34 @@ async def compute_score(
     if not row.description_raw:
         raise HTTPException(status_code=400, detail="missing_description")
 
+    from src.documents.application.match_scoring import compute_match_breakdown
+    from src.documents.infrastructure.job_parser import MockJobParser
     from src.shared.embeddings import get_embeddings_service
+    from src.universe.infrastructure.repositories import SqlAlchemySkillRepository
     from src.universe.infrastructure.semantic_search import PgVectorSemanticSearch
 
     embedder = get_embeddings_service()
     search = PgVectorSemanticSearch(session)
     vec = await embedder.embed(row.description_raw)
     retrieved = await search.search(user_id=row.user_id, embedding=vec, top_k=20)
-    avg = sum(r["score"] for r in retrieved) / len(retrieved) if retrieved else 0.0
-    match_score = int(round(max(0.0, min(1.0, (avg + 1) / 2)) * 100))
 
+    # ATS keywords: prefer the keywords parsed at ingestion, else parse now.
     parsed = dict(row.description_parsed or {})
+    needed_keywords = parsed.get("ats_keywords")
+    if not needed_keywords:
+        jd = await MockJobParser().parse(url=row.url, description=row.description_raw)
+        needed_keywords = jd.get("ats_keywords", [])
+    your_skills = [s.name for s in await SqlAlchemySkillRepository(session).list(row.user_id)]
+
+    breakdown = compute_match_breakdown(
+        retrieved=retrieved,
+        needed_keywords=list(needed_keywords or []),
+        your_skills=your_skills,
+    )
+
     tracker = dict(parsed.get("_tracker", {}) or {})
-    tracker["match_score"] = match_score
+    tracker["match_score"] = breakdown["match_score"]
+    tracker["match"] = breakdown
     parsed["_tracker"] = tracker
     row.description_parsed = parsed
     await session.commit()

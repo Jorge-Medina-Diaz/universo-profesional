@@ -29,6 +29,7 @@ import {
   Input,
   PageHeader,
   PageSkeleton,
+  Popover,
   Reveal,
   Stagger,
   Surface,
@@ -670,21 +671,29 @@ function KanbanCard({
       )}
       <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
         {job.match_score != null ? (
-          <button
-            type="button"
-            onClick={onRecomputeScore}
-            disabled={!hasJD || recomputing}
-            title={hasJD ? "Recalcular match" : "Sin descripción para recalcular"}
-            className="inline-flex items-center gap-1 disabled:cursor-not-allowed"
+          <Popover
+            placement="bottom-start"
+            trigger={
+              <span
+                title="Ver desglose del match"
+                className="inline-flex items-center gap-1 cursor-pointer"
+              >
+                <Badge tone="nova" size="sm">
+                  {recomputing ? "…" : `${job.match_score}% match`}
+                </Badge>
+                {recomputing && (
+                  <Loader2 size={9} className="animate-spin text-stone" />
+                )}
+              </span>
+            }
           >
-            <Badge tone="nova" size="sm">
-              {recomputing ? "…" : `${job.match_score}% match`}
-            </Badge>
-            {hasJD && !recomputing && (
-              <RefreshCw size={9} className="text-stone hover:text-ink" />
-            )}
-            {recomputing && <Loader2 size={9} className="animate-spin text-stone" />}
-          </button>
+            <MatchScorecard
+              job={job}
+              hasJD={hasJD}
+              recomputing={recomputing}
+              onRecompute={onRecomputeScore}
+            />
+          </Popover>
         ) : (
           hasJD && (
             <button
@@ -749,6 +758,111 @@ function KanbanCard({
         </button>
       </div>
     </motion.article>
+  );
+}
+
+function DimBar({ label, value }: { label: string; value: number | null }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] text-stone w-20 shrink-0">{label}</span>
+      <div className="flex-1 h-1.5 rounded-full bg-ink/[0.08] overflow-hidden">
+        <div
+          className="h-full rounded-full bg-nova transition-[width] duration-300"
+          style={{ width: `${value ?? 0}%` }}
+        />
+      </div>
+      <span className="text-[11px] text-ink w-8 text-right tabular-nums">
+        {value != null ? `${value}%` : "—"}
+      </span>
+    </div>
+  );
+}
+
+function MatchScorecard({
+  job,
+  hasJD,
+  recomputing,
+  onRecompute,
+}: {
+  job: JobRow;
+  hasJD: boolean;
+  recomputing: boolean;
+  onRecompute: () => void;
+}) {
+  const m = job.match;
+  return (
+    <div
+      className="w-64 p-3"
+      onClick={(e) => e.stopPropagation()}
+      role="presentation"
+    >
+      <div className="flex items-baseline justify-between mb-2.5">
+        <span className="text-[11px] uppercase tracking-wider text-stone">
+          Match con tu universo
+        </span>
+        <span className="font-display text-heading-sm text-ink leading-none">
+          {job.match_score}%
+        </span>
+      </div>
+
+      {m ? (
+        <>
+          <div className="space-y-1.5 mb-3">
+            <DimBar label="Skills" value={m.dimensions.skills} />
+            <DimBar label="Experiencia" value={m.dimensions.experience} />
+            <DimBar label="Formación" value={m.dimensions.education} />
+          </div>
+          {m.keyword_coverage != null && (
+            <p className="text-[11px] text-stone mb-2.5">
+              Keywords ATS cubiertas:{" "}
+              <span className="text-ink font-medium">{m.keyword_coverage}%</span>
+            </p>
+          )}
+          {m.strengths.length > 0 && (
+            <div className="mb-2">
+              <p className="text-[11px] text-stone mb-1">Coincidencias</p>
+              <div className="flex flex-wrap gap-1">
+                {m.strengths.slice(0, 8).map((s) => (
+                  <Badge key={s} tone="leaf" size="sm">
+                    {s}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          {m.gaps.length > 0 && (
+            <div className="mb-2.5">
+              <p className="text-[11px] text-stone mb-1">Brechas a cubrir</p>
+              <div className="flex flex-wrap gap-1">
+                {m.gaps.slice(0, 8).map((g) => (
+                  <Badge key={g} tone="amber" size="sm">
+                    {g}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <p className="text-xs text-stone mb-3 leading-relaxed">
+          Recalcula para ver el desglose por dimensión y las brechas de keywords
+          frente a tu universo.
+        </p>
+      )}
+
+      <Button
+        size="sm"
+        variant="outline"
+        fullWidth
+        onClick={onRecompute}
+        loading={recomputing}
+        disabled={recomputing || !hasJD}
+        leadingIcon={<RefreshCw size={13} />}
+        title={hasJD ? "Recalcular match" : "Sin descripción para recalcular"}
+      >
+        {recomputing ? "Recalculando" : "Recalcular match"}
+      </Button>
+    </div>
   );
 }
 
