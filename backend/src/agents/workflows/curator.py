@@ -241,6 +241,14 @@ async def run_curator_for_user(*, user_id: str) -> dict[str, Any]:
         entity_quarantine rows.
     """
     async with with_user_session(UUID(user_id)) as session:
+        summary: dict[str, Any] = {
+            "merge_suggestions_opened": 0,
+            "orphans_cleaned": 0,
+            "confidence_decayed": 0,
+            "edges_inferred": 0,
+            "communities": 0,
+            "outliers_flagged": 0,
+        }
 
         # Each sweep runs inside its own SAVEPOINT so a failure (e.g. a
         # transient DB error) rolls back only that sweep and leaves the

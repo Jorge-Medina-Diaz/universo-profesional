@@ -110,15 +110,17 @@ class OAuthStore:
         row = (await self._session.execute(stmt)).scalar_one_or_none()
         if row is None or row.consumed_at is not None or row.expires_at < utc_now():
             return None
-        # PKCE S256 verification
+        # PKCE verification — OAuth 2.1 mandates S256 and forbids `plain`.
+        # Reject any non-S256 method outright: the well-known metadata only
+        # advertises S256, so a `plain` challenge is a downgrade attempt.
+        if row.code_challenge_method != "S256":
+            return None
         expected = (
             base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
             .rstrip(b"=")
             .decode()
         )
-        if row.code_challenge_method == "S256" and expected != row.code_challenge:
-            return None
-        if row.code_challenge_method == "plain" and code_verifier != row.code_challenge:
+        if expected != row.code_challenge:
             return None
         row.consumed_at = utc_now()
         await self._session.flush()

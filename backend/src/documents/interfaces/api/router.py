@@ -249,13 +249,12 @@ async def resolve_share_token(token: str, session: SessionDep) -> dict[str, Any]
     if doc is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
     # Optional expiry — repository row also stores `share_expires_at`.
+    # The isinstance guard makes the comparison type-safe, so no try/except is
+    # needed; a previous bare `except Exception: pass` swallowed the 410 itself
+    # and served expired links forever.
     expires_raw = getattr(doc, "share_expires_at", None)
-    if expires_raw is not None:
-        try:
-            if isinstance(expires_raw, datetime) and expires_raw < datetime.now(UTC):
-                raise HTTPException(status_code=status.HTTP_410_GONE, detail="expired")
-        except Exception:
-            pass
+    if isinstance(expires_raw, datetime) and expires_raw < datetime.now(UTC):
+        raise HTTPException(status_code=status.HTTP_410_GONE, detail="expired")
     return {
         "document_id": str(doc.id),
         "kind": doc.kind,

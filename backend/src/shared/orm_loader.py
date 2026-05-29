@@ -16,6 +16,8 @@ def import_all_models() -> None:
     from src.documents.infrastructure import orm as _documents  # noqa: F401
     from src.identity.infrastructure import orm as _identity  # noqa: F401
     from src.integrations.infrastructure import orm as _integrations  # noqa: F401
+    from src.llm_tracking.infrastructure import orm as _llm_tracking  # noqa: F401
     from src.mcp_server.infrastructure import orm as _mcp  # noqa: F401
     from src.notes.infrastructure import orm as _notes  # noqa: F401
+    from src.rubrics.infrastructure import orm as _rubrics  # noqa: F401
     from src.universe.infrastructure import orm as _universe  # noqa: F401

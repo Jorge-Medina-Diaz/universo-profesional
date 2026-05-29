@@ -132,7 +132,7 @@ def _inject_proposal_metadata(ev: Any, user_id: str | None) -> None:
         args["action"] = "create"
         args["confidence"] = 0.85
         args["reason"] = "Propuesta generada por el agente"
-        agent_proposals_total.labels(type=entity_type).inc()
+        agent_proposals_total.labels(entity_type=entity_type, action="create").inc()
 
 
 def _adapt_team_pause(ev: Any, user_id: str | None = None) -> Any:

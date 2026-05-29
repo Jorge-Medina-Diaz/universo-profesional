@@ -425,8 +425,9 @@ def create_app() -> FastAPI:
             await asyncio.wait_for(_ping_mcp(), timeout=3.0)
             results["mcp_server"] = "ok"
         except Exception as exc:
-            results["mcp_server"] = f"error: {exc}"
-            overall_ok = False
+            # Advisory only — a self-ping failure during startup (before the app
+            # is fully serving) must not deadlock readiness at 503.
+            results["mcp_server"] = f"advisory: {exc}"
 
         # ESCO data availability
         try:
@@ -442,8 +443,10 @@ def create_app() -> FastAPI:
             await asyncio.wait_for(_check_esco(), timeout=3.0)
             results["esco_data"] = "ok"
         except Exception as exc:
-            results["esco_data"] = f"error: {exc}"
-            overall_ok = False
+            # Advisory only — a freshly deployed pod has no ESCO corpus until the
+            # seed job runs; gating readiness here creates a startup deadlock
+            # (pod never Ready → seed job never routed → never seeded).
+            results["esco_data"] = f"advisory: {exc}"
 
         # LLM provider connectivity (lightweight list-models or similar)
         try:
@@ -466,8 +469,9 @@ def create_app() -> FastAPI:
             await asyncio.wait_for(_ping_llm(), timeout=5.0)
             results["llm_connectivity"] = "ok"
         except Exception as exc:
-            results["llm_connectivity"] = f"error: {exc}"
-            overall_ok = False
+            # Advisory only — provider outages have their own SLAs; don't gate
+            # our pod readiness on a third-party API.
+            results["llm_connectivity"] = f"advisory: {exc}"
 
         status_code = 200 if overall_ok else 503
         return JSONResponse(

@@ -70,7 +70,10 @@ async def github_authorize(user_id: CurrentUserId) -> dict[str, str]:
         "client_id": s.github_client_id,
         "redirect_uri": redirect_uri,
         "scope": "read:user public_repo read:org user:email",
-        "state": user_id,
+        # Signed, short-lived state binds the callback to this user (CSRF guard).
+        # A raw user_id would let an attacker forge a callback that attaches
+        # their GitHub account to a victim.
+        "state": issue_state(link_user_id=user_id),
         "allow_signup": "false",
     }
     url = "https://github.com/login/oauth/authorize?" + urllib.parse.urlencode(params)
@@ -83,14 +86,17 @@ async def github_callback(
     state: str,
     session: SessionDep,
 ) -> RedirectResponse:
-    """OAuth callback — we use `state` to carry the user_id (signed in v1; raw in MVP)."""
+    """OAuth callback — `state` is a signed JWT carrying the linking user_id (CSRF guard)."""
     s = get_settings()
     redirect_uri = f"{s.canonical_base_url}/api/v1/integrations/github/callback"
     accounts = SqlExternalAccountRepository(session)
     uc = ConnectGithub(accounts)
     async with unit_of_work(session) as uow:
         try:
-            await uc.execute(user_id=state, code=code, redirect_uri=redirect_uri, uow=uow)
+            link_user_id = parse_state(state).get("link_user_id")
+            if not link_user_id:
+                raise ValidationError("GitHub OAuth state missing link_user_id")
+            await uc.execute(user_id=link_user_id, code=code, redirect_uri=redirect_uri, uow=uow)
             await uow.commit()
         except Exception as exc:
             return RedirectResponse(

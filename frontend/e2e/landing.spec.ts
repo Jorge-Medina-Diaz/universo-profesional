@@ -1,22 +1,30 @@
 import { test, expect } from "@playwright/test";
 
+// The landing hero reads "Tu carrera no es un CV. Es un universo." with the
+// primary CTA "Crear mi universo gratis" and a top-nav "Iniciar sesión".
+// Multiple controls share these labels (hero + final CTA + nav), so every
+// locator is scoped with .first() to avoid Playwright strict-mode violations.
 test.describe("Landing page", () => {
   test("renders hero headline and CTAs", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator("h1")).toContainText("Sustituye el CV en Word por un universo vivo");
-    await expect(page.getByRole("button", { name: /Empezar gratis/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Ya tengo cuenta/i })).toBeVisible();
+    await expect(page.locator("h1").first()).toContainText("universo");
+    await expect(
+      page.getByRole("button", { name: /Crear mi universo gratis/i }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Iniciar sesión/i }).first(),
+    ).toBeVisible();
   });
 
-  test("navigates to register", async ({ page }) => {
+  test("primary CTA navigates to register", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: /Empezar gratis/i }).click();
-    await expect(page).toHaveURL(/\/#\/register/);
+    await page.getByRole("button", { name: /Crear mi universo gratis/i }).first().click();
+    await expect(page).toHaveURL(/#\/register/);
   });
 
-  test("navigates to login", async ({ page }) => {
+  test("login control navigates to login", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: /Ya tengo cuenta/i }).click();
-    await expect(page).toHaveURL(/\/#\/login/);
+    await page.getByRole("button", { name: /Iniciar sesión/i }).first().click();
+    await expect(page).toHaveURL(/#\/login/);
   });
 });

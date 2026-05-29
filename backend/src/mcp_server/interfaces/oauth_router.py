@@ -8,6 +8,7 @@ Endpoints:
 """
 from __future__ import annotations
 
+import html
 from typing import Any
 from uuid import UUID
 
@@ -355,9 +356,21 @@ def _render_consent(
     code_challenge_method: str,
     resource: str,
 ) -> str:
+    # Escape every externally-supplied value before HTML interpolation. The DCR
+    # client_name, redirect_uri, scope, state and PKCE challenge are all
+    # attacker-controlled, so raw f-string interpolation is a stored-XSS vector.
+    client_name = html.escape(client_name)
+    client_id = html.escape(client_id)
+    redirect_uri = html.escape(redirect_uri)
+    scope = html.escape(scope)
+    state = html.escape(state)
+    code_challenge = html.escape(code_challenge)
+    code_challenge_method = html.escape(code_challenge_method)
+    resource = html.escape(resource)
     rows = "".join(
-        f"<li><strong>{s['name']}</strong>{' (destructivo)' if s['destructive'] else ''}: "
-        f"{s['description']}</li>"
+        f"<li><strong>{html.escape(str(s['name']))}</strong>"
+        f"{' (destructivo)' if s['destructive'] else ''}: "
+        f"{html.escape(str(s['description']))}</li>"
         for s in scope_details
     )
     return f"""<!DOCTYPE html>

@@ -100,6 +100,7 @@ async def universe_retrieve(
     user_id_raw = run_context.user_id
     user_id = UUID(str(user_id_raw))
     async with with_user_session(user_id) as session:
+        kinds_list = [k.strip() for k in kinds.split(",") if k.strip()] if kinds else None
         items = await hybrid_retrieve(
             session, user_id, query, top_k=top_k, kinds=kinds_list
         )
@@ -139,6 +140,9 @@ async def get_graph_neighbors(
 ) -> dict[str, Any]:
     user_id_raw = run_context.user_id
     user_id = UUID(str(user_id_raw))
+    edge_kinds_list = (
+        [e.strip().upper() for e in edge_kinds.split(",") if e.strip()] if edge_kinds else None
+    )
     async with with_user_session(user_id) as session:
         items = await universe_graph_service.neighbors(
             session,
