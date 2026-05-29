@@ -8,7 +8,8 @@ like skill evidence, currentness, etc., later in v1).
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import datetime as _dt
+from dataclasses import dataclass, field, fields as _dc_fields
 from datetime import UTC, datetime
 from typing import Any, ClassVar, Literal
 from uuid import UUID
@@ -66,6 +67,69 @@ class _Base:
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     deleted_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        # JSON bodies and importers carry dates as ISO *strings* (e.g.
+        # "2020-01-01"). Dataclasses don't coerce types, so without this an
+        # entity's `date`-typed field reaches asyncpg's DATE binding as a raw
+        # str and crashes with "'str' object has no attribute 'toordinal'"
+        # (a 500 on every experience/education/… add that includes a date).
+        # Coerce date-only fields here so every path — API, LinkedIn ZIP,
+        # JSON Resume, CV PDF, MCP — is covered in one place.
+        for name in _date_only_field_names(type(self)):
+            value = getattr(self, name)
+            if isinstance(value, str):
+                setattr(self, name, _to_date(value))
+
+
+# --- Date coercion helpers (shared by every entity via _Base) ------------
+
+_DATE_FIELDS_CACHE: dict[type, tuple[str, ...]] = {}
+
+
+def _date_only_field_names(cls: type) -> tuple[str, ...]:
+    """Names of dataclass fields typed `date` (NOT `datetime`). Cached per class.
+
+    `datetime` is a subclass of `date`, so we compare by identity to keep the
+    timestamp fields (created_at, …) out — those are never user-supplied strings.
+    """
+    cached = _DATE_FIELDS_CACHE.get(cls)
+    if cached is not None:
+        return cached
+    import typing
+
+    try:
+        hints = typing.get_type_hints(cls)
+    except Exception:
+        hints = {}
+    names: list[str] = []
+    for f in _dc_fields(cls):
+        hint = hints.get(f.name)
+        args = typing.get_args(hint)
+        candidates = args if args else (hint,)
+        if any(c is _dt.date for c in candidates):
+            names.append(f.name)
+    result = tuple(names)
+    _DATE_FIELDS_CACHE[cls] = result
+    return result
+
+
+def _to_date(value: str) -> _dt.date | None:
+    """Parse an ISO date string → `date`. Empty → None; invalid → ValidationError.
+
+    Accepts a leading full ISO datetime too (we keep the date part). Raising
+    keeps bad input *visible*: the CRUD layer catches ValidationError and the
+    row is reported/skipped instead of failing silently or 500-ing.
+    """
+    s = value.strip()
+    if not s:
+        return None
+    try:
+        return _dt.date.fromisoformat(s[:10])
+    except ValueError as exc:
+        from src.shared.errors import ValidationError
+
+        raise ValidationError(f"Invalid date value: {value!r}") from exc
 
 
 # --- Shared constants ----------------------------------------------------
