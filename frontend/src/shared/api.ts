@@ -264,11 +264,22 @@ export interface MeResponse {
   tier_updated_at: string | null;
 }
 
+export interface NotificationPrefs {
+  email_reminders: boolean;
+}
+
 export const account = {
   setTier: (tier: "free" | "pro") =>
     api<MeResponse>("/api/v1/users/me/tier", {
       method: "POST",
       body: JSON.stringify({ tier }),
+    }),
+  getNotificationPrefs: () =>
+    api<NotificationPrefs>("/api/v1/users/me/notifications"),
+  setNotificationPrefs: (prefs: NotificationPrefs) =>
+    api<NotificationPrefs>("/api/v1/users/me/notifications", {
+      method: "PATCH",
+      body: JSON.stringify(prefs),
     }),
 };
 

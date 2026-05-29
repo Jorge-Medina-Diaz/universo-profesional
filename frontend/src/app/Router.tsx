@@ -48,6 +48,7 @@ const CareerPreferencesPage = lazyPage(
   "CareerPreferencesPage",
 );
 const JobsPage = lazyPage(() => import("@/pages/JobsPage"), "JobsPage");
+const RemindersPage = lazyPage(() => import("@/pages/RemindersPage"), "RemindersPage");
 const DocumentViewerPage = lazyPage(
   () => import("@/pages/DocumentViewerPage"),
   "DocumentViewerPage",
@@ -176,6 +177,7 @@ function resolveRoute(path: string, query: URLSearchParams, isAuthed: boolean) {
   if (path === "/activity") return <ActivityPage />;
   if (path === "/preferences") return <CareerPreferencesPage />;
   if (path === "/jobs") return <JobsPage />;
+  if (path === "/reminders") return <RemindersPage />;
   if (path.startsWith("/documents/")) {
     const docId = path.slice("/documents/".length);
     return <DocumentViewerPage id={docId} />;

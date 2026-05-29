@@ -32,6 +32,8 @@ from src.identity.interfaces.api.deps import (
 from src.identity.interfaces.api.schemas import (
     CurrentUserResponse,
     GenericOkResponse,
+    NotificationPrefsRequest,
+    NotificationPrefsResponse,
     SetTierRequest,
 )
 from src.shared.uow import unit_of_work
@@ -90,6 +92,37 @@ async def set_tier(
         tier=dto.tier,
         tier_updated_at=dto.tier_updated_at,
     )
+
+
+@router.get("/me/notifications", response_model=NotificationPrefsResponse)
+async def get_notification_prefs(
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> NotificationPrefsResponse:
+    """Read the user's notification opt-outs (currently the reminders digest)."""
+    from src.identity.infrastructure.orm import UserOrm
+
+    row = await session.get(UserOrm, UUID(user_id))
+    if row is None:
+        raise HTTPException(status_code=404, detail="not_found")
+    return NotificationPrefsResponse(email_reminders=bool(row.notify_email_reminders))
+
+
+@router.patch("/me/notifications", response_model=NotificationPrefsResponse)
+async def set_notification_prefs(
+    body: NotificationPrefsRequest,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> NotificationPrefsResponse:
+    """Toggle the daily reminders digest email on/off for this user."""
+    from src.identity.infrastructure.orm import UserOrm
+
+    row = await session.get(UserOrm, UUID(user_id))
+    if row is None:
+        raise HTTPException(status_code=404, detail="not_found")
+    row.notify_email_reminders = body.email_reminders
+    await session.commit()
+    return NotificationPrefsResponse(email_reminders=bool(row.notify_email_reminders))
 
 
 @router.get("/me/export")

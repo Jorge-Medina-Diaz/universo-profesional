@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Boolean, ForeignKey, Text
+from sqlalchemy import Boolean, ForeignKey, Text, text
 from sqlalchemy.dialects.postgresql import CITEXT, TIMESTAMP
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -29,6 +29,13 @@ class UserOrm(Base):
     last_login_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     tier: Mapped[str] = mapped_column(Text, nullable=False, default="free", server_default="free")
     tier_updated_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    # Opt-out for the daily reminders digest email (managed via
+    # /users/me/notifications). Default on; not threaded through the User
+    # domain aggregate — the notifications endpoint + dispatch task read/write
+    # it directly on the row.
+    notify_email_reminders: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
+    )
 
 
 class EmailTokenOrm(Base):

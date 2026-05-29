@@ -105,5 +105,13 @@ class SetTierRequest(BaseModel):
     tier: str = Field(pattern="^(free|pro)$")
 
 
+class NotificationPrefsResponse(BaseModel):
+    email_reminders: bool
+
+
+class NotificationPrefsRequest(BaseModel):
+    email_reminders: bool
+
+
 class GenericOkResponse(BaseModel):
     ok: bool = True

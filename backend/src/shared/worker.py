@@ -54,6 +54,7 @@ def _collect_functions() -> list[Any]:
     from src.mcp_server.infrastructure.tasks import (
         purge_expired_oauth_tokens,
     )
+    from src.universe.infrastructure.reminder_tasks import process_reminders_task
     from src.universe.infrastructure.tasks import (
         compute_communities_task,
         enrich_universe_task,
@@ -74,6 +75,7 @@ def _collect_functions() -> list[Any]:
         run_linkedin_brightdata_sync_task,
         extract_knowledge_document,
         purge_expired_oauth_tokens,
+        process_reminders_task,
     ]
 
 
@@ -85,6 +87,7 @@ def _collect_cron() -> list[Any]:
     from src.mcp_server.infrastructure.tasks import (
         purge_expired_oauth_tokens,
     )
+    from src.universe.infrastructure.reminder_tasks import reminders_cron
 
     return [
         # Daily curator sweep at 03:00 UTC.
@@ -99,6 +102,9 @@ def _collect_cron() -> list[Any]:
             minute={0},
             run_at_startup=False,
         ),
+        # Reminders scan + email digest at 07:00 UTC — a morning nudge,
+        # after the overnight curator has tidied the universe.
+        cron(reminders_cron, hour={7}, minute={0}, run_at_startup=False),
     ]
 
 

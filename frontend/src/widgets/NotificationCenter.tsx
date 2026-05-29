@@ -210,14 +210,23 @@ export function NotificationCenter() {
             </div>
             <div className="max-h-[60vh] overflow-y-auto">
               {section === "reminders" && (
-                <ReminderList
-                  data={reminders.data}
-                  loading={reminders.isLoading}
-                  onDismiss={(id) => dismissReminder.mutate(id)}
-                  dismissingId={
-                    dismissReminder.isPending ? dismissReminder.variables ?? null : null
-                  }
-                />
+                <>
+                  <ReminderList
+                    data={reminders.data}
+                    loading={reminders.isLoading}
+                    onDismiss={(id) => dismissReminder.mutate(id)}
+                    dismissingId={
+                      dismissReminder.isPending ? dismissReminder.variables ?? null : null
+                    }
+                  />
+                  <a
+                    href="#/reminders"
+                    onClick={() => setOpen(false)}
+                    className="block px-4 py-2.5 text-center text-xs font-medium text-stone hover:text-ink border-t border-ink/5 transition-colors"
+                  >
+                    Ver todos los recordatorios →
+                  </a>
+                </>
               )}
               {section === "suggestions" && (
                 <SuggestionList

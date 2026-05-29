@@ -203,11 +203,67 @@ def _account_deleted(locale: str, ctx: dict[str, Any]) -> dict[str, str]:
     return {"subject": subject, "text": text, "body_html": body_html}
 
 
+def _reminders_digest(locale: str, ctx: dict[str, Any]) -> dict[str, str]:
+    name = _safe_get(ctx, "display_name", "")
+    base = _safe_get(ctx, "frontend_base_url")
+    reminders_url = f"{base}/#/reminders"
+    items: list[dict[str, Any]] = ctx.get("reminders") or []
+
+    def _esc(s: Any) -> str:
+        return (
+            str(s)
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        )
+
+    if locale == "en":
+        subject = (
+            f"You have {len(items)} reminder{'s' if len(items) != 1 else ''}"
+            " — Universo Profesional"
+        )
+        intro = "Here's what your universe needs attention on:"
+        cta_label = "Review reminders"
+    else:
+        subject = (
+            f"Tienes {len(items)} recordatorio{'s' if len(items) != 1 else ''}"
+            " — Universo Profesional"
+        )
+        intro = "Esto es lo que tu universo necesita revisar:"
+        cta_label = "Ver recordatorios"
+
+    text_lines = [f"{'Hi' if locale == 'en' else 'Hola'} {name},", "", intro, ""]
+    list_html = []
+    for r in items:
+        title = _safe_get(r, "title")
+        body = _safe_get(r, "body")
+        text_lines.append(f"• {title} — {body}")
+        list_html.append(
+            '<li style="margin:0 0 10px;line-height:1.5;">'
+            f'<strong style="font-size:14px;">{_esc(title)}</strong><br/>'
+            f'<span style="font-size:13px;color:#555;">{_esc(body)}</span></li>'
+        )
+    text_lines += ["", f"{cta_label}: {reminders_url}", "", "— Universo Profesional"]
+
+    greeting = f"{'Hi' if locale == 'en' else 'Hola'} {name},"
+    body_html = (
+        f'<h1 style="font-size:22px;margin:0 0 12px;font-weight:600;">{_esc(greeting)}</h1>'
+        f'<p style="margin:0 0 16px;line-height:1.6;font-size:15px;">{intro}</p>'
+        f'<ul style="margin:0 0 16px;padding-left:18px;">{"".join(list_html)}</ul>'
+        f'<p style="margin:24px 0;"><a href="{reminders_url}" '
+        'style="display:inline-block;background:#ffda6e;color:#0a0a0a;padding:12px 24px;'
+        'border-radius:12px;text-decoration:none;font-weight:600;font-size:14px;">'
+        f"{cta_label}</a></p>"
+    )
+    return {"subject": subject, "text": "\n".join(text_lines), "body_html": body_html}
+
+
 _RENDERERS = {
     "welcome": _welcome,
     "payment_received": _payment_received,
     "subscription_canceled": _subscription_canceled,
     "account_deleted": _account_deleted,
+    "reminders_digest": _reminders_digest,
 }
 
 

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  Bell,
   Compass,
   Download,
   Mail,
@@ -188,6 +189,21 @@ export function SettingsPage() {
               </Button>
             )}
           </div>
+        </Card>
+
+        <Card padding="lg">
+          <SectionHeader icon={<Bell size={16} />} title="Notificaciones" />
+          <p className="text-sm text-stone mb-5 max-w-prose">
+            Gestiona tus recordatorios (certificaciones por caducar, cursos en
+            pausa) y el resumen diario por email.
+          </p>
+          <Button
+            variant="outline"
+            leadingIcon={<Bell size={14} />}
+            onClick={() => (window.location.hash = "#/reminders")}
+          >
+            Gestionar recordatorios
+          </Button>
         </Card>
 
         <Card padding="lg">
