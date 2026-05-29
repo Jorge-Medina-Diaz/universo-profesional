@@ -11,6 +11,7 @@ from __future__ import annotations
 def import_all_models() -> None:
     """Import every ORM module so SQLAlchemy registers tables on `Base.metadata`."""
 
+    from src.agents.infrastructure import byok as _agents_byok  # noqa: F401
     from src.billing.infrastructure import orm as _billing  # noqa: F401
     from src.coherence.infrastructure import orm as _coherence  # noqa: F401
     from src.documents.infrastructure import orm as _documents  # noqa: F401

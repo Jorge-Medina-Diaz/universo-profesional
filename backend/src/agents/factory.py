@@ -8,6 +8,7 @@ concurrent requests are safe.
 """
 from __future__ import annotations
 
+from contextvars import ContextVar
 from functools import lru_cache
 from typing import Literal
 
@@ -17,6 +18,14 @@ from src.shared.config import get_settings
 from src.shared.db import get_engine
 
 ModelTier = Literal["coordinator", "specialist"]
+
+# BYOK override: when set (to (provider, api_key)) for the duration of a team
+# build, `_build_model` uses the user's own key + provider instead of the
+# platform key. The global cached team is always built with this UNSET, so the
+# default (platform-key) path is byte-for-byte unchanged.
+_byok_override: ContextVar[tuple[str, str] | None] = ContextVar(
+    "_byok_override", default=None
+)
 
 # Output cap per run. Routing + most card-emitting turns are short; this
 # bounds runaway generation cost without truncating normal replies.
@@ -216,7 +225,12 @@ def _build_model(tier: ModelTier = "coordinator") -> Model:
     (`retries`, `exponential_backoff`) which re-try the *same* model.
     """
     settings = get_settings()
-    provider = settings.agents_provider_resolved
+    override = _byok_override.get()
+    if override is not None:
+        provider, byok_key = override
+    else:
+        provider = settings.agents_provider_resolved
+        byok_key = None
     if provider == "anthropic":
         from agno.models.anthropic import Claude
 
@@ -244,7 +258,7 @@ def _build_model(tier: ModelTier = "coordinator") -> Model:
         # entire instructions list is static.
         return Claude(
             id=model_id,
-            api_key=settings.anthropic_api_key,
+            api_key=byok_key or settings.anthropic_api_key,
             cache_system_prompt=True,
             cache_tools=True,
             temperature=_TEMPERATURE_BY_TIER[tier],
@@ -256,7 +270,7 @@ def _build_model(tier: ModelTier = "coordinator") -> Model:
         model_id = "gpt-4o" if tier == "coordinator" else "gpt-4o-mini"
         return OpenAIChat(
             id=model_id,
-            api_key=settings.openai_api_key,
+            api_key=byok_key or settings.openai_api_key,
             temperature=_TEMPERATURE_BY_TIER[tier],
             max_tokens=_MAX_TOKENS,
         )
@@ -281,9 +295,12 @@ def _build_db():  # type: ignore[no-untyped-def]
     )
 
 
-@lru_cache(maxsize=1)
-def get_universe_team():  # type: ignore[no-untyped-def]
-    """Return the cached universe coordinator team."""
+def _build_universe_team():  # type: ignore[no-untyped-def]
+    """Construct the universe coordinator team (uncached builder).
+
+    Reads `_byok_override` (via `_build_model`) at build time, so building this
+    while the contextvar is set yields a team wired to a user's BYOK key.
+    """
     from agno.guardrails import PromptInjectionGuardrail
     from agno.team import Team
 
@@ -509,3 +526,48 @@ def get_universe_team():  # type: ignore[no-untyped-def]
         # orientation reads per turn is normal; 12 leaves headroom).
         tool_call_limit=12,
     )
+
+
+@lru_cache(maxsize=1)
+def get_universe_team():  # type: ignore[no-untyped-def]
+    """The cached coordinator team built with the platform LLM key.
+
+    This is the hot path for every non-BYOK user — a single shared, stateless
+    team (state lives in the DB).
+    """
+    return _build_universe_team()
+
+
+@lru_cache(maxsize=32)
+def _byok_team(user_id: str, provider: str, key: str):  # type: ignore[no-untyped-def]
+    """A coordinator team wired to one user's BYOK key.
+
+    Cached by (user_id, provider, key) so a key rotation rebuilds. The Model
+    objects capture the key at construction, so the cached team is safe to
+    reuse after the contextvar is reset.
+    """
+    token = _byok_override.set((provider, key))
+    try:
+        return _build_universe_team()
+    finally:
+        _byok_override.reset(token)
+
+
+async def build_team_for_user(user_id: str):  # type: ignore[no-untyped-def]
+    """Return the team to drive a run for `user_id`.
+
+    Non-BYOK users get the exact same cached object as before; only users who
+    configured their own key hit the (separately cached) per-user team. Any
+    failure to resolve the key falls back to the platform team rather than
+    breaking the chat.
+    """
+    try:
+        from src.agents.infrastructure.byok import resolve_user_llm_credential
+
+        cred = await resolve_user_llm_credential(user_id)
+    except Exception:
+        cred = None
+    if not cred:
+        return get_universe_team()
+    provider, key = cred
+    return _byok_team(user_id, provider, key)

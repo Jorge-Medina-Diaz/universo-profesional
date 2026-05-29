@@ -6,6 +6,7 @@ import {
   Bell,
   Compass,
   Download,
+  KeyRound,
   Mail,
   ShieldCheck,
   Sparkles,
@@ -196,6 +197,15 @@ export function SettingsPage() {
             enabled={me.data?.mfa_enabled ?? false}
             onChanged={() => qc.invalidateQueries({ queryKey: queryKeys.me.all })}
           />
+        </Card>
+
+        <Card padding="lg">
+          <SectionHeader
+            icon={<KeyRound size={16} />}
+            title="Clave de IA propia (BYOK)"
+            trailing={!isPro ? <Badge tone="sunbeam">PRO</Badge> : undefined}
+          />
+          <ByokCard isPro={isPro} />
         </Card>
 
         <Card padding="lg">
@@ -463,6 +473,101 @@ function MfaCard({ enabled, onChanged }: { enabled: boolean; onChanged: () => vo
       <Button variant="cta" onClick={startEnroll} loading={busy}>
         Activar 2FA
       </Button>
+    </div>
+  );
+}
+
+function ByokCard({ isPro }: { isPro: boolean }) {
+  const qc = useQueryClient();
+  const status = useQuery({
+    queryKey: ["llm-key"],
+    queryFn: () => account.llmKey.get(),
+    enabled: isPro,
+  });
+  const [provider, setProvider] = useState("anthropic");
+  const [key, setKey] = useState("");
+
+  const save = useMutation({
+    mutationFn: () => account.llmKey.set(provider, key),
+    onSuccess: (s) => {
+      qc.setQueryData(["llm-key"], s);
+      setKey("");
+      toast.success("Clave guardada", "Tus chats con el agente usarán tu clave.");
+    },
+    onError: (e) => toast.error("No pudimos guardar la clave", (e as Error).message),
+  });
+  const clear = useMutation({
+    mutationFn: () => account.llmKey.clear(),
+    onSuccess: (s) => {
+      qc.setQueryData(["llm-key"], s);
+      toast.success("Clave eliminada", "Volvemos a la clave de la plataforma.");
+    },
+    onError: (e) => toast.error("No pudimos eliminar la clave", (e as Error).message),
+  });
+
+  if (!isPro) {
+    return (
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <p className="text-sm text-stone max-w-prose">
+          Usa tu propia clave de Anthropic u OpenAI para que tus conversaciones con el
+          agente corran con tu cuenta y tu cuota. Disponible en el plan PRO.
+        </p>
+        <Button variant="outline" onClick={() => (window.location.hash = "#/billing")}>
+          Ver PRO
+        </Button>
+      </div>
+    );
+  }
+
+  if (status.data?.configured) {
+    return (
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <p className="text-sm text-stone max-w-prose">
+          Clave <span className="text-ink font-medium capitalize">{status.data.provider}</span>{" "}
+          configurada. Tus chats con el agente la usan. La clave se guarda cifrada y
+          nunca se muestra.
+        </p>
+        <Button variant="outline" onClick={() => clear.mutate()} loading={clear.isPending}>
+          Eliminar clave
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-stone max-w-prose">
+        Pega tu clave de API. Se guarda cifrada y nunca se muestra de vuelta.
+      </p>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="text-xs text-stone flex flex-col gap-1">
+          Proveedor
+          <select
+            value={provider}
+            onChange={(e) => setProvider(e.target.value)}
+            className="h-10 rounded-btn border border-hairline bg-field px-3 text-sm text-ink"
+          >
+            <option value="anthropic">Anthropic</option>
+            <option value="openai">OpenAI</option>
+          </select>
+        </label>
+        <Input
+          type="password"
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          placeholder="sk-…"
+          autoComplete="off"
+          className="flex-1 min-w-[220px]"
+        />
+        <Button
+          variant="cta"
+          onClick={() => save.mutate()}
+          loading={save.isPending}
+          disabled={key.trim().length < 20}
+        >
+          Guardar
+        </Button>
+      </div>
     </div>
   );
 }

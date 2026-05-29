@@ -34,7 +34,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from src.agents.context_providers import IntentRouter
-from src.agents.factory import get_universe_team
+from src.agents.factory import build_team_for_user
 from src.agents.infrastructure.proposal_store import set_proposal
 from src.agents.interfaces.agui_core import (
     _MAX_CONCURRENT_STREAMS_PER_USER,
@@ -494,7 +494,7 @@ async def _stream_chat(
     )
     flag_empty_run = guard_concurrency and has_user_message
 
-    team = get_universe_team()
+    team = await build_team_for_user(str(user_id))
     encoder = EventEncoder()
 
     return StreamingResponse(

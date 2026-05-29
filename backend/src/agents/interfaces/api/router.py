@@ -248,6 +248,60 @@ async def record_user_feedback(
     return {"status": "recorded"}
 
 
+class LlmKeyStatus(BaseModel):
+    configured: bool
+    provider: str | None = None
+
+
+class SetLlmKeyRequest(BaseModel):
+    provider: str
+    api_key: str
+
+
+@router.get("/llm-key", response_model=LlmKeyStatus)
+async def get_llm_key(user_id: CurrentUserId, session: SessionDep) -> LlmKeyStatus:
+    """Whether the user has a BYOK key configured (never returns the key)."""
+    from src.agents.infrastructure.byok import get_credential_status
+
+    configured, provider = await get_credential_status(session, UUID(user_id))
+    return LlmKeyStatus(configured=configured, provider=provider)
+
+
+@router.put("/llm-key", response_model=LlmKeyStatus)
+async def set_llm_key(
+    body: SetLlmKeyRequest, user_id: CurrentUserId, session: SessionDep
+) -> LlmKeyStatus:
+    """Store an encrypted BYOK key. Pro-only."""
+    from src.agents.infrastructure.byok import VALID_PROVIDERS, set_credential
+    from src.identity.infrastructure.orm import UserOrm
+
+    user = await session.get(UserOrm, UUID(user_id))
+    if user is None:
+        raise HTTPException(status_code=404, detail="not_found")
+    if (user.tier or "free") != "pro":
+        raise HTTPException(status_code=403, detail="byok_requires_pro")
+    provider = body.provider.strip().lower()
+    if provider not in VALID_PROVIDERS:
+        raise HTTPException(status_code=400, detail="invalid_provider")
+    key = body.api_key.strip()
+    # Cheap sanity check on the key shape so we don't store obvious garbage.
+    if len(key) < 20 or " " in key:
+        raise HTTPException(status_code=400, detail="invalid_api_key")
+    await set_credential(session, user_id=UUID(user_id), provider=provider, api_key=key)
+    await session.commit()
+    return LlmKeyStatus(configured=True, provider=provider)
+
+
+@router.delete("/llm-key", response_model=LlmKeyStatus)
+async def delete_llm_key(user_id: CurrentUserId, session: SessionDep) -> LlmKeyStatus:
+    """Remove the BYOK key — agent runs fall back to the platform key."""
+    from src.agents.infrastructure.byok import delete_credential
+
+    await delete_credential(session, UUID(user_id))
+    await session.commit()
+    return LlmKeyStatus(configured=False, provider=None)
+
+
 @router.get("/discovery/progress")
 async def get_discovery_progress(
     user_id: CurrentUserId,

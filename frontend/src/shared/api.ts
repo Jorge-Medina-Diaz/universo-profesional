@@ -313,7 +313,21 @@ export const account = {
       method: "PATCH",
       body: JSON.stringify(prefs),
     }),
+  llmKey: {
+    get: () => api<LlmKeyStatus>("/api/v1/agents/llm-key"),
+    set: (provider: string, api_key: string) =>
+      api<LlmKeyStatus>("/api/v1/agents/llm-key", {
+        method: "PUT",
+        body: JSON.stringify({ provider, api_key }),
+      }),
+    clear: () => api<LlmKeyStatus>("/api/v1/agents/llm-key", { method: "DELETE" }),
+  },
 };
+
+export interface LlmKeyStatus {
+  configured: boolean;
+  provider: string | null;
+}
 
 export interface ChatSession {
   session_id: string;
