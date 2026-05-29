@@ -1,11 +1,13 @@
-"""Import endpoints: LinkedIn ZIP, PDF (mock Affinda), JSON Resume, MAC."""
+"""Import endpoints: LinkedIn ZIP, PDF (text + LLM extraction), JSON Resume."""
 from __future__ import annotations
 
 import csv
 import io
+import json
 import zipfile
 from typing import Any
 
+import structlog
 from fastapi import APIRouter, File, UploadFile
 
 from src.identity.interfaces.api.deps import CurrentUserId, SessionDep
@@ -16,38 +18,74 @@ from src.universe.interfaces.api.deps import (
     SkillCrudDep,
 )
 
+logger = structlog.get_logger(__name__)
+
 router = APIRouter()
 
 
-# Canned mock PDF parser response — mimics Affinda's structure.
-_CANNED_PDF_PARSE = {
-    "candidates": {
-        "education": [
-            {
-                "institution": "Universidad Complutense de Madrid",
-                "degree": "Licenciado",
-                "field_of_study": "Ingeniería Informática",
-                "start_date": "2014-09-01",
-                "end_date": "2018-06-30",
-                "confidence": 0.92,
-            }
-        ],
-        "experience": [
-            {
-                "organization": "Acme Corp",
-                "role": "Backend Engineer",
-                "start_date": "2018-09-01",
-                "end_date": "2022-12-31",
-                "highlights": ["Mejoré el throughput de la API en 3x"],
-                "confidence": 0.87,
-            }
-        ],
-        "skills": [
-            {"name": "Python", "category": "hard", "level": "expert", "confidence": 0.95},
-            {"name": "PostgreSQL", "category": "hard", "level": "high", "confidence": 0.90},
-        ],
-    }
+_PDF_EXTRACT_SYSTEM = """Eres un parser de CVs preciso. Extraes ÚNICAMENTE datos presentes en el texto.
+Devuelve EXCLUSIVAMENTE un objeto JSON válido (sin markdown, sin texto extra) con esta forma:
+{
+  "experience": [{"organization": "...", "role": "...", "description": "..."|null, "start_date": "YYYY-MM-DD"|null, "end_date": "YYYY-MM-DD"|null, "is_current": false}],
+  "education": [{"institution": "...", "degree": "..."|null, "field_of_study": "..."|null, "start_date": "YYYY-MM-DD"|null, "end_date": "YYYY-MM-DD"|null}],
+  "skills": [{"name": "...", "category": "hard"|"soft", "level": "beginner"|"intermediate"|"advanced"|"expert"|null}]
 }
+Reglas estrictas:
+- NO inventes datos. Si algo no aparece en el texto, usa null u omite la entrada.
+- Omite entradas sin lo esencial: experiencia necesita organization y role; educación necesita institution; skill necesita name.
+- Fechas SIEMPRE en formato YYYY-MM-DD; si solo hay año o año-mes, completa con "-01".
+- is_current=true solo si el puesto es el actual ("actualidad", "presente", "current", o sin fecha de fin explícita).
+- Conserva el idioma original de los textos del CV."""
+
+
+def _strip_code_fence(s: str) -> str:
+    """Strip a ```json … ``` fence if the model wrapped its JSON in one."""
+    s = s.strip()
+    if s.startswith("```"):
+        s = s[3:]
+        if s[:4].lower() == "json":
+            s = s[4:]
+        if s.endswith("```"):
+            s = s[:-3]
+    return s.strip()
+
+
+def _normalize_candidates(parsed: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """Coerce the model output to the payload shapes the /universe endpoints accept."""
+    exp = []
+    for e in parsed.get("experience") or []:
+        if not isinstance(e, dict) or not e.get("organization") or not e.get("role"):
+            continue
+        exp.append({
+            "organization": str(e["organization"]).strip(),
+            "role": str(e["role"]).strip(),
+            "description": (str(e["description"]).strip() if e.get("description") else None),
+            "start_date": e.get("start_date") or None,
+            "end_date": e.get("end_date") or None,
+            "is_current": bool(e.get("is_current")),
+        })
+    edu = []
+    for e in parsed.get("education") or []:
+        if not isinstance(e, dict) or not e.get("institution"):
+            continue
+        edu.append({
+            "institution": str(e["institution"]).strip(),
+            "degree": (str(e["degree"]).strip() if e.get("degree") else None),
+            "field_of_study": (str(e["field_of_study"]).strip() if e.get("field_of_study") else None),
+            "start_date": e.get("start_date") or None,
+            "end_date": e.get("end_date") or None,
+        })
+    skills = []
+    for s in parsed.get("skills") or []:
+        if not isinstance(s, dict) or not s.get("name"):
+            continue
+        cat = str(s.get("category") or "hard").lower()
+        skills.append({
+            "name": str(s["name"]).strip(),
+            "category": cat if cat in ("hard", "soft") else "hard",
+            "level": (str(s["level"]).lower() if s.get("level") else None),
+        })
+    return {"experience": exp, "education": edu, "skills": skills}
 
 
 @router.post("/pdf")
@@ -55,13 +93,100 @@ async def import_pdf(
     user_id: CurrentUserId,
     file: UploadFile = File(...),
 ) -> dict[str, Any]:
-    """Mock PDF parser — in production this calls Affinda or a fallback LLM extractor.
+    """Parse a CV PDF into reviewable candidates — does NOT commit.
 
-    The endpoint returns parsed *candidates* (does not commit). The client then
-    posts revised entities to the regular /universe/{section} endpoints.
+    Pipeline: extract text with pypdf, then ask the configured LLM to structure
+    it into experience / education / skill candidates. The client shows them for
+    confirmation and posts the accepted ones to the /universe/{section}
+    endpoints. On any failure we return a human-readable ``error`` (never a
+    silently empty result) so the UI can tell the user exactly what happened.
     """
-    _ = await file.read()  # consume the upload
-    return _CANNED_PDF_PARSE
+    from pypdf import PdfReader
+
+    from src.shared.config import get_settings
+
+    raw = await file.read()
+    empty: dict[str, list[dict[str, Any]]] = {"experience": [], "education": [], "skills": []}
+
+    # 1. Extract text.
+    try:
+        reader = PdfReader(io.BytesIO(raw))
+        pages = [(p.extract_text() or "") for p in reader.pages]
+        text = "\n".join(pages).strip()
+    except Exception as exc:
+        logger.warning("pdf_import_extract_failed", error=str(exc), user_id=str(user_id))
+        return {"candidates": empty, "error": f"No pudimos leer el PDF: {exc}"}
+
+    if len(text) < 40:
+        return {
+            "candidates": empty,
+            "error": (
+                "No pudimos extraer texto del PDF. Si es un PDF escaneado "
+                "(una imagen), expórtalo como texto seleccionable o importa el "
+                "ZIP de LinkedIn."
+            ),
+        }
+
+    text = text[:24000]  # bound the prompt size; CVs are short
+
+    # 2. LLM structured extraction.
+    settings = get_settings()
+    provider = settings.agents_provider_resolved
+    try:
+        if provider == "anthropic":
+            from anthropic import AsyncAnthropic
+
+            client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+            resp = await client.messages.create(
+                model=settings.agents_specialist_model or "claude-haiku-4-5-20251001",
+                max_tokens=2048,
+                system=_PDF_EXTRACT_SYSTEM,
+                messages=[{"role": "user", "content": text}],
+            )
+            content = str(resp.content[0].text)
+        elif provider == "openai":
+            from openai import AsyncOpenAI
+
+            client = AsyncOpenAI(api_key=settings.openai_api_key)
+            resp = await client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": _PDF_EXTRACT_SYSTEM},
+                    {"role": "user", "content": text},
+                ],
+                max_tokens=2048,
+                temperature=0.1,
+                response_format={"type": "json_object"},
+            )
+            content = str(resp.choices[0].message.content)
+        else:
+            return {
+                "candidates": empty,
+                "error": "No hay un proveedor de IA configurado para analizar el CV.",
+            }
+    except Exception as exc:
+        logger.warning("pdf_import_llm_failed", error=str(exc), user_id=str(user_id))
+        return {"candidates": empty, "error": f"El análisis del CV falló: {exc}"}
+
+    # 3. Parse + normalize.
+    try:
+        parsed = json.loads(_strip_code_fence(content))
+        if not isinstance(parsed, dict):
+            raise ValueError("not a JSON object")
+    except (json.JSONDecodeError, ValueError):
+        logger.warning("pdf_import_bad_json", sample=content[:200], user_id=str(user_id))
+        return {
+            "candidates": empty,
+            "error": "El análisis devolvió un formato inesperado. Inténtalo de nuevo.",
+        }
+
+    candidates = _normalize_candidates(parsed)
+    total = sum(len(v) for v in candidates.values())
+    logger.info("pdf_import_parsed", user_id=str(user_id), pages=len(pages), total=total)
+    return {
+        "candidates": candidates,
+        "meta": {"pages": len(pages), "chars": len(text), "total": total},
+    }
 
 
 def _find_csv_files(zf: zipfile.ZipFile) -> dict[str, str | None]:

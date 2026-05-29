@@ -10,6 +10,7 @@ import { Suspense, lazy, useEffect, useState, type ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore, universe } from "@/shared/api";
 import { queryKeys } from "@/shared/queryKeys";
+import { isOnboardingComplete } from "@/shared/onboarding";
 import { PageTransition } from "@/ui/motion";
 import { PageSkeleton } from "@/ui";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -59,14 +60,23 @@ const LegalPage = lazyPage(() => import("@/pages/LegalPage"), "LegalPage");
 const UsagePage = lazyPage(() => import("@/pages/UsagePage"), "UsagePage");
 
 function parseHash(): { path: string; query: URLSearchParams } {
-  const raw = (window.location.hash || "#/").slice(1);
+  const rawHash = window.location.hash || "#/";
+  // This is a hash router, so a route always looks like "#/...". Anything else
+  // (e.g. "#producto", "#main") is an in-page anchor on the current page — NOT
+  // a route. Treating it as one sent the landing's section links through
+  // resolveRoute(), which bounced every unauthenticated visitor to /login.
+  // Resolve anchors to the root path and let the browser handle the scroll.
+  if (!rawHash.startsWith("#/")) {
+    return { path: "/", query: new URLSearchParams() };
+  }
+  const raw = rawHash.slice(1);
   const [path, q = ""] = raw.split("?");
   return { path: path || "/", query: new URLSearchParams(q) };
 }
 
 export function Router() {
   const [route, setRoute] = useState(parseHash());
-  const { accessToken } = useAuthStore();
+  const { accessToken, userId } = useAuthStore();
 
   useEffect(() => {
     const onChange = () => setRoute(parseHash());
@@ -103,10 +113,14 @@ export function Router() {
     if (!accessToken) return;
     if (isPublicOrOnboarding) return;
     if (summaryQuery.isLoading) return;
-    if (!hasData) {
+    // Only funnel users who still have an empty universe AND haven't already
+    // been through onboarding. Without the second check the gate bounces a
+    // user who just finished/skipped onboarding (and added nothing) straight
+    // back from /universe — making the "Ir a mi universo" button look broken.
+    if (!hasData && !isOnboardingComplete(userId)) {
       window.location.hash = "#/onboarding";
     }
-  }, [accessToken, isPublicOrOnboarding, hasData, summaryQuery.isLoading]);
+  }, [accessToken, userId, isPublicOrOnboarding, hasData, summaryQuery.isLoading]);
 
   const page = resolveRoute(path, query, !!accessToken);
 

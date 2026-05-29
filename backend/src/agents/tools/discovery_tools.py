@@ -13,7 +13,6 @@ import structlog
 from agno.tools import tool
 
 from src.agents.tools._deps import require_user_id
-from src.graph.application.universe_graph import universe_graph_service
 from src.graph.domain import schema as graph_schema
 
 logger = structlog.get_logger(__name__)
@@ -32,18 +31,23 @@ async def get_profile_completeness(run_context: Any) -> dict[str, Any]:
     user_id = UUID(str(run_context.user_id))
     session = run_context.session
 
-    counts: dict[str, int] = {}
-    for label in graph_schema.KIND_TO_LABEL.values():
-        result = await universe_graph_service._execute_cypher(
-            session,
-            f"""
-            SELECT count(*)::int AS n
-            FROM {graph_schema.GRAPH_PERSONAL}.{label}
-            WHERE v.user_id = $uid
-            """,
-            {"uid": str(user_id)},
-        )
-        counts[label] = result[0]["n"] if result else 0
+    # Counts per entity kind — read from the igraph snapshot. Querying the AGE
+    # label tables directly (`SELECT FROM universe_personal.<Label>`) is wrong:
+    # those tables are case-sensitive and don't exist until the first vertex of
+    # that label is created, so a sparse profile crashes the tool. The snapshot
+    # is keyed by `kind` (lowercase) so coverage lookups below line up — the
+    # previous code keyed by PascalCase label, leaving every coverage value 0.
+    from collections import Counter
+
+    from src.graph.application.retrieval import _load_snapshot
+
+    snapshot = await _load_snapshot(session, user_id)
+    kind_counter = Counter(
+        meta[1] for meta in snapshot.idx_to_meta.values() if meta[1]
+    )
+    counts: dict[str, int] = {
+        kind: kind_counter.get(kind, 0) for kind in graph_schema.KIND_TO_LABEL
+    }
 
     # Heuristic coverage scores
     total = sum(counts.values())

@@ -331,6 +331,23 @@ export const universe = {
       body: fd,
     }).then((r) => r.json());
   },
+  // Parse a CV PDF into reviewable candidates (server extracts text + LLM
+  // structures it). Does NOT commit — the caller reviews and posts the
+  // accepted entries via universe.add(). Surfaces server/HTTP errors instead
+  // of swallowing them.
+  importPdf: async (file: File): Promise<CvParseResult> => {
+    const fd = new FormData();
+    fd.append("file", file);
+    const r = await fetch("/api/v1/import/pdf", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${useAuthStore.getState().accessToken ?? ""}` },
+      body: fd,
+    });
+    if (!r.ok) {
+      throw new Error(`No se pudo analizar el PDF (HTTP ${r.status})`);
+    }
+    return r.json();
+  },
   reminders: {
     list: (dueWithinDays?: number) => {
       const qs = dueWithinDays != null ? `?due_within_days=${dueWithinDays}` : "";
@@ -419,6 +436,31 @@ export interface UniverseSummary {
   preferences: Record<string, unknown> | null;
 }
 
+export interface CvParseCandidates {
+  experience: Array<{
+    organization: string;
+    role: string;
+    description?: string | null;
+    start_date?: string | null;
+    end_date?: string | null;
+    is_current?: boolean;
+  }>;
+  education: Array<{
+    institution: string;
+    degree?: string | null;
+    field_of_study?: string | null;
+    start_date?: string | null;
+    end_date?: string | null;
+  }>;
+  skills: Array<{ name: string; category?: string; level?: string | null }>;
+}
+
+export interface CvParseResult {
+  candidates: CvParseCandidates;
+  meta?: { pages: number; chars: number; total: number };
+  error?: string;
+}
+
 export const jobs = {
   list: (status?: JobStatus) => {
     const qs = status ? `?status=${encodeURIComponent(status)}` : "";
@@ -453,6 +495,19 @@ export type JobStatus =
   | "rejected"
   | "archived";
 
+export interface MatchBreakdown {
+  match_score: number;
+  dimensions: {
+    skills: number | null;
+    experience: number | null;
+    education: number | null;
+  };
+  strengths: string[];
+  gaps: string[];
+  keyword_coverage: number | null;
+  suggested_keywords: string[];
+}
+
 export interface JobRow {
   id: string;
   company_name: string | null;
@@ -465,6 +520,8 @@ export interface JobRow {
   notes: string | null;
   applied_at: string | null;
   match_score: number | null;
+  /** Per-dimension breakdown cached on the job once /score has run. */
+  match: MatchBreakdown | null;
   position: number | null;
 }
 

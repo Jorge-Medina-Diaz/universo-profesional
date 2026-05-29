@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Menu, X, ArrowRight, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/shared/useTheme";
@@ -12,6 +12,19 @@ const LINKS = [
 
 function go(hash: string) {
   window.location.hash = hash;
+}
+
+/**
+ * Smooth-scroll to an in-page section instead of letting the hash router treat
+ * the anchor as a route. We preventDefault (so no `hashchange` fires) and use
+ * replaceState to keep the anchor in the URL without a route churn.
+ */
+function scrollToSection(e: MouseEvent<HTMLAnchorElement>, href: string) {
+  const el = document.getElementById(href.replace(/^#/, ""));
+  if (!el) return; // let the browser handle unknown anchors
+  e.preventDefault();
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
+  history.replaceState(null, "", href);
 }
 
 function ThemeToggleButton({ className = "" }: { className?: string }) {
@@ -155,6 +168,7 @@ export function SiteNav() {
               <a
                 key={l.href}
                 href={l.href}
+                onClick={(e) => scrollToSection(e, l.href)}
                 className="rounded-full px-3.5 py-1.5 text-sm text-[var(--cos-stone)] transition-colors hover:bg-[var(--cos-fill-strong)] hover:text-[var(--cos-ink)]"
               >
                 {l.label}
@@ -238,7 +252,10 @@ export function SiteNav() {
                   <a
                     key={l.href}
                     href={l.href}
-                    onClick={() => setOpen(false)}
+                    onClick={(e) => {
+                      setOpen(false);
+                      scrollToSection(e, l.href);
+                    }}
                     className="rounded-2xl px-3 py-3 text-[15px] text-[var(--cos-ink)] transition-colors hover:bg-[var(--cos-fill-strong)]"
                   >
                     {l.label}

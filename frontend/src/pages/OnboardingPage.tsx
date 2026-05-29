@@ -8,9 +8,10 @@ import {
   Upload,
   Wand2,
   Plug,
+  Plus,
   CheckCircle2,
 } from "lucide-react";
-import { universe } from "@/shared/api";
+import { universe, useAuthStore, type CvParseCandidates } from "@/shared/api";
 import {
   Badge,
   Button,
@@ -27,16 +28,18 @@ import {
   toast,
 } from "@/ui";
 import { queryKeys } from "@/shared/queryKeys";
+import { markOnboardingComplete } from "@/shared/onboarding";
 
 const STORAGE_KEY = "cvs-saas-onboarding-step";
 
-const STEPS = ["welcome", "import", "headline", "preferences", "first-cv", "mcp", "done"] as const;
+const STEPS = ["welcome", "import", "headline", "skills", "preferences", "first-cv", "mcp", "done"] as const;
 type Step = (typeof STEPS)[number];
 
 const STEP_LABELS: Record<Step, string> = {
   welcome: "Bienvenida",
   import: "Importar",
   headline: "Titular",
+  skills: "Habilidades",
   preferences: "Preferencias",
   "first-cv": "Tu primer CV",
   mcp: "Agente IA",
@@ -85,9 +88,18 @@ function syncUrl(step: Step) {
 
 export function OnboardingPage() {
   const qc = useQueryClient();
+  const userId = useAuthStore((s) => s.userId);
   const [step, setStepState] = useState<Step>(() => {
     return readStepFromUrl() ?? readStepFromStorage() ?? "welcome";
   });
+
+  // Reaching onboarding counts as "seen": from here on the router's gate must
+  // not bounce the user back when they leave with an empty universe (e.g. via
+  // "Ir a mi universo", "Generar mi primer CV" → /cv/new, or "Ver
+  // instrucciones" → /mcp). Without this those buttons looked dead.
+  useEffect(() => {
+    markOnboardingComplete(userId);
+  }, [userId]);
 
   const summary = useQuery({
     queryKey: queryKeys.universe.summary,
@@ -147,7 +159,7 @@ export function OnboardingPage() {
                 icon={<Sparkles size={20} />}
                 eyebrow={STEP_LABELS.welcome}
                 title="¡Bienvenido!"
-                body="Vamos a montar tu Universo Profesional en 7 pasos. Menos de 10 minutos."
+                body="Vamos a montar tu Universo Profesional paso a paso. Menos de 10 minutos."
               >
                 <Button
                   size="lg"
@@ -172,7 +184,11 @@ export function OnboardingPage() {
             )}
 
             {step === "headline" && (
-              <HeadlineStage onNext={() => setStep("preferences")} onSkip={() => setStep("preferences")} />
+              <HeadlineStage onNext={() => setStep("skills")} onSkip={() => setStep("skills")} />
+            )}
+
+            {step === "skills" && (
+              <SkillsStage onNext={() => setStep("preferences")} onSkip={() => setStep("preferences")} />
             )}
 
             {step === "preferences" && (
@@ -299,34 +315,229 @@ function Stage({
 
 function ImportStage({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }) {
   const qc = useQueryClient();
-  const upload = useMutation({
+  const [candidates, setCandidates] = useState<CvParseCandidates | null>(null);
+
+  // LinkedIn ZIP → parsed + committed server-side, returns a count summary.
+  const linkedin = useMutation({
     mutationFn: (f: File) => universe.importLinkedIn(f),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.universe.all }),
+    onSuccess: (res: {
+      experiences?: number;
+      educations?: number;
+      skills?: number;
+      errors?: string[];
+    }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.universe.all });
+      if (res?.errors?.length) {
+        toast.error("Importación parcial", res.errors[0]);
+      }
+    },
+    onError: (e: unknown) => toast.error("No se pudo importar el ZIP", (e as Error).message),
   });
+
+  // CV PDF → parsed into candidates for review (NOT committed yet).
+  const parsePdf = useMutation({
+    mutationFn: (f: File) => universe.importPdf(f),
+    onSuccess: (res) => {
+      if (res.error) {
+        toast.error("No se pudo analizar el CV", res.error);
+        return;
+      }
+      const c = res.candidates;
+      const total = c.experience.length + c.education.length + c.skills.length;
+      if (total === 0) {
+        toast.info("CV analizado", "No encontramos entradas claras. Puedes añadirlas a mano.");
+        return;
+      }
+      setCandidates(c);
+    },
+    onError: (e: unknown) => toast.error("Error al analizar el CV", (e as Error).message),
+  });
+
+  // Commit the reviewed PDF candidates one by one, surfacing any failures.
+  const commit = useMutation({
+    mutationFn: async (c: CvParseCandidates) => {
+      const errors: string[] = [];
+      let added = 0;
+      const post = async (kind: string, payload: Record<string, unknown>) => {
+        try {
+          await universe.add(kind, payload);
+          added += 1;
+        } catch (e) {
+          errors.push((e as Error).message);
+        }
+      };
+      for (const e of c.experience) await post("experience", e as Record<string, unknown>);
+      for (const e of c.education) await post("education", e as Record<string, unknown>);
+      for (const s of c.skills) await post("skill", s as Record<string, unknown>);
+      return { added, errors };
+    },
+    onSuccess: ({ added, errors }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.universe.all });
+      if (added > 0) toast.success("Importado", `${added} entradas añadidas a tu universo.`);
+      if (errors.length) {
+        toast.error("Algunas no se añadieron", `${errors.length} fallaron · ${errors[0] ?? ""}`);
+      }
+      setCandidates(null);
+      onNext();
+    },
+    onError: (e: unknown) => toast.error("No se pudo importar", (e as Error).message),
+  });
+
+  const handleFile = (f: File) => {
+    const name = f.name.toLowerCase();
+    if (name.endsWith(".pdf")) parsePdf.mutate(f);
+    else if (name.endsWith(".zip")) linkedin.mutate(f);
+    else toast.error("Formato no soportado", "Sube un PDF de tu CV o el ZIP de LinkedIn.");
+  };
+
+  // Review screen — confirm extracted CV candidates before committing.
+  if (candidates) {
+    return (
+      <Stage
+        icon={<Upload size={20} />}
+        eyebrow={STEP_LABELS.import}
+        title="Revisa lo que encontramos"
+        body="Esto extrajimos de tu CV. Confírmalo para añadirlo a tu universo."
+      >
+        <div className="w-full space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <Badge tone="leaf" dot>{candidates.experience.length} experiencias</Badge>
+            <Badge tone="sunbeam" dot>{candidates.education.length} estudios</Badge>
+            <Badge tone="stone" dot>{candidates.skills.length} skills</Badge>
+          </div>
+          <Card tone="canvas" bordered padding="sm" className="max-h-56 overflow-auto space-y-1.5 text-sm">
+            {candidates.experience.map((e, i) => (
+              <div key={`x${i}`}>
+                <span className="font-medium text-ink">{e.role}</span>{" "}
+                <span className="text-stone">· {e.organization}</span>
+              </div>
+            ))}
+            {candidates.education.map((e, i) => (
+              <div key={`e${i}`}>
+                <span className="font-medium text-ink">{e.degree || e.field_of_study || "Estudios"}</span>{" "}
+                <span className="text-stone">· {e.institution}</span>
+              </div>
+            ))}
+            {candidates.skills.length > 0 && (
+              <div className="text-stone pt-1">{candidates.skills.map((s) => s.name).join(" · ")}</div>
+            )}
+          </Card>
+          <div className="flex gap-2">
+            <Button
+              loading={commit.isPending}
+              onClick={() => commit.mutate(candidates)}
+              trailingIcon={<ArrowRight size={14} />}
+            >
+              Importar todo
+            </Button>
+            <Button variant="ghost" onClick={() => setCandidates(null)} disabled={commit.isPending}>
+              Descartar
+            </Button>
+          </div>
+        </div>
+      </Stage>
+    );
+  }
+
+  const busy = parsePdf.isPending || linkedin.isPending;
   return (
     <Stage
       icon={<Upload size={20} />}
       eyebrow={STEP_LABELS.import}
       title="Importar datos"
-      body="Sube tu export ZIP de LinkedIn (Get a copy of your data) o empieza de cero."
+      body="Sube tu CV en PDF o el export ZIP de LinkedIn. O empieza de cero."
     >
       <div className="w-full space-y-3">
         <DropZone
-          accept=".zip"
-          label="Arrastra tu ZIP de LinkedIn o haz clic"
-          hint="Settings → Get a copy of your data en LinkedIn"
-          loading={upload.isPending}
+          accept=".pdf,.zip"
+          label={parsePdf.isPending ? "Analizando tu CV…" : "Arrastra tu CV (PDF) o ZIP de LinkedIn, o haz clic"}
+          hint="PDF de tu CV · o LinkedIn → Settings → Get a copy of your data"
+          loading={busy}
           maxBytes={50 * 1024 * 1024}
-          onFiles={(files) => upload.mutate(files[0])}
+          onFiles={(files) => handleFile(files[0])}
           onError={(msg) => toast.error("Archivo no aceptado", msg)}
         />
-        {upload.data && (
+        {linkedin.data && (
           <Badge tone="leaf" dot>
-            Importado: {upload.data.experiences} experiencias · {upload.data.educations} estudios ·{" "}
-            {upload.data.skills} skills
+            Importado: {linkedin.data.experiences} experiencias · {linkedin.data.educations} estudios ·{" "}
+            {linkedin.data.skills} skills
           </Badge>
         )}
         <div className="flex gap-2">
+          <Button onClick={onNext} trailingIcon={<ArrowRight size={14} />}>
+            Continuar
+          </Button>
+          <Button variant="ghost" onClick={onSkip}>
+            Saltar
+          </Button>
+        </div>
+      </div>
+    </Stage>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Skills stage                                                       */
+
+function SkillsStage({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }) {
+  const qc = useQueryClient();
+  const [value, setValue] = useState("");
+  const [added, setAdded] = useState<string[]>([]);
+
+  const add = useMutation({
+    mutationFn: (name: string) => universe.add("skill", { name, category: "hard" }),
+    onSuccess: (_data, name) => {
+      setAdded((a) => [...a, name]);
+      qc.invalidateQueries({ queryKey: queryKeys.universe.all });
+    },
+    onError: (e: unknown) => toast.error("No se pudo añadir la habilidad", (e as Error).message),
+  });
+
+  const submit = () => {
+    const name = value.trim();
+    if (!name) return;
+    if (added.some((a) => a.toLowerCase() === name.toLowerCase())) {
+      setValue("");
+      return;
+    }
+    add.mutate(name);
+    setValue("");
+  };
+
+  return (
+    <Stage
+      icon={<Sparkles size={20} />}
+      eyebrow={STEP_LABELS.skills}
+      title="Tus habilidades"
+      body="Añade tus skills clave. Pulsa Enter (o el botón) tras cada una — se guardan al instante."
+    >
+      <div className="w-full space-y-3">
+        <div className="flex gap-2">
+          <Input
+            placeholder="ej. Python, Liderazgo, Figma…"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submit();
+              }
+            }}
+          />
+          <Button onClick={submit} loading={add.isPending} leadingIcon={<Plus size={14} />}>
+            Añadir
+          </Button>
+        </div>
+        {added.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {added.map((s) => (
+              <Badge key={s} tone="leaf">
+                {s}
+              </Badge>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2 pt-1">
           <Button onClick={onNext} trailingIcon={<ArrowRight size={14} />}>
             Continuar
           </Button>

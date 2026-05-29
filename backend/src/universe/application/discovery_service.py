@@ -24,18 +24,25 @@ class DiscoveryProgressService:
         day_ago = now - timedelta(days=1)
         week_ago = now - timedelta(days=7)
 
-        # 1. Counts per entity kind from the graph
-        counts: dict[str, int] = {}
-        for kind, label in graph_schema.KIND_TO_LABEL.items():
-            result = await self._session.execute(
-                text(f"""
-                    SELECT count(*)::int AS n
-                    FROM {graph_schema.GRAPH_PERSONAL}.{label}
-                    WHERE v.user_id = :uid
-                """),
-                {"uid": uid},
-            )
-            counts[kind] = result.scalar() or 0
+        # 1. Counts per entity kind — read from the igraph snapshot of the
+        # user's graph. Counting with `SELECT FROM universe_personal.<label>`
+        # is WRONG: those are Apache AGE label tables — case-sensitive (the
+        # label is `Experience`, not `experience`) and not created until the
+        # first vertex of that label exists. A fresh user (e.g. mid-onboarding)
+        # therefore 500s with `UndefinedTableError: relation
+        # "universe_personal.experience" does not exist`. The snapshot reflects
+        # the active vertices, is cached, and is shared with the retrieval lane.
+        from collections import Counter
+
+        from src.graph.application.retrieval import _load_snapshot
+
+        snapshot = await _load_snapshot(self._session, user_id)
+        kind_counter = Counter(
+            meta[1] for meta in snapshot.idx_to_meta.values() if meta[1]
+        )
+        counts: dict[str, int] = {
+            kind: kind_counter.get(kind, 0) for kind in graph_schema.KIND_TO_LABEL
+        }
 
         total_entities = sum(counts.values())
 

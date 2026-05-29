@@ -130,6 +130,11 @@
 
   /* Profundidad de capas en dark mode (Linear-style) */
   --surface-canvas: #0c0b08;
+  /* Card surface — the `surface` Tailwind token (bg-surface, .card, hover
+   * fills, AuthHero panel, agent orb…). Without a dark override it stayed the
+   * light cream #f8f5ed, so dark mode showed glaring light blocks (e.g. the
+   * whole left half of the login page). Sits one step above the canvas. */
+  --surface-card-surface: #16140f;
   --surface-base: #16140f;
   --surface-raised: #1e1c16;
   --surface-overlay: rgba(0, 0, 0, 0.6);

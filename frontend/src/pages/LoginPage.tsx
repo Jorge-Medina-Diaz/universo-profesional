@@ -6,6 +6,7 @@ import { integrations } from "@/shared/api-extra";
 import { Button, Card, Field, Input, Reveal, Stagger } from "@/ui";
 import { AuthHero } from "./_auth/AuthHero";
 import { queryKeys } from "@/shared/queryKeys";
+import { isOnboardingComplete } from "@/shared/onboarding";
 
 export function LoginPage() {
   const { t } = useTranslation();
@@ -44,7 +45,9 @@ export function LoginPage() {
         email: tokens.email,
       });
 
-      // Route new users (empty universe) straight to onboarding.
+      // Route new users (empty universe) straight to onboarding — but only if
+      // they haven't already been through it, so returning users who skipped
+      // onboarding aren't funnelled back every login.
       let target = "#/";
       try {
         const summary = await universe.summary();
@@ -52,7 +55,7 @@ export function LoginPage() {
           summary.counts?.experiences > 0 ||
           summary.counts?.educations > 0 ||
           summary.counts?.skills > 0;
-        if (!hasData) target = "#/onboarding";
+        if (!hasData && !isOnboardingComplete(tokens.user_id)) target = "#/onboarding";
       } catch {
         /* ignore, default to home */
       }

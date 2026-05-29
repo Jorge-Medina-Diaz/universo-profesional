@@ -9,6 +9,8 @@ import { FileText, ArrowRight, Sparkles } from "lucide-react";
 import { GitHubIcon } from "@/ui/icons";
 import { Button, Card, PageHeader, Reveal, Skeleton, Stagger, Surface } from "@/ui";
 import { enableCopilot, useCopilotReady } from "@/app/CopilotProvider";
+import { useAuthStore } from "@/shared/api";
+import { markOnboardingComplete } from "@/shared/onboarding";
 
 const CopilotSurface = lazy(() =>
   import("./_chat/CopilotSurface").then((m) => ({ default: m.CopilotSurface })),
@@ -70,12 +72,19 @@ const SHORTCUTS: Shortcut[] = [
 
 export function OnboardingChatPage() {
   const ready = useCopilotReady();
+  const userId = useAuthStore((s) => s.userId);
 
   // Warm up CopilotKit only when this surface actually mounts (mirrors
   // HomePage/UniversePage), avoiding a module-eval race with the provider.
   useEffect(() => {
     enableCopilot();
   }, []);
+
+  // Reaching onboarding counts as "seen" so the router gate stops funnelling
+  // the user back here once they head into the app with an empty universe.
+  useEffect(() => {
+    markOnboardingComplete(userId);
+  }, [userId]);
 
   return (
     <div className="bg-canvas pb-24 md:pb-12">
