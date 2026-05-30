@@ -326,7 +326,10 @@ async def pdf_parse(
                 f"(got {len(contents) // (1024 * 1024)} MB)"
             ),
         )
-    if not contents.startswith(b"%PDF"):
+    # Tolerant magic-bytes check: a valid PDF may carry a UTF-8 BOM or leading
+    # whitespace before "%PDF-" (Acrobat scans the first ~1KB), and pypdf parses
+    # those fine. A strict startswith rejected them as a false-negative 400.
+    if b"%PDF-" not in contents[:1024]:
         raise HTTPException(status_code=400, detail="file is not a valid PDF")
     parsed_obj: ParsedCv = await parse_cv_pdf(contents)
     parsed = parsed_obj.model_dump()

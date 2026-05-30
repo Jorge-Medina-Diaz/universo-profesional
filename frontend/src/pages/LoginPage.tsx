@@ -249,6 +249,12 @@ export function LoginPage() {
                 <a href="#/register" className="text-stone hover:text-ink transition-colors">
                   {t("auth.noAccount")} →
                 </a>
+                <a
+                  href="#/auth/forgot"
+                  className="text-stone hover:text-ink transition-colors"
+                >
+                  ¿Olvidaste tu contraseña?
+                </a>
               </div>
             </Stagger>
           </form>

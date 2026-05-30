@@ -21,6 +21,7 @@ from src.identity.interfaces.api.deps import SessionDep
 from src.mcp_server.domain.scopes import DEFAULT_SCOPES, SCOPES, validate_scopes
 from src.mcp_server.infrastructure.oauth_store import OAuthStore
 from src.shared.config import get_settings
+from src.shared.rate_limit import limiter
 from src.shared.security import (
     encode_jwt,
     generate_token,
@@ -46,10 +47,14 @@ class RegisterClientRequest(BaseModel):
 
 
 @router.post("/register")
+@limiter.limit("10/hour")
 async def register_client(
+    request: Request,
     body: RegisterClientRequest,
     session: SessionDep,
 ) -> dict[str, Any]:
+    # Open DCR per RFC 7591, but unauthenticated + unthrottled is a table-flood
+    # vector — rate-limit by IP (no auth header pre-registration).
     requested = body.scope.split() if body.scope else list(DEFAULT_SCOPES)
     valid_scopes = validate_scopes(requested) or list(DEFAULT_SCOPES)
     valid_methods = ["none"]
@@ -133,6 +138,7 @@ async def authorize_get(
 
 @router.post("/authorize")
 async def authorize_post(
+    request: Request,
     session: SessionDep,
     email: str = Form(...),
     password: str = Form(...),
@@ -145,6 +151,19 @@ async def authorize_post(
     code_challenge_method: str = Form("S256"),
     resource: str = Form(...),
 ) -> RedirectResponse:
+    # CSRF defence-in-depth: this POST both authenticates (email/password) and
+    # grants consent, so a cross-site form could drive a forced login+consent.
+    # Reject when an Origin/Referer is present and not same-origin. (Missing
+    # header is allowed so the server-rendered same-origin form still works.)
+    from urllib.parse import urlsplit
+
+    origin = request.headers.get("origin") or request.headers.get("referer")
+    if origin:
+        expected = urlsplit(get_settings().canonical_base_url)
+        got = urlsplit(origin)
+        if (got.scheme, got.netloc) != (expected.scheme, expected.netloc):
+            raise HTTPException(status_code=403, detail="cross-origin request rejected")
+
     if consent != "approve":
         return RedirectResponse(
             url=f"{redirect_uri}?error=access_denied&state={state}",

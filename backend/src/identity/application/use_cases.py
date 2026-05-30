@@ -538,7 +538,9 @@ class RequestPasswordReset:
             expires_at=utc_in(minutes=15),
         )
         settings = get_settings()
-        link = f"{settings.frontend_base_url}/auth/reset?token={token}"
+        # Hash-router prefix (mirrors the verify link) — without it the SPA boots
+        # at "#/" and the ?token is dropped, losing the reset token.
+        link = f"{settings.frontend_base_url}/#/auth/reset?token={token}"
         await self._emailer.send_password_reset(
             to=str(user.email), link=link, locale=user.locale
         )

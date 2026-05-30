@@ -37,11 +37,25 @@ def _key_func(request: Request) -> str:
     auth = request.headers.get("authorization", "")
     if auth.lower().startswith("bearer "):
         token = auth.split(" ", 1)[1].strip()
-        # Cheap fingerprint without decoding — enough to differentiate users
-        # since we don't need the full claim list here. Truncation to 16 chars
-        # keeps the redis key short.
         if token:
-            return f"jwt:{token[-16:]}"
+            # Key on the STABLE `sub` claim, not the token tail: the old
+            # `token[-16:]` (signature tail) changed on every refresh/re-login,
+            # so a caller could evade any per-user limit just by refreshing, and
+            # 16 chars of signature is collision-prone. This is only a
+            # partitioning key (auth is enforced downstream), so unverified
+            # claims are fine and must never raise.
+            import hashlib
+
+            try:
+                from jose import jwt as _jwt
+
+                sub = _jwt.get_unverified_claims(token).get("sub")
+                if sub:
+                    return f"user:{sub}"
+            except Exception:
+                pass
+            # Opaque/garbage token → stable per-token bucket (no collision).
+            return f"jwt:{hashlib.sha256(token.encode()).hexdigest()[:32]}"
     return get_remote_address(request)
 
 

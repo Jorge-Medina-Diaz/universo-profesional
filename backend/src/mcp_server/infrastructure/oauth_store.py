@@ -176,6 +176,29 @@ class OAuthStore:
         new_expires_at: datetime,
     ) -> OAuthTokenOrm | None:
         old_h = hash_token(refresh)
+
+        # Reuse detection (RFC 6819 §5.2.2.3): if the presented refresh token
+        # exists but was already rotated (replaced_by set) or revoked, it's a
+        # replay — burn the whole token chain for this (user, client) so a
+        # leaked token can't be used to mint a parallel session. Mirrors the
+        # browser refresh path in identity.
+        existing = (
+            await self._session.execute(
+                select(OAuthTokenOrm).where(OAuthTokenOrm.token_hash == old_h)
+            )
+        ).scalar_one_or_none()
+        if existing is not None and (
+            existing.replaced_by is not None or existing.revoked_at is not None
+        ):
+            await self._session.execute(
+                update(OAuthTokenOrm)
+                .where(OAuthTokenOrm.user_id == existing.user_id)
+                .where(OAuthTokenOrm.client_id == existing.client_id)
+                .where(OAuthTokenOrm.revoked_at.is_(None))
+                .values(revoked_at=utc_now())
+            )
+            return None
+
         stmt = (
             update(OAuthTokenOrm)
             .where(OAuthTokenOrm.token_hash == old_h)

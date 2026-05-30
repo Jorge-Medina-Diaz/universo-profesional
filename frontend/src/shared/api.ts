@@ -255,6 +255,18 @@ export const auth = {
       body: JSON.stringify(b),
       authRequired: false,
     }),
+  requestPasswordReset: (email: string) =>
+    api("/api/v1/auth/password-reset", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+      authRequired: false,
+    }),
+  confirmPasswordReset: (token: string, new_password: string) =>
+    api("/api/v1/auth/password-reset/confirm", {
+      method: "POST",
+      body: JSON.stringify({ token, new_password }),
+      authRequired: false,
+    }),
   me: () => api<MeResponse>("/api/v1/users/me"),
   deleteMe: () => api("/api/v1/users/me", { method: "DELETE" }),
   mfa: {

@@ -23,6 +23,8 @@ import { LoginPage } from "@/pages/LoginPage";
 const HomePage = lazyPage(() => import("@/pages/HomePage"), "HomePage");
 const RegisterPage = lazyPage(() => import("@/pages/RegisterPage"), "RegisterPage");
 const VerifyEmailPage = lazyPage(() => import("@/pages/VerifyEmailPage"), "VerifyEmailPage");
+const ForgotPasswordPage = lazyPage(() => import("@/pages/ResetPasswordPage"), "ForgotPasswordPage");
+const ResetPasswordPage = lazyPage(() => import("@/pages/ResetPasswordPage"), "ResetPasswordPage");
 const UniversePage = lazyPage(() => import("@/pages/UniversePage"), "UniversePage");
 const NotesPage = lazyPage(() => import("@/pages/NotesPage"), "NotesPage");
 const GenerateCvPage = lazyPage(() => import("@/pages/GenerateCvPage"), "GenerateCvPage");
@@ -148,6 +150,8 @@ function resolveRoute(path: string, query: URLSearchParams, isAuthed: boolean) {
   }
   if (path === "/register") return isAuthed ? <Redirect to="/" /> : <RegisterPage />;
   if (path === "/auth/verify") return <VerifyEmailPage token={query.get("token") || ""} />;
+  if (path === "/auth/forgot") return <ForgotPasswordPage />;
+  if (path === "/auth/reset") return <ResetPasswordPage token={query.get("token") || ""} />;
   if (path === "/auth/linkedin/callback") return <LinkedInCallbackPage />;
   if (path.startsWith("/share/")) {
     const token = path.slice("/share/".length);
