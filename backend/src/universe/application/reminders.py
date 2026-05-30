@@ -150,7 +150,9 @@ class ListReminders:
                 "subject_type": r.subject_type,
                 "subject_id": str(r.subject_id) if r.subject_id else None,
                 "title": r.title,
-                "body": r.body,
+                # body is a nullable column; coalesce so the wire matches the
+                # frontend's non-null `string` contract (ReminderRow.body).
+                "body": r.body or "",
                 "due_at": r.due_at.isoformat(),
                 "payload": r.payload,
                 "created_at": r.created_at.isoformat(),

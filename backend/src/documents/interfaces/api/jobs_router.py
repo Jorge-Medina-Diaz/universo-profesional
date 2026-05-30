@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 from uuid import UUID
 
+import structlog
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, select
@@ -19,6 +20,8 @@ from sqlalchemy import desc, select
 from src.documents.domain.entities import Job
 from src.documents.infrastructure.orm import JobOrm
 from src.identity.interfaces.api.deps import CurrentUserId, SessionDep
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 
@@ -196,12 +199,13 @@ async def _sync_job_followup_reminder(
     Wires the application tracker into the reminders engine: a follow-up date
     becomes a due reminder (surfaced in the bell + RemindersPage + the daily
     digest email); clearing it or moving the job to a terminal status dismisses
-    the reminder. Best-effort — never blocks the job update.
+    the reminder.
+
+    Genuinely best-effort: the whole sync runs in a SAVEPOINT and is wrapped in
+    try/except, so a reminder failure rolls back ONLY the reminder work and is
+    logged — the primary job update still commits (never a 500 for a secondary
+    side-effect).
     """
-    from datetime import datetime
-
-    from sqlalchemy import select
-
     from src.shared.security import utc_now
     from src.universe.application.ports.orm import ReminderOrm
 
@@ -209,52 +213,63 @@ async def _sync_job_followup_reminder(
     status = tracker.get("status", "interested")
     title = row.title or row.company_name or "tu oferta"
 
-    existing = (
-        await session.execute(
-            select(ReminderOrm)
-            .where(ReminderOrm.user_id == row.user_id)
-            .where(ReminderOrm.kind == "job_followup")
-            .where(ReminderOrm.subject_id == row.id)
-            .where(ReminderOrm.dismissed_at.is_(None))
-        )
-    ).scalar_one_or_none()
-
-    # No active follow-up wanted → dismiss any open reminder.
-    if not next_action or status in _TERMINAL_STATUSES:
-        if existing is not None:
-            existing.dismissed_at = utc_now()
-        return
-
     try:
-        due_at = datetime.fromisoformat(str(next_action).replace("Z", "+00:00"))
-        if due_at.tzinfo is None:
-            due_at = due_at.replace(tzinfo=UTC)
-    except ValueError:
-        return  # malformed date — leave reminders untouched
+        async with session.begin_nested():
+            # Fetch ALL open follow-ups (not scalar_one_or_none): a prior race
+            # could have left duplicates, which would otherwise 500 every
+            # subsequent PATCH. Keep the first; collapse the rest.
+            existing_rows = (
+                await session.execute(
+                    select(ReminderOrm)
+                    .where(ReminderOrm.user_id == row.user_id)
+                    .where(ReminderOrm.kind == "job_followup")
+                    .where(ReminderOrm.subject_id == row.id)
+                    .where(ReminderOrm.dismissed_at.is_(None))
+                    .order_by(ReminderOrm.created_at)
+                )
+            ).scalars().all()
+            primary = existing_rows[0] if existing_rows else None
+            for dup in existing_rows[1:]:
+                dup.dismissed_at = utc_now()
 
-    body_text = f"Haz seguimiento de «{title}»."
-    if existing is not None:
-        existing.due_at = due_at
-        existing.title = f"Seguimiento: {title}"
-        existing.body = body_text
-        existing.dispatched_at = None  # re-arm the digest for the new date
-    else:
-        from uuid import uuid4
+            # No active follow-up wanted → dismiss any open reminder.
+            if not next_action or status in _TERMINAL_STATUSES:
+                if primary is not None:
+                    primary.dismissed_at = utc_now()
+                return
 
-        session.add(
-            ReminderOrm(
-                id=uuid4(),
-                user_id=row.user_id,
-                kind="job_followup",
-                subject_type="job",
-                subject_id=row.id,
-                title=f"Seguimiento: {title}",
-                body=body_text,
-                due_at=due_at,
-                payload={"job_id": str(row.id)},
-                created_at=utc_now(),
-            )
-        )
+            try:
+                due_at = datetime.fromisoformat(str(next_action).replace("Z", "+00:00"))
+                if due_at.tzinfo is None:
+                    due_at = due_at.replace(tzinfo=UTC)
+            except ValueError:
+                return  # malformed date — leave reminders untouched
+
+            body_text = f"Haz seguimiento de «{title}»."
+            if primary is not None:
+                primary.due_at = due_at
+                primary.title = f"Seguimiento: {title}"
+                primary.body = body_text
+                primary.dispatched_at = None  # re-arm the digest for the new date
+            else:
+                from uuid import uuid4
+
+                session.add(
+                    ReminderOrm(
+                        id=uuid4(),
+                        user_id=row.user_id,
+                        kind="job_followup",
+                        subject_type="job",
+                        subject_id=row.id,
+                        title=f"Seguimiento: {title}",
+                        body=body_text,
+                        due_at=due_at,
+                        payload={"job_id": str(row.id)},
+                        created_at=utc_now(),
+                    )
+                )
+    except Exception as exc:  # pragma: no cover - defensive, must not 500 the PATCH
+        logger.warning("job_followup_sync_failed", job_id=str(row.id), error=str(exc))
 
 
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)

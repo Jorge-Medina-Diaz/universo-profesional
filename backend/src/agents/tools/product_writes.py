@@ -143,8 +143,11 @@ async def compute_job_match(
 ) -> dict[str, Any]:
     user_id = run_context.user_id
 
+    from src.documents.application.match_scoring import compute_match_breakdown
+    from src.documents.infrastructure.job_parser import MockJobParser
     from src.documents.infrastructure.orm import JobOrm
     from src.shared.embeddings import get_embeddings_service
+    from src.universe.infrastructure.repositories import SqlAlchemySkillRepository
     from src.universe.infrastructure.semantic_search import PgVectorSemanticSearch
 
     async with with_user_session(UUID(user_id)) as session:
@@ -161,20 +164,33 @@ async def compute_job_match(
         search = PgVectorSemanticSearch(session)
         vec = await embedder.embed(row.description_raw)
         retrieved = await search.search(user_id=row.user_id, embedding=vec, top_k=20)
-        avg = (
-            sum(r["score"] for r in retrieved) / len(retrieved) if retrieved else 0.0
-        )
-        match_score = int(round(max(0.0, min(1.0, (avg + 1) / 2)) * 100))
 
+        # Use the SAME shared helper as the REST /score endpoint + MCP tool so
+        # the agent, the Kanban scorecard and present_job_match never disagree
+        # (and so we don't reintroduce the legacy empty-universe = 50% bug).
         parsed = dict(row.description_parsed or {})
+        needed_keywords = parsed.get("ats_keywords")
+        if not needed_keywords:
+            jd = await MockJobParser().parse(url=row.url, description=row.description_raw)
+            needed_keywords = jd.get("ats_keywords", [])
+        your_skills = [
+            s.name for s in await SqlAlchemySkillRepository(session).list(row.user_id)
+        ]
+        breakdown = compute_match_breakdown(
+            retrieved=retrieved,
+            needed_keywords=list(needed_keywords or []),
+            your_skills=your_skills,
+        )
+
         tracker = dict(parsed.get("_tracker", {}) or {})
-        tracker["match_score"] = match_score
+        tracker["match_score"] = breakdown["match_score"]
+        tracker["match"] = breakdown
         parsed["_tracker"] = tracker
         row.description_parsed = parsed
         return {
             "ok": True,
             "job_id": job_id,
-            "match_score": match_score,
+            "match_score": breakdown["match_score"],
             "title": row.title,
             "company_name": row.company_name,
         }

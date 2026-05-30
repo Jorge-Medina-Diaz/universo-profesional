@@ -75,16 +75,20 @@ async def process_reminders_for_user(ctx: dict[str, Any], *, user_id: str) -> di
             await session.commit()
             return {"created": created, "dispatched": 0}
 
-        # 3. Respect the per-user opt-out. We still mark them dispatched so an
-        #    opted-out user isn't re-considered every night, and they remain
-        #    visible in-app until dismissed.
+        # 3. Respect the per-user opt-out. We still mark opted-out reminders
+        #    dispatched so they aren't re-considered every night, and they
+        #    remain visible in-app until dismissed.
         opted_in = await session.scalar(
             select(UserOrm.notify_email_reminders).where(UserOrm.id == uid)
         )
 
-        if opted_in:
-            await _send_digest(uid, due_rows)
-            dispatched = len(due_rows)
+        # Capture the digest payload BEFORE committing (ORM rows expire after
+        # commit). Then mark dispatched + commit FIRST, and only send the email
+        # afterwards. Sending before the commit risks a rolled-back commit
+        # leaving the row un-dispatched → the next run re-sends the same digest.
+        # Marking-then-sending biases to at-most-once: a dropped email beats
+        # spamming the user nightly.
+        digest_items = [{"title": r.title, "body": r.body} for r in due_rows]
 
         await session.execute(
             update(ReminderOrm)
@@ -93,22 +97,23 @@ async def process_reminders_for_user(ctx: dict[str, Any], *, user_id: str) -> di
         )
         await session.commit()
 
+        if opted_in and digest_items:
+            await _send_digest(uid, digest_items)
+            dispatched = len(digest_items)
+
     logger.info(
         "reminders_processed", user_id=user_id, created=created, dispatched=dispatched
     )
     return {"created": created, "dispatched": dispatched}
 
 
-async def _send_digest(user_id: UUID, reminders: list[ReminderOrm]) -> None:
+async def _send_digest(user_id: UUID, items: list[dict[str, Any]]) -> None:
     from src.identity.infrastructure.tasks import enqueue_transactional_email
 
     await enqueue_transactional_email(
         user_id=user_id,
         template="reminders_digest",
-        context={
-            "reminders": [{"title": r.title, "body": r.body} for r in reminders],
-            "count": len(reminders),
-        },
+        context={"reminders": items, "count": len(items)},
     )
 
 

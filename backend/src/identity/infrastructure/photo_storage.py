@@ -27,6 +27,21 @@ def _avatar_key(filename: str) -> str:
     return f"avatars/{filename}"
 
 
+def _legacy_avatar_path(filename: str) -> str | None:
+    """Absolute path where avatars lived before the storage abstraction
+    (`<storage_root>/../avatars/<file>`). Used as a read-fallback so photos
+    uploaded before the refactor don't silently 404. Filesystem-only; harmless
+    on S3 (resolves to a missing key)."""
+    try:
+        from pathlib import Path
+
+        from src.shared.config import get_settings
+
+        return str(Path(str(get_settings().storage_root)).parent / "avatars" / filename)
+    except Exception:
+        return None
+
+
 def _validate_and_normalize(data: bytes, mime: str | None) -> tuple[bytes, str, int, int, str]:
     if not mime or mime not in ALLOWED_MIME:
         # Try sniffing
@@ -116,6 +131,12 @@ async def load_avatar(session: AsyncSession, user_id: UUID) -> tuple[bytes, str]
     storage = get_storage()
     key = _avatar_key(row.filename)
     if not await storage.exists(key):
+        # Back-compat: avatars uploaded before the storage refactor live under
+        # the legacy <storage_root>/../avatars path — read from there if present
+        # so the DB row (which says a photo exists) stays consistent.
+        legacy = _legacy_avatar_path(row.filename)
+        if legacy and await storage.exists(legacy):
+            return await storage.read(legacy), row.mime_type
         return None
     return await storage.read(key), row.mime_type
 

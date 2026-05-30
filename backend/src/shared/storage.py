@@ -124,8 +124,23 @@ class S3StorageAdapter:
             try:
                 await s3.head_object(Bucket=self._bucket, Key=self._full_key(key))
                 return True
-            except ClientError:
-                return False
+            except ClientError as exc:
+                err = exc.response.get("Error", {})
+                code = err.get("Code")
+                status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+                if code in ("404", "NoSuchKey", "NotFound") or status == 404:
+                    return False
+                # A 403/AccessDenied, wrong bucket, throttle or 5xx is NOT a
+                # "missing object" — re-raise (and log) so the failure is
+                # visible instead of masquerading as a 404 / empty avatar.
+                logger.error(
+                    "s3_head_object_failed",
+                    bucket=self._bucket,
+                    key=self._full_key(key),
+                    code=code,
+                    status=status,
+                )
+                raise
 
 
 @lru_cache(maxsize=1)

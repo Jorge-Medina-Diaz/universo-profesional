@@ -87,7 +87,24 @@ async def resolve_user_llm_credential(user_id: str) -> tuple[str, str] | None:
             row = await session.get(UserLlmCredentialOrm, UUID(user_id))
             if row is None:
                 return None
-            return row.provider, decrypt(row.encrypted_key.encode("ascii"))
+            # Validate the provider on READ too (not just on write): a corrupt
+            # or legacy value would otherwise fall through `_build_model` to the
+            # unreachable mock model. Treat it as "no key" → platform fallback.
+            if row.provider not in VALID_PROVIDERS:
+                logger.error(
+                    "byok_invalid_provider", user_id=user_id, provider=row.provider
+                )
+                return None
+            try:
+                key = decrypt(row.encrypted_key.encode("ascii"))
+            except Exception as exc:
+                # A decrypt failure (key rotation, corrupt ciphertext) is NOT
+                # the same as "no credential": the user believes their key is in
+                # use but we'd silently bill the platform. Surface it loudly
+                # (error, not warning) so it's visible in prod.
+                logger.error("byok_decrypt_failed", user_id=user_id, error=str(exc))
+                return None
+            return row.provider, key
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning("byok_resolve_failed", error=str(exc))
         return None

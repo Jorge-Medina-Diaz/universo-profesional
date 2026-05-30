@@ -545,6 +545,12 @@ def _byok_team(user_id: str, provider: str, key: str):  # type: ignore[no-untype
     Cached by (user_id, provider, key) so a key rotation rebuilds. The Model
     objects capture the key at construction, so the cached team is safe to
     reuse after the contextvar is reset.
+
+    Note (accepted): this reuses the platform team builder, so the session-summary
+    / user-memory consolidation passes (enable_session_summaries,
+    update_memory_on_run) also run on the user's key — i.e. a BYOK user's quota
+    covers those background passes too, not only their visible turns. Acceptable
+    for "runs on your account"; revisit if users expect turn-only billing.
     """
     token = _byok_override.set((provider, key))
     try:
