@@ -32,6 +32,38 @@ from src.shared.config import get_settings
 
 logger = structlog.get_logger(__name__)
 
+
+def _count_return_columns(cypher_query: str) -> int:
+    """Count top-level projected columns in the final RETURN clause.
+
+    Splits on the last `RETURN`, strips trailing ORDER BY / SKIP / LIMIT, then
+    counts commas at bracket/paren/brace depth 0 (so commas inside collect([...])
+    or map literals aren't miscounted). Falls back to 1 when undeterminable, and
+    caps at 16. Used to build matching AGE `AS (... agtype)` column defs.
+    """
+    returns = list(re.finditer(r"\breturn\b", cypher_query, re.IGNORECASE))
+    if not returns:
+        return 1
+    tail = cypher_query[returns[-1].end():]
+    lowered = tail.lower()
+    cut = len(tail)
+    for kw in (" order by ", " limit ", " skip "):
+        idx = lowered.find(kw)
+        if idx != -1:
+            cut = min(cut, idx)
+    tail = tail[:cut]
+    depth = 0
+    cols = 1
+    for ch in tail:
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth = max(0, depth - 1)
+        elif ch == "," and depth == 0:
+            cols += 1
+    return min(max(cols, 1), 16)
+
+
 # Schema descriptor
 
 _PERSONAL_NODE_SCHEMA = """
@@ -260,19 +292,35 @@ class Text2CypherEngine:
 
         start = time.perf_counter()
         try:
+            # The system prompt encourages multi-column projections
+            # (`RETURN n.name, n.confidence`), but AGE requires the AS(...) column
+            # arity to match. Derive it from the RETURN clause instead of
+            # hardcoding a single column (which 'number of columns' errored).
+            n_cols = _count_return_columns(result.cypher)
+            if n_cols <= 1:
+                col_names = ["result"]
+            else:
+                col_names = [f"col{i}" for i in range(n_cols)]
+            column_defs = ", ".join(f"{c} agtype" for c in col_names)
+
             rows = await cypher(
                 self._session,
                 graph,
                 result.cypher,
                 params=result.params,
-                column_defs="result agtype",
+                column_defs=column_defs,
             )
             from src.graph.application.ports.age import parse_agtype
 
+            def _p(v: Any) -> Any:
+                return parse_agtype(v) if v is not None else None
+
             parsed_rows = []
             for r in rows:
-                val = r.get("result")
-                parsed_rows.append(parse_agtype(val) if val is not None else None)
+                if n_cols <= 1:
+                    parsed_rows.append(_p(r.get("result")))
+                else:
+                    parsed_rows.append({c: _p(r.get(c)) for c in col_names})
 
             latency = result.latency_ms + (time.perf_counter() - start) * 1000
             return CypherResult(

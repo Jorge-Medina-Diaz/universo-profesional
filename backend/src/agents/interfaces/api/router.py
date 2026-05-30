@@ -14,7 +14,7 @@ from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from jose import JWTError
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -318,8 +318,35 @@ async def get_discovery_progress(
     return await svc.get_progress(UUID(str(user_id)))
 
 
+# Independent per-user cap on discovery SSE streams. Each stream pins a raw
+# asyncpg LISTEN connection (outside the pool), so without a cap a tab-spamming
+# client or StrictMode double-mount could exhaust Postgres connections. Kept
+# separate from the chat-stream cap so the two don't starve each other.
+_MAX_DISCOVERY_STREAMS_PER_USER = 2
+_discovery_streams: dict[str, int] = {}
+_discovery_lock = asyncio.Lock()
+
+
+async def _acquire_discovery_slot(user_id: str) -> bool:
+    async with _discovery_lock:
+        current = _discovery_streams.get(user_id, 0)
+        if current >= _MAX_DISCOVERY_STREAMS_PER_USER:
+            return False
+        _discovery_streams[user_id] = current + 1
+        return True
+
+
+async def _release_discovery_slot(user_id: str) -> None:
+    async with _discovery_lock:
+        current = _discovery_streams.get(user_id, 0)
+        if current <= 1:
+            _discovery_streams.pop(user_id, None)
+        else:
+            _discovery_streams[user_id] = current - 1
+
+
 @router.get("/discovery/stream")
-async def discovery_progress_stream(request: Request) -> StreamingResponse:
+async def discovery_progress_stream(request: Request) -> Response:
     """SSE endpoint for real-time discovery progress updates.
 
     Emits a JSON event every time a new row is inserted into
@@ -328,6 +355,11 @@ async def discovery_progress_stream(request: Request) -> StreamingResponse:
     """
     user_id = _extract_user_id_from_request(request)
     uid = UUID(user_id)
+
+    if not await _acquire_discovery_slot(user_id):
+        return JSONResponse(
+            {"detail": "too_many_discovery_streams"}, status_code=429
+        )
 
     async def event_generator() -> Any:
         last_seen_at: datetime | None = datetime.now(UTC)
@@ -403,6 +435,7 @@ async def discovery_progress_stream(request: Request) -> StreamingResponse:
         finally:
             if conn is not None:
                 await conn.close()
+            await _release_discovery_slot(user_id)
 
     return StreamingResponse(
         event_generator(),

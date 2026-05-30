@@ -210,10 +210,16 @@ async def delete_me(
     uc: Annotated[DeleteAccount, Depends(delete_account_dep)],
     session: SessionDep,
 ) -> GenericOkResponse:
+    from src.mcp_server.infrastructure.oauth_store import OAuthStore
+
     async with unit_of_work(session) as uow:
         result = await uc.execute(user_id=user_id, uow=uow)
         if result.is_failure:
             raise result.error  # type: ignore[union-attr]
+        # The use case revokes browser refresh tokens; also revoke MCP OAuth
+        # access + refresh tokens, which would otherwise outlive the "deleted"
+        # account (the FK CASCADE doesn't fire on a soft-delete).
+        await OAuthStore(session).revoke_all_for_user(UUID(user_id))
         await uow.commit()
     return GenericOkResponse()
 

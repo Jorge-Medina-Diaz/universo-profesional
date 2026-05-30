@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+import structlog
 from fastapi import APIRouter, Body, Query, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from sqlalchemy import text
@@ -31,6 +32,17 @@ transport_router = APIRouter()
 _CHAT_RATE_LIMIT = "60/minute"
 _REQUIRED_BODY = Body(...)
 
+logger = structlog.get_logger(__name__)
+
+
+@limiter.limit(_CHAT_RATE_LIMIT)
+async def _limited_run(request: Request, run_body: dict[str, Any]) -> Any:
+    """Run dispatch with the per-user run limiter applied. Used by the
+    multiplexed POST /agui so CopilotKit's default transport (which funnels
+    every run through that one endpoint) is rate-limited like the REST
+    /agui/agent/{id}/run path — instead of bypassing the cap entirely."""
+    return await _stream_chat(request=request, run_body=run_body, guard_concurrency=True)
+
 
 @transport_router.get("/agui/info")
 async def agui_info() -> dict[str, Any]:
@@ -53,6 +65,9 @@ async def agui_threads(
     try:
         user_id = _extract_user_id_from_jwt(request)
     except UnauthorizedError:
+        # Empty is the right UX for an anon/expired rehydration poll, but don't
+        # mask it silently — log so an auth regression is observable.
+        logger.warning("agui_threads_unauthorized")
         return {"threads": [], "joinCode": None, "nextCursor": None}
 
     now = datetime.now(UTC).isoformat()
@@ -94,6 +109,7 @@ async def agui_thread_messages(
     try:
         user_id = _extract_user_id_from_jwt(request)
     except UnauthorizedError:
+        logger.warning("agui_thread_messages_unauthorized")
         return {"messages": [], "nextCursor": None}
 
     expected = f"main-{user_id}"
@@ -167,22 +183,19 @@ async def agui_single_endpoint(
 
     if method in ("agent/connect", "agent/run"):
         inner = body.get("body") or {}
-        is_run = method == "agent/run"
-        # Only bound actual RUNs; `connect` is a long-lived passive SSE
-        # channel CopilotKit keeps open and must not consume a slot or quota.
-        # Run cost is capped per-user by the concurrency guard below (and, on
-        # the active REST transport, by the @limiter on /run).
+        if method == "agent/run":
+            # Apply the per-user run limiter (the REST /run path has it; this
+            # multiplexed envelope previously bypassed it entirely).
+            return await _limited_run(request, inner)
+        # `connect` is a long-lived passive SSE channel CopilotKit keeps open —
+        # NOT rate-limited and doesn't consume a concurrency slot.
         return await _stream_chat(
-            request=request,
-            run_body=inner,
-            guard_concurrency=is_run,
+            request=request, run_body=inner, guard_concurrency=False
         )
 
-    # No envelope → treat as a raw RunAgentInput for backwards compat.
+    # No envelope → treat as a raw RunAgentInput for backwards compat (a run).
     if method is None and isinstance(body, dict):
-        return await _stream_chat(
-            request=request, run_body=body, guard_concurrency=True
-        )
+        return await _limited_run(request, body)
 
     return JSONResponse(
         {"detail": f"Unknown method {method!r}"}, status_code=400

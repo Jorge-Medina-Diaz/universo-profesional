@@ -167,6 +167,19 @@ class OAuthStore:
         )
         await self._session.execute(stmt)
 
+    async def revoke_all_for_user(self, user_id: UUID) -> int:
+        """Revoke every live MCP access + refresh token for a user (e.g. on
+        account deletion). Returns the number revoked."""
+        stmt = (
+            update(OAuthTokenOrm)
+            .where(OAuthTokenOrm.user_id == user_id)
+            .where(OAuthTokenOrm.revoked_at.is_(None))
+            .values(revoked_at=utc_now())
+            .returning(OAuthTokenOrm.token_hash)
+        )
+        result = await self._session.execute(stmt)
+        return len(result.fetchall())
+
     async def rotate_refresh(
         self,
         *,

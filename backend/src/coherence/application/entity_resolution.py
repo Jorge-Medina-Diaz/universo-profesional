@@ -317,7 +317,6 @@ class PairwiseMatcher:
         self, payload: dict[str, Any], candidate_row: dict[str, Any]
     ) -> float:
         """Return 1.0 if lifespans overlap, 0.0 if disjoint, 0.5 if one open-ended."""
-        date_fields = ("start_date", "end_date", "issued_on", "expires_on", "completed_on")
         start_a = _extract_date(payload, "start_date")
         end_a = _extract_date(payload, "end_date")
         start_b = _extract_date(candidate_row, "start_date")
@@ -383,12 +382,19 @@ class PairwiseMatcher:
 
 
 def _cluster_matches(
-    matches: list[tuple[UUID, UUID, float]], threshold: float
+    matches: list[tuple[UUID, UUID, float]],
+    threshold: float,
+    created_at: dict[UUID, Any] | None = None,
 ) -> list[Cluster]:
     """Build connected components from edges whose score ≥ threshold.
 
     *matches* is a list of (id_a, id_b, score) where id_a is always the
     new payload's target id (or representative) and id_b is a candidate.
+
+    The cluster representative is the OLDEST entity (smallest created_at) when
+    timestamps are supplied — so MERGED_INTO provenance points at the original,
+    not a random UUID. Falls back to min(UUID) for determinism on ties / missing
+    data.
     """
     adj: dict[UUID, set[UUID]] = defaultdict(set)
     for a, b, score in matches:
@@ -411,7 +417,18 @@ def _cluster_matches(
             comp.add(cur)
             stack.extend(adj[cur] - visited)
         if len(comp) > 1:
-            rep = min(comp)  # deterministic: oldest UUID
+            if created_at:
+                # Oldest entity wins; UUID breaks ties; missing timestamps sort
+                # last so they're never picked as "oldest".
+                rep = min(
+                    comp,
+                    key=lambda eid: (
+                        created_at.get(eid) or datetime.max.replace(tzinfo=UTC),
+                        eid,
+                    ),
+                )
+            else:
+                rep = min(comp)
             clusters.append(Cluster(cluster_id=uuid4(), entity_ids=comp, representative_id=rep))
     return clusters
 
@@ -634,8 +651,13 @@ class EntityResolutionPipeline:
             elif score.composite >= er_cfg.ambiguous_low:
                 ambiguous.append(MatchCandidate(entity_id=cid, score=score.composite, signals=score.__dict__))
 
-        # 3. Clustering
-        clusters = _cluster_matches(matches, er_cfg.matching_threshold)
+        # 3. Clustering — pass created_at so the representative is the oldest
+        # entity, not a random UUID.
+        clusters = _cluster_matches(
+            matches,
+            er_cfg.matching_threshold,
+            created_at={eid: r.get("created_at") for eid, r in rows.items()},
+        )
 
         if not clusters:
             if ambiguous:
