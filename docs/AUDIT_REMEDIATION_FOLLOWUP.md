@@ -6,21 +6,45 @@
 > security holes, HITL integrity, and silent-error violations were fixed in
 > milestones M1–M3. Each item lists the location and why it was deferred.
 
-## M3 — deferred (medium, mostly involved / behavioural-change)
+## M3 — deferred → ✅ MOSTLY DONE (May 2026, batches 1-2)
 
-- **ER cluster representative by `created_at`** — `coherence/application/entity_resolution.py:414` `rep = min(comp)` picks the lexicographically-smallest UUID (random for UUIDv4), not the oldest entity, so `MERGED_INTO` provenance can point the wrong way. Needs `created_at` plumbed into `_cluster_matches`. Background curator dedup only (not the agent write path); non-crashing.
-- **Text2Cypher multi-column RETURN** — `graph/application/text2cypher.py` always sets `column_defs="result agtype"`, so multi-column `RETURN` queries fail. Fix = constrain the LLM system prompt to always return a single aliased agtype object. Feature-level, needs prompt + eval.
-- **AG-UI `/agui/threads*` 401 propagation** — `agents/interfaces/agui_transport.py:54-55,95-96` return 200-with-empty on `UnauthorizedError` (silent). Deferred because CopilotKit v1.57 bypasses the REST 401→refresh retry, so a naive 401 could surface noisy errors on the chat-load path; needs coordinated handling.
-- **AG-UI single-endpoint rate limit** — `agui_transport.py` POST `/agui` (`method=agent/run`) bypasses the 60/min Redis limiter that the REST `/agui/agent/{id}/run` path enforces.
-- **`/discovery/stream` concurrency cap** — `agents/interfaces/api/router.py:267-361` has no per-user cap and opens a raw asyncpg connection per call (multi-tab exhausts the pool).
-- **OAuth refresh-token reuse revocation** — `mcp_server/infrastructure/oauth_store.py:168-188` returns None on reuse but doesn't revoke the surviving token chain (mirror the identity refresh logic).
-- **OAuth consent clickjacking/CSRF** — `mcp_server/interfaces/oauth_router.py:133-180` add `X-Frame-Options: DENY` + CSP `frame-ancestors 'none'` + Origin/Referer check; rate-limit + auth the DCR endpoint (`:47-78`).
-- **Rate-limit bucket key collision** — `shared/rate_limit.py:38-45` keys on the last 16 chars of the JWT (can collide across users); use the decoded `sub` UUID or `sha256(token)[:32]`.
-- **Revoke MCP OAuth tokens on account deletion** — `identity/application/use_cases.py:384-405` revokes browser tokens but not MCP access/refresh tokens.
-- **Password-reset link hash prefix** — `identity/application/use_cases.py:334` uses `/auth/reset?token=` (404 under the hash router); should be `/#/auth/reset?token=` like email verification.
-- **PDF magic-bytes BOM tolerance** — `integrations/interfaces/api/router.py:323` `startswith(b"%PDF")` rejects BOM/whitespace-prefixed valid PDFs.
-- **Coherence on ALL writes (fractal principle)** — route REST entity mutations (`universe/interfaces/api/router.py:94-106`) and GitHub/LinkedIn imports (`integrations/application/github_sync.py:154-198`) through `UpsertUniverseEntity` so dedup/merge/ER/ESCO/graph-mirroring apply to manual edits too. Deferred because it changes manual-edit write semantics + latency and deserves its own focused change + tests. **High product value — schedule next.**
-- **AGE-enabled Postgres in CI** — `.github/workflows/ci.yml` uses `pgvector/pgvector:pg16` (no Apache AGE); AGE-dependent migrations diverge from prod schema in CI.
+11 of the 13 deferred items are now implemented + committed (`fix(security)` batches
+1-2). The two genuinely-large/risky ones remain, with refined scoping below.
+
+**Done:** ER representative by `created_at` · Text2Cypher multi-column RETURN ·
+AG-UI 401 now logged (not silent) + `/agui` run path through the limiter ·
+`/discovery/stream` per-user cap (2) · OAuth refresh-reuse chain revocation ·
+OAuth consent Origin/Referer CSRF check (clickjacking headers were already
+global) · DCR `/register` 10/hour rate-limit · rate-limit bucket key → stable
+`sub` claim · revoke MCP tokens on account deletion (instant — bearer path
+checks `revoked_at`) · password-reset hash link **+ the entire missing FE flow**
+(ForgotPassword/ResetPassword pages, routes, api, login link) · PDF BOM-tolerant
+magic-bytes.
+
+### Remaining — 2 items (need their own focused change)
+
+- **Coherence on ALL writes (fractal principle)** — route REST entity mutations
+  (`universe/interfaces/api/router.py` `add_*`) and GitHub/LinkedIn imports
+  (`integrations/application/github_sync.py`, `linkedin_csv_deep.py`) through
+  `UpsertUniverseEntity` (clean wiring exists — see `agents/tools/universe_writes.py:46-61`).
+  **Not a blind reroute** — two design issues found during this pass:
+  1. **Import identity ≠ semantic identity.** GitHub dedups by repo **URL** and
+     LinkedIn by profile URL — exact identity. The ER pipeline matches
+     semantically/by-name, so dropping the URL dedup (as a naive reroute would)
+     risks **merging two distinct repos**. The funnel must take the URL as a
+     strong blocking key, or keep URL dedup and layer coherence on top. Skills /
+     interests / experiences (fuzzy, no URL identity) are the safe-to-reroute
+     subset and benefit most (ESCO linking + semantic dedup).
+  2. **REST contract change.** `SkillCrud.add` 409s on a duplicate name; through
+     the funnel that becomes a silent merge, and `UpsertOutcome` can be
+     `SUGGESTED` (nothing created). The `add_*` handlers + frontend need to
+     handle `CREATED`/`MERGED`/`SUGGESTED` outcomes (today they expect the entity
+     back). Needs FE coordination + tests. **High product value — schedule as a
+     dedicated change.**
+- **AGE-enabled Postgres in CI** — `.github/workflows/ci.yml` uses
+  `pgvector/pgvector:pg16` (no Apache AGE), so AGE-dependent migrations/tests
+  diverge from prod in CI. Needs a CI service image carrying **both** pgvector
+  and AGE (the prod image already does) — an infra/image task, not app code.
 
 ## Already addressed in M2 (noted there)
 
