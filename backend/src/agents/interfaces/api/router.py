@@ -271,14 +271,16 @@ async def get_llm_key(user_id: CurrentUserId, session: SessionDep) -> LlmKeyStat
 async def set_llm_key(
     body: SetLlmKeyRequest, user_id: CurrentUserId, session: SessionDep
 ) -> LlmKeyStatus:
-    """Store an encrypted BYOK key. Pro-only."""
+    """Store an encrypted BYOK key. Paid-tier only."""
     from src.agents.infrastructure.byok import VALID_PROVIDERS, set_credential
+    from src.identity.domain.user import PAID_TIERS
     from src.identity.infrastructure.orm import UserOrm
 
     user = await session.get(UserOrm, UUID(user_id))
     if user is None:
         raise HTTPException(status_code=404, detail="not_found")
-    if (user.tier or "free") != "pro":
+    # Any paid tier (pro OR premium) — was `!= "pro"`, which locked premium out.
+    if (user.tier or "free") not in PAID_TIERS:
         raise HTTPException(status_code=403, detail="byok_requires_pro")
     provider = body.provider.strip().lower()
     if provider not in VALID_PROVIDERS:

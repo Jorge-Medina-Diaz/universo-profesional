@@ -135,8 +135,15 @@ class User:
     def is_pro(self) -> bool:
         return self.tier == "pro"
 
+    @property
+    def is_paying(self) -> bool:
+        """Canonical paid-entitlement gate. Covers every paid tier so a
+        `premium` subscriber is not denied Pro features (the bug where
+        entitlement checks used `is_pro` and locked premium users out)."""
+        return self.tier in PAID_TIERS
+
     def set_tier(self, tier: str, *, now: datetime) -> None:
-        if tier not in ("free", "pro"):
+        if tier not in VALID_TIERS:
             raise ValueError(f"Unsupported tier: {tier}")
         if self.tier == tier:
             return
