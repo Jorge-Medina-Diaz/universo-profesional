@@ -10,6 +10,7 @@ import { Search, LogOut, BookOpen, ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button, cn } from "@/ui";
 import { BottomNav } from "./BottomNav";
+import { GlobalAgentDock } from "@/chat/GlobalAgentDock";
 import { openCommandPalette } from "./CommandPalette";
 import { NotificationCenter } from "@/widgets/NotificationCenter";
 import { CookieConsentBanner } from "@/widgets/CookieConsentBanner";
@@ -53,6 +54,15 @@ export function Layout({ title, isAuthed, children }: Props) {
   useEnrichmentNotifications();
 
   const isFullBleed = isAuthed && path === "/";
+
+  // The global agent dock floats a composer at the bottom on every authed page
+  // except those that own a full-screen chat (home / universe / onboarding).
+  // Those pages need extra bottom clearance so content never hides behind it.
+  const hasDock =
+    isAuthed &&
+    path !== "/" &&
+    !path.startsWith("/universe") &&
+    path !== "/onboarding/chat";
 
   // Public marketing landing owns the whole viewport: it ships its own
   // dark "cosmos" nav + footer, so the light app chrome must step aside.
@@ -141,7 +151,9 @@ export function Layout({ title, isAuthed, children }: Props) {
       <main
         className={cn(
           "flex-1 w-full",
-          isAuthed && !isFullBleed && "pb-20 md:pb-0",
+          isAuthed && !isFullBleed && !hasDock && "pb-20 md:pb-0",
+          // Clear the floating agent-dock composer (bottom-center).
+          hasDock && "pb-32 md:pb-28",
         )}
       >
         {children}
@@ -167,6 +179,10 @@ export function Layout({ title, isAuthed, children }: Props) {
       )}
 
       {isAuthed && <BottomNav />}
+      {/* The agent, everywhere: a persistent dock on every authed page. It
+          suppresses itself on routes that own a full-screen chat (home,
+          universe, onboarding) so only one CopilotChat mounts at rest. */}
+      {isAuthed && <GlobalAgentDock />}
       {isAuthed && !path.startsWith("/universe") && (
         <div className="fixed right-4 top-24 z-20 w-[min(92vw,300px)] hidden lg:block">
           <DiscoveryProgress />
