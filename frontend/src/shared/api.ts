@@ -467,13 +467,14 @@ export const universe = {
     if (types?.length) qs.set("types", types.join(","));
     return api<UniverseSearchHit[]>(`/api/v1/universe/search?${qs}`);
   },
-  activity: (params?: { limit?: number; since?: string; types?: string[] }) => {
+  activity: (params?: { limit?: number; since?: string; types?: string[]; cursor?: string }) => {
     const qs = new URLSearchParams();
     if (params?.limit) qs.set("limit", String(params.limit));
     if (params?.since) qs.set("since", params.since);
     if (params?.types?.length) qs.set("types", params.types.join(","));
+    if (params?.cursor) qs.set("cursor", params.cursor);
     const qstr = qs.toString();
-    return api<ActivityEvent[]>(`/api/v1/universe/activity${qstr ? `?${qstr}` : ""}`);
+    return api<Page<ActivityEvent>>(`/api/v1/universe/activity${qstr ? `?${qstr}` : ""}`);
   },
 };
 
@@ -483,6 +484,13 @@ export interface UniverseSearchHit {
   score: number;
   preview?: string | null;
   payload?: Record<string, unknown>;
+}
+
+/** Keyset-paginated envelope. `next_cursor` (opaque) → pass back as `cursor`
+ *  to load the next page; null when there are no more rows. */
+export interface Page<T> {
+  items: T[];
+  next_cursor: string | null;
 }
 
 export interface ActivityEvent {

@@ -67,7 +67,7 @@ export function ActivityPage() {
       }),
   });
 
-  const grouped = useMemo(() => groupByDay(query.data ?? []), [query.data]);
+  const grouped = useMemo(() => groupByDay(query.data?.items ?? []), [query.data]);
 
   return (
     <Surface width="md" spacing="md">
@@ -99,7 +99,7 @@ export function ActivityPage() {
             ))}
             {query.data && (
               <Badge tone="stone" size="sm" className="ml-auto">
-                {query.data.length} eventos
+                {query.data.items.length} eventos
               </Badge>
             )}
           </div>

@@ -19,7 +19,7 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-import { api, universe } from "@/shared/api";
+import { api, universe, type Page } from "@/shared/api";
 import { Badge, cn } from "@/ui";
 import { GitHubIcon, LinkedInIcon } from "@/ui/icons";
 import { queryKeys } from "@/shared/queryKeys";
@@ -203,10 +203,10 @@ function groupByDay(rows: ChangeLogRow[]): Array<{ day: string; rows: ChangeLogR
 function TrayectoriaTab() {
   const changes = useQuery({
     queryKey: queryKeys.coherence.changes,
-    queryFn: () => api<ChangeLogRow[]>("/api/v1/coherence/changes?limit=50"),
+    queryFn: () => api<Page<ChangeLogRow>>("/api/v1/coherence/changes?limit=50"),
   });
   if (changes.isLoading) return <Skeleton />;
-  const rows = changes.data ?? [];
+  const rows = changes.data?.items ?? [];
   if (rows.length === 0)
     return <p className="text-sm text-stone">Sin cambios todavía.</p>;
   const groups = groupByDay(rows);

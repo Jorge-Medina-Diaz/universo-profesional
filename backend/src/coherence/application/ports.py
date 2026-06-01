@@ -26,8 +26,15 @@ class ChangeLogRepository(Protocol):
     ) -> None: ...
 
     async def list_for_user(
-        self, *, user_id: UUID, limit: int = 50, since: Any | None = None
-    ) -> list[dict[str, Any]]: ...
+        self,
+        *,
+        user_id: UUID,
+        limit: int = 50,
+        since: Any | None = None,
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
+        """Keyset-paginated change feed: {"items": [...], "next_cursor": str|None}."""
+        ...
 
     async def list_for_entity(
         self,

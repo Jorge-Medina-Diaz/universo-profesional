@@ -247,10 +247,15 @@ class GetActivity:
         limit: int = 50,
         since: str | None = None,
         event_types: list[str] | None = None,
-    ) -> list[dict[str, Any]]:
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
         from sqlalchemy import text
 
-        params: dict[str, Any] = {"uid": user_id, "limit": limit}
+        from src.shared.pagination import build_page, decode_cursor
+
+        # Fetch limit+1 to detect a next page; a stable (occurred_at, event_id)
+        # tiebreaker prevents dup/skip when many events share a timestamp.
+        params: dict[str, Any] = {"uid": user_id, "limit": limit + 1}
         where = ["user_id = :uid"]
         if since:
             where.append("occurred_at >= :since")
@@ -260,14 +265,20 @@ class GetActivity:
             where.append(f"event_type IN ({placeholders})")
             for i, et in enumerate(event_types):
                 params[f"et{i}"] = et
+        cur = decode_cursor(cursor)
+        if cur:
+            where.append(
+                "(occurred_at, event_id) < (CAST(:c_ts AS timestamptz), CAST(:c_id AS uuid))"
+            )
+            params["c_ts"], params["c_id"] = cur
         stmt = text(
             "SELECT event_id::text, event_type, occurred_at, payload "
             "FROM domain_events "
             f"WHERE {' AND '.join(where)} "
-            "ORDER BY occurred_at DESC LIMIT :limit"
+            "ORDER BY occurred_at DESC, event_id DESC LIMIT :limit"
         )
         rows = await self._session.execute(stmt, params)
-        return [
+        items = [
             {
                 "event_id": r[0],
                 "event_type": r[1],
@@ -276,6 +287,7 @@ class GetActivity:
             }
             for r in rows.fetchall()
         ]
+        return build_page(items, limit, ts_key="occurred_at", id_key="event_id")
 
 
 # --- Evidence linking -------------------------------------------------------

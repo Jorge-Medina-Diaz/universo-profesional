@@ -761,10 +761,13 @@ async def get_activity(
     limit: int = 50,
     since: str | None = None,
     types: str | None = None,
-) -> list[dict[str, Any]]:
+    cursor: str | None = None,
+) -> dict[str, Any]:
+    """Keyset-paginated activity feed: ``{items, next_cursor}``. Pass the
+    returned ``next_cursor`` back as ``cursor`` to load older events."""
     from src.universe.application.use_cases import GetActivity
 
     type_list = types.split(",") if types else None
     return await GetActivity(session).execute(
-        user_id=user_id, limit=limit, since=since, event_types=type_list
+        user_id=user_id, limit=limit, since=since, event_types=type_list, cursor=cursor
     )

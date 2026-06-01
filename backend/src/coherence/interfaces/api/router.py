@@ -96,20 +96,23 @@ async def list_changes(
     limit: int = Query(50, ge=1, le=200),
     entity_type: str | None = Query(None),
     entity_id: str | None = Query(None),
-) -> list[dict[str, Any]]:
+    cursor: str | None = Query(None),
+) -> dict[str, Any]:
+    """Keyset-paginated change feed: ``{items, next_cursor}``. The single-entity
+    history (entity_type+entity_id) is bounded and returned in the same envelope
+    with next_cursor=null."""
+    from uuid import UUID
+
     repo = SqlAlchemyChangeLogRepository(session)
     if entity_type and entity_id:
-        from uuid import UUID
-
-        return await repo.list_for_entity(
+        items = await repo.list_for_entity(
             user_id=UUID(user_id),
             entity_type=entity_type,
             entity_id=UUID(entity_id),
             limit=limit,
         )
-    from uuid import UUID
-
-    return await repo.list_for_user(user_id=UUID(user_id), limit=limit)
+        return {"items": items, "next_cursor": None}
+    return await repo.list_for_user(user_id=UUID(user_id), limit=limit, cursor=cursor)
 
 
 

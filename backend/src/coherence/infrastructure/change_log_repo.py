@@ -59,21 +59,36 @@ class SqlAlchemyChangeLogRepository(ChangeLogRepository):
         )
 
     async def list_for_user(
-        self, *, user_id: UUID, limit: int = 50, since: Any | None = None
-    ) -> list[dict[str, Any]]:
+        self,
+        *,
+        user_id: UUID,
+        limit: int = 50,
+        since: Any | None = None,
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
+        from src.shared.pagination import build_page, decode_cursor
+
         sql = """
             SELECT id::text, entity_type, entity_id::text, change_type, field,
                    old_value, new_value, reason, source, agent_run_id, changed_at
             FROM universe_change_log
             WHERE user_id = :uid
         """
-        params: dict[str, Any] = {"uid": str(user_id), "limit": limit}
+        # Fetch limit+1 to detect a next page; (changed_at, id) is a stable
+        # tiebreaker so pages never dup/skip rows sharing a changed_at.
+        params: dict[str, Any] = {"uid": str(user_id), "limit": limit + 1}
         if since is not None:
             sql += " AND changed_at >= :since"
             params["since"] = since
-        sql += " ORDER BY changed_at DESC LIMIT :limit"
+        cur = decode_cursor(cursor)
+        if cur:
+            sql += " AND (changed_at, id) < (CAST(:c_ts AS timestamptz), CAST(:c_id AS uuid))"
+            params["c_ts"], params["c_id"] = cur
+        sql += " ORDER BY changed_at DESC, id DESC LIMIT :limit"
         rows = (await self._session.execute(text(sql), params)).mappings().all()
-        return [dict(r) for r in rows]
+        return build_page(
+            [dict(r) for r in rows], limit, ts_key="changed_at", id_key="id"
+        )
 
     async def list_for_entity(
         self,
