@@ -46,6 +46,31 @@ class RegisterClientRequest(BaseModel):
     software_version: str | None = None
 
 
+def _validate_redirect_uri(uri: str) -> None:
+    """Enforce a safe redirect_uri policy (RFC 8252) at registration so DCR
+    can't be used to register an open redirect for token exfiltration:
+      * https required, EXCEPT http on loopback (127.0.0.1/::1/localhost);
+      * no wildcards; no URL fragment.
+    """
+    from urllib.parse import urlsplit
+
+    if "*" in uri:
+        raise HTTPException(status_code=400, detail="redirect_uri may not contain wildcards")
+    parts = urlsplit(uri)
+    if parts.fragment:
+        raise HTTPException(status_code=400, detail="redirect_uri may not contain a fragment")
+    host = (parts.hostname or "").lower()
+    is_loopback = host in ("127.0.0.1", "::1", "localhost")
+    if parts.scheme == "https":
+        return
+    if parts.scheme == "http" and is_loopback:
+        return
+    raise HTTPException(
+        status_code=400,
+        detail="redirect_uri must be https (http allowed only for loopback)",
+    )
+
+
 @router.post("/register")
 @limiter.limit("10/hour")
 async def register_client(
@@ -62,6 +87,8 @@ async def register_client(
         raise HTTPException(status_code=400, detail="Only 'none' (PKCE-only) supported")
     if not body.redirect_uris:
         raise HTTPException(status_code=400, detail="At least one redirect_uri required")
+    for uri in body.redirect_uris:
+        _validate_redirect_uri(uri)
     store = OAuthStore(session)
     cid = await store.register_client(
         client_name=body.client_name,
