@@ -83,17 +83,29 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 
 
 async def set_rls_user(session: AsyncSession, user_id: UUID | None) -> None:
-    """Set Postgres session variable consumed by RLS policies.
+    """Set the Postgres session variables consumed by RLS policies.
 
-    Note: `SET LOCAL` does not accept bind parameters in PostgreSQL, so we
-    must inline the value. `user_id` is a UUID (already validated), so it is
-    safe to interpolate as a literal.
+    Two modes:
+      * user_id is a UUID → per-user request scope: app.current_user_id = uuid,
+        bypass OFF. RLS (now FORCEd) restricts every user-scoped table to that
+        user — defense-in-depth even if app code forgets a WHERE user_id clause.
+      * user_id is None → trusted SERVICE scope (background workers that scan
+        across users: curator, reminders cron, hard-delete). Sets
+        app.bypass_rls = 'on' so the policies let cross-user reads through;
+        clears the user id.
+
+    `SET LOCAL` is transaction-scoped (auto-clears at commit/rollback), so a
+    pooled connection can't leak the bypass flag into a later request. `SET
+    LOCAL` doesn't accept bind params, so values are inlined — user_id is
+    validated as a UUID and the bypass value is a literal, so this is safe.
     """
     if user_id is None:
+        await session.execute(text("SET LOCAL app.bypass_rls = 'on'"))
         await session.execute(text("RESET app.current_user_id"))
         return
     # UUID() ensures the value is a well-formed UUID before interpolation.
     safe_uuid = str(UUID(str(user_id)))
+    await session.execute(text("SET LOCAL app.bypass_rls = 'off'"))
     await session.execute(text(f"SET LOCAL app.current_user_id = '{safe_uuid}'"))
 
 
