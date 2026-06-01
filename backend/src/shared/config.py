@@ -107,10 +107,20 @@ class Settings(BaseSettings):
     mcp_rate_limit_per_day: int = 10000
 
     # --- CORS ---
-    # Default is the local dev frontend. Production MUST set this explicitly
-    # via CORS_ORIGINS env as a JSON array, e.g.
+    # Defaults cover the local dev frontends: Vite (:5173), the baked prod
+    # nginx image (:8080), and the occasional :3000. Production MUST still set
+    # this explicitly via CORS_ORIGINS env as a JSON array, e.g.
     # CORS_ORIGINS=["https://app.universo.pro","https://www.universo.pro"]
-    cors_origins: list[str] = ["http://localhost:5173"]
+    #
+    # NOTE: the :8080 prod image is designed for SAME-ORIGIN use — nginx proxies
+    # /api, /agui, /mcp to the backend, so the SPA should call RELATIVE URLs and
+    # never actually trigger CORS. These entries are a belt-and-suspenders safety
+    # net for any absolute-URL build (e.g. a stray VITE_API_BASE_URL).
+    cors_origins: list[str] = [
+        "http://localhost:5173",
+        "http://localhost:8080",
+        "http://localhost:3000",
+    ]
 
     # --- Rate limiting ---
     rate_limit_enabled: bool = True
