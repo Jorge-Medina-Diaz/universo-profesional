@@ -28,6 +28,7 @@ interface Doc {
   created_at: string;
   has_pdf: boolean;
   has_docx: boolean;
+  render_status?: "ready" | "degraded" | "failed";
   share_token?: string | null;
 }
 
@@ -203,7 +204,7 @@ function DocCard({
           </div>
         </a>
         <div className="flex gap-2 flex-wrap">
-          {doc.has_pdf && (
+          {doc.has_pdf && doc.render_status !== "degraded" && doc.render_status !== "failed" && (
             <DownloadButton href={`/api/v1/documents/${doc.id}/pdf`} label="PDF" />
           )}
           {doc.has_docx && (

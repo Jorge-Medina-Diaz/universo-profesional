@@ -19,16 +19,25 @@ async def startup(ctx: dict[str, Any]) -> None:
 
     configure_logging()
     # Wire observability for the worker process too (the API does this in its
-    # lifespan). Guarded so a misconfigured DSN/endpoint never blocks boot — and
-    # init_sentry() is what makes worker_failures' capture_exception reach Sentry.
+    # lifespan). Sentry and OTel are isolated + guarded so one missing dep (e.g.
+    # the OTLP exporter) never blocks boot OR skips the other — and failures are
+    # loud, not a silent pass. init_sentry() is what makes worker_failures'
+    # capture_exception reach Sentry, so it must not be coupled to OTel.
+    import structlog as _structlog
+
+    _obs_log = _structlog.get_logger(__name__)
     try:
-        from .otel_setup import init_otel
         from .sentry_setup import init_sentry
 
-        init_otel(service_name="cvs-saas-worker")
         init_sentry()
-    except Exception:  # pragma: no cover - observability must never block boot
-        pass
+    except Exception as exc:
+        _obs_log.warning("worker_sentry_init_failed", error=str(exc))
+    try:
+        from .otel_setup import init_otel
+
+        init_otel(service_name="cvs-saas-worker")
+    except Exception as exc:
+        _obs_log.warning("worker_otel_init_failed", error=str(exc))
     # Register EVERY ORM model so SQLAlchemy can resolve cross-table foreign
     # keys (e.g. skills.user_id → users.id) before any task flushes. Without
     # this, worker tasks that write entities (curator, syncs, knowledge

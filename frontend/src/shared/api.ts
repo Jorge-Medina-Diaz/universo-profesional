@@ -697,6 +697,7 @@ export interface GenerateCvResponse {
   document_id: string;
   pdf_url: string | null;
   docx_url: string | null;
+  render_status: "ready" | "degraded" | "failed";
   json_resume: Record<string, unknown>;
 }
 

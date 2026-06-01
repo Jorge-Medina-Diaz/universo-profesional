@@ -227,8 +227,15 @@ export function GenerateCvPage() {
                         body={(gen.data.json_resume as JsonResume).cover_letter_body!}
                       />
                     )}
+                  {gen.data.render_status !== "ready" && (
+                    <div className="rounded-lg bg-sunbeam-soft text-sunbeam-ink px-3 py-2 text-sm">
+                      {gen.data.render_status === "degraded"
+                        ? "El PDF no se pudo generar; descarga el DOCX o vuelve a intentarlo."
+                        : "No se pudo generar el documento. Inténtalo de nuevo."}
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {gen.data.pdf_url && (
+                    {gen.data.pdf_url && gen.data.render_status === "ready" && (
                       <DownloadLink
                         href={gen.data.pdf_url}
                         label={t("cv.downloadPdf")}

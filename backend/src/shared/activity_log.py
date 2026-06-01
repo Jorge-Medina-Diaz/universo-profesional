@@ -85,6 +85,8 @@ def register(bus: EventBus) -> None:
         "identity.email_verified",
         "identity.password_changed",
         "identity.account_soft_deleted",
+        "identity.onboarding_activated",
+        "identity.tier_changed",
         "universe.created",
         "universe.updated",
         "universe.entry_added",

@@ -38,6 +38,7 @@ class GeneratedDocumentDto:
     pdf_url: str | None
     docx_url: str | None
     json_resume: dict[str, Any]
+    render_status: str = "ready"
 
 
 class GenerateCv:
@@ -172,6 +173,7 @@ class GenerateCv:
                 pdf_url=f"{base}/api/v1/documents/{document.id}/pdf" if pdf_path else None,
                 docx_url=f"{base}/api/v1/documents/{document.id}/docx" if docx_path else None,
                 json_resume=content,
+                render_status=render_status,
             )
         )
 

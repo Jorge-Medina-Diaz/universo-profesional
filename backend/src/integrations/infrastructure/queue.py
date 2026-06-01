@@ -58,7 +58,20 @@ async def enqueue_integration_task(name: str, **kwargs: Any) -> dict[str, Any]:
         fn = getattr(_tasks, name, None)
         if fn is None:
             return {"queued": False, "job_id": None, "mode": "inline", "error": "unknown_task"}
-        result = await fn({}, **kwargs)
+        try:
+            result = await fn({}, **kwargs)
+        except Exception as exc:
+            # Tasks now fail loud on the worker path (re-raise / arq.Retry).
+            # Inline there is no arq runner, so translate to a structured result
+            # rather than bubbling a 500 — the failure still surfaces via the
+            # sync_runs row the task wrote and this warning log.
+            logger.warning("inline_task_failed", task=name, error=str(exc))
+            return {
+                "queued": False,
+                "job_id": None,
+                "mode": "inline",
+                "result": {"ok": False, "error": str(exc)},
+            }
         return {"queued": True, "job_id": None, "mode": "inline", "result": result}
 
     job = await pool.enqueue_job(name, **kwargs)

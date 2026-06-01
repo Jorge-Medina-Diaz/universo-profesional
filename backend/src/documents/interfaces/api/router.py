@@ -130,6 +130,7 @@ async def generate_cv(
         "pdf_url": dto.pdf_url,
         "docx_url": dto.docx_url,
         "json_resume": dto.json_resume,
+        "render_status": dto.render_status,
     }
 
 
@@ -304,6 +305,7 @@ async def resolve_share_token(token: str, session: SessionDep) -> dict[str, Any]
         "created_at": doc.created_at.isoformat() if doc.created_at else None,
         "json_resume": doc.content_json,
         "pdf_url": f"/api/v1/share/{token}/pdf" if doc.pdf_path else None,
+        "render_status": getattr(doc, "render_status", "ready"),
     }
 
 

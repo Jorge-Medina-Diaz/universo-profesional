@@ -21,11 +21,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-import structlog
-
 from src.shared.worker_failures import handle_task_exception
-
-logger = structlog.get_logger(__name__)
 
 
 async def _new_session_scope(user_id: str):  # type: ignore[no-untyped-def]

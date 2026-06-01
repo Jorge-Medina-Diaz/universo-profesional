@@ -3,18 +3,23 @@ from __future__ import annotations
 
 import os
 
-from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-
 
 def init_otel(service_name: str = "cvs-saas-backend") -> None:
-    """Configure OTLP trace exporter when OTLP_ENDPOINT is set."""
+    """Configure the OTLP trace exporter when OTLP_ENDPOINT is set.
+
+    The opentelemetry exporter packages are imported lazily here (not at module
+    top) so importing this module never fails when those optional deps are
+    absent and no endpoint is configured — the common dev/worker case.
+    """
     endpoint = os.getenv("OTLP_ENDPOINT")
     if not endpoint:
         return
+
+    from opentelemetry import trace
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
     resource = Resource.create({"service.name": service_name, "service.version": "0.1.0"})
     provider = TracerProvider(resource=resource)

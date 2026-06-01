@@ -123,7 +123,7 @@ export function Router() {
   useEffect(() => {
     if (!accessToken) return;
     if (isPublicOrOnboarding) return;
-    if (summaryQuery.isLoading) return;
+    if (summaryQuery.isLoading || meQuery.isLoading) return;
     // Only funnel users who still have an empty universe AND haven't already
     // been through onboarding. Without the second check the gate bounces a
     // user who just finished/skipped onboarding (and added nothing) straight
@@ -140,6 +140,7 @@ export function Router() {
     isPublicOrOnboarding,
     hasData,
     summaryQuery.isLoading,
+    meQuery.isLoading,
     meQuery.data?.onboarding_completed_at,
   ]);
 

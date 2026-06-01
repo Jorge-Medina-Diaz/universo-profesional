@@ -21,6 +21,7 @@ interface SharePayload {
   created_at: string | null;
   json_resume: Record<string, unknown> | null;
   pdf_url: string | null;
+  render_status?: "ready" | "degraded" | "failed";
 }
 
 async function fetchShare(token: string): Promise<SharePayload> {
@@ -86,7 +87,9 @@ export function SharePage({ token }: { token: string }) {
         title={basics.name ?? "Currículum compartido"}
         subtitle={basics.label ?? data.kind.toUpperCase()}
         actions={
-          data.pdf_url && (
+          data.pdf_url &&
+          data.render_status !== "degraded" &&
+          data.render_status !== "failed" && (
             <Button
               onClick={() => window.open(data.pdf_url!, "_blank", "noopener,noreferrer")}
               leadingIcon={<FileDown size={14} />}
