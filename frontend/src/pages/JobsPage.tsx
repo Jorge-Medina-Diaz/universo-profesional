@@ -751,6 +751,7 @@ function KanbanCard({
         )}
         <a
           href={`#/jobs/${job.id}/prep`}
+          draggable={false}
           onClick={(e) => e.stopPropagation()}
           className="inline-flex items-center gap-0.5 text-xs text-stone hover:text-ink transition-colors"
           title="Preparar la entrevista para esta oferta"

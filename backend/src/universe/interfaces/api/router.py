@@ -758,7 +758,7 @@ async def dismiss_reminder(
 async def get_activity(
     user_id: CurrentUserId,
     session: SessionDep,
-    limit: int = 50,
+    limit: int = Query(50, ge=1, le=200),
     since: str | None = None,
     types: str | None = None,
     cursor: str | None = None,

@@ -441,30 +441,32 @@ async def generate_interview_prep(
     }
     artifacts, generated_by = await generate_prep_artifacts(session, job_summary)
 
-    existing = (
-        await session.execute(
-            select(InterviewPrepOrm)
-            .where(InterviewPrepOrm.user_id == row.user_id)
-            .where(InterviewPrepOrm.job_id == row.id)
-        )
-    ).scalar_one_or_none()
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+
     now = utc_now()
-    if existing is not None:
-        existing.artifacts = artifacts
-        existing.generated_by = generated_by
-        existing.updated_at = now
-    else:
-        session.add(
-            InterviewPrepOrm(
-                id=uuid4(),
-                user_id=row.user_id,
-                job_id=row.id,
-                artifacts=artifacts,
-                generated_by=generated_by,
-                created_at=now,
-                updated_at=now,
-            )
+    # Atomic upsert — a SELECT-then-INSERT races the unique constraint (two
+    # concurrent POSTs / a double "Regenerar" → IntegrityError → 500).
+    stmt = (
+        pg_insert(InterviewPrepOrm)
+        .values(
+            id=uuid4(),
+            user_id=row.user_id,
+            job_id=row.id,
+            artifacts=artifacts,
+            generated_by=generated_by,
+            created_at=now,
+            updated_at=now,
         )
+        .on_conflict_do_update(
+            constraint="uq_interview_preps_user_job",
+            set_={
+                "artifacts": artifacts,
+                "generated_by": generated_by,
+                "updated_at": now,
+            },
+        )
+    )
+    await session.execute(stmt)
     await session.commit()
     return {"job_id": job_id, "artifacts": artifacts, "generated_by": generated_by}
 

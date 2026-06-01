@@ -31,6 +31,7 @@ export function GenerateCvPage() {
   const [tone, setTone] = useState("professional");
   const [kind, setKind] = useState<"cv" | "cover_letter">("cv");
   const [showJson, setShowJson] = useState(false);
+  const [resultKind, setResultKind] = useState<"cv" | "cover_letter">("cv");
 
   // Prefill from JobsPage / chat-driven cover-letter proposal +
   // chat-driven `propose_cv_regenerate` (template / language / tone overrides).
@@ -71,6 +72,14 @@ export function GenerateCvPage() {
     }
   }, []);
 
+  // R12 — on-demand ATS readiness: reuses the jobs match-scoring endpoint
+  // (keyword coverage vs the JD + gaps). Declared before `gen` so a new
+  // generation can reset a stale score.
+  const ats = useMutation({
+    mutationFn: (jobId: string) => jobs.computeScore(jobId),
+    onError: () => toast.error("No se pudo analizar la compatibilidad ATS."),
+  });
+
   const gen = useMutation({
     mutationFn: () =>
       documents.generate({
@@ -81,13 +90,12 @@ export function GenerateCvPage() {
         tone,
         kind,
       }),
-  });
-
-  // R12 — on-demand ATS readiness: reuses the jobs match-scoring endpoint
-  // (keyword coverage vs the JD + gaps) on the just-generated CV's job.
-  const ats = useMutation({
-    mutationFn: (jobId: string) => jobs.computeScore(jobId),
-    onError: () => toast.error("No se pudo analizar la compatibilidad ATS."),
+    // Capture the kind that produced this result (so the ATS card only shows
+    // for CVs, even after a tab toggle) and clear any stale ATS score.
+    onSuccess: () => {
+      setResultKind(kind);
+      ats.reset();
+    },
   });
 
   return (
@@ -263,7 +271,7 @@ export function GenerateCvPage() {
                       ext="JSON"
                     />
                   </div>
-                  {gen.data.job_id && kind === "cv" && (
+                  {gen.data.job_id && resultKind === "cv" && (
                     <div className="rounded-card border border-ink/5 bg-surface p-3 space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-medium text-ink">
@@ -284,7 +292,7 @@ export function GenerateCvPage() {
                             <span className="text-2xl font-semibold text-ink">
                               {ats.data.match.match_score}%
                             </span>
-                            <span className="text-xs text-stone">match con la oferta</span>
+                            <span className="text-xs text-stone">de tu perfil con la oferta</span>
                           </div>
                           {ats.data.match.keyword_coverage != null && (
                             <p className="text-xs text-stone">

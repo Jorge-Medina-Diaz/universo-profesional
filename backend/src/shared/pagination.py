@@ -16,7 +16,9 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+from datetime import datetime
 from typing import Any
+from uuid import UUID
 
 
 def encode_cursor(ts: Any, row_id: Any) -> str:
@@ -37,6 +39,11 @@ def decode_cursor(cursor: str | None) -> tuple[str, str] | None:
     try:
         raw = base64.urlsafe_b64decode(cursor.encode()).decode()
         ts_str, row_id = json.loads(raw)
+        # Validate the decoded values too: a structurally-valid but semantically
+        # garbage cursor (e.g. ["nope", "nope"]) must degrade to "first page",
+        # not 500 later in the SQL ::timestamptz / ::uuid cast.
+        datetime.fromisoformat(str(ts_str))
+        UUID(str(row_id))
         return str(ts_str), str(row_id)
     except (binascii.Error, ValueError, TypeError):
         return None

@@ -188,8 +188,16 @@ export const liveProfile = {
     dismiss: (id: string) =>
       api(`/api/v1/universe/reminders/${id}/dismiss`, { method: "POST" }),
   },
-  activity: (limit = 50) =>
-    api<Array<Record<string, unknown>>>(`/api/v1/universe/activity?limit=${limit}`),
+  activity: async (limit = 50): Promise<Array<Record<string, unknown>>> => {
+    // The endpoint returns a {items, next_cursor} envelope now; unwrap it so
+    // this helper keeps its array contract (the canonical client is
+    // universe.activity() in api.ts).
+    const page = await api<{
+      items: Array<Record<string, unknown>>;
+      next_cursor: string | null;
+    }>(`/api/v1/universe/activity?limit=${limit}`);
+    return page.items;
+  },
   markReviewed: (entity_type: string, entity_id: string) =>
     api("/api/v1/universe/mark-reviewed", {
       method: "POST",

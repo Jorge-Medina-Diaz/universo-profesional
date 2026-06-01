@@ -58,6 +58,13 @@ export function InterviewPrepPage({ jobId }: { jobId: string }) {
 
       {prep.isLoading ? (
         <PageSkeleton />
+      ) : prep.isError ? (
+        <Card padding="lg" tone="glass">
+          <p className="text-sm text-stone">
+            No pudimos cargar la preparación de esta entrevista. Recarga la
+            página o inténtalo de nuevo.
+          </p>
+        </Card>
       ) : (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
