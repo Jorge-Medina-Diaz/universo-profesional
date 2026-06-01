@@ -1,4 +1,5 @@
 import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
+import { surfaceAgentError } from "@/app/silenceBenignErrors";
 
 interface ChatApi {
   sendMessage?: (message: TextMessage) => Promise<void>;
@@ -17,13 +18,19 @@ export function appendUserMessage(chat: unknown, content: string): void {
   const api = chat as ChatApi;
   if (typeof api.sendMessage !== "function") return;
   try {
-    void api.sendMessage(
-      new TextMessage({
-        content,
-        role: MessageRole.User,
-      }),
+    // Surface async send failures instead of dropping them on the floor
+    // (see [[no-silent-errors]]). A version-shape mismatch is handled by the
+    // early return above; this catches real send/runtime failures.
+    void api
+      .sendMessage(new TextMessage({ content, role: MessageRole.User }))
+      .catch((err) =>
+        surfaceAgentError(
+          `No pude enviar tu mensaje al agente: ${(err as Error)?.message ?? ""}`,
+        ),
+      );
+  } catch (err) {
+    surfaceAgentError(
+      `No pude enviar tu mensaje al agente: ${(err as Error)?.message ?? ""}`,
     );
-  } catch {
-    /* ignore — API moved between versions */
   }
 }

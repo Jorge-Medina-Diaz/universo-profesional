@@ -136,6 +136,35 @@ type CopilotKitComponent = ComponentType<{
   children: ReactNode;
 }>;
 
+/** Resolve the AG-UI runtime URL the same way the CopilotKit provider does.
+ *  Empty VITE_API_BASE_URL → relative "/agui" (same-origin via nginx proxy). */
+function getRuntimeUrl(): string {
+  const env =
+    (import.meta as never as { env: Record<string, string | undefined> }).env || {};
+  const apiBase = env.VITE_API_BASE_URL || "";
+  return env.VITE_AGUI_URL || `${apiBase}/agui`;
+}
+
+/** Probe the runtime once so a DEAD chat is never silent. CopilotKit logs
+ *  "Failed to load runtime info" / "Agent … not found" only as console.warn
+ *  (not console.error), and its onError prop is unreliable — so a broken
+ *  runtime would otherwise show the user nothing. We fetch /info on enable and
+ *  surface a toast on failure (see [[no-silent-errors]]). */
+function probeRuntime(): void {
+  const url = getRuntimeUrl();
+  void fetch(`${url}/info`)
+    .then((r) => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    })
+    .catch((err) => {
+      surfaceAgentError(
+        `No pude conectar con tu agente (runtime connect failed: ${
+          (err as Error)?.message ?? "fetch"
+        })`,
+      );
+    });
+}
+
 let externalEnable: (() => void) | null = null;
 
 /**
@@ -163,6 +192,9 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
   const enable = useCallback(() => {
     if (enabled) return;
     setEnabled(true);
+    // Probe the runtime in parallel with the (heavy) bundle import so a dead
+    // /agui surfaces a toast even if CopilotKit never reports the failure.
+    probeRuntime();
     void import("@copilotkit/react-core").then((core) => {
       setMod(core);
       setCopilotReady();
@@ -199,9 +231,7 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
   }
 
   const CopilotKit = mod.CopilotKit as CopilotKitComponent;
-  const env = (import.meta as never as { env: Record<string, string | undefined> }).env || {};
-  const apiBase = env.VITE_API_BASE_URL || "";
-  const runtimeUrl = env.VITE_AGUI_URL || `${apiBase}/agui`;
+  const runtimeUrl = getRuntimeUrl();
 
   return (
     <CopilotErrorBoundary>

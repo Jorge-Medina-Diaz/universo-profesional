@@ -23,7 +23,7 @@
 const ABORT_SIGNATURE = /BodyStreamBuffer was aborted/;
 const COPILOT_ABORT = /\[CopilotKit\][\s\S]*\bAbortError\b/;
 const COPILOT_ERROR =
-  /\[CopilotKit\][\s\S]*(agent error|sendmessage error|agent_connect_failed|agent_run_failed|agent_run_error|run[_ ]?error|error \()/i;
+  /\[CopilotKit\][\s\S]*(agent error|sendmessage error|agent_connect_failed|agent_run_failed|agent_run_error|run[_ ]?error|not found|failed to load runtime info|runtime info|error \()/i;
 
 let lastAgentErrorAt = 0;
 

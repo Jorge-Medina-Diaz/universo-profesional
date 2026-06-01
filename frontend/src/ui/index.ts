@@ -35,7 +35,6 @@ export * from "./motion";
 export { Dialog, type DialogProps } from "./Dialog";
 export { Tabs, type TabsProps } from "./Tabs";
 export { Tooltip, type TooltipProps } from "./Tooltip";
-export { ShimmerSkeleton, type ShimmerSkeletonProps } from "./ShimmerSkeleton";
 export { Switch, type SwitchProps } from "./Switch";
 export { Avatar, type AvatarProps } from "./Avatar";
 export { Select, type SelectProps } from "./Select";
