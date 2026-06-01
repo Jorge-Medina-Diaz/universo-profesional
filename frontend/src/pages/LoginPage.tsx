@@ -6,7 +6,7 @@ import { integrations } from "@/shared/api-extra";
 import { Button, Card, Field, Input, Reveal, Stagger } from "@/ui";
 import { AuthHero } from "./_auth/AuthHero";
 import { queryKeys } from "@/shared/queryKeys";
-import { isOnboardingComplete } from "@/shared/onboarding";
+import { isOnboardingComplete, hasUniverseData } from "@/shared/onboarding";
 
 export function LoginPage() {
   const { t } = useTranslation();
@@ -57,15 +57,11 @@ export function LoginPage() {
         universe.summary(),
         auth.me().catch(() => null),
       ]);
-      const hasData =
-        summary.counts?.experiences > 0 ||
-        summary.counts?.educations > 0 ||
-        summary.counts?.skills > 0;
       if (
-        !hasData &&
+        !hasUniverseData(summary) &&
         !isOnboardingComplete(tokens.user_id, me?.onboarding_completed_at)
       ) {
-        target = "#/onboarding";
+        target = "#/onboarding/chat";
       }
     } catch {
       /* ignore, default to home */

@@ -17,6 +17,18 @@ import { toast } from "@/ui";
 
 const KEY = "cvs-saas-onboarding-done";
 
+/** True once the universe holds any real career data. Single source of truth
+ *  for the onboarding gate — previously copy-pasted in Router + LoginPage. */
+export function hasUniverseData(
+  summary: { counts?: Record<string, number> } | null | undefined,
+): boolean {
+  const c = summary?.counts;
+  return (
+    !!c &&
+    ((c.experiences ?? 0) > 0 || (c.educations ?? 0) > 0 || (c.skills ?? 0) > 0)
+  );
+}
+
 function readSet(): Set<string> {
   try {
     const arr = JSON.parse(localStorage.getItem(KEY) || "[]");

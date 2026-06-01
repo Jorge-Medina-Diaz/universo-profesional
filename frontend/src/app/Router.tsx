@@ -10,7 +10,7 @@ import { Suspense, lazy, useEffect, useState, type ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore, universe, auth } from "@/shared/api";
 import { queryKeys } from "@/shared/queryKeys";
-import { isOnboardingComplete } from "@/shared/onboarding";
+import { isOnboardingComplete, hasUniverseData } from "@/shared/onboarding";
 import { PageTransition } from "@/ui/motion";
 import { PageSkeleton } from "@/ui";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -33,7 +33,6 @@ const McpConnectPage = lazyPage(() => import("@/pages/McpConnectPage"), "McpConn
 const SettingsPage = lazyPage(() => import("@/pages/SettingsPage"), "SettingsPage");
 const BillingPage = lazyPage(() => import("@/pages/BillingPage"), "BillingPage");
 const CheckoutMockPage = lazyPage(() => import("@/pages/CheckoutMockPage"), "CheckoutMockPage");
-const OnboardingPage = lazyPage(() => import("@/pages/OnboardingPage"), "OnboardingPage");
 const ConnectionsPage = lazyPage(() => import("@/pages/ConnectionsPage"), "ConnectionsPage");
 const OnboardingChatPage = lazyPage(
   () => import("@/pages/OnboardingChatPage"),
@@ -118,16 +117,19 @@ export function Router() {
     path.startsWith("/share/") ||
     path.startsWith("/auth/");
 
-  const hasData = summaryQuery.data?.counts
-    ? summaryQuery.data.counts.experiences > 0 ||
-      summaryQuery.data.counts.educations > 0 ||
-      summaryQuery.data.counts.skills > 0
-    : true; // assume done while loading to avoid flashing redirect
+  // Assume "has data" until the query actually SUCCEEDS, so neither a loading
+  // nor an errored summary fires a spurious redirect.
+  const hasData = summaryQuery.isSuccess
+    ? hasUniverseData(summaryQuery.data)
+    : true;
 
   useEffect(() => {
     if (!accessToken) return;
     if (isPublicOrOnboarding) return;
-    if (summaryQuery.isLoading || meQuery.isLoading) return;
+    // Gate on SUCCESS (not just !isLoading): an errored query also has
+    // isLoading=false, and we must never bounce a user on a transient summary
+    // failure. Both queries must have resolved successfully.
+    if (!summaryQuery.isSuccess || !meQuery.isSuccess) return;
     // Only funnel users who still have an empty universe AND haven't already
     // been through onboarding. Without the second check the gate bounces a
     // user who just finished/skipped onboarding (and added nothing) straight
@@ -136,15 +138,15 @@ export function Router() {
       !hasData &&
       !isOnboardingComplete(userId, meQuery.data?.onboarding_completed_at)
     ) {
-      window.location.hash = "#/onboarding";
+      window.location.hash = "#/onboarding/chat";
     }
   }, [
     accessToken,
     userId,
     isPublicOrOnboarding,
     hasData,
-    summaryQuery.isLoading,
-    meQuery.isLoading,
+    summaryQuery.isSuccess,
+    meQuery.isSuccess,
     meQuery.data?.onboarding_completed_at,
   ]);
 
@@ -189,7 +191,9 @@ function resolveRoute(path: string, query: URLSearchParams, isAuthed: boolean) {
   }
 
   // Authed routes
-  if (path === "/onboarding") return <OnboardingPage />;
+  // The form-wizard onboarding was retired in favour of the agentic chat flow;
+  // keep the old path as a redirect so any bookmarks / in-app links still land.
+  if (path === "/onboarding") return <Redirect to="/onboarding/chat" />;
   if (path === "/onboarding/chat") return <OnboardingChatPage />;
   if (path === "/connections") return <ConnectionsPage />;
   if (path === "/universe") return <UniversePage />;
