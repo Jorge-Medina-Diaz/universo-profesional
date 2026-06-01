@@ -24,6 +24,13 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # Root cause: ck_users_tier_value only allowed ('free','pro'), so 'premium'
+    # could never be stored. Widen it FIRST, then backfill.
+    op.execute("ALTER TABLE users DROP CONSTRAINT IF EXISTS ck_users_tier_value")
+    op.execute(
+        "ALTER TABLE users ADD CONSTRAINT ck_users_tier_value "
+        "CHECK (tier IN ('free', 'pro', 'premium'))"
+    )
     # Promote: active/trialing paid subscription → mirror plan onto tier.
     # subscriptions.plan is varchar, users.tier is text; IS DISTINCT FROM won't
     # implicitly cast across them, so cast both sides to text explicitly.
