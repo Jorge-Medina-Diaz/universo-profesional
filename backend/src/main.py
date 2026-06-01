@@ -257,6 +257,41 @@ def create_app() -> FastAPI:
     async def domain_error_handler(_request: Request, exc: DomainError) -> JSONResponse:
         return JSONResponse(status_code=exc.http_status, content=exc.to_problem())
 
+    @app.exception_handler(RequestValidationError)
+    async def validation_error_handler(
+        _request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        """422s use the same {title, detail} problem-detail shape as DomainError
+        instead of FastAPI's bare default; field errors attach under `errors`."""
+        from fastapi.encoders import jsonable_encoder
+
+        return JSONResponse(
+            status_code=422,
+            content={
+                "title": "ValidationError",
+                "detail": "Request validation failed",
+                # jsonable_encoder handles non-serializable ctx (e.g. ValueError).
+                "errors": jsonable_encoder(exc.errors()),
+            },
+        )
+
+    @app.exception_handler(Exception)
+    async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+        """Last-resort handler: an unexpected error returns the consistent
+        {title, detail} shape (logged for observability) rather than leaking a
+        stack trace or an inconsistent body. The request_id middleware still
+        attaches X-Request-Id for correlation."""
+        logger.exception(
+            "unhandled_exception", path=str(request.url.path), error=str(exc)
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "title": "InternalServerError",
+                "detail": "An unexpected error occurred",
+            },
+        )
+
     # --- Routers -----------------------------------------------------------
     from src.billing.interfaces.api.router import router as billing_router
     from src.documents.interfaces.api.jobs_router import router as jobs_router
