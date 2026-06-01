@@ -25,7 +25,8 @@ _PRICES: dict[str, dict[str, Decimal]] = {
         "cache_read": Decimal("0.30"),
         "cache_write": Decimal("3.75"),
     },
-    "claude-haiku-4-5-20251001": {
+    # Bare family key — dated slugs (…-20251001) resolve to it via prefix match.
+    "claude-haiku-4-5": {
         "input": Decimal("0.25"),
         "output": Decimal("1.25"),
         "cache_read": Decimal("0.08"),
@@ -58,10 +59,16 @@ def _resolve_prices(model: str) -> dict[str, Decimal] | None:
     exact = _PRICES.get(model)
     if exact is not None:
         return exact
+    # Match ONLY a base key that the model id extends at a separator boundary
+    # (claude-sonnet-4-6 -> claude-sonnet-4-6-20250101). Longest match wins so
+    # 'gpt-4o-mini' resolves to its own key, not 'gpt-4o'. Crucially we do NOT
+    # match the reverse direction: a too-short/ambiguous id like 'gpt-4' or
+    # 'claude' matches nothing and falls through to a loud llm_price_unknown,
+    # instead of being silently billed at the cheapest colliding sibling.
     candidates = [
         (key, price)
         for key, price in _PRICES.items()
-        if model.startswith(key) or key.startswith(model)
+        if model.startswith(key) and (len(model) == len(key) or model[len(key)] in "-:@/_.")
     ]
     if not candidates:
         return None

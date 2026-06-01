@@ -233,7 +233,16 @@ export function SemanticConstellation({
 
     build();
 
-    const ro = new ResizeObserver(() => build());
+    const ro = new ResizeObserver(() => {
+      build();
+      // build() resizes the canvas (which CLEARS it) + rebuilds nodes. Under
+      // reduced-motion the draw loop has stopped after its single frame, so we
+      // must schedule one repaint or the hero backdrop stays blank after a
+      // resize/rotate/zoom. (When motion is allowed the running loop repaints.)
+      if (reduced && !rafRef.current) {
+        rafRef.current = requestAnimationFrame(draw);
+      }
+    });
     ro.observe(wrap);
 
     function onMove(e: MouseEvent) {

@@ -7,6 +7,8 @@ AGE/pgvector test DB (the full migrated schema).
 """
 from __future__ import annotations
 
+import re
+
 import pytest
 from sqlalchemy import text
 
@@ -14,9 +16,18 @@ from src.identity.infrastructure.exporter import (
     INTERNAL_NO_EXPORT,
     MANUAL_ERASE,
     SECRET_BEARING,
+    _REDACT_COLUMNS,
     discover_user_scoped_tables,
 )
 from src.shared.db import get_session_factory
+
+# Column-name heuristic for "this looks like a secret we must never export".
+# Anchored to real secret suffixes/terms so public ids (credential_id) and flags
+# (mfa_enabled) are NOT false-positives, while password_hash / mfa_secret /
+# share_token / *_encrypted / *_key secrets are.
+_SECRET_COL = re.compile(
+    r"_secret$|_token$|encrypted|_hash$|password|private_key|api_key"
+)
 
 
 @pytest.mark.asyncio
@@ -41,6 +52,42 @@ async def test_no_secret_bearing_table_is_exported() -> None:
         discovered = await discover_user_scoped_tables(s)
     leaked = (SECRET_BEARING & discovered) - INTERNAL_NO_EXPORT
     assert not leaked, f"secret-bearing tables would be exported: {sorted(leaked)}"
+
+
+@pytest.mark.asyncio
+async def test_no_secret_column_in_exported_tables_is_unredacted() -> None:
+    """Every secret-looking column on an EXPORTED table must be redacted.
+
+    The export dumps every column via row_to_json, so a future migration that
+    adds a credential/token/encrypted column to an exported table (or a new
+    user-scoped non-secret-bearing table that happens to carry one) would leak
+    it verbatim. This fails until the column is added to _REDACT_COLUMNS (or its
+    table to INTERNAL_NO_EXPORT) — mirroring the erase guard's fail-until-classified.
+    """
+    factory = get_session_factory()
+    async with factory() as s:
+        discovered = await discover_user_scoped_tables(s)
+        exported = ({"users"} | discovered) - INTERNAL_NO_EXPORT
+        rows = (
+            await s.execute(
+                text(
+                    "SELECT table_name, column_name, data_type "
+                    "FROM information_schema.columns "
+                    "WHERE table_schema = 'public' AND table_name = ANY(:t)"
+                ),
+                {"t": list(exported)},
+            )
+        ).all()
+    leaks = []
+    for table, col, dtype in rows:
+        if col in _REDACT_COLUMNS.get(table, frozenset()):
+            continue
+        if _SECRET_COL.search(col) or dtype == "bytea":
+            leaks.append(f"{table}.{col} ({dtype})")
+    assert not leaks, (
+        "exported tables have secret-looking columns that are neither redacted "
+        f"(_REDACT_COLUMNS) nor denied (INTERNAL_NO_EXPORT): {sorted(leaks)}"
+    )
 
 
 @pytest.mark.asyncio

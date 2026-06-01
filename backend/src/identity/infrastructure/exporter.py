@@ -25,10 +25,13 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
+import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.identity.application.ports import UserDataExporter
+
+logger = structlog.get_logger(__name__)
 
 # User-scoped tables NOT included in the Art.20 portability export.
 INTERNAL_NO_EXPORT: frozenset[str] = frozenset(
@@ -118,6 +121,7 @@ class SqlUserDataExporter(UserDataExporter):
         # user-scoped table is exported automatically (never silently dropped).
         tables = ({"users"} | await discover_user_scoped_tables(self._session)) - INTERNAL_NO_EXPORT
         out: dict[str, Any] = {"user_id": str(user_id), "tables": {}}
+        errors: list[str] = []
         for table in sorted(tables):
             col = self._TABLE_USER_COL.get(table, "user_id")
             redact = _REDACT_COLUMNS.get(table, frozenset())
@@ -133,5 +137,13 @@ class SqlUserDataExporter(UserDataExporter):
                                 rec.pop(key, None)
                 out["tables"][table] = records
             except Exception as exc:
-                out["tables"][table] = {"error": str(exc)}
+                # A failed table must NOT silently vanish from an Art.20 export
+                # presented as complete. Log loudly (-> Sentry) AND surface it in
+                # the export payload so the data subject sees the gap. Keep the
+                # shape a list so consumers don't break on a dict.
+                logger.error("gdpr_export_table_failed", table=table, error=str(exc))
+                out["tables"][table] = []
+                errors.append(table)
+        if errors:
+            out["errors"] = errors
         return out

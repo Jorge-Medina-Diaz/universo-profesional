@@ -141,6 +141,11 @@ async def enrich_user_graph(
 
     # 1. Backfill embeddings so every entity can participate in similarity.
     await _ensure_embeddings(session, user_id, stats)
+    # Flush the freshly-assigned embeddings to the transaction BEFORE expiring.
+    # The session is autoflush=False, so expire_all() would otherwise DISCARD the
+    # unflushed row.embedding writes — silently reverting them to NULL (and
+    # excluding those entities from the similarity pass below).
+    await session.flush()
     session.expire_all()
 
     # 2. Load entities, mirror each into an AGE vertex (so edges have endpoints),

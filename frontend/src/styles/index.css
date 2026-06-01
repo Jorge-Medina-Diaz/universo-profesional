@@ -615,7 +615,7 @@
 /* Send is the primary action — luminous sunbeam gradient (mirrors Button `cta`
    / the landing's .cos-btn-primary). The stop button keeps the calm ink fill. */
 .composer-send {
-  background: linear-gradient(to bottom, #ffe48f, var(--color-sunbeam));
+  background: linear-gradient(to bottom, #ffe48f, var(--color-sunbeam-yellow, #ffda6e));
   color: #2a2003;
   box-shadow: 0 0 0 1px rgba(255, 218, 110, 0.4),
     0 8px 22px -8px rgba(255, 218, 110, 0.55);

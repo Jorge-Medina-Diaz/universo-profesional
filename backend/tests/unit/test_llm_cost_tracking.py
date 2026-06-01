@@ -41,10 +41,26 @@ class TestComputeCostEur:
         ) == Decimal("3.000000")
 
     def test_family_shorthand_resolves(self) -> None:
-        # The bare family id is a prefix of the dated key and must resolve too.
+        # The bare family id resolves (it is now the base key).
         assert compute_cost_eur(
             model="claude-haiku-4-5", input_tokens=1_000_000, output_tokens=0
         ) == Decimal("0.250000")
+
+    def test_sibling_not_absorbed_by_shorter_key(self) -> None:
+        # 'gpt-4o-mini' must resolve to its OWN price, not be absorbed by 'gpt-4o'
+        # (longest boundary-anchored prefix wins).
+        assert compute_cost_eur(
+            model="gpt-4o-mini", input_tokens=1_000_000, output_tokens=0
+        ) == Decimal("0.150000")
+        assert compute_cost_eur(
+            model="gpt-4o-2024-05-13", input_tokens=1_000_000, output_tokens=0
+        ) == Decimal("5.000000")
+
+    def test_short_ambiguous_id_is_unknown_not_cheapest_sibling(self) -> None:
+        # A too-short id must NOT silently resolve to the cheapest colliding
+        # sibling — it returns None so compute logs llm_price_unknown.
+        assert compute_cost_eur(model="gpt-4", input_tokens=1000, output_tokens=1000) is None
+        assert compute_cost_eur(model="claude", input_tokens=1000, output_tokens=1000) is None
 
     def test_cache_tokens(self) -> None:
         result = compute_cost_eur(

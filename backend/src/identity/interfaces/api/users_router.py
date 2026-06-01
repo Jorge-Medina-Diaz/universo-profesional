@@ -202,14 +202,24 @@ async def export_my_data(
     if result.is_failure:
         raise result.error  # type: ignore[union-attr]
     payload = result.value  # type: ignore[union-attr]
+    readme = (
+        "This archive contains every record we hold linked to your account, "
+        "per GDPR Article 20 (data portability)."
+    )
+    # If any table failed to export, the payload carries an `errors` list — make
+    # the gap explicit in the README so the archive is never presented as
+    # complete when it isn't.
+    failed = payload.get("errors") if isinstance(payload, dict) else None
+    if failed:
+        readme += (
+            "\n\nNOTE: some categories could not be exported this time "
+            f"({', '.join(failed)}). See the `errors` field in export.json and "
+            "please request your export again, or contact support."
+        )
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("export.json", json.dumps(payload, indent=2, default=str))
-        zf.writestr(
-            "README.txt",
-            "This archive contains every record we hold linked to your account, "
-            "per GDPR Article 20 (data portability).",
-        )
+        zf.writestr("README.txt", readme)
     buf.seek(0)
     return StreamingResponse(
         buf,
