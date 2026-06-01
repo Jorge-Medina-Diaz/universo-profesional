@@ -21,7 +21,11 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
+import structlog
+
 from src.shared.worker_failures import handle_task_exception
+
+logger = structlog.get_logger(__name__)
 
 
 async def _new_session_scope(user_id: str):  # type: ignore[no-untyped-def]
@@ -162,3 +166,58 @@ async def run_linkedin_brightdata_sync_task(
             handle_task_exception(
                 ctx, exc, task="run_linkedin_brightdata_sync_task", user_id=user_id
             )
+
+
+async def resync_cron(ctx: dict[str, Any]) -> dict[str, Any]:
+    """Weekly re-sync of stale GitHub connections (R10).
+
+    Fans out one ``run_github_sync_task`` per connected GitHub account whose
+    ``last_synced_at`` is null or older than 7 days — mirroring ``reminders_cron``.
+    LinkedIn is intentionally EXCLUDED: a DMA re-sync only creates an uncommitted
+    import_session (enriches nothing) and risks token/rate-limit failures; stale
+    LinkedIn is surfaced instead by the IntegrationDriftProvider review card.
+    GitHub re-sync writes entities directly through the coherence path, so it
+    genuinely enriches. This only ENQUEUES; the sync task itself is fail-loud and
+    soft-cancellable, so one connection's failure can't starve the batch.
+    """
+    from sqlalchemy import text
+
+    from src.shared.db import with_user_session
+
+    async with with_user_session(None) as session:
+        rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT DISTINCT user_id::text FROM external_accounts
+                    WHERE provider = 'github'
+                      AND (last_synced_at IS NULL
+                           OR last_synced_at < now() - interval '7 days')
+                    """
+                )
+            )
+        ).all()
+    user_ids = [r[0] for r in rows]
+    if not user_ids:
+        return {"connections": 0, "enqueued": 0, "mode": "noop"}
+
+    redis = ctx.get("redis")
+    if redis is None:
+        # Degraded (no pool): run inline so dev/CLI still works. This DOES hit
+        # the GitHub API — acceptable only because it's the Redis-down fallback.
+        for uid in user_ids:
+            try:
+                await run_github_sync_task({}, uid)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error("resync_inline_failed", user_id=uid, error=str(exc))
+        return {"connections": len(user_ids), "mode": "inline"}
+
+    enqueued = 0
+    for uid in user_ids:
+        try:
+            await redis.enqueue_job("run_github_sync_task", user_id=uid)
+            enqueued += 1
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error("resync_enqueue_failed", user_id=uid, error=str(exc))
+    logger.info("resync_cron_fanned_out", connections=len(user_ids), enqueued=enqueued)
+    return {"connections": len(user_ids), "enqueued": enqueued, "mode": "arq"}

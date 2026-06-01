@@ -108,6 +108,7 @@ def _collect_cron() -> list[Any]:
         purge_expired_oauth_tokens,
     )
     from src.identity.infrastructure.lifecycle_tasks import lifecycle_cron
+    from src.integrations.infrastructure.tasks import resync_cron
     from src.universe.infrastructure.reminder_tasks import reminders_cron
 
     return [
@@ -123,6 +124,9 @@ def _collect_cron() -> list[Any]:
             minute={0},
             run_at_startup=False,
         ),
+        # Weekly GitHub re-sync at Mon 06:00 UTC (before reminders so the
+        # morning digest reflects freshly re-synced data). GitHub only — see resync_cron.
+        cron(resync_cron, weekday="mon", hour={6}, minute={0}, run_at_startup=False),
         # Reminders scan + email digest at 07:00 UTC — a morning nudge,
         # after the overnight curator has tidied the universe.
         cron(reminders_cron, hour={7}, minute={0}, run_at_startup=False),
