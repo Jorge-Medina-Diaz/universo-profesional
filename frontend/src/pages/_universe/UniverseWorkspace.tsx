@@ -25,7 +25,7 @@ import { AgentChatMount } from "@/chat/AgentChatMount";
 import { queryKeys } from "@/shared/queryKeys";
 import { useDiscoveryStream } from "@/shared/hooks/useDiscoveryStream";
 import { useEscapeKey } from "@/shared/useEscapeKey";
-import { Button, GalaxyIllustration, Skeleton } from "@/ui";
+import { Button, GalaxyIllustration, Skeleton, toast } from "@/ui";
 
 const GraphView = lazy(() =>
   import("@/graph/GraphView").then((m) => ({ default: m.GraphView })),
@@ -281,6 +281,8 @@ export function UniverseWorkspace() {
         queryClient.invalidateQueries({ queryKey: queryKeys.graph.snapshot }),
         queryClient.invalidateQueries({ queryKey: queryKeys.graph.communities }),
       ]);
+    } catch (e) {
+      toast.error("No se pudieron inferir conexiones", (e as Error).message);
     } finally {
       setEnriching(false);
     }
