@@ -2,6 +2,7 @@ import { useRef, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEscapeKey } from "@/shared/useEscapeKey";
 import { useClickOutside } from "@/shared/useClickOutside";
+import { useFocusTrap } from "@/shared/useFocusTrap";
 import { cn } from "./cn";
 
 export interface DialogProps {
@@ -33,6 +34,7 @@ export function Dialog({
   const contentRef = useRef<HTMLDivElement>(null);
   useEscapeKey(onClose, open);
   useClickOutside(contentRef, onClose, open);
+  useFocusTrap(contentRef, open);
 
   return (
     <AnimatePresence>
@@ -58,8 +60,9 @@ export function Dialog({
           {/* Content */}
           <motion.div
             ref={contentRef}
+            tabIndex={-1}
             className={cn(
-              "relative w-full rounded-2xl bg-canvas shadow-xl border border-ink/10",
+              "relative w-full rounded-2xl bg-canvas shadow-xl border border-ink/10 outline-none",
               sizeClasses[size],
               className,
             )}

@@ -1,3 +1,4 @@
+import { MotionConfig } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/shared/api";
 import { Router } from "./Router";
@@ -21,6 +22,9 @@ export function App() {
   const { accessToken } = useAuthStore();
   return (
     <ErrorBoundary>
+      {/* Honour prefers-reduced-motion app-wide: every motion/react animation
+          falls back to an instant transition for users who request it. */}
+      <MotionConfig reducedMotion="user">
       <ToasterProvider>
         <TourProvider>
           <CopilotProvider>
@@ -40,6 +44,7 @@ export function App() {
           </CopilotProvider>
         </TourProvider>
       </ToasterProvider>
+      </MotionConfig>
     </ErrorBoundary>
   );
 }

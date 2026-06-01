@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useFocusTrap } from "@/shared/useFocusTrap";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -178,6 +179,8 @@ export function CommandPalette() {
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(panelRef, open);
 
   useEffect(() => {
     externalOpen = () => setOpen(true);
@@ -308,6 +311,7 @@ export function CommandPalette() {
             exit={{ opacity: 0 }}
           />
           <motion.div
+            ref={panelRef}
             className="relative w-full max-w-xl rounded-card bg-canvas shadow-lift overflow-hidden"
             initial={{ opacity: 0, y: -10, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
