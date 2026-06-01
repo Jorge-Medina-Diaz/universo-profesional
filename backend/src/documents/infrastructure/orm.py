@@ -78,3 +78,30 @@ class ApplicationOrm(Base):
     next_action_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+
+
+class InterviewPrepOrm(Base):
+    """Per-(user, job) interview prep artifacts (R16). One row per application;
+    `artifacts` holds {research_brief, questions, star_drafts}."""
+
+    __tablename__ = "interview_preps"
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    job_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False
+    )
+    artifacts: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    generated_by: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'grounded'")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
+    )

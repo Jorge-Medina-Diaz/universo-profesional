@@ -749,6 +749,14 @@ function KanbanCard({
             <span>oferta</span>
           </a>
         )}
+        <a
+          href={`#/jobs/${job.id}/prep`}
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center gap-0.5 text-xs text-stone hover:text-ink transition-colors"
+          title="Preparar la entrevista para esta oferta"
+        >
+          <span>entrevista</span>
+        </a>
         <button
           type="button"
           onClick={() => {

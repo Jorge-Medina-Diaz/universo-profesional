@@ -409,3 +409,87 @@ async def job_documents(
         }
         for d in rows
     ]
+
+
+@router.post("/{job_id}/interview-prep")
+async def generate_interview_prep(
+    job_id: str,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> dict[str, Any]:
+    """Generate (or regenerate) interview prep for this job — research brief,
+    question bank, STAR drafts — grounded in the user's universe. One row per
+    (user, job); regenerating overwrites it."""
+    from uuid import uuid4
+
+    from src.documents.infrastructure.interview_prep import generate_prep_artifacts
+    from src.documents.infrastructure.orm import InterviewPrepOrm
+    from src.shared.security import utc_now
+
+    row = await session.get(JobOrm, UUID(job_id))
+    if row is None or str(row.user_id) != user_id:
+        raise HTTPException(status_code=404, detail="not_found")
+    parsed = dict(row.description_parsed or {})
+    parsed.pop("_tracker", None)
+    job_summary = {
+        "title": row.title or parsed.get("title"),
+        "company": row.company_name or parsed.get("company"),
+        "must_haves": parsed.get("must_haves") or [],
+        "nice_to_haves": parsed.get("nice_to_haves") or [],
+        "ats_keywords": parsed.get("ats_keywords") or [],
+        "description_raw": row.description_raw,
+    }
+    artifacts, generated_by = await generate_prep_artifacts(session, job_summary)
+
+    existing = (
+        await session.execute(
+            select(InterviewPrepOrm)
+            .where(InterviewPrepOrm.user_id == row.user_id)
+            .where(InterviewPrepOrm.job_id == row.id)
+        )
+    ).scalar_one_or_none()
+    now = utc_now()
+    if existing is not None:
+        existing.artifacts = artifacts
+        existing.generated_by = generated_by
+        existing.updated_at = now
+    else:
+        session.add(
+            InterviewPrepOrm(
+                id=uuid4(),
+                user_id=row.user_id,
+                job_id=row.id,
+                artifacts=artifacts,
+                generated_by=generated_by,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+    await session.commit()
+    return {"job_id": job_id, "artifacts": artifacts, "generated_by": generated_by}
+
+
+@router.get("/{job_id}/interview-prep")
+async def get_interview_prep(
+    job_id: str,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> dict[str, Any]:
+    """Fetch the persisted interview prep for this job (artifacts=null if none yet)."""
+    from src.documents.infrastructure.orm import InterviewPrepOrm
+
+    row = (
+        await session.execute(
+            select(InterviewPrepOrm)
+            .where(InterviewPrepOrm.user_id == UUID(user_id))
+            .where(InterviewPrepOrm.job_id == UUID(job_id))
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        return {"job_id": job_id, "artifacts": None, "generated_by": None}
+    return {
+        "job_id": job_id,
+        "artifacts": row.artifacts,
+        "generated_by": row.generated_by,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }

@@ -597,6 +597,12 @@ export const jobs = {
       method: "POST",
       body: JSON.stringify({ items }),
     }),
+  interviewPrep: {
+    get: (jobId: string) =>
+      api<InterviewPrep>(`/api/v1/jobs/${jobId}/interview-prep`),
+    generate: (jobId: string) =>
+      api<InterviewPrep>(`/api/v1/jobs/${jobId}/interview-prep`, { method: "POST" }),
+  },
 };
 
 export type JobStatus =
@@ -618,6 +624,25 @@ export interface MatchBreakdown {
   gaps: string[];
   keyword_coverage: number | null;
   suggested_keywords: string[];
+}
+
+export interface InterviewStarDraft {
+  prompt: string;
+  situation: string;
+  task: string;
+  action: string;
+  result: string;
+}
+export interface InterviewPrepArtifacts {
+  research_brief: string;
+  questions: string[];
+  star_drafts: InterviewStarDraft[];
+}
+export interface InterviewPrep {
+  job_id: string;
+  artifacts: InterviewPrepArtifacts | null;
+  generated_by: string | null;
+  updated_at?: string | null;
 }
 
 export interface JobRow {
