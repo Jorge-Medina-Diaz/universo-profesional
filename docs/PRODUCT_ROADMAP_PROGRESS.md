@@ -20,6 +20,26 @@ working tree clean.
 | **QW — 422/500 problem-detail + OAuth redirect_uri policy** | `adafc1d`, `3ddad03` | 422/500 now use the `{title,detail}` envelope; DCR rejects non-https/wildcard/fragment redirect_uris (RFC 8252, loopback http allowed). **Verified live.** |
 | **R2 — FORCE RLS (policy layer)** | `f38a758`, `5c53c95` | Migration 0032 rewrites all 37 `*_user_isolation` policies with an `app.bypass_rls` service escape-hatch, then FORCEs RLS. `set_rls_user` sets the flag. **Integration test** `tests/integration/test_rls_isolation.py`. ⚠️ **Inert until the app runs as a non-owner role** — see below. |
 | **QW — 402 → global upgrade modal** | `d24a48f`, `01ecdc9` | Backend already returned 402; `api.ts` now fires a `cvs:upgrade-required` event and `UpgradeModal` (mounted in `App.tsx`) offers "Ver planes". |
+| **R11 — Text2Cypher tenant scoping + ontology allowlist** | `634947c`, `29442ec` | RLS does not cover AGE label tables, so the Cypher `user_id` filter is the only graph-read boundary and the LLM controlled it. Forces server `user_id`; **per-node** scope enforcement (a single binding was bypassable via a 2nd unscoped MATCH — caught by the review); ontology allowlist; read-only guard; edge-write chokepoint on `PERSONAL_EDGE_TYPES` (incl. restored `MERGED_INTO`). Tests cover the bypass vectors. |
+| **R-QW — render_status on documents** (no-silent on the core CV) | `1e222e4`, `f6f2631` | `ready\|degraded\|failed` end-to-end; migration 0033 + backfill; the WeasyPrint `.html` fallback is now visible. Banner + PDF-gate on **all four** surfaces (viewer, generate-result, list, public share — the last three added in the review pass). |
+| **R8+R9 — fail-loud tasks + HTTP RED metrics + worker Sentry/OTel** | `fbb350b`, `f6f2631` | `worker_failures` policy (transient→`arq.Retry`, terminal→Sentry+re-raise) on the 4 sync tasks; `cvs_http_requests_total`/`_duration` on the matched route template; worker observability init (isolated+loud); inline (Redis-down) fallback guarded; arq `--check` healthcheck. |
+| **R3 — server-side onboarding/activation state** | `4d3f7e7`, `f6f2631` | `onboarding_started_at/activated_at/onboarding_completed_at` on users (migration 0034 + backfill); activation derived from real signals via raw SQL (import-linter clean); `POST /me/onboarding/advance`; FE gates read server state (Router waits on `/me` — race fixed in review); activation event now persisted to `domain_events`. |
+
+> **All four above were independently re-reviewed by an adversarial workflow** that
+> found 1 critical (the Text2Cypher multi-MATCH bypass), 1 high (the `MERGED_INTO`
+> regression), and several mediums (FE degraded-PDF gaps, worker silent-except,
+> Router race) — **all fixed + committed** (`29442ec`, `f6f2631`). Gates green
+> (ruff F,E9 + import-linter + tsc + eslint), migrations round-trip, `/readyz` 200.
+
+### ⏭ Tranche remainder (large; blueprints captured)
+**F — applications first-class aggregate** and **C — `Page[T]` pagination +
+response_model** are the two remaining tranche items. Both are large: F is a new
+bounded context (~13 files) + a data-migration backfill from `jobs._tracker` +
+rewiring 6 call-sites + FE (a refactor of *working* code — the `applications`
+table already exists from migration 0001, so it's ALTER-not-CREATE); C is a
+breaking FE envelope change. Detailed, current-code blueprints exist (the
+blueprint-workflow output) — execute as a focused pass, F before C (C's response
+models should absorb F's shape).
 
 ### ⚠️ R2 has a REQUIRED completion step (deferred, not optional)
 The app connects to Postgres as **superuser `cvs`** (`rolsuper=t rolbypassrls=t`),
