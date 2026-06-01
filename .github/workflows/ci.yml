@@ -17,7 +17,16 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: pgvector/pgvector:pg16
+        # AGE-enabled Postgres (pgvector + Apache AGE) — the same image dev/prod
+        # use, built + pushed by publish-postgres.yml. REQUIRED: the AGE
+        # foundation migration runs `CREATE EXTENSION age` unguarded, so against
+        # the vanilla pgvector image `alembic upgrade head` would fail and no
+        # AGE-dependent code path would ever run in CI (the divergence the audit
+        # flagged). credentials let the service pull the package via GITHUB_TOKEN.
+        image: ghcr.io/${{ github.repository_owner }}/cvs-postgres:pg16
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
         env:
           POSTGRES_USER: cvs
           POSTGRES_PASSWORD: cvs_dev_password
@@ -139,7 +148,16 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: pgvector/pgvector:pg16
+        # AGE-enabled Postgres (pgvector + Apache AGE) — the same image dev/prod
+        # use, built + pushed by publish-postgres.yml. REQUIRED: the AGE
+        # foundation migration runs `CREATE EXTENSION age` unguarded, so against
+        # the vanilla pgvector image `alembic upgrade head` would fail and no
+        # AGE-dependent code path would ever run in CI (the divergence the audit
+        # flagged). credentials let the service pull the package via GITHUB_TOKEN.
+        image: ghcr.io/${{ github.repository_owner }}/cvs-postgres:pg16
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
         env:
           POSTGRES_USER: cvs
           POSTGRES_PASSWORD: cvs_dev_password

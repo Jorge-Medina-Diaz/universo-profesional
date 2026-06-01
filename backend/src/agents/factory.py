@@ -225,6 +225,17 @@ def _build_model(tier: ModelTier = "coordinator") -> Model:
     (`retries`, `exponential_backoff`) which re-try the *same* model.
     """
     settings = get_settings()
+    # R5: opt-in deterministic scripted model for offline agent-loop tests.
+    # The contextvar is None unless a test wraps the run in `scripted_model(...)`,
+    # so this never backs a real user's agent.
+    from src.agents.infrastructure.fake_llm import (
+        FakeScriptedModel,
+        get_scripted_steps,
+    )
+
+    _scripted = get_scripted_steps()
+    if _scripted is not None:
+        return FakeScriptedModel(_scripted)
     override = _byok_override.get()
     if override is not None:
         provider, byok_key = override

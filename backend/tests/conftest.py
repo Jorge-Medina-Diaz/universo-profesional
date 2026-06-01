@@ -109,3 +109,30 @@ async def _clean_db() -> AsyncIterator[None]:
         # Redis may not be running in some local setups; don't fail the suite.
         pass
     yield
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _require_age(request) -> None:
+    """Tests marked `requires_age` FAIL (never skip) if Apache AGE is absent.
+
+    AGE-dependent tests must run against an AGE-enabled Postgres (the
+    `cvs-postgres` image, both in dev and CI). A silent skip on a vanilla
+    Postgres would let AGE/prod divergence pass CI green — exactly the gap this
+    guard closes. No-op for unmarked tests, so it costs nothing until used.
+    """
+    if request.node.get_closest_marker("requires_age") is None:
+        return
+    factory = get_session_factory()
+    async with factory() as session:
+        row = (
+            await session.execute(
+                text("SELECT 1 FROM pg_extension WHERE extname = 'age'")
+            )
+        ).first()
+    if row is None:
+        pytest.fail(
+            "Test is marked `requires_age` but the Apache AGE extension is not "
+            "installed in the test database. CI must use the AGE-enabled Postgres "
+            "image (ghcr.io/<owner>/cvs-postgres:pg16) — failing loudly here "
+            "instead of skipping so AGE/prod divergence can't hide behind a green run."
+        )

@@ -198,6 +198,10 @@ markers = [
     "integration: hits database or redis",
     "e2e: full API or MCP flow",
     "slow: takes >1s",
+    # Tests that exercise the real Apache AGE graph (cypher, vertices, edges).
+    # The conftest guard FAILS (never skips) these when AGE is absent, so a
+    # non-AGE CI database can't hide AGE/prod divergence behind a green run.
+    "requires_age: needs the Apache AGE extension installed in the test DB",
 ]
 
 [tool.coverage.run]
