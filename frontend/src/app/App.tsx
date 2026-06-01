@@ -9,6 +9,7 @@ import { ShortcutsOverlay } from "./ShortcutsOverlay";
 import { NetworkStatus } from "./NetworkStatus";
 import { ToasterProvider } from "@/ui";
 import { TourProvider } from "./tour/TourProvider";
+import { UpgradeModal } from "./UpgradeModal";
 
 /**
  * Sprint 4 layout: chat lives in `HomePage` (the `/` route), not as a
@@ -35,6 +36,7 @@ export function App() {
                 <ShortcutsOverlay />
               </>
             )}
+            <UpgradeModal />
           </CopilotProvider>
         </TourProvider>
       </ToasterProvider>
