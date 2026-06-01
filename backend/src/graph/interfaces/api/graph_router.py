@@ -136,7 +136,8 @@ _ALLOWED_EDGE_TYPES = {
     graph_schema.DERIVED_FROM,
     graph_schema.RELATED_TO,
 }
-assert _ALLOWED_EDGE_TYPES <= graph_schema.PERSONAL_EDGE_TYPES
+if not _ALLOWED_EDGE_TYPES <= graph_schema.PERSONAL_EDGE_TYPES:
+    raise RuntimeError("HITL edge allowlist drifted from the ontology source of truth")
 
 
 class EdgeMutationRequest(BaseModel):

@@ -74,6 +74,41 @@ class TestValidateQuery:
         q = "MATCH (s:EscoSkill)-[:ESSENTIAL_FOR]->(o:Occupation) RETURN o.code"
         assert _validate_query(q, graph=ONTOLOGY) is None
 
+    def test_second_unscoped_match_rejected(self):
+        # The critical bypass: one binding satisfied a global check while a
+        # second personal node stayed unscoped → cross-tenant read.
+        q = "MATCH (a:Skill {user_id: $user_id}) MATCH (b:Experience) RETURN b.id"
+        err = _validate_query(q, graph=PERSONAL)
+        assert err is not None and "tenant scope" in err
+
+    def test_unscoped_traversal_target_rejected(self):
+        q = "MATCH (a:Skill {user_id: $user_id})-[:USES_TECH]->(b:Project) RETURN b.id"
+        err = _validate_query(q, graph=PERSONAL)
+        assert err is not None and "tenant scope" in err
+
+    def test_stuffing_extra_refs_does_not_unlock_unscoped_node(self):
+        # Stuffing extra $user_id refs into one node must not pass a second.
+        q = (
+            "MATCH (a:Skill {user_id: $user_id}) "
+            "MATCH (b:Experience {kind: $user_id}) RETURN b.id"
+        )
+        err = _validate_query(q, graph=PERSONAL)
+        assert err is not None and "tenant scope" in err
+
+    def test_all_nodes_scoped_via_map_passes(self):
+        q = (
+            "MATCH (a:Skill {user_id: $user_id})-[:DEMONSTRATES]->"
+            "(b:Experience {user_id: $user_id}) RETURN b.id"
+        )
+        assert _validate_query(q, graph=PERSONAL) is None
+
+    def test_all_nodes_scoped_via_where_passes(self):
+        q = (
+            "MATCH (a:Skill), (b:Experience) "
+            "WHERE a.user_id = $user_id AND b.user_id = $user_id RETURN b.id"
+        )
+        assert _validate_query(q, graph=PERSONAL) is None
+
 
 class TestGenerateForcesTenantId:
     async def test_llm_supplied_user_id_is_overwritten(self, monkeypatch):

@@ -195,6 +195,40 @@ _NODE_LABEL_RE = re.compile(
 _EDGE_TYPE_RE = re.compile(
     r"\[\s*(?:[A-Za-z_][A-Za-z0-9_]*)?\s*:\s*([A-Za-z_][A-Za-z0-9_]*)"
 )
+# Personal-graph tenant scoping: EVERY node pattern must bind user_id to the
+# server param. A single global "is $user_id mentioned?" check is bypassable —
+# `MATCH (a:Skill {user_id:$user_id}) MATCH (b:Experience) RETURN b` scopes only
+# `a` yet reads every tenant's Experience nodes (RLS does not cover AGE tables).
+# Node patterns are parens NOT preceded by an identifier char (those are
+# function calls like count(...)); a node is scoped if it carries
+# `user_id: $user_id` in its own map OR its variable is constrained by a
+# `WHERE <var>.user_id = $user_id` clause.
+_NODE_PATTERN_RE = re.compile(r"(?<![A-Za-z0-9_])\(([^()]*)\)")
+_NODE_VAR_RE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)")
+_INLINE_USER_SCOPE = re.compile(r"user_id\s*:\s*\$user_id")
+
+
+def _personal_scope_error(query: str) -> str | None:
+    """Return an error if any personal-graph node pattern is not bound to
+    $user_id. Fail closed — the contract (system prompt Rule 1) requires
+    scoping every personal node; an unscoped node is a cross-tenant read."""
+    if not _USER_ID_BOUND.search(query):
+        return "tenant scope missing: personal-graph query must bind user_id = $user_id"
+    for m in _NODE_PATTERN_RE.finditer(query):
+        inner = m.group(1).strip()
+        if not inner:
+            continue  # anonymous () waypoint — cannot be returned, no leak
+        if _INLINE_USER_SCOPE.search(inner):
+            continue
+        var_m = _NODE_VAR_RE.match(inner)
+        var = var_m.group(1) if var_m else None
+        if var and re.search(rf"\b{re.escape(var)}\.user_id\s*=\s*\$user_id", query):
+            continue
+        return (
+            "tenant scope missing: every personal-graph node must bind "
+            "user_id = $user_id (unscoped node pattern)"
+        )
+    return None
 
 
 def _validate_query(query: str, *, graph: str) -> str | None:
@@ -222,8 +256,9 @@ def _validate_query(query: str, *, graph: str) -> str | None:
         if m.group(1) not in graph_schema.ALL_EDGE_TYPES:
             return f"unknown edge type: {m.group(1)}"
     if graph == graph_schema.GRAPH_PERSONAL:
-        if not _USER_ID_BOUND.search(query):
-            return "tenant scope missing: personal-graph query must bind user_id = $user_id"
+        scope_err = _personal_scope_error(query)
+        if scope_err:
+            return scope_err
         if _UUID_LITERAL.search(query):
             return "literal id not allowed: bind ids via $params, never inline UUIDs"
     return None

@@ -140,6 +140,10 @@ RELATED_TO: Final = "RELATED_TO"
 """Generic edge for user-asserted relations that don't fit a typed verb.
 Carries a `relation_label` property describing the user's wording."""
 
+MERGED_INTO: Final = "MERGED_INTO"
+"""Entity → Entity (provenance) — written by entity resolution when a duplicate
+is merged into its representative; pairs with the :MergeEvent vertex."""
+
 # Ontology edges (in universe_ontology)
 SKOS_BROADER: Final = "SKOS_BROADER"
 SKOS_NARROWER: Final = "SKOS_NARROWER"
@@ -178,6 +182,7 @@ PERSONAL_EDGE_TYPES: Final[frozenset[str]] = frozenset(
         TOUCHED_IN,
         MEMBER_OF,
         RELATED_TO,
+        MERGED_INTO,
     }
 )
 
