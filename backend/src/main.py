@@ -309,6 +309,7 @@ def create_app() -> FastAPI:
 
     # --- Routers -----------------------------------------------------------
     from src.billing.interfaces.api.router import router as billing_router
+    from src.documents.interfaces.api.applications_router import router as applications_router
     from src.documents.interfaces.api.jobs_router import router as jobs_router
     from src.documents.interfaces.api.router import public_router as documents_share_router
     from src.documents.interfaces.api.router import router as documents_router
@@ -333,6 +334,9 @@ def create_app() -> FastAPI:
     app.include_router(documents_router, prefix="/api/v1/documents", tags=["documents"])
     app.include_router(documents_share_router, prefix="/api/v1/share", tags=["share"])
     app.include_router(jobs_router, prefix="/api/v1/jobs", tags=["jobs"])
+    app.include_router(
+        applications_router, prefix="/api/v1/applications", tags=["applications"]
+    )
     app.include_router(billing_router, prefix="/api/v1/billing", tags=["billing"])
     from src.integrations.interfaces.api.linkedin_oidc_router import (
         router as linkedin_oidc_router,

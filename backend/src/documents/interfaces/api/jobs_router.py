@@ -18,6 +18,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import desc, select
 
 from src.documents.domain.entities import Job
+from src.documents.infrastructure.applications_sync import (
+    upsert_application_from_tracker,
+)
 from src.documents.infrastructure.orm import JobOrm
 from src.identity.interfaces.api.deps import CurrentUserId, SessionDep
 
@@ -144,6 +147,10 @@ async def create_job(
         created_at=job.created_at,
     )
     session.add(row)
+    await session.flush()  # persist the job in-txn so the application FK resolves
+    await upsert_application_from_tracker(
+        session, user_id=job.user_id, job_id=job.id, tracker={"status": body.status}
+    )
     await session.commit()
     return _to_dict(row)
 
@@ -187,6 +194,9 @@ async def patch_job(
     if body.next_action_at is not None or body.status is not None:
         await _sync_job_followup_reminder(session, row, tracker)
 
+    await upsert_application_from_tracker(
+        session, user_id=row.user_id, job_id=row.id, tracker=tracker
+    )
     await session.commit()
     return _to_dict(row)
 
@@ -321,6 +331,9 @@ async def reorder_jobs(
                 tracker["applied_at"] = datetime.now(UTC).isoformat()
         parsed["_tracker"] = tracker
         row.description_parsed = parsed
+        await upsert_application_from_tracker(
+            session, user_id=row.user_id, job_id=row.id, tracker=tracker
+        )
         updated += 1
     if updated:
         await session.commit()
@@ -376,6 +389,9 @@ async def compute_score(
     tracker["match"] = breakdown
     parsed["_tracker"] = tracker
     row.description_parsed = parsed
+    await upsert_application_from_tracker(
+        session, user_id=row.user_id, job_id=row.id, tracker=tracker
+    )
     await session.commit()
     return _to_dict(row)
 

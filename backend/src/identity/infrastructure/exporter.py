@@ -26,6 +26,8 @@ EXPORT_TABLES = (
     "documents",
     "jobs",
     "applications",
+    "job_requirements",
+    "interview_preps",
     "subscriptions",
 )
 
