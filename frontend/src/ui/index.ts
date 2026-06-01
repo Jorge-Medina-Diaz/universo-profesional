@@ -22,6 +22,7 @@ export {
   type ToastVariant,
 } from "./Toaster";
 export { Skeleton, PageSkeleton, type SkeletonProps } from "./Skeleton";
+export { ProgressRing, type ProgressRingProps } from "./ProgressRing";
 export { MarkdownEditor, type MarkdownEditorProps } from "./MarkdownEditor";
 export { DropZone, type DropZoneProps } from "./DropZone";
 export {

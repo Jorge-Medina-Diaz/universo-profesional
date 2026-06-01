@@ -30,15 +30,12 @@ const variants: Record<Variant, string> = {
   ghost: "bg-transparent text-ink hover:bg-black/5",
   outline:
     "bg-transparent text-ink border border-ink/15 hover:bg-black/5 hover:border-ink/30",
-  danger: "bg-red-500 text-white hover:bg-red-600",
+  danger: "bg-danger text-canvas hover:opacity-90 shadow-soft",
   // Luminous cosmos CTA — pill + sunbeam gradient + glow. Mirrors the landing's
   // .cos-btn-primary so the landing->register hand-off feels continuous. Use
   // for the few hero/primary conversion actions (register, generate, upgrade).
-  cta:
-    "!rounded-full bg-gradient-to-b from-[#ffe48f] to-sunbeam text-[#2a2003] font-semibold " +
-    "shadow-[0_0_0_1px_rgba(255,218,110,0.4),0_10px_30px_-10px_rgba(255,218,110,0.55)] " +
-    "hover:-translate-y-[2px] active:translate-y-0 " +
-    "hover:shadow-[0_0_0_1px_rgba(255,218,110,0.5),0_16px_44px_-12px_rgba(255,218,110,0.7)]",
+  // Gradient/glow live in the `.surface-cta` token class (styles/index.css).
+  cta: "!rounded-full surface-cta font-semibold hover:-translate-y-[2px] active:translate-y-0",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(

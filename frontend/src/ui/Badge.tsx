@@ -11,13 +11,17 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   icon?: ReactNode;
 }
 
+// All tones use theme-aware tokens so chips flip correctly with data-theme.
+// `amber` maps to the warm sunbeam tokens (the cosmos palette has no separate
+// amber; sunbeam is the warning/attention hue) — keeps "gaps/warning" legible
+// in both themes instead of the old glaring `amber-100` light block in dark.
 const tones: Record<Tone, string> = {
   leaf: "bg-leaf-soft text-leaf-ink",
   sunbeam: "bg-sunbeam-soft text-sunbeam-ink",
-  stone: "bg-black/[0.04] text-stone",
+  stone: "bg-field text-stone",
   ink: "bg-ink text-canvas",
-  amber: "bg-amber-100 text-amber-900",
-  danger: "bg-red-50 text-red-700",
+  amber: "bg-sunbeam-soft text-sunbeam-ink",
+  danger: "bg-danger-soft text-danger-ink",
   nova: "bg-nova-soft text-nova-ink",
 };
 
@@ -26,8 +30,8 @@ const dotColors: Record<Tone, string> = {
   sunbeam: "bg-sunbeam",
   stone: "bg-stone",
   ink: "bg-canvas",
-  amber: "bg-amber-500",
-  danger: "bg-red-500",
+  amber: "bg-sunbeam",
+  danger: "bg-danger",
   nova: "bg-nova",
 };
 

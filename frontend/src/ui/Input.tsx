@@ -17,7 +17,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   return (
     <input
       ref={ref}
-      className={cn(fieldBase, invalid && "border-red-500 focus:border-red-500", className)}
+      className={cn(fieldBase, invalid && "border-danger focus:border-danger", className)}
       {...rest}
     />
   );
@@ -34,7 +34,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
   return (
     <textarea
       ref={ref}
-      className={cn(fieldBase, "min-h-[96px] resize-y", invalid && "border-red-500 focus:border-red-500", className)}
+      className={cn(fieldBase, "min-h-[96px] resize-y", invalid && "border-danger focus:border-danger", className)}
       {...rest}
     />
   );

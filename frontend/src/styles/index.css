@@ -93,6 +93,33 @@
   --glow-sunbeam: 0 0 24px rgba(255, 218, 110, 0.30);
   --glow-nova: 0 0 40px rgba(0, 212, 170, 0.15);
 
+  /* Luminous CTA — tokenised so the Button `cta` variant + chat send button +
+   * landing share ONE definition (was magic hex `#ffe48f`/`#2a2003` duplicated
+   * in Button.tsx and the .composer-send rule). */
+  --color-sunbeam-bright: #ffe48f;
+  --gradient-cta: linear-gradient(
+    to bottom,
+    var(--color-sunbeam-bright),
+    var(--color-sunbeam-yellow)
+  );
+  --shadow-cta: 0 0 0 1px rgba(255, 218, 110, 0.4),
+    0 10px 30px -10px rgba(255, 218, 110, 0.55);
+  --shadow-cta-hover: 0 0 0 1px rgba(255, 218, 110, 0.5),
+    0 16px 44px -12px rgba(255, 218, 110, 0.7);
+
+  /* Chat rhythm — 8px grid (used by the custom composer + message stream). */
+  --chat-space-1: 4px;
+  --chat-space-2: 8px;
+  --chat-space-3: 12px;
+  --chat-space-4: 16px;
+  --chat-space-5: 24px;
+  --chat-disabled-opacity: 0.4;
+  /* User-turn bubble fill — one token (light = ink, dark = leaf) instead of a
+   * base rule + a dark override that drifted apart. */
+  --chat-user-bg: var(--color-midnight-ink);
+  /* Keyboard-hint chip — theme-aware so it doesn't vanish on dark. */
+  --kbd-bg: rgba(0, 0, 0, 0.05);
+
   /* Editorial elevation — hairline borders + refined depth. */
   --hairline: rgba(10, 10, 10, 0.08);
   --hairline-strong: rgba(10, 10, 10, 0.14);
@@ -153,6 +180,12 @@
   --glow-sunbeam: 0 0 24px rgba(241, 200, 75, 0.25);
   --glow-nova: 0 0 40px rgba(0, 212, 170, 0.12);
 
+  /* CTA + chat tokens — dark variants. The user bubble flips to leaf so it
+   * stays distinct from the agent's nova-tinted surface in dark. */
+  --color-sunbeam-bright: #f7d979;
+  --chat-user-bg: var(--color-leafy-green);
+  --kbd-bg: rgba(243, 239, 230, 0.1);
+
   --hairline: rgba(243, 239, 230, 0.1);
   --hairline-strong: rgba(243, 239, 230, 0.18);
   --constellation-dot: rgba(243, 239, 230, 0.07);
@@ -187,9 +220,19 @@
 :root[data-theme="dark"] .agent-prose th {
   background: rgba(243, 239, 230, 0.07);
 }
-:root[data-theme="dark"] .agent-action-btn:hover,
-:root[data-theme="dark"] .composer-hint kbd {
+:root[data-theme="dark"] .agent-action-btn:hover {
   background: rgba(243, 239, 230, 0.08);
+}
+
+/* Luminous CTA surface — shared by Button `cta` and the composer send button so
+ * the gradient + glow live in ONE place (token-driven, theme-aware). */
+.surface-cta {
+  background-image: var(--gradient-cta);
+  color: var(--color-sunbeam-ink);
+  box-shadow: var(--shadow-cta);
+}
+.surface-cta:hover:not(:disabled) {
+  box-shadow: var(--shadow-cta-hover);
 }
 
 /* ---------------------------------------------------------------- *
@@ -638,7 +681,7 @@
 }
 .composer-hint kbd {
   font-family: var(--font-dm-sans); font-size: 10px;
-  background: rgba(0, 0, 0, 0.05); border-radius: 4px; padding: 1px 4px;
+  background: var(--kbd-bg); border-radius: 4px; padding: 1px 4px;
 }
 .chat-collapsed .composer-hint { display: none; }
 

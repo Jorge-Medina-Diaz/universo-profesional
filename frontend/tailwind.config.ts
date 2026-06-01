@@ -36,6 +36,14 @@ const config: Config = {
           soft: "var(--color-nova-soft)",
           ink: "var(--color-nova-ink)",
         },
+        // Semantic danger — theme-aware (flips with data-theme). Backs the
+        // `danger` Badge tone, Input invalid state, and the in-thread error
+        // bubble, replacing scattered raw `red-500/rose-600` utilities.
+        danger: {
+          DEFAULT: "var(--color-danger)",
+          soft: "var(--color-danger-soft)",
+          ink: "var(--color-danger-ink)",
+        },
         // Legacy `brand` alias — kept so existing `bg-brand-600`, `border-brand-200`
         // etc. compile during the rolling migration. All map to the new palette.
         brand: {
