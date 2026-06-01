@@ -88,7 +88,7 @@ export function ArtifactProposalCard({
 
   return (
     <ChatMessageMotion>
-      <div className="rounded-card bg-surface my-3 max-w-lg shadow-soft border border-ink/[0.06] overflow-hidden">
+      <div className="rounded-card bg-surface my-3 max-w-lg shadow-soft border border-ink/[0.06] border-l-2 border-l-nova overflow-hidden">
         <header className="flex items-center gap-2 px-5 pt-5 pb-3">
           <span
             aria-hidden

@@ -92,7 +92,7 @@ export function Layout({ title, isAuthed, children }: Props) {
             className="justify-self-center flex items-center gap-2.5 font-medium text-ink hover:opacity-80 transition-opacity whitespace-nowrap"
           >
             <span aria-hidden className="relative inline-block">
-              <span className="inline-block w-7 h-7 rounded-full bg-leaf" />
+              <span className="inline-block w-7 h-7 rounded-full bg-gradient-to-br from-leaf to-nova" />
               <span className="absolute inset-0.5 rounded-full bg-canvas grid place-items-center text-[12px] font-medium text-ink">
                 u
               </span>

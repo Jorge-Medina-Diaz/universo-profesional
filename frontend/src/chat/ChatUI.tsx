@@ -276,14 +276,16 @@ export function ErrorMessage({ error }: ErrorMessageProps) {
     <div className="agent-msg flex gap-3 px-1 py-2">
       <span
         aria-hidden
-        className="grid place-items-center w-7 h-7 shrink-0 rounded-full bg-red-50 text-red-700"
+        className="grid place-items-center w-7 h-7 shrink-0 rounded-full bg-[var(--color-danger-soft)] text-[var(--color-danger)]"
       >
         <AlertTriangle size={13} strokeWidth={2.25} />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="rounded-card border border-red-200 bg-red-50/60 px-3.5 py-2.5">
-          <div className="text-sm font-medium text-red-800 leading-tight">{title}</div>
-          <div className="mt-0.5 text-xs leading-relaxed text-red-700/90">{detail}</div>
+        {/* Theme-aware danger tokens — readable on both the light + dark cosmos
+            canvas (was bg-red-50/text-red-700, a glaring near-white in dark). */}
+        <div className="rounded-card border border-[color-mix(in_srgb,var(--color-danger)_35%,transparent)] bg-[color-mix(in_srgb,var(--color-danger-soft)_75%,transparent)] px-3.5 py-2.5">
+          <div className="text-sm font-medium text-[var(--color-danger-ink)] leading-tight">{title}</div>
+          <div className="mt-0.5 text-xs leading-relaxed text-[var(--color-danger-ink)]/90">{detail}</div>
         </div>
       </div>
     </div>

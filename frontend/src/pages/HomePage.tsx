@@ -118,14 +118,36 @@ export function HomePage() {
             transition={{ duration: 0.42, ease: [0.2, 0.8, 0.2, 1] }}
             className="absolute inset-x-0 top-[16%] md:top-[20%] flex flex-col items-center text-center px-6 pointer-events-none"
           >
-            <span className="eyebrow mb-4">Universo profesional</span>
+            <span className="eyebrow mb-4 inline-flex items-center gap-1.5">
+              <span
+                aria-hidden
+                className="w-1.5 h-1.5 rounded-full bg-nova shadow-[0_0_8px_var(--color-nova)]"
+              />
+              Universo profesional
+            </span>
             <h1 className="font-display text-display text-ink max-w-3xl">
-              Tu carrera, viva
+              Tu carrera,{" "}
+              <span className="bg-gradient-to-r from-[var(--color-sunbeam-yellow)] via-[var(--color-leafy-green)] to-[var(--color-nova)] bg-clip-text text-transparent">
+                viva
+              </span>
             </h1>
             <p className="mt-4 max-w-md text-body-lg text-stone">
               Habla con tu agente para construir y mantener tu universo. Cada
               conversación lo hace crecer.
             </p>
+            {hasNodes && snapshot.data && (
+              <span className="mt-5 inline-flex items-center gap-2 rounded-full border border-hairline bg-[color-mix(in_srgb,var(--surface-canvas)_70%,transparent)] backdrop-blur px-3.5 py-1.5 text-xs text-stone">
+                <span className="font-medium text-ink tabular-nums">
+                  {snapshot.data.node_count}
+                </span>{" "}
+                entidades
+                <span aria-hidden className="text-stone/40">·</span>
+                <span className="font-medium text-ink tabular-nums">
+                  {snapshot.data.edge_count}
+                </span>{" "}
+                conexiones
+              </span>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
