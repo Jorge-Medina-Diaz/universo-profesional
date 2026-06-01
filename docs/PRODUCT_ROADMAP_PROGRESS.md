@@ -31,15 +31,26 @@ working tree clean.
 > Router race) — **all fixed + committed** (`29442ec`, `f6f2631`). Gates green
 > (ruff F,E9 + import-linter + tsc + eslint), migrations round-trip, `/readyz` 200.
 
-### ⏭ Tranche remainder (large; blueprints captured)
-**F — applications first-class aggregate** and **C — `Page[T]` pagination +
-response_model** are the two remaining tranche items. Both are large: F is a new
-bounded context (~13 files) + a data-migration backfill from `jobs._tracker` +
-rewiring 6 call-sites + FE (a refactor of *working* code — the `applications`
-table already exists from migration 0001, so it's ALTER-not-CREATE); C is a
-breaking FE envelope change. Detailed, current-code blueprints exist (the
-blueprint-workflow output) — execute as a focused pass, F before C (C's response
-models should absorb F's shape).
+### ✅ Also shipped this pass (post-review, user-directed)
+| Item | Commit | Notes |
+|---|---|---|
+| **R7 slice — keyset-paginate the append-only feeds** | `9a55795` | `activity` + `coherence/changes` were timestamp+LIMIT with no cursor/tiebreaker (effectively unbounded; dup/skip on equal timestamps). New `src/shared/pagination.py` (opaque cursor + `build_page`); both feeds keyset on `(ts, id)` returning a `{items, next_cursor}` envelope; FE `Page<T>` + consumers (ActivityPage, UniverseDrawer). Keyset SQL validated against live tables. |
+| **R12 — ATS-readiness on the generate screen** | `6a2cc91` | On-demand match/keyword-coverage/gaps card on the CV result screen, reusing the existing `/jobs/{id}/score` endpoint (generate response now returns `job_id`). |
+
+### ⏭ Remainder (deferred — blueprints captured)
+- **R16 — interview-prep artifacts** (next user feature): per-application research
+  brief / question bank / STAR drafts / mock transcripts. Large net-new build
+  (prep-artifacts model + LLM generation + persistence + FE) — a focused pass.
+- **F — applications first-class aggregate**: new bounded context (~13 files) +
+  data-migration backfill from `jobs._tracker` + rewiring 6 call-sites + FE. A
+  refactor of *working* code (the `applications` table already exists from
+  migration 0001 → ALTER-not-CREATE). **Deliberately deferred** this session — the
+  user prioritised perf + user-features over this refactor. Detailed blueprint saved.
+- **C remainder**: jobs-list pagination (couples to F) + strict `response_model`
+  typing on the paginated endpoints.
+- **R10 re-sync engine + review queue**, **R13–15 agentic efficiency**, **R4 SQL
+  transactional-outbox projection** (largest), **R5 AGE-in-CI** — see
+  [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md).
 
 ### ⚠️ R2 has a REQUIRED completion step (deferred, not optional)
 The app connects to Postgres as **superuser `cvs`** (`rolsuper=t rolbypassrls=t`),
