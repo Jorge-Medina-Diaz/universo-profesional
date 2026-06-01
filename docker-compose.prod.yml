@@ -129,7 +129,15 @@ services:
       context: .
       dockerfile: docker/frontend.prod.Dockerfile
       args:
-        VITE_API_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:8000}
+        # SAME-ORIGIN: this image's nginx proxies /api, /agui, /mcp to the
+        # backend (see docker/nginx.conf), so the SPA must use RELATIVE URLs.
+        # Default empty → CopilotKit's runtimeUrl resolves to "/agui" and is
+        # proxied same-origin (no CORS, CSP-clean). Baking an absolute URL here
+        # (the old ${FRONTEND_BASE_URL} default) is what broke the chat:
+        # CopilotKit went cross-origin to :8000 and was blocked. Only override
+        # VITE_API_BASE_URL if the backend is on a genuinely different origin
+        # with no proxy in front.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
     image: ${FRONTEND_IMAGE:-cvs-saas-frontend:latest}
     container_name: cvs-frontend
     restart: unless-stopped

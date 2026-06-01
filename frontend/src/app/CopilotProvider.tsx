@@ -136,13 +136,24 @@ type CopilotKitComponent = ComponentType<{
   children: ReactNode;
 }>;
 
-/** Resolve the AG-UI runtime URL the same way the CopilotKit provider does.
- *  Empty VITE_API_BASE_URL → relative "/agui" (same-origin via nginx proxy). */
+/** Resolve the AG-UI runtime URL for CopilotKit.
+ *
+ *  CopilotKit 1.57 mishandles a RELATIVE runtimeUrl ("/agui"): its runtime
+ *  client resolves it against bare `http://localhost` (port 80, dropping the
+ *  real port) → ERR_CONNECTION_REFUSED. So we always hand it an ABSOLUTE URL.
+ *  With no explicit base we use the page's own origin, which is still
+ *  same-origin (nginx proxies /agui to the backend → no CORS, CSP-clean) but
+ *  absolute so CopilotKit resolves it correctly. An explicit VITE_API_BASE_URL
+ *  (e.g. the Vite dev server pointing at :8000) or VITE_AGUI_URL still wins. */
 function getRuntimeUrl(): string {
   const env =
     (import.meta as never as { env: Record<string, string | undefined> }).env || {};
-  const apiBase = env.VITE_API_BASE_URL || "";
-  return env.VITE_AGUI_URL || `${apiBase}/agui`;
+  if (env.VITE_AGUI_URL) return env.VITE_AGUI_URL;
+  const apiBase = env.VITE_API_BASE_URL;
+  if (apiBase) return `${apiBase}/agui`;
+  const origin =
+    typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}/agui`;
 }
 
 /** Probe the runtime once so a DEAD chat is never silent. CopilotKit logs
