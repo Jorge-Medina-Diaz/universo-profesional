@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 
 import structlog
-from sqlalchemy import delete
+from sqlalchemy import delete, text
 from tenacity import (
     AsyncRetrying,
     retry_if_exception_type,
@@ -140,6 +140,17 @@ async def hard_delete_expired_accounts(ctx: dict[str, Any]) -> int:
         )
         result = await session.execute(stmt)
         ids = [str(r[0]) for r in result.fetchall()]
+        # Erase user-scoped tables that have NO ON-DELETE-CASCADE FK to users
+        # (the event store etc.) — the cascade above won't reach them, so a
+        # right-to-erasure would otherwise leave their PII behind.
+        if ids:
+            from src.identity.infrastructure.exporter import MANUAL_ERASE
+
+            for tbl in MANUAL_ERASE:
+                await session.execute(
+                    text(f"DELETE FROM {tbl} WHERE user_id::text = ANY(:ids)"),  # noqa: S608
+                    {"ids": ids},
+                )
         await session.commit()
     logger.info("hard_deleted_accounts", count=len(ids), ids=ids)
     return len(ids)
