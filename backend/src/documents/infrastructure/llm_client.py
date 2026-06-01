@@ -501,7 +501,11 @@ def build_document_llm_client(session: AsyncSession, user_id: UUID | None = None
     """Pick the real grounded-tailoring client when a provider is configured,
     else the deterministic mock. Mirrors the provider-resolution pattern used
     across the codebase (a single key auto-activates real generation)."""
-    if get_settings().llm_provider_resolved == "mock":
+    settings = get_settings()
+    if settings.llm_provider_resolved == "mock":
+        # Never generate a real user's CV from the fabricating mock client where
+        # mock isn't allowed (prod without a key).
+        settings.assert_llm_usable()
         return MockLlmClient(session)
     return AiLlmClient(session, user_id=user_id)
 

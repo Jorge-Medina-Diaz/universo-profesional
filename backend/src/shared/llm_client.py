@@ -17,7 +17,7 @@ in CI.
 from __future__ import annotations
 
 import json
-from typing import Protocol, TypeVar
+from typing import Any, Protocol, TypeVar
 
 import structlog
 from pydantic import BaseModel
@@ -229,14 +229,19 @@ def get_llm_client() -> LlmClient:
             _client = AnthropicLlmClient()
         except Exception as exc:
             logger.warning("anthropic_init_failed_falling_back_to_mock", error=str(exc))
+            settings.assert_llm_usable()
             _client = MockLlmClient()
     elif provider == "openai":
         try:
             _client = OpenAiLlmClient()
         except Exception as exc:
             logger.warning("openai_init_failed_falling_back_to_mock", error=str(exc))
+            settings.assert_llm_usable()
             _client = MockLlmClient()
     else:
+        # No real provider resolved — refuse the fabricating mock where it
+        # isn't allowed (prod without a key) instead of silently using it.
+        settings.assert_llm_usable()
         _client = MockLlmClient()
     return _client
 
