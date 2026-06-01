@@ -722,7 +722,11 @@ class EntityResolutionPipeline:
                 {"uid": str(user_id), "ids": id_list},
             )
         ).mappings().all()
-        return {UUID(r["id"]): dict(r) for r in rows}
+        # `SELECT *` over asyncpg returns the uuid `id` column as an
+        # asyncpg.pgproto.UUID (not a str); uuid.UUID() can't wrap that object
+        # directly (AttributeError: no .replace). str() it first so the keys are
+        # stdlib UUIDs, matching the ids used downstream (cluster/representative).
+        return {UUID(str(r["id"])): dict(r) for r in rows}
 
 
 # Helpers
