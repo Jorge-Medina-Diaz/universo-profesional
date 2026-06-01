@@ -82,6 +82,37 @@ Recorded so a fresh session resumes without re-deriving why these were held back
 - **R10 — LinkedIn auto-resync** (excluded from the GitHub cron) + the persistent
   Review-queue FE surface + Home badge.
 
+### ✅ "Continue" pass — survey-ranked tranches (GDPR · backend correctness · a11y/PWA · chat cosmos)
+A read-only survey workflow (5 readers) verified M5/M6/residual against current
+code and ranked the remainder; the top tranches were built lowest-risk-first,
+each gated + (where reachable) live-verified, then an adversarial-review workflow
+(5 reviewers) audited all five and the real findings were remediated.
+
+| Tranche | Commits | What shipped |
+|---|---|---|
+| **T1 — GDPR two-phase deletion** | `72a5f3b` | DELETE /me now also erases the BYOK key + disconnects every external account (live secrets the soft-delete's absent cascade left behind), atomically; `hard_delete_expired_accounts` is now SCHEDULED (daily 02:00) — it was a registered function that never fired — and runs as service-scope (bypass RLS) so it works under R2's cvs_app role. Live-verified both phases. |
+| **T2 — GDPR export/erase completeness** | `0677d4f`, `93bca4d` | Export set is DISCOVERED from information_schema minus a curated DENY (was a stale hardcoded tuple missing notes/artifacts/ADRs/evidences/reminders/knowledge_docs); secret columns redacted; `domain_events` (the one non-cascading user table) erased explicitly. CI guards: every user table is exported-or-denied, erased (cascade OR MANUAL_ERASE), and no secret-looking column on an exported table is unredacted. Export failures now log loud + surface an `errors` list (was a silent partial-200). |
+| **T3 — backend correctness/perf** | `1ed2017`, `93bca4d` | Killed the enrichment embedding N+1 (per-kind `embed_batch`) — **+ critical fix**: `flush()` before `expire_all()` so the in-session embedding writes aren't discarded (proven live: pre-fix stayed NULL). LLM pricing resolves dated/family slugs at a separator-anchored prefix (short ids → loud `llm_price_unknown`, never the cheapest sibling). Redis-localhost / in-memory rate-limit flagged in prod. |
+| **T6 — M6 a11y + PWA** | `85763a4`, `93bca4d` | CommandPalette `aria-activedescendant`; reduced-motion FREEZES the constellation rAF (+ repaints on resize); ConstellationField pauses on tab-hidden; real PWA raster icons (192/512/maskable/apple-touch rasterized from the brand favicon) + manifest + square Organization logo. |
+| **T5 — chat-surface cosmos + a11y** | `4d46fb0`, `93bca4d` | InlineEntityEditor is now a real modal (role=dialog + focus-trap + viewport clamp); FloatingChat glass panel; nova left-border on the HITL ProposalCard; composer Send gradient (fixed an undefined-var that had made the button invisible in dark mode). |
+
+> The adversarial review found T1 clean and 5 real defects (1 critical silent
+> embedding loss, 1 high silent partial-export, 1 high invisible send button, +2
+> medium) — **all fixed + verified in `93bca4d`** (the embeddings bug + fix were
+> both reproduced live). No alembic schema change this pass (head stays **0038**).
+
+### ⏭ Deferred-by-design — own focused builds (NOT tail-plowed)
+- **T4 — `--cos-*` namespace collapse + visual polish** (eyebrow, font-display-editorial,
+  GradientGlowCard promotion): a DRY refactor on the working, marketing-critical
+  landing. High visual-regression risk, low user value, and only truly verifiable
+  via a frontend rebuild + before/after visual diff — a dedicated visual session.
+- **T7 — R7 full `Page[T]` pagination (universe/mcp-stats) + response_model +
+  TS-client regen + Kanban cutover to /api/v1/applications**: the largest FE/BE
+  contract change in the remainder (the survey itself ranked it last/own-build).
+  The backend already dual-writes applications; the FE Kanban still reads /jobs.
+- **R17/R18** (job-capture extension + ESCO Home recs; skill-gap→goal loop) and
+  **R4 slices 2-4** remain as previously documented.
+
 ### ⚠️ R2 has a REQUIRED completion step (deferred, not optional)
 The app connects to Postgres as **superuser `cvs`** (`rolsuper=t rolbypassrls=t`),
 which bypasses RLS **even under FORCE** — so isolation is **not yet enforced**.
