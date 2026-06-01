@@ -1,6 +1,7 @@
-import { screen, fireEvent, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { UniversePage } from "@/pages/UniversePage";
+import { useGraphLensState } from "@/graph/lensState";
 import { renderWithProviders } from "../utils";
 import { server } from "../mocks/server";
 import { http, HttpResponse } from "msw";
@@ -90,25 +91,42 @@ server.use(
 );
 
 describe("UniversePage", () => {
-  it("renders without crashing", async () => {
+  // The lens store is module-global; reset it so state never leaks across tests
+  // (a stale agent-set mode would otherwise change the next test's default view).
+  beforeEach(() => {
+    useGraphLensState.getState().reset();
+  });
+
+  it("renders the graph lens by default", async () => {
     renderWithProviders(<UniversePage />);
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /^Universo$/i })).toBeInTheDocument();
+      expect(screen.getByTestId("graph-view")).toBeInTheDocument();
     });
   });
 
-  it("switches lens to outline", async () => {
+  it("agent switches the lens to outline (no manual switcher)", async () => {
     renderWithProviders(<UniversePage />);
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Outline/i })).toBeInTheDocument();
+    // The graph lens shows the in-graph search box; it is rendered ONLY while
+    // lens === "graph" (not animated), so it's a clean signal of the active lens.
+    await waitFor(
+      () =>
+        expect(
+          screen.getByPlaceholderText(/Buscar en el grafo/i),
+        ).toBeInTheDocument(),
+      { timeout: 3000 },
+    );
+
+    // There is no manual lens switcher anymore — the agent drives the lens via
+    // present_graph_view → useGraphLensState. Simulate that tool call.
+    act(() => {
+      useGraphLensState.getState().setLens({ mode: "outline" });
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Outline/i }));
-
     await waitFor(() => {
-      // Outline lens button should now be active (bg-ink class is hard to test directly,
-      // but we can verify the button is still present and the graph view may be gone)
-      expect(screen.getByRole("button", { name: /Outline/i })).toBeInTheDocument();
+      // Leaving the graph lens removes the in-graph search box.
+      expect(
+        screen.queryByPlaceholderText(/Buscar en el grafo/i),
+      ).not.toBeInTheDocument();
     });
   });
 

@@ -36,10 +36,9 @@ export function useWidgetActions(
   useCopilotAction({
     name: "present_graph_view",
     description:
-      // Only advertise the modes the universe view actually renders today — do
-      // NOT tell the model to call no-op modes (cluster/ontology_overlay were
-      // advertised but never wired, an invisible affordance failure).
-      "Switch the universe graph lens: mode 'focus' (centre on an entity via focus_entity_id) or 'timeline' (career trajectory).",
+      // Only advertise modes the universe view actually renders (cluster/
+      // ontology_overlay are not wired → don't tell the model to call no-ops).
+      "Switch the universe graph lens: mode 'focus' (centre the graph on an entity via focus_entity_id), 'timeline' (career trajectory view) or 'outline' (structured entity outline).",
     parameters: [
       { name: "mode", type: "string", required: true },
       { name: "focus_entity_id", type: "string" },

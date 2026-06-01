@@ -19,9 +19,6 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Network,
-  ListTree,
-  GitBranch,
   Sparkles,
   X,
   Search,
@@ -72,13 +69,10 @@ Habla en español por defecto. Tu trabajo es ayudarle a EXPLORAR y MANTENER su u
 
 const UNIVERSE_CHAT_INITIAL = `Este es tu universo. Pídeme que te enseñe un área ("muéstrame mi stack de backend"), que enfoque algo, o cuéntame algo nuevo para añadirlo.`;
 
+// The active lens is agent-driven via useGraphLensState (present_graph_view) —
+// there is no manual switcher. "graph" is the default; the agent pivots to
+// "outline"/"trajectory" on request.
 type Lens = "graph" | "outline" | "trajectory";
-
-const LENSES: { id: Lens; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: "graph", label: "Universo", icon: Network },
-  { id: "outline", label: "Outline", icon: ListTree },
-  { id: "trajectory", label: "Trayectoria", icon: GitBranch },
-];
 
 // URL hash helpers
 
@@ -131,14 +125,19 @@ export function UniversePage() {
   // Real-time discovery SSE stream.
   useDiscoveryStream(lens === "graph");
 
-  // React to the agent's `present_graph_view` tool: map its modes onto
-  // our three lenses so a chat turn can pivot the visualisation.
+  // The lens is driven by the AGENT (present_graph_view → useGraphLensState):
+  // there is no manual switcher anymore — the user asks ("muéstrame mi
+  // trayectoria") and the agent pivots the visualisation. Map the agent's
+  // modes onto our three rendered lenses.
   const lensMode = useGraphLensState((s) => s.mode);
   const lensRevision = useGraphLensState((s) => s.revision);
   const focusEntityId = useGraphLensState((s) => s.focusEntityId);
   useEffect(() => {
     if (lensRevision === 0) return;
-    setLens(lensMode === "timeline" ? "trajectory" : "graph");
+    if (lensMode === "timeline") setLens("trajectory");
+    else if (lensMode === "outline") setLens("outline");
+    // focus / cluster / ontology_overlay all resolve to the graph itself.
+    else setLens("graph");
   }, [lensMode, lensRevision]);
 
   // Parse URL hash params on mount.
@@ -531,7 +530,6 @@ export function UniversePage() {
           ) : <div className="flex-1" />}
 
           <div className="pointer-events-auto flex items-center gap-2">
-            <LensSwitcher current={lens} onChange={setLens} />
             <button
               type="button"
               onClick={handleEnrich}
@@ -855,40 +853,6 @@ function KindFilters({
   );
 }
 
-// Lens switcher
-
-function LensSwitcher({
-  current,
-  onChange,
-}: {
-  current: Lens;
-  onChange: (l: Lens) => void;
-}) {
-  return (
-    <div className="inline-flex rounded-full border border-hairline bg-canvas p-1 text-sm">
-      {LENSES.map(({ id, label, icon: Icon }) => {
-        const isActive = current === id;
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onChange(id)}
-            aria-pressed={isActive}
-            className={cn(
-              "flex items-center gap-1.5 px-3.5 py-1.5 rounded-full transition-colors duration-180 ease-pirsch focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1",
-              isActive
-                ? "bg-ink text-canvas"
-                : "text-stone hover:text-ink",
-            )}
-          >
-            <Icon className="w-3.5 h-3.5" />
-            <span>{label}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 // Empty state — elegant constellation placeholder
 

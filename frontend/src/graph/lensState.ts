@@ -13,6 +13,7 @@ export type GraphLensMode =
   | "focus"
   | "cluster"
   | "timeline"
+  | "outline"
   | "ontology_overlay";
 
 interface GraphLensState {
