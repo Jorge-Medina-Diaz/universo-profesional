@@ -7,14 +7,17 @@
 import { useState } from "react";
 import { Layers, X, Plus } from "lucide-react";
 import { Badge, Button, ChatMessageMotion, Input, Textarea, cn } from "@/ui";
+import { ADR_STATUS_TONE, toneClass } from "@/shared/typeTones";
 
 type AdrStatus = "proposed" | "accepted" | "superseded" | "rejected";
 
-const STATUSES: { id: AdrStatus; label: string; tone: string }[] = [
-  { id: "proposed", label: "Propuesto", tone: "bg-stone/15 text-ink" },
-  { id: "accepted", label: "Aceptado", tone: "bg-leaf-soft text-leaf-ink" },
-  { id: "superseded", label: "Reemplazado", tone: "bg-amber-100 text-amber-800" },
-  { id: "rejected", label: "Rechazado", tone: "bg-rose-100 text-rose-800" },
+// Labels only — colour via the theme-aware ADR_STATUS_TONE map (was raw
+// bg-amber-100/bg-rose-100 that broke in dark mode).
+const STATUSES: { id: AdrStatus; label: string }[] = [
+  { id: "proposed", label: "Propuesto" },
+  { id: "accepted", label: "Aceptado" },
+  { id: "superseded", label: "Reemplazado" },
+  { id: "rejected", label: "Rechazado" },
 ];
 
 export interface AdrProposalPayload {
@@ -136,7 +139,7 @@ export function ArchitectureDecisionProposalCard({
                   className={cn(
                     "px-2.5 py-1 text-[11px] rounded-full transition-all border",
                     status === s.id
-                      ? `${s.tone} border-transparent`
+                      ? `${toneClass(ADR_STATUS_TONE[s.id] ?? "stone")} border-transparent`
                       : "bg-surface text-stone border-hairline hover:border-ink/[0.2]",
                   )}
                 >

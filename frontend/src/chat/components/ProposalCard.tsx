@@ -25,6 +25,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { Badge, Button, ChatMessageMotion, Input, Textarea, cn, toast } from "@/ui";
+import { KIND_TONE, toneClass, toneFor } from "@/shared/typeTones";
 import { resolveProposal } from "../actions/shared";
 import type { UpsertResponse } from "../actions/types";
 
@@ -57,22 +58,21 @@ export interface ProposalCardProps {
   onResolved?: (result: { action: string; response: UpsertResponse }) => void;
 }
 
-const ENTITY_META: Record<
-  EntityType,
-  { label: string; icon: typeof Briefcase; tone: "leaf" | "sunbeam" | "stone" }
-> = {
-  experience: { label: "Experiencia", icon: Briefcase, tone: "leaf" },
-  education: { label: "Educación", icon: GraduationCap, tone: "leaf" },
-  project: { label: "Proyecto", icon: FolderGit, tone: "sunbeam" },
-  skill: { label: "Skill", icon: Zap, tone: "sunbeam" },
-  certification: { label: "Certificación", icon: Award, tone: "leaf" },
-  course: { label: "Curso", icon: BookOpen, tone: "leaf" },
-  language: { label: "Idioma", icon: Languages, tone: "sunbeam" },
-  achievement: { label: "Logro", icon: Trophy, tone: "sunbeam" },
-  interest: { label: "Interés", icon: Heart, tone: "leaf" },
-  artifact: { label: "Artefacto", icon: Package, tone: "sunbeam" },
-  architecture_decision: { label: "Decisión arq.", icon: Workflow, tone: "leaf" },
-  goal: { label: "Meta", icon: Target, tone: "sunbeam" },
+// Label + icon per entity; the chip/icon COLOUR comes from the shared
+// KIND_TONE map (single source of truth, theme-aware) — see @/shared/typeTones.
+const ENTITY_META: Record<EntityType, { label: string; icon: typeof Briefcase }> = {
+  experience: { label: "Experiencia", icon: Briefcase },
+  education: { label: "Educación", icon: GraduationCap },
+  project: { label: "Proyecto", icon: FolderGit },
+  skill: { label: "Skill", icon: Zap },
+  certification: { label: "Certificación", icon: Award },
+  course: { label: "Curso", icon: BookOpen },
+  language: { label: "Idioma", icon: Languages },
+  achievement: { label: "Logro", icon: Trophy },
+  interest: { label: "Interés", icon: Heart },
+  artifact: { label: "Artefacto", icon: Package },
+  architecture_decision: { label: "Decisión arq.", icon: Workflow },
+  goal: { label: "Meta", icon: Target },
 };
 
 function entityTitle(payload: ProposalPayload): string {
@@ -143,8 +143,8 @@ export function ProposalCard({
   const meta = ENTITY_META[payload.entity_type] ?? {
     label: "Propuesta",
     icon: Briefcase,
-    tone: "stone",
   };
+  const tone = toneFor(KIND_TONE, payload.entity_type);
   const Icon = meta.icon;
 
   const handleConfirm = async () => {
@@ -223,7 +223,7 @@ export function ProposalCard({
               · {entityTitle(payload)}
             </span>
           </div>
-          <Badge tone={meta.tone} size="sm" className="ml-auto shrink-0">
+          <Badge tone={tone} size="sm" className="ml-auto shrink-0">
             {meta.label}
           </Badge>
         </div>
@@ -268,18 +268,14 @@ export function ProposalCard({
             aria-hidden
             className={cn(
               "inline-flex items-center justify-center w-10 h-10 rounded-full shrink-0",
-              meta.tone === "leaf"
-                ? "bg-leaf-soft text-leaf-ink"
-                : meta.tone === "sunbeam"
-                  ? "bg-sunbeam-soft text-sunbeam-ink"
-                  : "bg-canvas text-ink",
+              toneClass(tone),
             )}
           >
             <Icon size={18} />
           </span>
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge tone={meta.tone} size="sm">
+              <Badge tone={tone} size="sm">
                 {meta.label}
               </Badge>
               <Badge tone="stone" size="sm">
@@ -409,8 +405,8 @@ export function ResolvedProposalChip({
   const meta = ENTITY_META[payload.entity_type] ?? {
     label: "Propuesta",
     icon: Briefcase,
-    tone: "stone",
   };
+  const kindTone = toneFor(KIND_TONE, payload.entity_type);
   const Icon = errored || rejected ? X : Check;
   const tone = errored ? "stone" : rejected ? "stone" : "leaf";
   const label = errored ? "No se pudo guardar" : rejected ? "Descartado" : "Guardado";
@@ -435,7 +431,7 @@ export function ResolvedProposalChip({
           )}
         </div>
         {!errored && !rejected && (
-          <Badge tone={meta.tone} size="sm" className="ml-auto shrink-0">
+          <Badge tone={kindTone} size="sm" className="ml-auto shrink-0">
             {meta.label}
           </Badge>
         )}

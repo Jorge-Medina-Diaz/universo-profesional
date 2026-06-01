@@ -17,7 +17,7 @@ import { Suspense, lazy, useEffect } from "react";
 import { useHashRoute } from "@/shared/useHashRoute";
 import { enableCopilot, useCopilotReady } from "@/app/CopilotProvider";
 import { FloatingChat } from "@/chat/FloatingChat";
-import { Skeleton } from "@/ui";
+import { ChatLoadingSkeleton } from "@/chat/ChatLoadingSkeleton";
 
 const CopilotSurface = lazy(() =>
   import("@/pages/_chat/CopilotSurface").then((m) => ({
@@ -77,7 +77,7 @@ export function GlobalAgentDock() {
   return (
     <FloatingChat>
       {ready ? (
-        <Suspense fallback={<DockSkeleton />}>
+        <Suspense fallback={<ChatLoadingSkeleton />}>
           <CopilotSurface
             instructions={BASE_INSTRUCTIONS + routeHint(path)}
             title="Tu agente"
@@ -85,20 +85,8 @@ export function GlobalAgentDock() {
           />
         </Suspense>
       ) : (
-        <DockSkeleton />
+        <ChatLoadingSkeleton />
       )}
     </FloatingChat>
-  );
-}
-
-function DockSkeleton() {
-  return (
-    <div className="flex flex-col h-full p-4 gap-3">
-      <div className="flex-1 flex flex-col gap-3 overflow-hidden">
-        <Skeleton shape="block" className="h-10 max-w-[55%]" />
-        <Skeleton shape="block" className="h-14 max-w-[72%] ml-auto" />
-      </div>
-      <Skeleton shape="block" className="h-10" />
-    </div>
   );
 }

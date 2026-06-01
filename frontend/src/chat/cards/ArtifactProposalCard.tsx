@@ -8,6 +8,7 @@
 import { useMemo, useState } from "react";
 import { ExternalLink, Globe } from "lucide-react";
 import { Badge, Button, ChatMessageMotion, Input, Textarea, cn } from "@/ui";
+import { ARTIFACT_TONE, toneClass } from "@/shared/typeTones";
 
 export type ArtifactType =
   | "github_repo"
@@ -20,16 +21,19 @@ export type ArtifactType =
   | "book"
   | "other";
 
-const TYPES: { id: ArtifactType; label: string; tone: string }[] = [
-  { id: "github_repo", label: "Repo", tone: "bg-stone/15 text-ink" },
-  { id: "talk", label: "Talk", tone: "bg-purple-100 text-purple-800" },
-  { id: "blog_post", label: "Blog", tone: "bg-sky-100 text-sky-800" },
-  { id: "oss_contrib", label: "OSS PR", tone: "bg-emerald-100 text-emerald-800" },
-  { id: "paper", label: "Paper", tone: "bg-amber-100 text-amber-800" },
-  { id: "podcast", label: "Podcast", tone: "bg-rose-100 text-rose-800" },
-  { id: "video", label: "Vídeo", tone: "bg-fuchsia-100 text-fuchsia-800" },
-  { id: "book", label: "Libro", tone: "bg-blue-100 text-blue-800" },
-  { id: "other", label: "Otro", tone: "bg-stone/15 text-ink" },
+// Labels only — colour comes from the theme-aware ARTIFACT_TONE map so the
+// chips read correctly in dark mode (was raw bg-purple-100/bg-sky-100… which
+// don't flip with data-theme).
+const TYPES: { id: ArtifactType; label: string }[] = [
+  { id: "github_repo", label: "Repo" },
+  { id: "talk", label: "Talk" },
+  { id: "blog_post", label: "Blog" },
+  { id: "oss_contrib", label: "OSS PR" },
+  { id: "paper", label: "Paper" },
+  { id: "podcast", label: "Podcast" },
+  { id: "video", label: "Vídeo" },
+  { id: "book", label: "Libro" },
+  { id: "other", label: "Otro" },
 ];
 
 export interface ArtifactProposalPayload {
@@ -120,7 +124,7 @@ export function ArtifactProposalCard({
                   className={cn(
                     "px-2.5 py-1 text-[11px] rounded-full transition-all border",
                     type === t.id
-                      ? `${t.tone} border-transparent`
+                      ? `${toneClass(ARTIFACT_TONE[t.id] ?? "stone")} border-transparent`
                       : "bg-surface text-stone border-hairline hover:border-ink/[0.2]",
                   )}
                 >
@@ -152,14 +156,10 @@ export function ArtifactProposalCard({
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://github.com/usuario/repo"
               aria-invalid={!isUrlValid && url.length > 0}
-              className={
-                url.length > 0 && !isUrlValid
-                  ? "border-rose-300 focus-visible:ring-rose-200"
-                  : undefined
-              }
+              invalid={url.length > 0 && !isUrlValid}
             />
             {url.length > 0 && !isUrlValid ? (
-              <p className="text-[11px] text-rose-600 mt-1">URL no válida.</p>
+              <p className="text-[11px] text-danger mt-1">URL no válida.</p>
             ) : null}
           </div>
 

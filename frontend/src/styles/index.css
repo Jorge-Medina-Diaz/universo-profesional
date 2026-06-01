@@ -204,17 +204,6 @@
 /* Dark-mode overrides for the custom chat surface (see src/chat/ChatUI.tsx).
  * Most colours come from theme tokens that flip automatically; these handle
  * the few intentionally-hardcoded translucent fills. */
-:root[data-theme="dark"] .person-bubble {
-  background: var(--color-leafy-green);
-  color: var(--surface-canvas);
-}
-:root[data-theme="dark"] .composer {
-  background: rgba(243, 239, 230, 0.05);
-}
-:root[data-theme="dark"] .composer:focus-within {
-  background: rgba(243, 239, 230, 0.09);
-  border-color: color-mix(in srgb, var(--color-nova) 50%, var(--hairline-strong));
-}
 :root[data-theme="dark"] .agent-prose code,
 :root[data-theme="dark"] .agent-prose pre,
 :root[data-theme="dark"] .agent-prose th {
@@ -494,10 +483,11 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* User turn — warm ink bubble, right aligned */
+/* User turn — warm ink bubble, right aligned. Fill flips via --chat-user-bg
+ * (ink in light, leaf in dark) — one token instead of a base + dark override. */
 .person-bubble {
   max-width: 80%;
-  background: var(--color-midnight-ink);
+  background: var(--chat-user-bg);
   color: var(--surface-canvas);
   border-radius: 20px 20px 6px 20px;
   padding: 10px 15px;
@@ -610,8 +600,8 @@
 }
 
 .chat-surface-area .copilotKitMessagesContainer {
-  padding: 16px 16px 24px !important;
-  gap: 4px !important;
+  padding: var(--chat-space-4) var(--chat-space-4) var(--chat-space-5) !important;
+  gap: var(--chat-space-2) !important;
   max-width: 720px !important;
   margin-left: auto !important;
   margin-right: auto !important;
@@ -665,19 +655,18 @@
   transition: transform var(--duration-micro) var(--ease-pirsch),
     opacity var(--duration-micro) var(--ease-pirsch);
 }
-/* Send is the primary action — luminous sunbeam gradient (mirrors Button `cta`
-   / the landing's .cos-btn-primary). The stop button keeps the calm ink fill. */
+/* Send is the primary action — luminous sunbeam gradient via the shared
+   `.surface-cta` tokens (mirrors Button `cta`). Stop keeps the calm ink fill. */
 .composer-send {
-  background: linear-gradient(to bottom, #ffe48f, var(--color-sunbeam-yellow, #ffda6e));
-  color: #2a2003;
-  box-shadow: 0 0 0 1px rgba(255, 218, 110, 0.4),
-    0 8px 22px -8px rgba(255, 218, 110, 0.55);
+  background-image: var(--gradient-cta);
+  color: var(--color-sunbeam-ink);
+  box-shadow: var(--shadow-cta);
 }
 .composer-send:hover:not(:disabled), .composer-stop:hover { transform: translateY(-1px); }
-.composer-send:disabled { opacity: 0.3; cursor: default; }
+.composer-send:disabled { opacity: var(--chat-disabled-opacity); cursor: default; }
 .composer-hint {
   margin: 8px 4px 0; font-size: 11px; text-align: center;
-  color: var(--color-muted-stone); opacity: 0.7;
+  color: var(--color-muted-stone); opacity: 0.85;
 }
 .composer-hint kbd {
   font-family: var(--font-dm-sans); font-size: 10px;
@@ -1178,18 +1167,20 @@
   box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), 0 1px 3px rgba(0,0,0,0.2), var(--glow-nova);
 }
 
-/* Soft glow on agent messages */
+/* Soft glow on agent messages — hover-only so it never flashes on touch. */
 .agent-msg {
   transition: background 0.25s var(--ease-pirsch), box-shadow 0.25s var(--ease-pirsch);
   border-radius: 14px;
-  padding: 8px 10px;
+  padding: var(--chat-space-2) var(--chat-space-3);
 }
-.agent-msg:hover {
-  background: color-mix(in srgb, var(--color-nova-soft) 30%, transparent);
-}
-:root[data-theme="dark"] .agent-msg:hover {
-  background: color-mix(in srgb, var(--color-nova-soft) 18%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-nova) 8%, transparent);
+@media (hover: hover) {
+  .agent-msg:hover {
+    background: color-mix(in srgb, var(--color-nova-soft) 30%, transparent);
+  }
+  :root[data-theme="dark"] .agent-msg:hover {
+    background: color-mix(in srgb, var(--color-nova-soft) 18%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-nova) 8%, transparent);
+  }
 }
 
 /* Smooth transitions for prose streaming */
@@ -1200,9 +1191,10 @@
   opacity: 0.98;
 }
 
-/* Composer in dark mode */
+/* Composer in dark mode — a touch more fill so the field reads as solid
+ * against the dark cosmos canvas (0.05 was near-invisible). */
 :root[data-theme="dark"] .composer {
-  background: rgba(243, 239, 230, 0.05);
+  background: rgba(243, 239, 230, 0.08);
   border-color: var(--hairline);
 }
 :root[data-theme="dark"] .composer:focus-within {
