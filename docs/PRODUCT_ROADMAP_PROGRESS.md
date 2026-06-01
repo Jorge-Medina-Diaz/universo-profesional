@@ -44,17 +44,31 @@ working tree clean.
 > fixed + committed** (`03c0568`). RLS/LLM-signature/route-parsing concerns were
 > refuted. Gates green; cursor rejects garbage → first page; `/readyz` 200.
 
-### ⏭ Remainder (deferred — blueprints captured)
-- **F — applications first-class aggregate**: new bounded context (~13 files) +
-  data-migration backfill from `jobs._tracker` + rewiring 6 call-sites + FE. A
-  refactor of *working* code (the `applications` table already exists from
-  migration 0001 → ALTER-not-CREATE). **Deliberately deferred** this session — the
-  user prioritised perf + user-features over this refactor. Detailed blueprint saved.
-- **C remainder**: jobs-list pagination (couples to F) + strict `response_model`
-  typing on the paginated endpoints.
-- **R10 re-sync engine + review queue**, **R13–15 agentic efficiency**, **R4 SQL
-  transactional-outbox projection** (largest), **R5 AGE-in-CI** — see
-  [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md).
+### ✅ Also shipped (the "finish all" push)
+| Item | Commits | Notes |
+|---|---|---|
+| **F — applications first-class aggregate** | `31afb6d`, `d7e21d2` | Migration 0036 evolves the existing `applications` table (ALTER-not-CREATE) into the typed pipeline + adds `job_requirements`, backfilled from `_tracker`. ORM extended; `jobs_router` **dual-writes** every mutation into the typed aggregate (atomic upsert on the partial unique index); `/api/v1/applications` reads + `/{job}/requirements`; GDPR export covers both new tables. **Live e2e verified** (create→saved, patch→applied+applied_at; caught + fixed 2 integration bugs). FE Kanban cutover to the typed fields deferred (JobsPage works unchanged via /jobs). |
+| **R19 — Day-1 lifecycle re-engagement email** | `7b29e2c` | Daily cron emails a one-time "finish setup" nudge to registered-but-never-activated users (built on R3 activation state); migration 0037 marker; opt-out respected; mark-then-send. **Live e2e verified** (finds eligible, marks, sends once, re-run sent=0). |
+| **C-jobs** | — | Resolved **N/A**: the Kanban board loads all jobs by design; paginating it would break the board. The unbounded append-only feeds (activity/coherence) were the real risk and are done. |
+
+### ⏭ Deep remainder — recommend dedicated focused builds, NOT a rushed plow
+These are the genuinely-large/risky items. Rushing them at the tail of a long
+session risks breaking core systems — which is exactly what this whole pass
+avoided. Each warrants its own blueprint→implement→review cycle:
+- **R4 — SQL transactional-outbox projection** (largest): touches **every entity
+  write** across every context (route writes through an outbox + projection
+  worker for AGE/snapshot/embeddings). Highest-risk; do as a dedicated build with
+  the review loop + a reconciliation command.
+- **R13–15 — agentic efficiency**: consolidate the ~17 CRUD specialists into 1–2
+  entity-curator agents, Anthropic prompt-cache breakpoints, move per-turn
+  enrichment off the hot path. Refactors the **agent loop** — high blast radius.
+- **R10 — periodic re-sync engine + review queue**: weekly per-connection sync
+  cron → coherence → a persistent review queue + Home badge. External-API
+  dependent (tokens/rate limits) + a new FE surface; hard to verify locally.
+- **R5 — Apache AGE in CI + deterministic fake-LLM**: CI-config (point the CI
+  Postgres at the AGE image; `requires_age` marker that fails-not-skips) +
+  test-env LLM. Correct to write but **not verifiable in this environment** (CI
+  runs on GitHub).
 
 ### ⚠️ R2 has a REQUIRED completion step (deferred, not optional)
 The app connects to Postgres as **superuser `cvs`** (`rolsuper=t rolbypassrls=t`),
