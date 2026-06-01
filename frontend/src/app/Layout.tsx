@@ -14,7 +14,7 @@ import { GlobalAgentDock } from "@/chat/GlobalAgentDock";
 import { openCommandPalette } from "./CommandPalette";
 import { NotificationCenter } from "@/widgets/NotificationCenter";
 import { CookieConsentBanner } from "@/widgets/CookieConsentBanner";
-import { DiscoveryProgress, DiscoveryProgressPill } from "@/widgets/DiscoveryProgress";
+import { DiscoveryProgressPill } from "@/widgets/DiscoveryProgress";
 import { ThemeToggle } from "./ThemeToggle";
 import { tour } from "./tour/TourProvider";
 import { firstRunTour } from "./tour/tours";
@@ -183,11 +183,6 @@ export function Layout({ title, isAuthed, children }: Props) {
           suppresses itself on routes that own a full-screen chat (home,
           universe, onboarding) so only one CopilotChat mounts at rest. */}
       {isAuthed && <GlobalAgentDock />}
-      {isAuthed && !path.startsWith("/universe") && (
-        <div className="fixed right-4 top-24 z-20 w-[min(92vw,300px)] hidden lg:block">
-          <DiscoveryProgress />
-        </div>
-      )}
       <CookieConsentBanner />
     </div>
   );

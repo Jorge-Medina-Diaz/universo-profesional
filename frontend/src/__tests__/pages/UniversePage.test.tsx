@@ -42,8 +42,8 @@ vi.mock("@/app/CopilotProvider", () => ({
   useCopilotReady: () => true,
 }));
 
-vi.mock("@/widgets/ProfileCompleteness", () => ({
-  ProfileCompleteness: () => <div data-testid="profile-completeness" />,
+vi.mock("@/widgets/UniverseProgress", () => ({
+  UniverseProgress: () => <div data-testid="universe-progress" />,
 }));
 
 vi.mock("@/widgets/SuggestionBar", () => ({
