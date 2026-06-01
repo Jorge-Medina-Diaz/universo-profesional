@@ -250,6 +250,26 @@ async def stripe_webhook(
                     pass
         return None
 
+    async def _sync_user_tier(uid: UUID, sub: Any) -> None:
+        """Mirror the subscription's effective plan onto users.tier — the single
+        denormalized field every entitlement gate reads. Without this the
+        webhook updated subscriptions.plan but users.tier stayed 'free', so paid
+        users were locked out of paid features. Goes through the domain so the
+        TierChanged event + tier_updated_at fire."""
+        from src.identity.infrastructure.repositories import (
+            SqlAlchemyUserRepository,
+        )
+
+        target_tier = sub.plan if sub.is_paying else "free"
+        user_repo = SqlAlchemyUserRepository(session)
+        user = await user_repo.get_by_id(uid)
+        if user is None or user.is_deleted:
+            return
+        if user.tier == target_tier:
+            return
+        user.set_tier(target_tier, now=utc_now())
+        await user_repo.save(user)
+
     try:
         if event_type == "checkout.session.completed":
             uid = await _resolve_user_id()
@@ -270,6 +290,7 @@ async def stripe_webhook(
             )
             sub.updated_at = utc_now()
             await subs.upsert(sub)
+            await _sync_user_tier(uid, sub)
             await session.commit()
 
             # Send the payment-received email (mock or real depending on env).
@@ -310,6 +331,7 @@ async def stripe_webhook(
                 )
             sub.updated_at = utc_now()
             await subs.upsert(sub)
+            await _sync_user_tier(uid, sub)
             await session.commit()
 
         elif event_type == "customer.subscription.deleted":
@@ -324,6 +346,7 @@ async def stripe_webhook(
             stripe_conversion_total.labels(plan="free", event="subscription_deleted").inc()
             sub.updated_at = utc_now()
             await subs.upsert(sub)
+            await _sync_user_tier(uid, sub)
             await session.commit()
 
         elif event_type == "invoice.payment_failed":

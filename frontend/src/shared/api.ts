@@ -304,8 +304,16 @@ export interface MeResponse {
   email_verified: boolean;
   mfa_enabled: boolean;
   created_at: string;
-  tier: "free" | "pro";
+  tier: Tier;
   tier_updated_at: string | null;
+}
+
+export type Tier = "free" | "pro" | "premium";
+
+/** Canonical paid-entitlement check — premium counts as paid (mirrors the
+ *  backend is_paying gate). Use this for feature gating, NOT `tier === "pro"`. */
+export function isPayingTier(tier: Tier | string | null | undefined): boolean {
+  return tier === "pro" || tier === "premium";
 }
 
 export interface NotificationPrefs {

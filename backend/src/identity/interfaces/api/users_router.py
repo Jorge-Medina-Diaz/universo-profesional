@@ -78,8 +78,14 @@ async def set_tier(
     """Set the user's subscription tier.
 
     Dev/admin endpoint — in production this is driven by Stripe webhooks.
-    Exposed today so we can flip free→pro without Stripe wired up.
+    Exposed in dev so we can flip free→pro without Stripe wired up.
     """
+    from src.shared.config import get_settings
+
+    # Self-serve tier change is a paid-feature bypass — only allow it outside
+    # production, where tier is reconciled exclusively from Stripe webhooks.
+    if get_settings().is_production:
+        raise HTTPException(status_code=403, detail="tier_is_managed_by_billing")
     uc = SetUserTier(SqlAlchemyUserRepository(session))
     async with unit_of_work(session) as uow:
         result = await uc.execute(user_id=user_id, tier=body.tier, uow=uow)

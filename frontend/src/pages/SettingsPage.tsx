@@ -82,7 +82,9 @@ export function SettingsPage() {
     }
   };
 
-  const isPro = me.data?.tier === "pro";
+  // Paid gate — premium counts as paid (mirrors backend is_paying); was a bare
+  // `=== "pro"` which locked premium subscribers out of paid UI.
+  const isPro = me.data?.tier === "pro" || me.data?.tier === "premium";
 
   return (
     <Surface width="md" spacing="md">

@@ -166,14 +166,15 @@ async def require_pro_tier(
     user = await repo.get_by_id(UUID(user_id))
     if user is None:
         raise UnauthorizedError("User not found")
-    if not user.is_pro:
+    # is_paying (not is_pro) so a `premium` subscriber isn't denied paid features.
+    if not user.is_paying:
         raise HTTPException(
             status_code=402,
             detail={
                 "error": "tier_required",
                 "required_tier": "pro",
                 "current_tier": user.tier,
-                "message": "Esta función requiere el plan PRO.",
+                "message": "Esta función requiere un plan de pago.",
             },
         )
     return user_id

@@ -684,7 +684,9 @@ class SetUserTier:
     ) -> Result[CurrentUserDto, NotFoundError | ValidationError]:
         from uuid import UUID
 
-        if tier not in ("free", "pro"):
+        from src.identity.domain.user import VALID_TIERS
+
+        if tier not in VALID_TIERS:
             return err(ValidationError(f"Unsupported tier: {tier}"))
         user = await self._users.get_by_id(UUID(user_id))
         if user is None or user.is_deleted:

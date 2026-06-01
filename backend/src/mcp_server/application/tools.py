@@ -526,8 +526,8 @@ async def _h_sync_linkedin_brightdata(*, session, user_id, client_id, args):
     user = await users.get_by_id(UUID(str(user_id)))
     if user is None:
         raise PermissionError("User not found")
-    if not user.is_pro:
-        raise PermissionError("PRO tier required for Bright Data LinkedIn sync")
+    if not user.is_paying:
+        raise PermissionError("A paid plan is required for Bright Data LinkedIn sync")
 
     uc = SyncLinkedinBrightdata(
         SqlExternalAccountRepository(session),
@@ -605,6 +605,14 @@ async def _h_commit_import_session(*, session, user_id, client_id, args):
 async def _h_set_user_tier(*, session, user_id, client_id, args):
     from src.identity.application.use_cases import SetUserTier
     from src.identity.infrastructure.repositories import SqlAlchemyUserRepository
+    from src.shared.config import get_settings
+
+    # Privilege-escalation guard: a free user could otherwise call this MCP tool
+    # to grant themselves a paid tier. Tier is Stripe-derived in prod; refuse
+    # here outside dev/test (defence-in-depth — the tool is also unregistered in
+    # prod, see _assemble_tools).
+    if get_settings().is_prod:
+        raise PermissionError("set_user_tier is disabled in production")
 
     uc = SetUserTier(SqlAlchemyUserRepository(session))
     uow = _new_uow(session)
@@ -1309,4 +1317,15 @@ _OTHER_TOOLS: dict[str, ToolSpec] = {
 }
 
 
-TOOLS: dict[str, ToolSpec] = {**_build_entity_tools(), **_OTHER_TOOLS}
+def _assemble_tools() -> dict[str, ToolSpec]:
+    from src.shared.config import get_settings
+
+    tools: dict[str, ToolSpec] = {**_build_entity_tools(), **_OTHER_TOOLS}
+    # The set_user_tier dev/admin tool must never be reachable in production
+    # (tier is Stripe-derived there); drop it from the registry entirely.
+    if get_settings().is_prod:
+        tools.pop("set_user_tier", None)
+    return tools
+
+
+TOOLS: dict[str, ToolSpec] = _assemble_tools()

@@ -125,7 +125,7 @@ class CurrentUserResponse(BaseModel):
 
 
 class SetTierRequest(BaseModel):
-    tier: str = Field(pattern="^(free|pro)$")
+    tier: str = Field(pattern="^(free|pro|premium)$")
 
 
 class NotificationPrefsResponse(BaseModel):

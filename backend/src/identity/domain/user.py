@@ -39,6 +39,13 @@ class TierChanged(DomainEvent):
     new_tier: str = "free"
 
 
+# Single source of truth for tier values. Must stay aligned with billing's
+# Plan literal ("free" | "premium" | "pro"); the denormalized users.tier mirrors
+# the subscription plan so entitlement checks are a fast local read.
+PAID_TIERS: frozenset[str] = frozenset({"pro", "premium"})
+VALID_TIERS: frozenset[str] = frozenset({"free"}) | PAID_TIERS
+
+
 @dataclass
 class User:
     """User aggregate root.
