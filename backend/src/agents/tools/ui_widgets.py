@@ -208,6 +208,29 @@ _HITL_TOOLS: list[dict[str, Any]] = [
         ],
     },
     {
+        "name": "propose_entity",
+        "description": (
+            "GENERIC single-entity proposal (R13). Propose ONE professional "
+            "entity of any supported kind in a single confirm/edit/reject card. "
+            "`entity_type` MUST be one of: experience | education | project | "
+            "skill | certification | course | language | achievement | interest "
+            "| artifact | architecture_decision. `payload` is that kind's field "
+            "dict — exactly the same shape as the matching `propose_<kind>` tool "
+            "(e.g. experience → {organization, role, start_date, end_date, "
+            "is_current, description, highlights, competences}; skill → {name, "
+            "category, level, years}). Use for a SINGLE entity the user mentioned "
+            "conversationally — for bulk/imported content use present_import_review."
+        ),
+        "doc": (
+            "`entity_type`: one of the 11 supported universe kinds.\n"
+            "`payload`: that kind's field dict (same shape as propose_<kind>)."
+        ),
+        "params": [
+            {"name": "entity_type", "type": "str"},
+            {"name": "payload", "type": "dict[str, Any]"},
+        ],
+    },
+    {
         "name": "present_questionnaire",
         "description": (
             "Show the user a batch of 3-6 related questions in ONE card (onboarding, "

@@ -1,11 +1,54 @@
+import { useEffect, useRef } from "react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { useQueryClient } from "@tanstack/react-query";
+import { X } from "lucide-react";
 import { queryKeys } from "@/shared/queryKeys";
+import { ChatMessageMotion, toast } from "@/ui";
 import { TimelineCard } from "../cards/TimelineCard";
 import { SkillChipsCard, type SkillProposal } from "../cards/SkillChipsCard";
+import {
+  ProposalCard,
+  ResolvedProposalChip,
+  type EntityType,
+} from "../components/ProposalCard";
 import { useEntityAction } from "./useEntityAction";
 import { coherenceUpsert } from "./shared";
 import type { SavingState, UpsertResponse, CopilotActionParams } from "./types";
+
+/**
+ * Terminal visible-error notice for an invalid generic `propose_entity` call
+ * (the backend rejected the kind/payload). We auto-resolve the tool-call once
+ * so the agent learns it failed, and show the error inline + as a toast —
+ * never a silent NOOP.
+ */
+function InvalidProposalNotice({
+  message,
+  respond,
+}: {
+  message: string;
+  respond?: (s: string) => void;
+}) {
+  const sent = useRef(false);
+  useEffect(() => {
+    if (sent.current) return;
+    sent.current = true;
+    toast.error("Propuesta inválida", message);
+    respond?.(`Error: ${message}`);
+  }, [respond, message]);
+  return (
+    <ChatMessageMotion>
+      <div
+        role="alert"
+        className="rounded-card bg-surface/60 px-4 py-3 my-3 max-w-md border border-red-500/25 flex items-center gap-2.5"
+      >
+        <span className="grid place-items-center h-6 w-6 rounded-full bg-red-500/15 text-red-500 shrink-0">
+          <X size={13} strokeWidth={2.5} />
+        </span>
+        <span className="text-sm text-ink min-w-0">{message}</span>
+      </div>
+    </ChatMessageMotion>
+  );
+}
 
 export function useEntityActions(
   saving: SavingState,
@@ -291,4 +334,70 @@ export function useEntityActions(
     setLastOutcome,
     qc,
   );
+
+  // R13: generic single-entity proposal. The agent (entity_curator) picks
+  // entity_type + payload; the backend validates the kind, injects proposal_id,
+  // and sets `proposal_error` for an invalid kind/payload — which we render
+  // visibly (never a silent NOOP). On success this reuses the same ProposalCard
+  // + /proposals/{id}/resolve path as the per-entity propose_* tools.
+  useCopilotAction({
+    name: "propose_entity",
+    description:
+      "Generic single-entity proposal (entity_type + payload). Renders the same confirm/edit/reject card as the per-entity propose_* tools.",
+    parameters: [
+      { name: "entity_type", type: "string", required: true },
+      { name: "payload", type: "object", required: true },
+    ] satisfies CopilotActionParams,
+    renderAndWaitForResponse: ({
+      args,
+      respond,
+      status,
+      result,
+    }: {
+      args: Record<string, unknown>;
+      respond?: (s: string) => void;
+      status?: string;
+      result?: unknown;
+    }) => {
+      const entityType = (args.entity_type as string) || "";
+      const proposalError = args.proposal_error as string | undefined;
+      // Backend rejected the kind/payload → visible error, never a silent NOOP.
+      if (proposalError || !args.proposal_id) {
+        return (
+          <InvalidProposalNotice
+            message={proposalError || "No se pudo crear la propuesta."}
+            respond={respond}
+          />
+        );
+      }
+      const payload = {
+        proposal_id: args.proposal_id as string,
+        entity_type: entityType as EntityType,
+        entity_data: (args.payload as Record<string, unknown>) || {},
+        action: (args.action as string) || "create",
+        confidence: (args.confidence as number) || 0.85,
+        reason: (args.reason as string) || "",
+      };
+      if (status === "complete") {
+        return (
+          <ResolvedProposalChip
+            payload={payload}
+            result={typeof result === "string" ? result : undefined}
+          />
+        );
+      }
+      return (
+        <ProposalCard
+          payload={payload}
+          pending={saving === "entity"}
+          onResolved={({ action, response }) => {
+            qc.invalidateQueries({ queryKey: queryKeys.universe.all });
+            qc.invalidateQueries({ queryKey: queryKeys.coherence.changes });
+            setLastOutcome({ kind: entityType || "entity", resp: response });
+            respond?.(JSON.stringify({ action, ...response }));
+          }}
+        />
+      );
+    },
+  });
 }

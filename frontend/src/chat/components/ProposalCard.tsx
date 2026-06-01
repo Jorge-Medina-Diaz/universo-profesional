@@ -14,6 +14,12 @@ import {
   Zap,
   Award,
   Target,
+  BookOpen,
+  Languages,
+  Trophy,
+  Heart,
+  Package,
+  Workflow,
   Check,
   X,
   Pencil,
@@ -28,6 +34,12 @@ export type EntityType =
   | "project"
   | "skill"
   | "certification"
+  | "course"
+  | "language"
+  | "achievement"
+  | "interest"
+  | "artifact"
+  | "architecture_decision"
   | "goal";
 
 interface ProposalPayload {
@@ -54,6 +66,12 @@ const ENTITY_META: Record<
   project: { label: "Proyecto", icon: FolderGit, tone: "sunbeam" },
   skill: { label: "Skill", icon: Zap, tone: "sunbeam" },
   certification: { label: "Certificación", icon: Award, tone: "leaf" },
+  course: { label: "Curso", icon: BookOpen, tone: "leaf" },
+  language: { label: "Idioma", icon: Languages, tone: "sunbeam" },
+  achievement: { label: "Logro", icon: Trophy, tone: "sunbeam" },
+  interest: { label: "Interés", icon: Heart, tone: "leaf" },
+  artifact: { label: "Artefacto", icon: Package, tone: "sunbeam" },
+  architecture_decision: { label: "Decisión arq.", icon: Workflow, tone: "leaf" },
   goal: { label: "Meta", icon: Target, tone: "sunbeam" },
 };
 
@@ -70,6 +88,18 @@ function entityTitle(payload: ProposalPayload): string {
       return (d.name as string) || "Skill";
     case "certification":
       return (d.name as string) || "Certificación";
+    case "course":
+      return (d.title as string) || "Curso";
+    case "language":
+      return `${(d.name as string) || "Idioma"}${d.level ? ` (${d.level})` : ""}`;
+    case "achievement":
+      return (d.title as string) || "Logro";
+    case "interest":
+      return (d.name as string) || "Interés";
+    case "artifact":
+      return (d.title as string) || "Artefacto";
+    case "architecture_decision":
+      return (d.title as string) || "Decisión de arquitectura";
     case "goal":
       return (d.title as string) || "Meta";
     default:

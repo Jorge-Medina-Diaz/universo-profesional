@@ -428,6 +428,15 @@ def _build_universe_team():  # type: ignore[no-untyped-def]
         build_portfolio_specialist(db=db),
     ]
 
+    # R13 (experimental, default OFF): add ONE generalist that captures any
+    # universe entity via the generic `propose_entity` tool, ALONGSIDE the
+    # per-entity specialists above. Gated so the consolidated routing surface
+    # can be A/B'd before the per-entity specialists are removed.
+    if get_settings().agents_entity_curator_enabled:
+        from src.agents.specialists.entity_curator import build_entity_curator
+
+        members.append(build_entity_curator(db=db))
+
     return Team(
         name="universe_coordinator",
         members=members,

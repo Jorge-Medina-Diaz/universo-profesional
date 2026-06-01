@@ -105,6 +105,9 @@ _PROPOSAL_TOOLS = {
     "propose_interest",
     "propose_artifact",
     "propose_architecture_decision",
+    # R13 generic single-entity proposal — entity_type comes from the args,
+    # not the tool name (special-cased in _inject_proposal_metadata).
+    "propose_entity",
 }
 
 
@@ -124,14 +127,51 @@ async def _inject_proposal_metadata(ev: Any, user_id: str | None) -> None:
         if not isinstance(args, dict):
             continue
 
+        # R13: the generic `propose_entity` carries the kind in its args (not the
+        # tool name) and nests the entity fields under `payload`. Validate the
+        # kind against the coherence registry up front and surface a VISIBLE error
+        # rather than minting a proposal that would NOOP on confirm (entity_type
+        # "entity" is not a real kind). All other propose_* derive the kind from
+        # the tool name and use the args themselves as the entity data.
+        if name == "propose_entity":
+            from src.coherence.application.upsert_use_cases import (  # noqa: PLC0415
+                is_known_entity,
+            )
+
+            entity_type = args.get("entity_type")
+            payload = args.get("payload")
+            if (
+                not isinstance(entity_type, str)
+                or not is_known_entity(entity_type)
+                or not isinstance(payload, dict)
+            ):
+                logger.error(
+                    "propose_entity_invalid",
+                    entity_type=entity_type,
+                    has_payload=isinstance(payload, dict),
+                    user_id=user_id,
+                )
+                # Make the failure visible to the user (the FE renders this) —
+                # never a silent NOOP.
+                args["proposal_error"] = (
+                    f"propose_entity inválido: entity_type={entity_type!r} no es un "
+                    "tipo conocido o falta payload. Tipos válidos: experience, "
+                    "education, project, skill, certification, course, language, "
+                    "achievement, interest, artifact, architecture_decision."
+                )
+                continue
+            entity_data = dict(payload)
+        else:
+            entity_type = name.replace("propose_", "")
+            entity_data = dict(args)
+
         proposal_id = str(uuid.uuid4())
-        entity_type = name.replace("propose_", "")
 
         await set_proposal(
             user_id=user_id or "anonymous",
             proposal_id=proposal_id,
             entity_type=entity_type,
-            entity_data=dict(args),
+            entity_data=entity_data,
             action="create",
             confidence=0.85,
             reason="Propuesta generada por el agente",
