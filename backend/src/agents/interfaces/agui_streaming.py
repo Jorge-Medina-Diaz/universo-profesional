@@ -29,7 +29,6 @@ from agno.os.interfaces.agui.utils import (
 )
 from agno.run.agent import RunEvent as _RunEvent
 from agno.run.agent import RunPausedEvent as _AgentRunPausedEvent
-from agno.run.team import RunErrorEvent as _TeamRunErrorEvent
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -237,11 +236,15 @@ async def _surface_team_external_tools(
                 error=str(exc),
                 exc_info=True,
             )
-            yield _TeamRunErrorEvent(
-                event="run_error",
-                error="Team pause adapter failed — please retry",
-            )
-            return
+            # Re-raise so the OUTER handler (see the caller's try/except) emits a
+            # proper ag_ui RunErrorEvent + RunFinishedEvent — the only events the
+            # client understands. Yielding agno's team-level RunErrorEvent here
+            # was doubly broken: `error=` is not a field on team.RunErrorEvent
+            # (raises TypeError, so this guard crashed instead of surfacing), and
+            # agno's AG-UI converter has no team-run_error branch, so it would be
+            # silently dropped — the exact silent failure this guard exists to
+            # prevent. Propagating gives a visible, finished error turn.
+            raise
         yield adapted
 
 
