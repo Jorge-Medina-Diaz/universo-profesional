@@ -50,7 +50,7 @@ export function FloatingChat({ children, onExpandedChange }: FloatingChatProps) 
         onFocusCapture={() => !expanded && set(true)}
         className={cn(
           "fixed left-1/2 -translate-x-1/2 z-30 w-[calc(100%-2rem)] max-w-3xl",
-          "rounded-card border border-hairline bg-canvas/95 backdrop-blur shadow-float",
+          "rounded-card border border-hairline bg-[color-mix(in_srgb,var(--surface-canvas)_85%,transparent)] backdrop-blur-md shadow-float",
           "flex flex-col overflow-hidden transition-all duration-420 ease-pirsch",
           expanded
             ? "bottom-20 md:bottom-6 h-[min(76vh,820px)]"

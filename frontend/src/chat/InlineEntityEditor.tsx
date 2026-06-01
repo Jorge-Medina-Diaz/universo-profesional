@@ -26,6 +26,7 @@ interface Props {
 export function InlineEntityEditor({ children, onEdit }: Props) {
   const [edit, setEdit] = useState<InlineEditState | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
@@ -38,11 +39,16 @@ export function InlineEntityEditor({ children, onEdit }: Props) {
 
     const rect = paragraph.getBoundingClientRect();
     const wrapperRect = wrapperRef.current?.getBoundingClientRect();
+    // Clamp within the wrapper so the popover never spills off-screen.
+    const wrapperWidth = wrapperRect?.width ?? 0;
+    const popWidth = Math.min(520, wrapperWidth || 520);
+    const rawLeft = rect.left - (wrapperRect?.left ?? 0);
+    const rawTop = rect.top - (wrapperRect?.top ?? 0);
     setEdit({
       original: text,
       draft: text,
-      top: rect.top - (wrapperRect?.top ?? 0),
-      left: rect.left - (wrapperRect?.left ?? 0),
+      top: Math.max(0, rawTop),
+      left: Math.max(0, Math.min(rawLeft, Math.max(0, wrapperWidth - popWidth))),
     });
   }, []);
 
@@ -77,11 +83,40 @@ export function InlineEntityEditor({ children, onEdit }: Props) {
     return () => window.removeEventListener("keydown", handler);
   }, [edit, save]);
 
+  // Focus trap: keep Tab cycling within the editor popover while it is open, so
+  // keyboard users can't tab out of the modal editor into the page behind it.
+  useEffect(() => {
+    const node = popoverRef.current;
+    if (!edit || !node) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const focusables = node.querySelectorAll<HTMLElement>(
+        'textarea, button, [href], [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    node.addEventListener("keydown", handler);
+    return () => node.removeEventListener("keydown", handler);
+  }, [edit]);
+
   return (
     <div ref={wrapperRef} className="inline-editor-wrapper" onDoubleClick={handleDoubleClick}>
       {children}
       {edit && (
         <div
+          ref={popoverRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Editar en el chat"
           className="inline-editor-popover"
           style={{ top: edit.top, left: edit.left, width: "100%", maxWidth: 520 }}
         >

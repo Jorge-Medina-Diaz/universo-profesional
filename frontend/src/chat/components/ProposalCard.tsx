@@ -260,7 +260,7 @@ export function ProposalCard({
       <div
         role="group"
         aria-label={`Propuesta de ${meta.label}: ${entityTitle(payload)}`}
-        className="rounded-card bg-surface my-3 max-w-lg shadow-soft border border-ink/[0.06] overflow-hidden"
+        className="rounded-card bg-surface my-3 max-w-lg shadow-soft border border-ink/[0.06] border-l-2 border-l-nova overflow-hidden"
       >
         {/* Header */}
         <header className="flex items-start gap-3 px-5 pt-5 pb-3">
