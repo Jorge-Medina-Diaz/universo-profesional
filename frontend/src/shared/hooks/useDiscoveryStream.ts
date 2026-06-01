@@ -15,10 +15,14 @@ import { queryKeys } from "@/shared/queryKeys";
 const INITIAL_RECONNECT_DELAY = 2000;
 const MAX_RECONNECT_DELAY = 30000;
 
+const MAX_SILENT_FAILURES = 4; // ~ up to ~1min of backoff before we warn once
+
 export function useDiscoveryStream(enabled = true) {
   const queryClient = useQueryClient();
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectDelay = useRef(INITIAL_RECONNECT_DELAY);
+  const failures = useRef(0);
+  const warned = useRef(false);
 
   useEffect(() => {
     if (!enabled) return;
@@ -40,8 +44,10 @@ export function useDiscoveryStream(enabled = true) {
           throw new Error("No response body");
         }
 
-        // Reset backoff on successful connection.
+        // Reset backoff + failure tracking on successful connection.
         reconnectDelay.current = INITIAL_RECONNECT_DELAY;
+        failures.current = 0;
+        warned.current = false;
 
         const reader = resp.body.getReader();
         const decoder = new TextDecoder();
@@ -60,12 +66,10 @@ export function useDiscoveryStream(enabled = true) {
               try {
                 const evt = JSON.parse(line.slice(6)) as DiscoveryStreamEvent;
                 if (evt.type === "entity_discovered") {
-                  // Trigger snapshot refetch so the new node appears.
+                  // Live signal only: refetch the snapshot so the new node
+                  // appears on the graph. The toast is owned by
+                  // useEnrichmentNotifications (single source — no double-toast).
                   queryClient.invalidateQueries({ queryKey: queryKeys.graph.snapshot });
-                  toast.success(
-                    `¡Nueva ${evt.entity_type} descubierta!`,
-                    evt.name,
-                  );
                 }
               } catch {
                 /* ignore malformed SSE line */
@@ -74,7 +78,17 @@ export function useDiscoveryStream(enabled = true) {
           }
         }
       } catch {
-        /* silent fail — polling fallback covers us */
+        // The poll-based hooks still cover data, but a persistently dead live
+        // stream must not be fully silent (see [[no-silent-errors]]): after a
+        // few consecutive failures, warn the user ONCE.
+        failures.current += 1;
+        if (failures.current >= MAX_SILENT_FAILURES && !warned.current) {
+          warned.current = true;
+          toast.error(
+            "Sin actualizaciones en vivo",
+            "Se perdió la conexión en tiempo real con tu universo; reintentando en segundo plano.",
+          );
+        }
       } finally {
         if (alive) {
           reconnectTimer.current = setTimeout(

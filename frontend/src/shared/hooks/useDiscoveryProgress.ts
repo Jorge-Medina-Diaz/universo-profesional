@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { api } from "@/shared/api";
-import { toast } from "@/ui";
 import { queryKeys } from "@/shared/queryKeys";
 
 export interface DiscoveryProgress {
@@ -32,22 +31,6 @@ export interface DiscoveryProgress {
 
 const POLL_INTERVAL = 8_000; // 8s — fast enough to feel "live"
 const SIGNIFICANT_SCORE_JUMP = 5;
-
-const ENTITY_TYPE_LABELS: Record<string, string> = {
-  experience: "experiencia",
-  education: "formación",
-  skill: "skill",
-  project: "proyecto",
-  certification: "certificación",
-  course: "curso",
-  language: "idioma",
-  achievement: "logro",
-  interest: "interés",
-};
-
-function labelForEntityType(type: string): string {
-  return ENTITY_TYPE_LABELS[type] || type;
-}
 
 /**
  * Dispatches a celebration event that the pill can listen to.
@@ -91,31 +74,11 @@ export function useDiscoveryProgress(enabled = true) {
 
     if (!prev) return;
 
-    // Detect new discoveries
-    const prevKeys = new Set(
-      prev.recent_discoveries.map((d) => `${d.entity_type}-${d.change_type}-${d.changed_at}`),
-    );
-    const newDiscoveries = data.recent_discoveries.filter(
-      (d) => !prevKeys.has(`${d.entity_type}-${d.change_type}-${d.changed_at}`),
-    );
-
-    for (const discovery of newDiscoveries.slice(0, 3)) {
-      const label = labelForEntityType(discovery.entity_type);
-      toast.success(
-        `¡Nueva ${label} descubierta!`,
-        discovery.change_type === "skill"
-          ? `${discovery.change_type} añadida`
-          : `Añadida desde ${discovery.source}`,
-      );
-    }
-
-    // Detect significant score jump
+    // DATA-ONLY hook: discovery toasts live in useEnrichmentNotifications (the
+    // single source) so one discovery never triple-toasts. Here we only drive
+    // the pill's celebration animation on a significant score jump.
     const scoreDelta = data.discovery_score - prev.discovery_score;
     if (scoreDelta >= SIGNIFICANT_SCORE_JUMP) {
-      toast.success(
-        "🎉 ¡Universo en expansión!",
-        `Tu score de descubrimiento subió ${scoreDelta} puntos`,
-      );
       dispatchCelebration(data.discovery_score, scoreDelta);
     }
   }, [data]);

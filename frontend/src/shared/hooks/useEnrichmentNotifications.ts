@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "@/ui";
 import { api } from "@/shared/api";
+import { queryKeys } from "@/shared/queryKeys";
 
 interface UniverseSummary {
   counts: {
@@ -16,15 +17,20 @@ interface UniverseSummary {
 const SUMMARY_POLL_INTERVAL = 10_000; // 10s
 
 /**
- * Polls the universe summary and shows a toast when new entities
- * are detected (e.g. after auto-enrichment from a chat message).
+ * The SINGLE source of "new entities discovered" toasts (mounted once in
+ * Layout, so it covers every page). useDiscoveryProgress and useDiscoveryStream
+ * deliberately do NOT toast — they only feed the pill/graph — so one discovery
+ * yields exactly one toast instead of two or three.
+ *
+ * Uses the SHARED summary query key so it reuses the cache Router/Layout warm
+ * (no duplicate /summary fetch).
  */
 export function useEnrichmentNotifications() {
   const lastCountsRef = useRef<Record<string, number> | null>(null);
   const toastShownRef = useRef<Set<string>>(new Set());
 
   const { data: summary } = useQuery<UniverseSummary>({
-    queryKey: ["universe", "summary"],
+    queryKey: queryKeys.universe.summary,
     queryFn: async () => {
       return api<UniverseSummary>("/api/v1/universe/summary");
     },
