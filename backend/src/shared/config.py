@@ -204,6 +204,10 @@ class Settings(BaseSettings):
     agents_coordinator_model: str = "claude-sonnet-4-6"
     agents_specialist_model: str = "claude-haiku-4-5-20251001"
     agents_provider: Literal["mock", "anthropic", "openai"] = "mock"
+    # The mock LLM serves deterministic, FABRICATED content. Fine for dev/test
+    # but must never silently back a real user's CV/agent in prod. Defaults off;
+    # dev/test envs are allowed via mock_llm_allowed.
+    allow_mock_llm: bool = False
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
 
@@ -235,6 +239,26 @@ class Settings(BaseSettings):
     @property
     def is_prod(self) -> bool:
         return self.env == "production"
+
+    @property
+    def mock_llm_allowed(self) -> bool:
+        return self.allow_mock_llm or self.is_dev or self.is_test
+
+    def assert_llm_usable(self) -> None:
+        """Raise if the resolved LLM/agents provider is 'mock' where it isn't
+        allowed (prod without a key). Call at any mock-construction choke point
+        so we never ship hallucinated content instead of a visible error."""
+        if self.mock_llm_allowed:
+            return
+        if (
+            self.agents_provider_resolved == "mock"
+            or self.llm_provider_resolved == "mock"
+        ):
+            raise RuntimeError(
+                "LLM provider resolved to 'mock' but mock is not allowed here — "
+                "refusing to serve fabricated content. Configure ANTHROPIC_API_KEY "
+                "or OPENAI_API_KEY (or set ALLOW_MOCK_LLM=true)."
+            )
 
     @property
     def mcp_canonical_uri(self) -> str:

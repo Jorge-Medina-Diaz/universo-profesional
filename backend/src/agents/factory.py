@@ -274,9 +274,11 @@ def _build_model(tier: ModelTier = "coordinator") -> Model:
             temperature=_TEMPERATURE_BY_TIER[tier],
             max_tokens=_MAX_TOKENS,
         )
-    # Mock: OpenAI-compatible client pointed at an unreachable URL. The chat
-    # surface boots and tool wiring works; actual LLM calls fail loudly,
+    # Mock: OpenAI-compatible client pointed at an unreachable URL. Refuse
+    # outright where mock isn't allowed (prod without a key) so we never serve
+    # fabricated content as if real; otherwise actual LLM calls fail loudly,
     # signalling the user to configure ANTHROPIC_API_KEY or OPENAI_API_KEY.
+    settings.assert_llm_usable()
     from agno.models.openai import OpenAILike
 
     return OpenAILike(id="mock-model", api_key="mock", base_url="http://localhost:1/v1")
