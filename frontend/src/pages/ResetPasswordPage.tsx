@@ -90,7 +90,7 @@ export function ForgotPasswordPage() {
               )}
             </Field>
             {error && (
-              <p role="alert" className="text-sm text-red-700">
+              <p role="alert" className="text-sm text-danger">
                 {error}
               </p>
             )}
@@ -191,7 +191,7 @@ export function ResetPasswordPage({ token }: { token: string }) {
               )}
             </Field>
             {error && (
-              <p role="alert" className="text-sm text-red-700">
+              <p role="alert" className="text-sm text-danger">
                 {error}
               </p>
             )}

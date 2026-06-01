@@ -43,9 +43,9 @@ function InvalidProposalNotice({
     <ChatMessageMotion>
       <div
         role="alert"
-        className="rounded-card bg-surface/60 px-4 py-3 my-3 max-w-md border border-red-500/25 flex items-center gap-2.5"
+        className="rounded-card bg-surface/60 px-4 py-3 my-3 max-w-md border border-danger/25 flex items-center gap-2.5"
       >
-        <span className="grid place-items-center h-6 w-6 rounded-full bg-red-500/15 text-red-500 shrink-0">
+        <span className="grid place-items-center h-6 w-6 rounded-full bg-danger-soft text-danger shrink-0">
           <X size={13} strokeWidth={2.5} />
         </span>
         <span className="text-sm text-ink min-w-0">{message}</span>

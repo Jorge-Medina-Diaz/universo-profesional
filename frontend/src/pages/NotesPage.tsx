@@ -348,7 +348,7 @@ function NoteCard({
           <button
             onClick={onDelete}
             aria-label="Eliminar nota"
-            className="w-8 h-8 inline-flex items-center justify-center rounded-full text-stone hover:text-red-600 hover:bg-red-50 transition-colors duration-180"
+            className="w-8 h-8 inline-flex items-center justify-center rounded-full text-stone hover:text-danger hover:bg-danger-soft transition-colors duration-180"
           >
             <Trash2 size={14} />
           </button>

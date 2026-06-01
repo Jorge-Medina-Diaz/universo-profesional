@@ -52,7 +52,7 @@ export function ConfirmCard({
         className={cn(
           "rounded-card bg-surface p-5 my-3 max-w-md border border-ink/[0.06] shadow-soft",
           tone === "warn" && "border-sunbeam/40",
-          tone === "danger" && "border-red-200/70",
+          tone === "danger" && "border-danger/30",
         )}
       >
         <div className="flex items-start gap-3 mb-3">
@@ -62,7 +62,7 @@ export function ConfirmCard({
               className={cn(
                 "inline-flex items-center justify-center w-8 h-8 rounded-full shrink-0",
                 tone === "warn" && "bg-sunbeam-soft text-sunbeam-ink",
-                tone === "danger" && "bg-red-50 text-red-700",
+                tone === "danger" && "bg-danger-soft text-danger-ink",
               )}
             >
               <AlertTriangle size={14} />

@@ -184,8 +184,8 @@ export function RegisterPage() {
                 )}
               </Field>
               {error && (
-                <Card tone="canvas" bordered padding="sm" className="border-red-200 bg-red-50/60">
-                  <p role="alert" className="text-sm text-red-700">{error}</p>
+                <Card tone="canvas" bordered padding="sm" className="border-danger/30 bg-danger-soft/60">
+                  <p role="alert" className="text-sm text-danger-ink">{error}</p>
                 </Card>
               )}
               <Button type="submit" variant="cta" fullWidth size="lg" loading={loading}>

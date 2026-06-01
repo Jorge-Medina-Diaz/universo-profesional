@@ -1040,7 +1040,7 @@ function RowMenu({
                   onDelete();
                   setOpen(false);
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-red-50 text-red-600"
+                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-danger-soft text-danger"
               >
                 <Trash2 size={12} /> Eliminar
               </button>

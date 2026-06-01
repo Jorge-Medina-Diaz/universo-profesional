@@ -86,7 +86,7 @@ export function CheckoutMockPage() {
         ) : (
           <>
             {error && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-danger-ink bg-danger-soft border border-danger/30 rounded-lg p-3 mb-4">
                 {error}
               </p>
             )}

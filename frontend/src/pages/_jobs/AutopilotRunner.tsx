@@ -332,7 +332,7 @@ function RunPhase({
         </div>
         <ProgressSteps steps={steps} />
         {error && (
-          <div className="mt-4 rounded-card bg-red-50 border border-red-200 text-red-700 text-xs px-3 py-2">
+          <div className="mt-4 rounded-card bg-danger-soft border border-danger/30 text-danger-ink text-xs px-3 py-2">
             {error}
           </div>
         )}

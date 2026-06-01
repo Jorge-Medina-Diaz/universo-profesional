@@ -42,7 +42,7 @@ export function ProgressCard({
               className={cn(
                 "inline-flex items-center justify-center w-9 h-9 rounded-full shrink-0",
                 state === "done" && "bg-leaf-soft text-leaf-ink",
-                state === "error" && "bg-red-50 text-red-700",
+                state === "error" && "bg-danger-soft text-danger-ink",
                 state === "running" && "bg-sunbeam-soft text-sunbeam-ink",
               )}
             >
@@ -84,7 +84,7 @@ export function ProgressCard({
         </header>
         <ProgressSteps steps={steps} />
         {errorMessage && (
-          <div className="mt-3 rounded-card bg-red-50 border border-red-200 text-red-700 text-xs px-3 py-2">
+          <div className="mt-3 rounded-card bg-danger-soft border border-danger/30 text-danger-ink text-xs px-3 py-2">
             {errorMessage}
           </div>
         )}

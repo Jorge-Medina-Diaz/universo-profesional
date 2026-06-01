@@ -60,11 +60,11 @@ export function LinkedInCallbackPage() {
             <>
               <span
                 aria-hidden
-                className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-red-50 text-red-700 mx-auto"
+                className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-danger-soft text-danger-ink mx-auto"
               >
                 <AlertTriangle size={20} />
               </span>
-              <h1 className="text-heading-sm font-medium tracking-tight text-red-700">
+              <h1 className="text-heading-sm font-medium tracking-tight text-danger-ink">
                 Algo falló
               </h1>
               <p className="text-stone text-sm">{error}</p>

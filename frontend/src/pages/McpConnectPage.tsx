@@ -10,6 +10,7 @@ import {
   Stagger,
   Surface,
   cn,
+  toast,
 } from "@/ui";
 import { mcp } from "@/shared/api";
 import { queryKeys } from "@/shared/queryKeys";
@@ -279,7 +280,7 @@ export function McpConnectPage() {
 
               {stats.data.recent_errors > 0 && (
                 <div className="flex items-center gap-2 text-xs text-stone">
-                  <span className="inline-block w-2 h-2 rounded-full bg-red-500" />
+                  <span className="inline-block w-2 h-2 rounded-full bg-danger" />
                   <span>{stats.data.recent_errors} errores recientes</span>
                 </div>
               )}
@@ -299,7 +300,7 @@ function CopyableCode({ value, multiline }: { value: string; multiline?: boolean
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      /* ignore */
+      toast.error("No se pudo copiar", "Copia el texto manualmente.");
     }
   };
   return (

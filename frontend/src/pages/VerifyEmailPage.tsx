@@ -70,7 +70,7 @@ export function VerifyEmailPage({ token }: { token: string }) {
               <Avatar tone="red">
                 <AlertTriangle size={20} />
               </Avatar>
-              <h1 className="text-heading-sm font-medium tracking-tight text-red-700">
+              <h1 className="text-heading-sm font-medium tracking-tight text-danger-ink">
                 No pudimos verificar tu email
               </h1>
               <p className="text-stone text-sm">{msg}</p>
@@ -111,7 +111,7 @@ function Avatar({
       ? "bg-leaf-soft text-leaf-ink"
       : tone === "amber"
         ? "bg-sunbeam-soft text-sunbeam-ink"
-        : "bg-red-50 text-red-700";
+        : "bg-danger-soft text-danger-ink";
   return (
     <span
       aria-hidden

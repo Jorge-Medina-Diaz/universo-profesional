@@ -253,13 +253,13 @@ export function SettingsPage() {
         </Card>
 
         <Reveal delay={0.15}>
-          <Card padding="lg" className="border border-red-200/70 bg-red-50/40">
+          <Card padding="lg" className="border border-danger/30 bg-danger-soft/40">
             <SectionHeader
-              icon={<AlertTriangle size={16} className="text-red-700" />}
+              icon={<AlertTriangle size={16} className="text-danger-ink" />}
               title="Zona peligrosa"
-              titleClass="text-red-700"
+              titleClass="text-danger-ink"
             />
-            <p className="text-sm text-red-700/80 mb-5 max-w-prose">
+            <p className="text-sm text-danger-ink/80 mb-5 max-w-prose">
               La cuenta se marca como borrada inmediatamente. Tras 30 días se elimina
               físicamente (Art. 17 RGPD: derecho al olvido).
             </p>

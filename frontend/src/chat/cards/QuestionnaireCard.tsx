@@ -135,7 +135,7 @@ export function QuestionnaireCard({
                 {text && (
                   <p className="text-sm font-medium text-ink">
                     {text}
-                    {q.required && <span className="text-red-500 ml-0.5">*</span>}
+                    {q.required && <span className="text-danger ml-0.5">*</span>}
                   </p>
                 )}
                 {effKind === "single_choice" && (

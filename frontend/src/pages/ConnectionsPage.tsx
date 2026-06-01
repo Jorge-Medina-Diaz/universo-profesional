@@ -239,7 +239,7 @@ function ProviderCard({
             ? `Último sync: ${new Date(connection.last_synced_at).toLocaleString()}`
             : "aún sin sync"}
           {connection.sync_status === "error" && (
-            <span className="text-red-600"> · error: {connection.sync_error}</span>
+            <span className="text-danger"> · error: {connection.sync_error}</span>
           )}
         </p>
       )}
@@ -474,7 +474,7 @@ function LinkedInCard() {
           role={liveStatus.tone === "error" ? "alert" : "status"}
           className={`mt-3 rounded-md px-3 py-2 text-xs flex items-start gap-2 ${
             liveStatus.tone === "error"
-              ? "bg-red-50 border border-red-200 text-red-700"
+              ? "bg-danger-soft border border-danger/30 text-danger-ink"
               : liveStatus.tone === "success"
                 ? "bg-leaf-soft border border-leaf/30 text-leaf-ink"
                 : "bg-sunbeam-soft border border-sunbeam/40 text-sunbeam-ink"
@@ -491,7 +491,7 @@ function LinkedInCard() {
             <button
               type="button"
               onClick={() => setError(null)}
-              className="text-red-600 hover:underline"
+              className="text-danger hover:underline"
               aria-label="Cerrar"
             >
               ×
@@ -569,7 +569,7 @@ function LinkedInCard() {
           </Button>
           {dmaConn && (
             <button
-              className="text-xs text-stone hover:text-red-600 underline"
+              className="text-xs text-stone hover:text-danger underline"
               onClick={() => dmaDisconnect.mutate()}
             >
               Revocar
