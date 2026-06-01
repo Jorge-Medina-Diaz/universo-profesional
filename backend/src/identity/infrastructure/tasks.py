@@ -15,7 +15,7 @@ from tenacity import (
 )
 
 from src.identity.infrastructure.orm import UserOrm
-from src.shared.db import get_session_factory
+from src.shared.db import get_session_factory, set_rls_user
 from src.shared.security import utc_now
 
 logger = structlog.get_logger(__name__)
@@ -120,14 +120,18 @@ async def enqueue_transactional_email(
 
 
 async def hard_delete_expired_accounts(ctx: dict[str, Any]) -> int:
-    """Scheduled task: hard-delete users whose `deleted_at` > 30 days ago.
+    """Scheduled task (daily 02:00 UTC): hard-delete users whose `deleted_at` is
+    > 30 days ago — phase 2 of GDPR Art.17 erasure. The `DELETE FROM users`
+    relies on the `ON DELETE CASCADE` FKs to erase every user-scoped row.
 
-    Run nightly (cron via arq's `cron` jobs in a future iteration; for MVP
-    we expose this as a callable that the worker can run manually).
+    Runs as the trusted SERVICE scope (`set_rls_user(None)` → bypass RLS) so the
+    cross-user scan + delete works once the app connects as the non-superuser
+    `cvs_app` role under FORCE RLS.
     """
     cutoff = utc_now() - timedelta(days=30)
     factory = get_session_factory()
     async with factory() as session:
+        await set_rls_user(session, None)  # cross-user service scope (bypass RLS)
         stmt = (
             delete(UserOrm)
             .where(UserOrm.deleted_at.is_not(None))

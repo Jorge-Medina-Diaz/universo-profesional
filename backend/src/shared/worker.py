@@ -110,6 +110,7 @@ def _collect_cron() -> list[Any]:
         purge_expired_oauth_tokens,
     )
     from src.identity.infrastructure.lifecycle_tasks import lifecycle_cron
+    from src.identity.infrastructure.tasks import hard_delete_expired_accounts
     from src.integrations.infrastructure.tasks import resync_cron
     from src.universe.infrastructure.projections import project_embeddings_task
     from src.universe.infrastructure.reminder_tasks import reminders_cron
@@ -136,6 +137,10 @@ def _collect_cron() -> list[Any]:
         # Day-1 lifecycle "finish setup" email at 08:00 UTC (re-engage
         # registered-but-never-activated users; once each, opt-out respected).
         cron(lifecycle_cron, hour={8}, minute={0}, run_at_startup=False),
+        # GDPR Art.17 phase-2 hard-erase at 02:00 UTC: purge accounts soft-deleted
+        # >30 days ago (FK CASCADE wipes their rows). Without this cron a
+        # right-to-erasure request would soft-delete but never actually erase.
+        cron(hard_delete_expired_accounts, hour={2}, minute={0}, run_at_startup=False),
         # Embeddings outbox projection — every minute, repairs any lost
         # fire-and-forget embed from the domain_events outbox (R4 slice 1).
         cron(project_embeddings_task, second={0}, run_at_startup=False),

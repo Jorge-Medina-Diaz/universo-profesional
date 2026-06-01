@@ -224,16 +224,27 @@ async def delete_me(
     uc: Annotated[DeleteAccount, Depends(delete_account_dep)],
     session: SessionDep,
 ) -> GenericOkResponse:
+    from src.agents.infrastructure.byok import delete_credential
+    from src.integrations.infrastructure.repositories import (
+        SqlExternalAccountRepository,
+    )
     from src.mcp_server.infrastructure.oauth_store import OAuthStore
 
     async with unit_of_work(session) as uow:
         result = await uc.execute(user_id=user_id, uow=uow)
         if result.is_failure:
             raise result.error  # type: ignore[union-attr]
-        # The use case revokes browser refresh tokens; also revoke MCP OAuth
-        # access + refresh tokens, which would otherwise outlive the "deleted"
-        # account (the FK CASCADE doesn't fire on a soft-delete).
+        # The use case soft-deletes + revokes browser refresh tokens. A
+        # soft-delete does NOT fire the FK CASCADE, so anything holding a live
+        # secret/token would otherwise outlive the "deleted" account. Clear them
+        # all in phase 1: MCP OAuth tokens, the BYOK LLM key, and every external
+        # account connection (GitHub/LinkedIn). Any failure raises before
+        # commit, so the request never reports success on a partial erasure.
         await OAuthStore(session).revoke_all_for_user(UUID(user_id))
+        await delete_credential(session, UUID(user_id))
+        accounts = SqlExternalAccountRepository(session)
+        for acc in await accounts.list_for_user(UUID(user_id)):
+            await accounts.delete(UUID(user_id), acc.provider)
         await uow.commit()
     return GenericOkResponse()
 
