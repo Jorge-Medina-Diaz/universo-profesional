@@ -251,11 +251,12 @@ def _build_model(tier: ModelTier = "coordinator") -> Model:
         # input-token cost ~70% on busy chats. `cache_system_prompt` covers
         # the team-level instructions; `cache_tools` covers the tool schema.
         #
-        # TODO(2026-06): When we split static vs dynamic instructions, migrate
-        # STATIC_INSTRUCTIONS to `system_prompt_blocks=[SystemPromptBlock(..., cache=True)]`
-        # and set `cache_system_prompt=False` so the Team-built block is not cached
-        # separately.  For now `cache_system_prompt=True` is sufficient because the
-        # entire instructions list is static.
+        # Verified (R14): the cached prefix is genuinely stable, so this IS a real
+        # breakpoint. STATIC_INSTRUCTIONS is fully static and per-turn dynamic state
+        # never enters the cached system block — Agno Team `add_session_state_to_context`
+        # defaults False and we don't enable it, so `_provider_intent` lives in the
+        # messages, not the prefix. Migrating to `system_prompt_blocks` only pays off
+        # once a per-turn dynamic *suffix* is introduced; not needed today.
         return Claude(
             id=model_id,
             api_key=byok_key or settings.anthropic_api_key,
