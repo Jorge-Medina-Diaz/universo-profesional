@@ -91,14 +91,19 @@ export function normalizeImportItem(
 export async function coherenceUpsert(
   entityKind: string,
   payload: Record<string, unknown>,
+  opts?: { entityId?: string; opHint?: string; source?: string },
 ): Promise<UpsertResponse> {
   return api<UpsertResponse>("/api/v1/coherence/upsert", {
     method: "POST",
     body: JSON.stringify({
       entity_type: entityKind,
       payload,
-      source: "agent_chat",
+      source: opts?.source ?? "agent_chat",
       chat_session_id: useChatState.getState().activeSessionId ?? undefined,
+      op_hint: opts?.opHint,
+      // When set, the engine updates THIS exact entity (manual inspector edit)
+      // instead of name/semantic matching — same coherence path, no dup on rename.
+      entity_id: opts?.entityId,
     }),
   });
 }

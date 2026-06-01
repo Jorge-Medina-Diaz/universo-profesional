@@ -49,6 +49,16 @@ class UpsertBody(BaseModel):
             "execution path so behavior matches the agent's stated intent."
         ),
     )
+    entity_id: str | None = Field(
+        None,
+        description=(
+            "Target a SPECIFIC entity (manual edit from the universe inspector). "
+            "When present, the engine skips name/semantic matching and updates "
+            "exactly this entity through the merge path — so a manual edit gets "
+            "the same coherence change_log + graph mirror as an agent edit, "
+            "without rename-duplicate risk."
+        ),
+    )
 
 
 class UpsertResponse(BaseModel):
@@ -75,6 +85,7 @@ async def upsert(
             source=body.source,
             chat_session_id=body.chat_session_id,
             op_hint=body.op_hint,
+            entity_id=body.entity_id,
         )
         await uow.commit()
     return UpsertResponse(

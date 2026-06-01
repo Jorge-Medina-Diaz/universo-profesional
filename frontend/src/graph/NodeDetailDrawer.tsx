@@ -23,7 +23,7 @@ import {
   useEntityDetail,
   type EntityRow,
 } from "./entityDetail";
-import { universe } from "@/shared/api";
+import { coherenceUpsert } from "@/chat/actions/shared";
 import type { GraphSnapshot } from "./api";
 import type { GraphSelection } from "./GraphView";
 import { queryKeys } from "@/shared/queryKeys";
@@ -290,6 +290,10 @@ export function NodeDetailDrawer({
   }, [open]);
 
   const saveMutation = useMutation({
+    // Route manual edits through the coherence engine (entity_id targets THIS
+    // entity) so they get merge rules, ESCO re-linking, a change_log row (the
+    // /activity "Coherencia" feed) and a graph re-mirror — the same path agent
+    // edits use — instead of the raw PATCH that bypassed all of it.
     mutationFn: async ({
       kind,
       id,
@@ -299,15 +303,27 @@ export function NodeDetailDrawer({
       id: string;
       body: Record<string, unknown>;
     }) => {
-      return universe.patch(kind, id, body);
+      return coherenceUpsert(kind, body, {
+        entityId: id,
+        opHint: "UPDATE",
+        source: "manual",
+      });
     },
-    onSuccess: (_, vars) => {
-      toast.success("Guardado", "Los cambios se guardaron correctamente.");
+    onSuccess: (resp, vars) => {
+      if (resp.status === "suggested") {
+        toast.success(
+          "Cambio en revisión",
+          "Tu edición generó una propuesta de coherencia para revisar.",
+        );
+      } else {
+        toast.success("Guardado", "Los cambios se guardaron correctamente.");
+      }
       setEditing(false);
       queryClient.invalidateQueries({ queryKey: queryKeys.entity.detail(vars.kind, vars.id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.graph.snapshot });
       queryClient.invalidateQueries({ queryKey: queryKeys.universe.summary });
       queryClient.invalidateQueries({ queryKey: queryKeys.trajectory.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.coherence.changes });
     },
     onError: (err: Error) => {
       toast.error("No se pudo guardar", err.message || "Inténtalo de nuevo.");

@@ -41,7 +41,7 @@ from src.coherence.application.ports import (
     ChangeLogRepository,
     SemanticMatcher,
 )
-from src.coherence.domain.merge_rules import merge_for
+from src.coherence.domain.merge_rules import FieldDiff, merge_for
 from src.coherence.domain.upsert_decision import (
     MatchKind,
     MatchResult,
@@ -205,6 +205,7 @@ class UpsertUniverseEntity:
         agent_run_id: str | None = None,
         chat_session_id: str | None = None,
         op_hint: str | None = None,
+        entity_id: str | None = None,
     ) -> UpsertOutcome:
         # Mem0-style write contract: when the agent has reasoned that the
         # turn should NOT mutate the universe, it passes op_hint='NOOP'.
@@ -228,6 +229,25 @@ class UpsertUniverseEntity:
         # Coerce partial date strings ('2023', '2023-06') → date objects.
         payload = _coerce_date_fields(payload)
         payload = {k: v for k, v in payload.items() if v is not None}
+
+        # --- 0. Targeted update by explicit id --------------------------------
+        # A manual edit (e.g. the universe NodeDetailDrawer) names the EXACT
+        # entity to change. Skip ER/name matching entirely — matching by name
+        # would mis-target on a rename or spawn a duplicate — and run the same
+        # merge path the agent uses, so the edit still gets coherence merge
+        # rules, a change_log row (the "Coherencia" feed) and a graph re-mirror.
+        if entity_id is not None:
+            return await self._targeted_update(
+                entity_type=entity_type,
+                user_id=user_id,
+                entity_id=UUID(entity_id),
+                payload=payload,
+                config=config,
+                source=source,
+                uow=uow,
+                agent_run_id=agent_run_id,
+                chat_session_id=chat_session_id,
+            )
 
         # --- 1. Find existing -------------------------------------------------
         match = await self._find_existing(
@@ -416,6 +436,79 @@ class UpsertUniverseEntity:
             chat_session_id=chat_session_id,
         )
         return UpsertOutcome(status=UpsertStatus.CREATED, entity_id=entity_id)
+
+    async def _targeted_update(
+        self,
+        *,
+        entity_type: str,
+        user_id: str,
+        entity_id: UUID,
+        payload: dict[str, Any],
+        config: dict[str, Any],
+        source: str,
+        uow: UnitOfWork,
+        agent_run_id: str | None,
+        chat_session_id: str | None = None,
+    ) -> UpsertOutcome:
+        """Apply a DELIBERATE edit to a specific entity (manual inspector edit).
+
+        Unlike `_merge` — which runs dedup arbitration via merge rules and may
+        keep the existing value (silently dropping a user edit) — here the
+        user's values WIN directly; we only skip fields that don't actually
+        change. It still records a change_log row and re-mirrors the graph, so a
+        manual edit is a first-class coherence write (shows in the "Coherencia"
+        feed, re-links ESCO, updates the graph) instead of a raw PATCH bypass.
+        """
+        repo = config["repo"](self._session)
+        existing = await repo.get(UUID(user_id), entity_id)
+        if existing is None:
+            return UpsertOutcome(
+                status=UpsertStatus.NOOP, entity_id=None, reason="entity not found"
+            )
+        existing_dict = _serialize(existing)
+        update_payload = _strip_metadata_keys(
+            {k: v for k, v in payload.items() if k != "id"}
+        )
+        diffs = [
+            FieldDiff(field=k, old=existing_dict.get(k), new=v)
+            for k, v in update_payload.items()
+            if existing_dict.get(k) != v
+        ]
+        if not diffs:
+            return UpsertOutcome(
+                status=UpsertStatus.NOOP, entity_id=entity_id, reason="no changes"
+            )
+        crud = config["crud"](repo, self._scheduler)
+        result = await crud.update(
+            user_id=user_id, entity_id=str(entity_id), patch=update_payload, uow=uow
+        )
+        if result.is_failure:
+            return UpsertOutcome(
+                status=UpsertStatus.NOOP,
+                entity_id=entity_id,
+                reason=str(result.error),
+            )
+        await record_merge(
+            self._change_log,
+            user_id=UUID(user_id),
+            entity_type=entity_type,
+            entity_id=entity_id,
+            diffs=diffs,
+            source=source,
+            reason="manual targeted edit",
+            agent_run_id=agent_run_id,
+        )
+        await self._mirror_entity_to_graph(
+            entity_type=entity_type,
+            user_id=UUID(user_id),
+            entity_id=entity_id,
+            payload={**existing_dict, **update_payload},
+            source=source,
+            chat_session_id=chat_session_id,
+        )
+        return UpsertOutcome(
+            status=UpsertStatus.MERGED, entity_id=entity_id, diffs=diffs
+        )
 
     async def _merge(
         self,
