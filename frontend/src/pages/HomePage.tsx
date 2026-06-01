@@ -10,7 +10,6 @@ import { Suspense, lazy, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import { PanelRightOpen, LayoutGrid } from "lucide-react";
-import { UniverseDrawer } from "@/chat/UniverseDrawer";
 import { FloatingChat } from "@/chat/FloatingChat";
 import { useChatState } from "@/chat/state";
 import { graphApi } from "@/graph/api";
@@ -61,7 +60,6 @@ REGLAS:
 const INITIAL_MESSAGE = `Hola. Soy tu compañero para construir y mantener tu universo profesional. ¿Por dónde quieres empezar?`;
 
 export function HomePage() {
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [widgetsSheetOpen, setWidgetsSheetOpen] = useState(false);
   const [chatExpanded, setChatExpanded] = useState(false);
   const ready = useCopilotReady();
@@ -137,7 +135,7 @@ export function HomePage() {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => setDrawerOpen(true)}
+          onClick={() => (window.location.hash = "#/universe")}
           trailingIcon={<PanelRightOpen size={14} />}
           data-tour="open-universe-button"
         >
@@ -181,8 +179,6 @@ export function HomePage() {
       <Suspense fallback={null}>
         <WidgetsSheet open={widgetsSheetOpen} onOpenChange={setWidgetsSheetOpen} />
       </Suspense>
-
-      <UniverseDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </div>
   );
 }

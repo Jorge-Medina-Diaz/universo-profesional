@@ -22,6 +22,7 @@ import {
   cn,
 } from "@/ui";
 import { queryKeys } from "@/shared/queryKeys";
+import { CoherenceChangesFeed } from "./_activity/CoherenceChangesFeed";
 
 interface EventMeta {
   label: string;
@@ -39,7 +40,11 @@ const TYPE_META: Record<string, EventMeta> = {
   SuggestionRejected: { label: "Sugerencia rechazada", Icon: Sparkles, tone: "stone" },
 };
 
-const FILTERS: Array<{ id: "all" | "writes" | "documents" | "suggestions"; label: string; types: string[] | null }> = [
+const FILTERS: Array<{
+  id: "all" | "writes" | "documents" | "suggestions" | "coherence";
+  label: string;
+  types: string[] | null;
+}> = [
   { id: "all", label: "Todo", types: null },
   {
     id: "writes",
@@ -52,11 +57,15 @@ const FILTERS: Array<{ id: "all" | "writes" | "documents" | "suggestions"; label
     label: "Sugerencias",
     types: ["SuggestionAccepted", "SuggestionRejected"],
   },
+  // The low-level coherence-engine change-log (field diffs + source), relocated
+  // from the retired UniverseDrawer. Its own data shape → its own feed.
+  { id: "coherence", label: "Coherencia", types: null },
 ];
 
 export function ActivityPage() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all");
   const activeFilter = FILTERS.find((f) => f.id === filter) ?? FILTERS[0];
+  const isCoherence = filter === "coherence";
 
   const query = useQuery({
     queryKey: queryKeys.activity.list(filter),
@@ -65,6 +74,8 @@ export function ActivityPage() {
         limit: 100,
         types: activeFilter.types ?? undefined,
       }),
+    // The coherence feed owns its own fetch — don't load the activity feed.
+    enabled: !isCoherence,
   });
 
   const grouped = useMemo(() => groupByDay(query.data?.items ?? []), [query.data]);
@@ -106,7 +117,9 @@ export function ActivityPage() {
         </Card>
       </Reveal>
 
-      {query.isLoading ? (
+      {isCoherence ? (
+        <CoherenceChangesFeed />
+      ) : query.isLoading ? (
         <PageSkeleton />
       ) : grouped.length === 0 ? (
         <Card tone="glass" padding="lg" className="text-center space-y-3">
