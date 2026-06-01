@@ -6,7 +6,7 @@ Companion to [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) (the 12-lens deep audit:
 execute without re-deriving context.
 
 Branch: `audit/remediation-cosmos` (local only — no git remote in this
-environment). Stack at last checkpoint: `/readyz` 200, **alembic head 0032**,
+environment). Stack at last checkpoint: `/readyz` 200, **alembic head 0038**,
 working tree clean.
 
 ---
@@ -51,24 +51,36 @@ working tree clean.
 | **R19 — Day-1 lifecycle re-engagement email** | `7b29e2c` | Daily cron emails a one-time "finish setup" nudge to registered-but-never-activated users (built on R3 activation state); migration 0037 marker; opt-out respected; mark-then-send. **Live e2e verified** (finds eligible, marks, sends once, re-run sent=0). |
 | **C-jobs** | — | Resolved **N/A**: the Kanban board loads all jobs by design; paginating it would break the board. The unbounded append-only feeds (activity/coherence) were the real risk and are done. |
 
-### ⏭ Deep remainder — recommend dedicated focused builds, NOT a rushed plow
-These are the genuinely-large/risky items. Rushing them at the tail of a long
-session risks breaking core systems — which is exactly what this whole pass
-avoided. Each warrants its own blueprint→implement→review cycle:
-- **R4 — SQL transactional-outbox projection** (largest): touches **every entity
-  write** across every context (route writes through an outbox + projection
-  worker for AGE/snapshot/embeddings). Highest-risk; do as a dedicated build with
-  the review loop + a reconciliation command.
-- **R13–15 — agentic efficiency**: consolidate the ~17 CRUD specialists into 1–2
-  entity-curator agents, Anthropic prompt-cache breakpoints, move per-turn
-  enrichment off the hot path. Refactors the **agent loop** — high blast radius.
-- **R10 — periodic re-sync engine + review queue**: weekly per-connection sync
-  cron → coherence → a persistent review queue + Home badge. External-API
-  dependent (tokens/rate limits) + a new FE surface; hard to verify locally.
-- **R5 — Apache AGE in CI + deterministic fake-LLM**: CI-config (point the CI
-  Postgres at the AGE image; `requires_age` marker that fails-not-skips) +
-  test-env LLM. Correct to write but **not verifiable in this environment** (CI
-  runs on GitHub).
+### ✅ Deep remainder — safe slices shipped (lowest-risk-first, verify + commit each)
+The genuinely-large/risky items were NOT plowed; each was reduced to a
+lowest-risk, independently-verifiable slice (the heavy/irreversible parts are
+deferred-by-design below), then built + gated + committed, and the four new
+increments were re-reviewed by an adversarial pass (findings fixed in `361d3a0`).
+
+| Item | Commit | Slice shipped | Verified |
+|---|---|---|---|
+| **R14 — prompt-cache breakpoints** | `3868336` | Confirmed `cache_system_prompt`/`cache_tools` on Claude are a genuinely-stable prefix (no per-turn dynamic state leaks in); resolved the TODO; regression-guard test forces anthropic + asserts the flags. | gates + test |
+| **R10 — periodic re-sync** | `4e421ee` | Weekly **GitHub-only** `resync_cron` (LinkedIn excluded — token/rate-limit risk), fan-out like `reminders_cron`, per-uid try/except + inline fallback. Review queue = the existing suggestions surface. | fake-redis unit test |
+| **R4 s1 — embeddings outbox projection** | `d044a41`, `361d3a0` | Migration 0038 adds `domain_events.seq` + `outbox_projection_cursor`; a per-minute cursor-driven worker re-embeds lost fire-and-forget embeds. First run fast-forwards (no stampede); `FOR UPDATE SKIP LOCKED` (no overlap); advances only to last **contiguous** success (transient → retry, bad-data → skip loud). **Path B keeps its in-txn AGE+SQL atomicity.** | live (fast-fwd, repair, stop-on-throw + recovery) |
+| **R15 s2 — debounce enrichment** | `61a237a` | Full-graph `enrich_user_graph` moved off every chat turn → a coalesced background job (per-user `_job_id` + `_defer_by`); per-turn extraction stays inline; **inline fallback when Redis is down → never silently stops.** | standalone (all branches) + unit |
+| **R13 s1 — entity_curator** | `2225231`, `361d3a0` | Generic `propose_entity(entity_type, payload)` tool + one generalist agent ALONGSIDE the per-entity specialists, behind `agents_entity_curator_enabled` (**default OFF → zero blast radius**); streaming validates the kind (`is_known_entity`) and surfaces a **visible error** for invalid (no silent NOOP); FE widens `EntityType` + reuses ProposalCard. | team OFF=26/ON=27, streaming cases, FE gates |
+| **R5 — fake-LLM + AGE-in-CI** | `e7d4285`, `361d3a0` | `FakeScriptedModel` (opt-in via `scripted_model(...)`) drives the agno loop offline + deterministically; `requires_age` marker + conftest **fail-not-skip** guard; CI Postgres → AGE-enabled `ghcr.io/<owner>/cvs-postgres:pg16` + `packages: read`. | fake-LLM live; **CI parts flagged — not runnable without a remote** |
+
+### ⏭ Deferred-by-design (the heavy/irreversible parts — do NOT rush)
+Recorded so a fresh session resumes without re-deriving why these were held back:
+- **R4 Slice 2** — snapshot-invalidation projection + removing the fire-and-forget
+  `asyncio.create_task` in `event_handlers`.
+- **R4 Slice 3** — the REST-path AGE-vertex projection. **Keep `UpsertUniverseEntity`
+  (Path B) inline-atomic** until this is built + reviewed; the outbox only adds a
+  reliability net, it does not replace the stronger same-txn write.
+- **R4 Slice 4** — deterministic rebuild-from-SQL reconciliation command.
+- **R13 removal slice** — drop the per-entity specialists once `entity_curator`
+  proves out behind the flag (and rebuild the FE image — `propose_entity` is dead
+  code while the flag is off).
+- **R15 Slice 3** — a `change_log` dirty-flag table so enrichment runs only when
+  the graph actually changed (vs. the time-window debounce shipped).
+- **R10 — LinkedIn auto-resync** (excluded from the GitHub cron) + the persistent
+  Review-queue FE surface + Home badge.
 
 ### ⚠️ R2 has a REQUIRED completion step (deferred, not optional)
 The app connects to Postgres as **superuser `cvs`** (`rolsuper=t rolbypassrls=t`),
