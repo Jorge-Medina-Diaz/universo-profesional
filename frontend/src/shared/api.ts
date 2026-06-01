@@ -676,6 +676,7 @@ export interface DocumentSummary {
   created_at: string;
   has_pdf: boolean;
   has_docx: boolean;
+  render_status: "ready" | "degraded" | "failed";
   share_token: string | null;
   source_entity_ids?: string[];
 }

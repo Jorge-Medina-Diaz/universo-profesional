@@ -149,10 +149,15 @@ class GenerateCv:
             language=payload.language,
             user_id=uid,
         )
+        # Derive the render outcome from the produced PDF key (.html = the
+        # WeasyPrint fallback fired → degraded; None = failed). Persisting it
+        # makes a degraded/failed render visible instead of silent.
+        render_status = Document.derive_render_status(pdf_path)
         await self._docs.update_renders(
             document_id=document.id,
             pdf_path=pdf_path,
             docx_path=docx_path,
+            render_status=render_status,
         )
         document.attach_renders(pdf_path=pdf_path, docx_path=docx_path)
 
@@ -190,6 +195,7 @@ class ListDocuments:
                 "created_at": d.created_at.isoformat(),
                 "has_pdf": d.pdf_path is not None,
                 "has_docx": d.docx_path is not None,
+                "render_status": getattr(d, "render_status", "ready"),
                 "share_token": d.share_token,
                 # Entity ids this document was generated from — lets the
                 # frontend draw document→entity edges in the universe graph.
@@ -222,6 +228,9 @@ class GetDocument:
                 "tone": doc.tone,
                 "length": doc.length,
                 "content_json": doc.content_json,
+                "render_status": getattr(doc, "render_status", "ready"),
+                "has_pdf": doc.pdf_path is not None,
+                "has_docx": doc.docx_path is not None,
                 "share_token": doc.share_token,
                 "created_at": doc.created_at.isoformat(),
             }

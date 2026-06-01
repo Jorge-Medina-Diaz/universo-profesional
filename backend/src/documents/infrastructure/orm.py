@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import CHAR, ForeignKey, Text
+from sqlalchemy import CHAR, ForeignKey, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -54,6 +54,9 @@ class DocumentOrm(Base):
     share_token: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
     share_expires_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    render_status: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'ready'")
+    )
 
 
 class ApplicationOrm(Base):

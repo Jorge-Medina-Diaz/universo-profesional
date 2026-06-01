@@ -29,6 +29,7 @@ def _doc_to_domain(row: DocumentOrm) -> Document:
         share_token=row.share_token,
         share_expires_at=row.share_expires_at,
         created_at=row.created_at,
+        render_status=row.render_status,
     )
 
 
@@ -54,6 +55,7 @@ class SqlAlchemyDocumentRepository(DocumentRepository):
                 share_token=document.share_token,
                 share_expires_at=document.share_expires_at,
                 created_at=document.created_at,
+                render_status=document.render_status,
             )
         )
         await self._session.flush()
@@ -80,12 +82,16 @@ class SqlAlchemyDocumentRepository(DocumentRepository):
         return [_doc_to_domain(r) for r in rows]
 
     async def update_renders(
-        self, document_id: UUID, pdf_path: str | None, docx_path: str | None
+        self,
+        document_id: UUID,
+        pdf_path: str | None,
+        docx_path: str | None,
+        render_status: str,
     ) -> None:
         stmt = (
             update(DocumentOrm)
             .where(DocumentOrm.id == document_id)
-            .values(pdf_path=pdf_path, docx_path=docx_path)
+            .values(pdf_path=pdf_path, docx_path=docx_path, render_status=render_status)
         )
         await self._session.execute(stmt)
         await self._session.flush()

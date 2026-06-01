@@ -16,6 +16,10 @@ class DocumentGenerated(DomainEvent):
     kind: str = "cv"
 
 
+RENDER_STATUSES = ("ready", "degraded", "failed")
+"""Allowed Document.render_status values (the render outcome)."""
+
+
 @dataclass
 class Document:
     id: UUID
@@ -33,6 +37,8 @@ class Document:
     share_token: str | None
     share_expires_at: datetime | None
     created_at: datetime
+    # Render outcome (ready | degraded | failed); see derive_render_status().
+    render_status: str = "ready"
     _events: list[DomainEvent] = field(default_factory=list, repr=False, compare=False)
 
     @classmethod
@@ -72,9 +78,20 @@ class Document:
         )
         return doc
 
+    @staticmethod
+    def derive_render_status(pdf_path: str | None) -> str:
+        """Render outcome from the produced PDF key: a real ``.pdf`` is ready,
+        the WeasyPrint ``.html`` fallback is degraded, nothing is failed."""
+        if not pdf_path:
+            return "failed"
+        if pdf_path.endswith(".html"):
+            return "degraded"
+        return "ready"
+
     def attach_renders(self, *, pdf_path: str | None, docx_path: str | None) -> None:
         self.pdf_path = pdf_path
         self.docx_path = docx_path
+        self.render_status = self.derive_render_status(pdf_path)
 
     def make_share_token(self, *, token: str, expires_at: datetime | None) -> None:
         self.share_token = token

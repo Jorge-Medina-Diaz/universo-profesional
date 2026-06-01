@@ -5,7 +5,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { FileDown, Share2, ArrowLeft, Sparkles, FileText, Pencil, Braces } from "lucide-react";
+import { FileDown, Share2, ArrowLeft, Sparkles, FileText, Pencil, Braces, AlertTriangle } from "lucide-react";
 import { documents } from "@/shared/api";
 import { useChatState } from "@/chat/state";
 import {
@@ -163,7 +163,7 @@ export function DocumentViewerPage({ id }: { id: string }) {
             >
               Europass
             </Button>
-            {doc.has_pdf && (
+            {doc.has_pdf && doc.render_status === "ready" && (
               <Button
                 variant="cta"
                 onClick={() =>
@@ -203,6 +203,26 @@ export function DocumentViewerPage({ id }: { id: string }) {
           </div>
         </Card>
       </Reveal>
+
+      {doc.render_status && doc.render_status !== "ready" && (
+        <Reveal delay={0.04}>
+          <Card padding="md" tone="glass">
+            <div className="flex items-start gap-3">
+              <span
+                aria-hidden
+                className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-sunbeam-soft text-sunbeam-ink shrink-0"
+              >
+                <AlertTriangle size={16} />
+              </span>
+              <p className="text-sm text-stone leading-relaxed">
+                {doc.render_status === "degraded"
+                  ? "El PDF no se pudo generar; mostramos una versión HTML. Vuelve a generar el documento para obtener el PDF."
+                  : "No se pudo generar el documento. Vuelve a generarlo."}
+              </p>
+            </div>
+          </Card>
+        </Reveal>
+      )}
 
       {/* Cover letter body */}
       {isCoverLetter && coverBody && (

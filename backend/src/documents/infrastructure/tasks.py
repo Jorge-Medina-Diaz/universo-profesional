@@ -18,6 +18,7 @@ async def render_document(
     """Re-render an existing document (used for async rendering paths)."""
     from sqlalchemy import select
 
+    from src.documents.domain.entities import Document
     from src.documents.infrastructure.orm import DocumentOrm
 
     renderer = WeasyPrintRenderer()
@@ -44,5 +45,6 @@ async def render_document(
         )
         row.pdf_path = pdf
         row.docx_path = docx
+        row.render_status = Document.derive_render_status(pdf)
         await session.commit()
-        return {"pdf": pdf, "docx": docx}
+        return {"pdf": pdf, "docx": docx, "render_status": row.render_status}
