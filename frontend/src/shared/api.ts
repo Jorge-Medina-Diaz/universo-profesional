@@ -112,6 +112,15 @@ export async function api<T = unknown>(
       if (refreshed) return api<T>(path, { ...init, _retried: true });
       useAuthStore.getState().clear();
     }
+    // 402 Payment Required = quota/tier wall. Turn every hard wall into one
+    // upgrade moment via a global event a top-level modal listens for (the
+    // cheapest conversion surface — see UpgradeModal). The call still rejects
+    // so callers' own error handling runs unchanged.
+    if (resp.status === 402 && typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("cvs:upgrade-required", { detail: parsed }),
+      );
+    }
     throw new ApiError(resp.status, parsed, extractErrorMessage(resp.status, parsed));
   }
   return parsed as T;
