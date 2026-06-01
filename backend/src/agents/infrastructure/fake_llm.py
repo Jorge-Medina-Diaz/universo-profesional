@@ -103,6 +103,13 @@ def scripted_model(steps: list[dict[str, Any]]):
     """Within this block, `_build_model` returns a FakeScriptedModel(steps).
 
     Use in tests to drive a deterministic agent loop offline. Opt-in only.
+
+    CAVEAT for team-level tests: `get_universe_team()` is `@lru_cache`d, so a
+    team built once (with a real/mock model) is reused and will NOT pick up this
+    override. To script a whole team, build it inside this block via the
+    uncached `_build_universe_team()` (or clear the cache first). A single Agent
+    built directly with `FakeScriptedModel(...)` — the simplest case — is
+    unaffected.
     """
     token = _scripted_steps.set(list(steps))
     try:

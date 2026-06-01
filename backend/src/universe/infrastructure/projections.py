@@ -26,19 +26,6 @@ logger = structlog.get_logger(__name__)
 _BATCH = 500
 
 
-async def _get_cursor(session: AsyncSession, name: str) -> int | None:
-    row = (
-        await session.execute(
-            text(
-                "SELECT last_event_seq FROM outbox_projection_cursor "
-                "WHERE projection_name = :n"
-            ),
-            {"n": name},
-        )
-    ).first()
-    return int(row[0]) if row else None
-
-
 async def _set_cursor(session: AsyncSession, name: str, seq: int) -> None:
     await session.execute(
         text(
@@ -51,16 +38,49 @@ async def _set_cursor(session: AsyncSession, name: str, seq: int) -> None:
 
 async def project_embeddings_task(ctx: dict[str, Any]) -> dict[str, Any]:
     """Re-embed entities for entry_added/entry_updated events the cursor hasn't
-    seen — repairing any lost fire-and-forget embed. Idempotent overwrite."""
+    seen — repairing any lost fire-and-forget embed. Idempotent overwrite.
+
+    The whole run holds a row lock on the cursor (`FOR UPDATE SKIP LOCKED`), so
+    an overlapping cron tick — or a second worker — can't double-process or
+    regress the cursor: a concurrent tick simply does nothing this minute. The
+    cursor advances only to the last CONTIGUOUS success, so a transient failure
+    (embedder/DB blip) is retried next tick rather than skipped forever — it is
+    never a silent drop. A structurally-broken row (missing type/id, which can
+    never embed) is logged loudly and stepped over so it can't stall the loop.
+    """
     from src.universe.infrastructure.tasks import refresh_embedding
 
     factory = get_session_factory()
+    projected = 0
+    failed = 0
     async with factory() as session:
         await set_rls_user(session, None)  # cross-user worker scope (bypass RLS)
-        cursor = await _get_cursor(session, "embeddings")
-        if cursor is None:
-            logger.warning("embeddings_projection_cursor_missing")
-            return {"projected": 0, "note": "cursor missing"}
+        # Lock the cursor row for this run. SKIP LOCKED → a concurrent tick gets
+        # no row and exits cleanly instead of racing the read/advance.
+        locked = (
+            await session.execute(
+                text(
+                    "SELECT last_event_seq FROM outbox_projection_cursor "
+                    "WHERE projection_name = :n FOR UPDATE SKIP LOCKED"
+                ),
+                {"n": "embeddings"},
+            )
+        ).first()
+        if locked is None:
+            # Distinguish "row missing" (loud) from "held by another tick" (fine).
+            exists = (
+                await session.execute(
+                    text(
+                        "SELECT 1 FROM outbox_projection_cursor WHERE projection_name = :n"
+                    ),
+                    {"n": "embeddings"},
+                )
+            ).first()
+            if exists is None:
+                logger.warning("embeddings_projection_cursor_missing")
+                return {"projected": 0, "note": "cursor missing"}
+            return {"projected": 0, "note": "locked by concurrent tick"}
+        cursor = int(locked[0])
 
         # First run: fast-forward past all history so deploying the worker does
         # NOT trigger an embedding stampede over every existing entity.
@@ -75,6 +95,7 @@ async def project_embeddings_task(ctx: dict[str, Any]) -> dict[str, Any]:
                 await session.commit()
                 logger.info("embeddings_projection_fast_forward", to_seq=int(head))
                 return {"projected": 0, "fast_forwarded_to": int(head)}
+            await session.commit()
             return {"projected": 0}
 
         rows = (
@@ -90,39 +111,44 @@ async def project_embeddings_task(ctx: dict[str, Any]) -> dict[str, Any]:
             )
         ).all()
 
-    if not rows:
-        return {"projected": 0}
+        if not rows:
+            await session.commit()  # release the lock
+            return {"projected": 0}
 
-    projected = 0
-    failed = 0
-    last_seq = cursor
-    for seq, et, eid in rows:
-        last_seq = int(seq)
-        if not et or not eid:
-            logger.warning("embeddings_projection_bad_row", seq=last_seq)
-            failed += 1
-            continue
-        try:
-            await refresh_embedding(ctx, entity_type=et, entity_id=eid)
-            projected += 1
-        except Exception as exc:  # loud dead-letter — never a silent drop
-            logger.error(
-                "embeddings_projection_row_failed",
-                seq=last_seq,
-                entity_type=et,
-                entity_id=eid,
-                error=str(exc),
-            )
-            failed += 1
+        # Advance only to the last CONTIGUOUS success. `refresh_embedding` opens
+        # its own session per row; the lock above serialises ticks so that is safe.
+        advance_to = cursor
+        for raw_seq, et, eid in rows:
+            seq = int(raw_seq)
+            if not et or not eid:
+                # Can never embed — step over it (loud) so it doesn't wedge us.
+                logger.error("embeddings_projection_bad_row", seq=seq)
+                failed += 1
+                advance_to = seq
+                continue
+            try:
+                await refresh_embedding(ctx, entity_type=et, entity_id=eid)
+                projected += 1
+                advance_to = seq
+            except Exception as exc:
+                # Likely transient — STOP advancing so this row is retried next
+                # tick (at-least-once). Loud, never silent. A row that fails
+                # deterministically will re-log each tick until the data is fixed
+                # or the entity is deleted (then refresh_embedding no-ops).
+                logger.error(
+                    "embeddings_projection_row_failed",
+                    seq=seq,
+                    entity_type=et,
+                    entity_id=eid,
+                    error=str(exc),
+                )
+                failed += 1
+                break
 
-    # Advance once to the last examined seq (idempotent: a crash before this
-    # re-processes the batch next tick, which is a harmless re-embed).
-    async with factory() as session:
-        await set_rls_user(session, None)
-        await _set_cursor(session, "embeddings", last_seq)
+        await _set_cursor(session, "embeddings", advance_to)
         await session.commit()
 
     logger.info(
-        "embeddings_projection_done", projected=projected, failed=failed, cursor=last_seq
+        "embeddings_projection_done", projected=projected, failed=failed, cursor=advance_to
     )
-    return {"projected": projected, "failed": failed, "cursor": last_seq}
+    return {"projected": projected, "failed": failed, "cursor": advance_to}

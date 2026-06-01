@@ -5,6 +5,13 @@ on:
     branches: [master]
   pull_request:
 
+# Least-privilege token. `packages: read` is required so the Postgres service
+# containers can pull the AGE-enabled ghcr.io/<owner>/cvs-postgres image — the
+# default token on pull_request events does NOT include package-read scope.
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   # -------------------------------------------------------------------------
   # Backend — lint, type-check, import-linter, pytest with coverage.

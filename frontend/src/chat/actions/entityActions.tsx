@@ -30,10 +30,14 @@ function InvalidProposalNotice({
 }) {
   const sent = useRef(false);
   useEffect(() => {
-    if (sent.current) return;
+    // Wait until CopilotKit has wired `respond` before resolving — firing on an
+    // undefined `respond` would mark us done yet never resolve the tool call,
+    // hanging the agent. Guarding on `respond` also means the toast fires once,
+    // on the executing render, not again on the terminal remount.
+    if (sent.current || !respond) return;
     sent.current = true;
     toast.error("Propuesta inválida", message);
-    respond?.(`Error: ${message}`);
+    respond(`Error: ${message}`);
   }, [respond, message]);
   return (
     <ChatMessageMotion>

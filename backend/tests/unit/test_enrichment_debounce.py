@@ -17,15 +17,18 @@ _UID = UUID("11111111-1111-1111-1111-111111111111")
 
 
 class _FakePool:
-    def __init__(self, boom: bool = False) -> None:
+    def __init__(self, boom: bool = False, coalesce: bool = False) -> None:
         self.calls: list[tuple[str, dict]] = []
         self._boom = boom
+        self._coalesce = coalesce
 
     async def enqueue_job(self, name, **kw):
         if self._boom:
             raise RuntimeError("redis gone")
         self.calls.append((name, kw))
-        return object()  # arq returns a Job (or None when coalesced)
+        # arq returns a Job for a fresh enqueue, or None when a job with the same
+        # _job_id already exists (coalesced) — both mean "enrichment is scheduled".
+        return None if self._coalesce else object()
 
 
 @pytest.fixture(autouse=True)
@@ -51,6 +54,21 @@ async def test_enqueues_coalesced_per_user_job(monkeypatch):
     # Fixed per-user job id is what makes rapid turns coalesce into one job.
     assert kw["_job_id"] == f"enrich-graph:{_UID}"
     assert kw["_defer_by"] == 5
+
+
+async def test_coalesced_enqueue_still_returns_true(monkeypatch):
+    # When arq dedups (enqueue_job returns None), enrichment IS already
+    # scheduled/recent — we must still return True so the caller does NOT fall
+    # back to the expensive inline enrichment. This is the debounce contract.
+    fake = _FakePool(coalesce=True)
+
+    async def _fake_create_pool(*a, **k):
+        return fake
+
+    monkeypatch.setattr(s, "create_pool", _fake_create_pool)
+    ok = await s.enqueue_graph_enrichment(_UID)
+    assert ok is True
+    assert len(fake.calls) == 1
 
 
 async def test_returns_false_when_pool_unreachable(monkeypatch):

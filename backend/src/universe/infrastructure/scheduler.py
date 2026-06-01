@@ -65,8 +65,11 @@ _enrichment_pool: Any | None = None
 async def _get_enrichment_pool() -> Any | None:
     """Cached arq pool for enrichment enqueues, or None if Redis is down.
 
-    Module-level cache so a busy chat doesn't reconnect every turn; the API
-    process has a single event loop, so one pool is safe to reuse.
+    One pool PER PROCESS, created LAZILY on first use. Lazy-after-fork is what
+    keeps this safe under a multi-worker (Gunicorn) deploy — each worker builds
+    its own pool bound to its own event loop. Do NOT eagerly initialise this at
+    app startup: a pool created before the fork would share sockets across
+    workers and corrupt. Same pattern as integrations/infrastructure/queue.py.
     """
     global _enrichment_pool
     if _enrichment_pool is not None:
