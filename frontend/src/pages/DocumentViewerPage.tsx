@@ -39,6 +39,8 @@ function EditSectionButton({ section, docId }: { section: string; docId: string 
     useChatState.getState().setPendingInjection({
       content: `${prompt}\n\n(Contexto: documento ${docId}, sección ${section})`,
     });
+    // Expand the chat so the refine action is visible (not a silent hand-off).
+    useChatState.getState().setChatExpanded(true);
     window.location.hash = "#/";
   };
   return (

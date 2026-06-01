@@ -200,7 +200,7 @@ export function GenerateCvPage() {
                     : t("cv.generate")}
               </Button>
               {gen.isError && (
-                <p className="text-sm text-red-600">{(gen.error as Error).message}</p>
+                <p className="text-sm text-danger">{(gen.error as Error).message}</p>
               )}
             </form>
           </Card>

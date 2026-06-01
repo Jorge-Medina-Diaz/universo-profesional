@@ -205,7 +205,7 @@ function PlanCard({
         </div>
         <div className="flex items-end gap-1">
           {plan.price_eur_month === 0 ? (
-            <span className="text-display-sm md:text-[44px] font-medium leading-none tracking-tight">
+            <span className="text-[40px] md:text-[44px] font-medium leading-none tracking-tight">
               Gratis
             </span>
           ) : (
