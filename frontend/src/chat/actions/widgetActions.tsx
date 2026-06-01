@@ -36,18 +36,19 @@ export function useWidgetActions(
   useCopilotAction({
     name: "present_graph_view",
     description:
-      "Switch the universe graph lens to a mode (focus|cluster|timeline|ontology_overlay) optionally centred on an entity.",
+      // Only advertise the modes the universe view actually renders today — do
+      // NOT tell the model to call no-op modes (cluster/ontology_overlay were
+      // advertised but never wired, an invisible affordance failure).
+      "Switch the universe graph lens: mode 'focus' (centre on an entity via focus_entity_id) or 'timeline' (career trajectory).",
     parameters: [
       { name: "mode", type: "string", required: true },
       { name: "focus_entity_id", type: "string" },
-      { name: "depth", type: "number" },
     ] satisfies CopilotActionParams,
     handler: async (args: Record<string, unknown>) => {
-      const mode = (args.mode as GraphLensMode) ?? "cluster";
+      const mode = (args.mode as GraphLensMode) ?? "focus";
       useGraphLensState.getState().setLens({
         mode,
         focusEntityId: (args.focus_entity_id as string) ?? null,
-        depth: args.depth !== undefined ? Number(args.depth) : undefined,
       });
       return { ok: true, mode };
     },
