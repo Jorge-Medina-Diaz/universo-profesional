@@ -707,6 +707,7 @@ export interface GenerateCvResponse {
   docx_url: string | null;
   render_status: "ready" | "degraded" | "failed";
   json_resume: Record<string, unknown>;
+  job_id: string | null;
 }
 
 export const billing = {

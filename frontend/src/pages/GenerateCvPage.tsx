@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { FileDown, Sparkles, ChevronDown, Wand2 } from "lucide-react";
-import { documents } from "@/shared/api";
+import { documents, jobs } from "@/shared/api";
 import type { JsonResume } from "@/shared/hooks/useJsonResume";
 import {
   Badge,
@@ -17,6 +17,7 @@ import {
   Select,
   Surface,
   Textarea,
+  toast,
   cn,
   type ProgressStep,
 } from "@/ui";
@@ -80,6 +81,13 @@ export function GenerateCvPage() {
         tone,
         kind,
       }),
+  });
+
+  // R12 — on-demand ATS readiness: reuses the jobs match-scoring endpoint
+  // (keyword coverage vs the JD + gaps) on the just-generated CV's job.
+  const ats = useMutation({
+    mutationFn: (jobId: string) => jobs.computeScore(jobId),
+    onError: () => toast.error("No se pudo analizar la compatibilidad ATS."),
   });
 
   return (
@@ -255,6 +263,49 @@ export function GenerateCvPage() {
                       ext="JSON"
                     />
                   </div>
+                  {gen.data.job_id && kind === "cv" && (
+                    <div className="rounded-card border border-ink/5 bg-surface p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium text-ink">
+                          Compatibilidad ATS
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => ats.mutate(gen.data!.job_id!)}
+                          disabled={ats.isPending}
+                        >
+                          {ats.isPending ? "Analizando…" : ats.data ? "Recalcular" : "Analizar"}
+                        </Button>
+                      </div>
+                      {ats.data?.match && (
+                        <div className="space-y-1.5">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-2xl font-semibold text-ink">
+                              {ats.data.match.match_score}%
+                            </span>
+                            <span className="text-xs text-stone">match con la oferta</span>
+                          </div>
+                          {ats.data.match.keyword_coverage != null && (
+                            <p className="text-xs text-stone">
+                              Cobertura de palabras clave ATS:{" "}
+                              <span className="text-ink font-medium">
+                                {ats.data.match.keyword_coverage}%
+                              </span>
+                            </p>
+                          )}
+                          {ats.data.match.gaps.length > 0 && (
+                            <p className="text-xs text-stone">
+                              Faltan:{" "}
+                              <span className="text-ink">
+                                {ats.data.match.gaps.slice(0, 6).join(", ")}
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <button
                     type="button"
                     onClick={() => setShowJson((v) => !v)}

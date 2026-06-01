@@ -131,6 +131,7 @@ async def generate_cv(
         "docx_url": dto.docx_url,
         "json_resume": dto.json_resume,
         "render_status": dto.render_status,
+        "job_id": dto.job_id,
     }
 
 

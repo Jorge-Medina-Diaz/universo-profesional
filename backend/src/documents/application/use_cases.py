@@ -39,6 +39,7 @@ class GeneratedDocumentDto:
     docx_url: str | None
     json_resume: dict[str, Any]
     render_status: str = "ready"
+    job_id: str | None = None
 
 
 class GenerateCv:
@@ -174,6 +175,7 @@ class GenerateCv:
                 docx_url=f"{base}/api/v1/documents/{document.id}/docx" if docx_path else None,
                 json_resume=content,
                 render_status=render_status,
+                job_id=str(job.id),
             )
         )
 
