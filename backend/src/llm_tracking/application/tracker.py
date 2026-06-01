@@ -9,10 +9,13 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 from uuid import UUID
 
+import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.llm_tracking.application.ports import LlmUsageLogRepository
 from src.llm_tracking.domain.entities import LlmUsageLog
+
+logger = structlog.get_logger(__name__)
 
 # EUR per 1M tokens
 _PRICES: dict[str, dict[str, Decimal]] = {
@@ -43,6 +46,29 @@ _PRICES: dict[str, dict[str, Decimal]] = {
 }
 
 
+def _resolve_prices(model: str) -> dict[str, Decimal] | None:
+    """Resolve a model id to its price table, tolerant of version/date suffixes.
+
+    Provider model ids carry dated/versioned slugs (e.g. ``claude-sonnet-4-6``
+    may arrive as ``claude-sonnet-4-6-20250101``) or family shorthands
+    (``claude-haiku-4-5`` vs the dated key). An exact dict lookup misses those
+    and silently drops the cost. We fall back to the longest base key that is a
+    prefix of the model id (or vice-versa) — the most specific match wins.
+    """
+    exact = _PRICES.get(model)
+    if exact is not None:
+        return exact
+    candidates = [
+        (key, price)
+        for key, price in _PRICES.items()
+        if model.startswith(key) or key.startswith(model)
+    ]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda kv: len(kv[0]), reverse=True)
+    return candidates[0][1]
+
+
 def compute_cost_eur(
     *,
     model: str,
@@ -52,8 +78,11 @@ def compute_cost_eur(
     cache_write_tokens: int = 0,
 ) -> Decimal | None:
     """Return estimated cost in EUR, or None if model pricing unknown."""
-    prices = _PRICES.get(model)
+    prices = _resolve_prices(model)
     if not prices:
+        # Surface unknown models loudly — otherwise their cost is silently
+        # untracked (revenue/cost-attribution hole). Add the slug to _PRICES.
+        logger.warning("llm_price_unknown", model=model)
         return None
     cost = (
         Decimal(input_tokens) * prices["input"]

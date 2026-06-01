@@ -308,6 +308,19 @@ class Settings(BaseSettings):
             errors.append(
                 "CORS_ORIGINS must be set to the production frontend URL(s)"
             )
+        # Redis backs arq jobs, rate-limit counters + cached summaries. A prod
+        # deploy left on the localhost default silently has no working queue /
+        # shared rate limiting across replicas.
+        _local_redis = ("redis://localhost", "redis://127.0.0.1")
+        if self.redis_url.startswith(_local_redis):
+            errors.append("REDIS_URL is the localhost default; set the production Redis URL")
+        if self.rate_limit_storage_uri and self.rate_limit_storage_uri.startswith(
+            (*_local_redis, "memory://")
+        ):
+            errors.append(
+                "RATE_LIMIT_STORAGE_URI is localhost/in-memory; set a shared Redis URI "
+                "so rate limits hold across replicas"
+            )
 
         # Secrets.
         if not self.token_encryption_key:

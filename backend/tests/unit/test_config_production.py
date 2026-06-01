@@ -50,6 +50,37 @@ class TestValidateProductionReady:
         errs = s.validate_production_ready()
         assert any("EMAIL_PROVIDER" in e for e in errs)
 
+    def test_rejects_localhost_redis(self) -> None:
+        s = Settings(
+            env="production",
+            database_url="postgresql+asyncpg://u:p@db:5432/cvs",
+            canonical_base_url="https://api.example.com",
+            frontend_base_url="https://app.example.com",
+            cors_origins=["https://app.example.com"],
+            token_encryption_key="test" * 8,
+            email_provider="brevo",
+            brevo_api_key="key",
+            redis_url="redis://localhost:6379/0",
+        )
+        errs = s.validate_production_ready()
+        assert any("REDIS_URL" in e for e in errs)
+
+    def test_rejects_in_memory_rate_limit_storage(self) -> None:
+        s = Settings(
+            env="production",
+            database_url="postgresql+asyncpg://u:p@db:5432/cvs",
+            canonical_base_url="https://api.example.com",
+            frontend_base_url="https://app.example.com",
+            cors_origins=["https://app.example.com"],
+            token_encryption_key="test" * 8,
+            email_provider="brevo",
+            brevo_api_key="key",
+            redis_url="redis://prod-redis:6379/0",
+            rate_limit_storage_uri="memory://",
+        )
+        errs = s.validate_production_ready()
+        assert any("RATE_LIMIT_STORAGE_URI" in e for e in errs)
+
     def test_accepts_valid_prod_config(self) -> None:
         s = Settings(
             env="production",
@@ -62,6 +93,7 @@ class TestValidateProductionReady:
             brevo_api_key="key",
             email_from="no-reply@example.com",
             anthropic_api_key="ak-test",
+            redis_url="redis://prod-redis:6379/0",
         )
         errs = s.validate_production_ready()
         assert errs == []

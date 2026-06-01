@@ -33,6 +33,19 @@ class TestComputeCostEur:
     def test_unknown_model_returns_none(self) -> None:
         assert compute_cost_eur(model="unknown-model", input_tokens=1000, output_tokens=1000) is None
 
+    def test_dated_slug_resolves_to_base_price(self) -> None:
+        # A dated/versioned model id must still resolve (otherwise the cost is
+        # silently dropped). claude-sonnet-4-6-20250101 -> the sonnet price.
+        assert compute_cost_eur(
+            model="claude-sonnet-4-6-20250101", input_tokens=1_000_000, output_tokens=0
+        ) == Decimal("3.000000")
+
+    def test_family_shorthand_resolves(self) -> None:
+        # The bare family id is a prefix of the dated key and must resolve too.
+        assert compute_cost_eur(
+            model="claude-haiku-4-5", input_tokens=1_000_000, output_tokens=0
+        ) == Decimal("0.250000")
+
     def test_cache_tokens(self) -> None:
         result = compute_cost_eur(
             model="claude-sonnet-4-6",

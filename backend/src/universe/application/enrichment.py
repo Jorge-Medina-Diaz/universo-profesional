@@ -37,8 +37,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.graph.application.universe_graph import universe_graph_service
 from src.graph.domain import schema
 from src.graph.application.ports.age import cypher as age_cypher
+from src.shared.embeddings import get_embeddings_service
 from src.universe.application.ports.orm import ExperienceOrm, ProjectOrm, SkillOrm
-from src.universe.application.ports.tasks import ENTITY_MAP as _ENTITY_MAP, refresh_embedding
+from src.universe.application.ports.tasks import ENTITY_MAP as _ENTITY_MAP
 
 logger = structlog.get_logger(__name__)
 
@@ -80,24 +81,47 @@ def _date_overlap(p: ProjectOrm, e: ExperienceOrm) -> bool:
 
 
 async def _ensure_embeddings(session: AsyncSession, user_id: UUID, stats: EnrichmentStats) -> None:
-    """Compute embeddings for any entity missing one (separate session/commit)."""
-    for kind, (orm_cls, _entity_cls) in _ENTITY_MAP.items():
+    """Compute embeddings for any entity missing one — BATCHED per kind.
+
+    Previously this called refresh_embedding per id, which opened a fresh session
+    and made one embed API call + one commit PER entity (an N+1 over a fresh
+    profile). Now we load the rows missing an embedding, build their texts, make
+    ONE chunked embed_batch call per kind, and assign the vectors on the passed
+    session (the caller commits with the rest of the enrichment). A failed batch
+    is logged loudly and skips that kind, never a silent drop.
+    """
+    embedder = get_embeddings_service()
+    for kind, (orm_cls, entity_cls) in _ENTITY_MAP.items():
         if not hasattr(orm_cls, "embedding"):
             continue
-        ids = (
+        rows = (
             await session.execute(
-                select(orm_cls.id)
+                select(orm_cls)
                 .where(orm_cls.user_id == user_id)
                 .where(orm_cls.deleted_at.is_(None))
                 .where(orm_cls.embedding.is_(None))
             )
         ).scalars().all()
-        for rid in ids:
-            try:
-                await refresh_embedding({}, entity_type=kind, entity_id=str(rid))
-                stats.embeddings_computed += 1
-            except Exception as exc:
-                logger.warning("enrich_embed_failed", kind=kind, id=str(rid), error=str(exc))
+        if not rows:
+            continue
+        fields = {f for f in entity_cls.__dataclass_fields__ if not f.startswith("_")}
+        texts: list[str] = []
+        for row in rows:
+            kwargs = {f: getattr(row, f) for f in fields if hasattr(row, f)}
+            entity = entity_cls(**kwargs)
+            texts.append(
+                entity.embedding_text() if hasattr(entity, "embedding_text") else str(entity)
+            )
+        try:
+            vectors = await embedder.embed_batch(texts)
+        except Exception as exc:
+            logger.warning(
+                "enrich_embed_batch_failed", kind=kind, count=len(rows), error=str(exc)
+            )
+            continue
+        for row, vec in zip(rows, vectors, strict=True):
+            row.embedding = vec
+            stats.embeddings_computed += 1
 
 
 async def enrich_user_graph(
