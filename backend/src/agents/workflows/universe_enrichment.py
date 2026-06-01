@@ -324,11 +324,26 @@ class UniverseEnrichmentEngine:
                 result.errors.append(f"relation failed: {exc}")
                 logger.warning("enrichment_relation_failed", error=str(exc))
 
-        # 5. Run graph enrichment (infer RELATED_TO, USES_TECH from tech_stack, etc.)
+        # 5. Full-graph enrichment (infer RELATED_TO, USES_TECH from tech_stack,
+        # etc.). DEBOUNCED off the chat turn (R15 s2): we enqueue a coalesced
+        # background job rather than paying the graph-wide cost on every message.
+        # If the queue is unreachable we fall back to running it inline on this
+        # session so enrichment NEVER silently stops.
         try:
-            from src.universe.application.enrichment import enrich_user_graph  # noqa: PLC0415
+            from src.universe.infrastructure.scheduler import (  # noqa: PLC0415
+                enqueue_graph_enrichment,
+            )
 
-            await enrich_user_graph(self._session, self._user_id)
+            enqueued = await enqueue_graph_enrichment(self._user_id)
+            if not enqueued:
+                from src.universe.application.enrichment import (  # noqa: PLC0415
+                    enrich_user_graph,
+                )
+
+                await enrich_user_graph(self._session, self._user_id)
+                logger.info(
+                    "enrichment_graph_enrich_inline_fallback", user_id=str(self._user_id)
+                )
         except Exception as exc:
             logger.warning("enrichment_graph_enrich_failed", error=str(exc))
 
