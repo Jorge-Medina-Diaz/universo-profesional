@@ -324,7 +324,14 @@ export function CommandPalette() {
                 onKeyDown={onInputKeyDown}
                 placeholder="Salta a cualquier sitio…"
                 className="flex-1 h-12 bg-transparent text-ink placeholder:text-stone outline-none text-sm"
+                role="combobox"
                 aria-controls="palette-list"
+                aria-expanded={flatLength > 0}
+                aria-activedescendant={
+                  activeIndex >= 0 && activeIndex < flatLength
+                    ? `palette-opt-${activeIndex}`
+                    : undefined
+                }
               />
               <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] text-stone bg-surface px-2 py-1 rounded-md font-medium">
                 ESC
@@ -351,6 +358,7 @@ export function CommandPalette() {
                         return (
                           <button
                             key={cmd.id}
+                            id={`palette-opt-${idx}`}
                             type="button"
                             data-index={idx}
                             role="option"
@@ -416,6 +424,7 @@ export function CommandPalette() {
                         return (
                           <button
                             key={`${hit.entity_type}-${hit.entity_id}`}
+                            id={`palette-opt-${idx}`}
                             type="button"
                             data-index={idx}
                             role="option"

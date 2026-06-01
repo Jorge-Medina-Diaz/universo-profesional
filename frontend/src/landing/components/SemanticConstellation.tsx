@@ -383,8 +383,13 @@ export function SemanticConstellation({
         ctx!.globalAlpha = 1;
       }
 
-      frame++;
-      rafRef.current = requestAnimationFrame(draw);
+      // Under prefers-reduced-motion, paint a single static frame and STOP —
+      // re-queuing would keep the edges oscillating (Math.sin(frame*…)) and the
+      // nodes drifting, which is exactly what reduced-motion users opt out of.
+      if (!reduced) {
+        frame++;
+        rafRef.current = requestAnimationFrame(draw);
+      }
     }
 
     rafRef.current = requestAnimationFrame(draw);

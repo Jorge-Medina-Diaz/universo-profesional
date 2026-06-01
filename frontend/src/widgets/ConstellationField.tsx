@@ -212,10 +212,23 @@ export function ConstellationField({
 
     rafRef.current = requestAnimationFrame(draw);
 
+    // Pause the draw loop while the tab is hidden — a backgrounded decorative
+    // canvas wastes CPU/battery for no visible benefit. Resume on return.
+    const onVisibility = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+      } else if (!rafRef.current) {
+        rafRef.current = requestAnimationFrame(draw);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
       window.removeEventListener("resize", resize);
       canvas.parentElement?.removeEventListener("mousemove", onMouseMove);
       canvas.parentElement?.removeEventListener("mouseleave", onMouseLeave);
+      document.removeEventListener("visibilitychange", onVisibility);
       cancelAnimationFrame(rafRef.current);
     };
   }, [dark]);
