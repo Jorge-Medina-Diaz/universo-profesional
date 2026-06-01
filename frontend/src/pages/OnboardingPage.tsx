@@ -28,7 +28,7 @@ import {
   toast,
 } from "@/ui";
 import { queryKeys } from "@/shared/queryKeys";
-import { markOnboardingComplete } from "@/shared/onboarding";
+import { completeOnboarding } from "@/shared/onboarding";
 
 const STORAGE_KEY = "cvs-saas-onboarding-step";
 
@@ -98,7 +98,7 @@ export function OnboardingPage() {
   // "Ir a mi universo", "Generar mi primer CV" → /cv/new, or "Ver
   // instrucciones" → /mcp). Without this those buttons looked dead.
   useEffect(() => {
-    markOnboardingComplete(userId);
+    completeOnboarding(userId);
   }, [userId]);
 
   const summary = useQuery({

@@ -12,6 +12,9 @@
  * Scoped by user id so a different account on the same browser still gets
  * onboarded.
  */
+import { account } from "@/shared/api";
+import { toast } from "@/ui";
+
 const KEY = "cvs-saas-onboarding-done";
 
 function readSet(): Set<string> {
@@ -33,6 +36,23 @@ export function markOnboardingComplete(userId: string | null): void {
   }
 }
 
-export function isOnboardingComplete(userId: string | null): boolean {
+export function isOnboardingComplete(
+  userId: string | null,
+  serverCompletedAt?: string | null,
+): boolean {
+  // Server state (cross-device) wins; localStorage is the offline fallback.
+  if (serverCompletedAt) return true;
   return readSet().has(userId ?? "anon");
+}
+
+/**
+ * Mark onboarding done both locally (optimistic, offline-safe) and on the
+ * server (the cross-device source of truth). Never silent: a server failure
+ * surfaces a toast — local state still lets the user proceed.
+ */
+export function completeOnboarding(userId: string | null): void {
+  markOnboardingComplete(userId);
+  void account.advanceOnboarding(true).catch(() => {
+    toast.error("No se pudo guardar tu progreso de onboarding en el servidor.");
+  });
 }

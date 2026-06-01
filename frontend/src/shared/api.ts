@@ -315,6 +315,9 @@ export interface MeResponse {
   created_at: string;
   tier: Tier;
   tier_updated_at: string | null;
+  onboarding_started_at: string | null;
+  activated_at: string | null;
+  onboarding_completed_at: string | null;
 }
 
 export type Tier = "free" | "pro" | "premium";
@@ -334,6 +337,13 @@ export const account = {
     api<MeResponse>("/api/v1/users/me/tier", {
       method: "POST",
       body: JSON.stringify({ tier }),
+    }),
+  /** Advance server-side onboarding state (cross-device). `complete` marks the
+   *  wizard finished; activation is recomputed from real signals server-side. */
+  advanceOnboarding: (complete = false) =>
+    api<MeResponse>("/api/v1/users/me/onboarding/advance", {
+      method: "POST",
+      body: JSON.stringify({ complete }),
     }),
   getNotificationPrefs: () =>
     api<NotificationPrefs>("/api/v1/users/me/notifications"),

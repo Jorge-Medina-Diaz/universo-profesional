@@ -10,7 +10,7 @@ import { GitHubIcon } from "@/ui/icons";
 import { Button, Card, PageHeader, Reveal, Skeleton, Stagger, Surface } from "@/ui";
 import { enableCopilot, useCopilotReady } from "@/app/CopilotProvider";
 import { useAuthStore } from "@/shared/api";
-import { markOnboardingComplete } from "@/shared/onboarding";
+import { completeOnboarding } from "@/shared/onboarding";
 
 const CopilotSurface = lazy(() =>
   import("./_chat/CopilotSurface").then((m) => ({ default: m.CopilotSurface })),
@@ -83,7 +83,7 @@ export function OnboardingChatPage() {
   // Reaching onboarding counts as "seen" so the router gate stops funnelling
   // the user back here once they head into the app with an empty universe.
   useEffect(() => {
-    markOnboardingComplete(userId);
+    completeOnboarding(userId);
   }, [userId]);
 
   return (

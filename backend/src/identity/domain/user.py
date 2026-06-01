@@ -39,6 +39,11 @@ class TierChanged(DomainEvent):
     new_tier: str = "free"
 
 
+@dataclass(frozen=True, kw_only=True)
+class OnboardingActivated(DomainEvent):
+    event_type: ClassVar[str] = "identity.onboarding_activated"
+
+
 # Single source of truth for tier values. Must stay aligned with billing's
 # Plan literal ("free" | "premium" | "pro"); the denormalized users.tier mirrors
 # the subscription plan so entitlement checks are a fast local read.
@@ -71,6 +76,11 @@ class User:
     last_login_at: datetime | None
     tier: str = "free"
     tier_updated_at: datetime | None = None
+    # Onboarding/activation lifecycle (server-side source of truth; the FE used
+    # to keep "onboarding done" only in localStorage → invisible cross-device).
+    onboarding_started_at: datetime | None = None
+    activated_at: datetime | None = None
+    onboarding_completed_at: datetime | None = None
     _events: list[DomainEvent] = field(default_factory=list, repr=False, compare=False)
 
     @classmethod
@@ -97,6 +107,7 @@ class User:
             updated_at=now,
             deleted_at=None,
             last_login_at=None,
+            onboarding_started_at=now,
         )
         user._events.append(
             UserRegistered(
@@ -161,6 +172,25 @@ class User:
         self._events.append(
             TierChanged(user_id=self.id, previous_tier=previous, new_tier=tier)
         )
+
+    def start_onboarding(self, *, now: datetime) -> None:
+        if self.onboarding_started_at is None:
+            self.onboarding_started_at = now
+            self.updated_at = now
+
+    def mark_activated(self, *, now: datetime) -> None:
+        """First time the user reaches activation (>=1 experience OR >=3 skills
+        OR 1 CV). Idempotent — fires the lifecycle event only once."""
+        if self.activated_at is not None:
+            return
+        self.activated_at = now
+        self.updated_at = now
+        self._events.append(OnboardingActivated(user_id=self.id))
+
+    def complete_onboarding(self, *, now: datetime) -> None:
+        if self.onboarding_completed_at is None:
+            self.onboarding_completed_at = now
+            self.updated_at = now
 
     def pop_events(self) -> list[DomainEvent]:
         events = list(self._events)

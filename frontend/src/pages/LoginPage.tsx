@@ -53,12 +53,20 @@ export function LoginPage() {
     // onboarding aren't funnelled back every login.
     let target = "#/";
     try {
-      const summary = await universe.summary();
+      const [summary, me] = await Promise.all([
+        universe.summary(),
+        auth.me().catch(() => null),
+      ]);
       const hasData =
         summary.counts?.experiences > 0 ||
         summary.counts?.educations > 0 ||
         summary.counts?.skills > 0;
-      if (!hasData && !isOnboardingComplete(tokens.user_id)) target = "#/onboarding";
+      if (
+        !hasData &&
+        !isOnboardingComplete(tokens.user_id, me?.onboarding_completed_at)
+      ) {
+        target = "#/onboarding";
+      }
     } catch {
       /* ignore, default to home */
     }

@@ -643,6 +643,30 @@ class CurrentUserDto:
     created_at: str
     tier: str = "free"
     tier_updated_at: str | None = None
+    onboarding_started_at: str | None = None
+    activated_at: str | None = None
+    onboarding_completed_at: str | None = None
+
+
+def _iso_or_none(value: Any) -> str | None:
+    return value.isoformat() if value else None
+
+
+def _current_user_dto(user: User) -> CurrentUserDto:
+    return CurrentUserDto(
+        user_id=str(user.id),
+        email=str(user.email),
+        display_name=user.display_name,
+        locale=user.locale,
+        email_verified=user.is_verified,
+        mfa_enabled=user.mfa_enabled,
+        created_at=user.created_at.isoformat(),
+        tier=user.tier,
+        tier_updated_at=_iso_or_none(user.tier_updated_at),
+        onboarding_started_at=_iso_or_none(user.onboarding_started_at),
+        activated_at=_iso_or_none(user.activated_at),
+        onboarding_completed_at=_iso_or_none(user.onboarding_completed_at),
+    )
 
 
 class GetCurrentUser:
@@ -655,21 +679,7 @@ class GetCurrentUser:
         user = await self._users.get_by_id(UUID(user_id))
         if user is None or user.is_deleted:
             return err(NotFoundError("User not found"))
-        return ok(
-            CurrentUserDto(
-                user_id=str(user.id),
-                email=str(user.email),
-                display_name=user.display_name,
-                locale=user.locale,
-                email_verified=user.is_verified,
-                mfa_enabled=user.mfa_enabled,
-                created_at=user.created_at.isoformat(),
-                tier=user.tier,
-                tier_updated_at=(
-                    user.tier_updated_at.isoformat() if user.tier_updated_at else None
-                ),
-            )
-        )
+        return ok(_current_user_dto(user))
 
 
 class SetUserTier:
@@ -694,18 +704,34 @@ class SetUserTier:
         user.set_tier(tier, now=utc_now())
         await self._users.save(user)
         uow.add_events(user.pop_events())
-        return ok(
-            CurrentUserDto(
-                user_id=str(user.id),
-                email=str(user.email),
-                display_name=user.display_name,
-                locale=user.locale,
-                email_verified=user.is_verified,
-                mfa_enabled=user.mfa_enabled,
-                created_at=user.created_at.isoformat(),
-                tier=user.tier,
-                tier_updated_at=(
-                    user.tier_updated_at.isoformat() if user.tier_updated_at else None
-                ),
-            )
-        )
+        return ok(_current_user_dto(user))
+
+
+class AdvanceOnboarding:
+    """Server-side onboarding/activation state.
+
+    Derives activation from the user's real signals (>=1 experience OR >=3
+    skills OR 1 CV) and optionally marks onboarding complete (the explicit
+    "finished the wizard" signal). Idempotent — safe to call on every
+    onboarding touchpoint, cross-device, replacing the old localStorage flag.
+    """
+
+    def __init__(self, users: UserRepository) -> None:
+        self._users = users
+
+    async def execute(
+        self, *, user_id: str, complete: bool, uow: UnitOfWork
+    ) -> Result[CurrentUserDto, NotFoundError]:
+        now = utc_now()
+        user = await self._users.get_by_id(UUID(user_id))
+        if user is None or user.is_deleted:
+            return err(NotFoundError("User not found"))
+        user.start_onboarding(now=now)
+        signals = await self._users.count_activation_signals(user.id)
+        if signals["experiences"] >= 1 or signals["skills"] >= 3 or signals["cvs"] >= 1:
+            user.mark_activated(now=now)
+        if complete:
+            user.complete_onboarding(now=now)
+        await self._users.save(user)
+        uow.add_events(user.pop_events())
+        return ok(_current_user_dto(user))

@@ -34,6 +34,9 @@ def _to_domain(row: UserOrm) -> User:
         last_login_at=row.last_login_at,
         tier=getattr(row, "tier", "free") or "free",
         tier_updated_at=getattr(row, "tier_updated_at", None),
+        onboarding_started_at=getattr(row, "onboarding_started_at", None),
+        activated_at=getattr(row, "activated_at", None),
+        onboarding_completed_at=getattr(row, "onboarding_completed_at", None),
     )
 
 
@@ -69,6 +72,9 @@ class SqlAlchemyUserRepository(UserRepository):
                     last_login_at=user.last_login_at,
                     tier=user.tier,
                     tier_updated_at=user.tier_updated_at,
+                    onboarding_started_at=user.onboarding_started_at,
+                    activated_at=user.activated_at,
+                    onboarding_completed_at=user.onboarding_completed_at,
                 )
             )
         else:
@@ -84,6 +90,9 @@ class SqlAlchemyUserRepository(UserRepository):
             existing.last_login_at = user.last_login_at
             existing.tier = user.tier
             existing.tier_updated_at = user.tier_updated_at
+            existing.onboarding_started_at = user.onboarding_started_at
+            existing.activated_at = user.activated_at
+            existing.onboarding_completed_at = user.onboarding_completed_at
         await self._session.flush()
 
     async def hard_delete_expired(self, before: datetime) -> int:
@@ -95,6 +104,28 @@ class SqlAlchemyUserRepository(UserRepository):
         )
         result = await self._session.execute(stmt)
         return len(result.fetchall())
+
+    async def count_activation_signals(self, user_id: UUID) -> dict[str, int]:
+        # Raw SQL so identity.infrastructure derives activation from real data
+        # without importing other bounded contexts (import-linter stays clean).
+        from sqlalchemy import text as _sql_text
+
+        row = (
+            await self._session.execute(
+                _sql_text(
+                    "SELECT "
+                    "(SELECT count(*) FROM experiences WHERE user_id = :uid) AS experiences, "
+                    "(SELECT count(*) FROM skills WHERE user_id = :uid) AS skills, "
+                    "(SELECT count(*) FROM documents WHERE user_id = :uid AND kind = 'cv') AS cvs"
+                ),
+                {"uid": str(user_id)},
+            )
+        ).one()
+        return {
+            "experiences": int(row.experiences),
+            "skills": int(row.skills),
+            "cvs": int(row.cvs),
+        }
 
 
 class SqlAlchemyEmailTokenRepository(EmailTokenRepository):

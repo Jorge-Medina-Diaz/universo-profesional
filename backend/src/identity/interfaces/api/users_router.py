@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import json
 import zipfile
+from dataclasses import asdict
 from typing import Annotated
 from uuid import UUID
 
@@ -11,7 +12,9 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response, StreamingResponse
 
 from src.identity.application.use_cases import (
+    AdvanceOnboarding,
     ConfirmMfa,
+    CurrentUserDto,
     DeleteAccount,
     DisableMfa,
     ExportUserData,
@@ -40,11 +43,17 @@ from src.identity.interfaces.api.schemas import (
     MfaStatusResponse,
     NotificationPrefsRequest,
     NotificationPrefsResponse,
+    OnboardingAdvanceRequest,
     SetTierRequest,
 )
 from src.shared.uow import unit_of_work
 
 router = APIRouter()
+
+
+def _user_response(dto: CurrentUserDto) -> CurrentUserResponse:
+    """Map the use-case DTO to the API response (identical field set)."""
+    return CurrentUserResponse(**asdict(dto))
 
 
 @router.get("/me", response_model=CurrentUserResponse)
@@ -56,17 +65,7 @@ async def me(
     if result.is_failure:
         raise result.error  # type: ignore[union-attr]
     dto = result.value  # type: ignore[union-attr]
-    return CurrentUserResponse(
-        user_id=dto.user_id,
-        email=dto.email,
-        display_name=dto.display_name,
-        locale=dto.locale,
-        email_verified=dto.email_verified,
-        mfa_enabled=dto.mfa_enabled,
-        created_at=dto.created_at,
-        tier=dto.tier,
-        tier_updated_at=dto.tier_updated_at,
-    )
+    return _user_response(dto)
 
 
 @router.post("/me/tier", response_model=CurrentUserResponse)
@@ -93,17 +92,26 @@ async def set_tier(
             raise result.error  # type: ignore[union-attr]
         await uow.commit()
         dto = result.value  # type: ignore[union-attr]
-    return CurrentUserResponse(
-        user_id=dto.user_id,
-        email=dto.email,
-        display_name=dto.display_name,
-        locale=dto.locale,
-        email_verified=dto.email_verified,
-        mfa_enabled=dto.mfa_enabled,
-        created_at=dto.created_at,
-        tier=dto.tier,
-        tier_updated_at=dto.tier_updated_at,
-    )
+    return _user_response(dto)
+
+
+@router.post("/me/onboarding/advance", response_model=CurrentUserResponse)
+async def advance_onboarding(
+    body: OnboardingAdvanceRequest,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> CurrentUserResponse:
+    """Advance server-side onboarding state: recompute activation from the
+    user's real signals and, when ``complete`` is true, mark the wizard done.
+    Idempotent; replaces the old localStorage 'onboarding done' flag."""
+    uc = AdvanceOnboarding(SqlAlchemyUserRepository(session))
+    async with unit_of_work(session) as uow:
+        result = await uc.execute(user_id=user_id, complete=body.complete, uow=uow)
+        if result.is_failure:
+            raise result.error  # type: ignore[union-attr]
+        await uow.commit()
+        dto = result.value  # type: ignore[union-attr]
+    return _user_response(dto)
 
 
 @router.post("/me/mfa/setup", response_model=MfaSetupResponse)

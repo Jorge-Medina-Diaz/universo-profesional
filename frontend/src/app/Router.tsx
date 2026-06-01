@@ -8,7 +8,7 @@
  */
 import { Suspense, lazy, useEffect, useState, type ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useAuthStore, universe } from "@/shared/api";
+import { useAuthStore, universe, auth } from "@/shared/api";
 import { queryKeys } from "@/shared/queryKeys";
 import { isOnboardingComplete } from "@/shared/onboarding";
 import { PageTransition } from "@/ui/motion";
@@ -99,6 +99,14 @@ export function Router() {
     staleTime: 5 * 60_000,
   });
 
+  // Server-side onboarding state (cross-device); shares the cache Layout warms.
+  const meQuery = useQuery({
+    queryKey: queryKeys.me.all,
+    queryFn: () => auth.me(),
+    enabled: !!accessToken,
+    staleTime: 5 * 60_000,
+  });
+
   const isPublicOrOnboarding =
     path === "/onboarding" ||
     path === "/onboarding/chat" ||
@@ -120,10 +128,20 @@ export function Router() {
     // been through onboarding. Without the second check the gate bounces a
     // user who just finished/skipped onboarding (and added nothing) straight
     // back from /universe — making the "Ir a mi universo" button look broken.
-    if (!hasData && !isOnboardingComplete(userId)) {
+    if (
+      !hasData &&
+      !isOnboardingComplete(userId, meQuery.data?.onboarding_completed_at)
+    ) {
       window.location.hash = "#/onboarding";
     }
-  }, [accessToken, userId, isPublicOrOnboarding, hasData, summaryQuery.isLoading]);
+  }, [
+    accessToken,
+    userId,
+    isPublicOrOnboarding,
+    hasData,
+    summaryQuery.isLoading,
+    meQuery.data?.onboarding_completed_at,
+  ]);
 
   const page = resolveRoute(path, query, !!accessToken);
 

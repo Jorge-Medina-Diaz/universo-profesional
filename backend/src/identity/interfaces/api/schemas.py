@@ -122,6 +122,13 @@ class CurrentUserResponse(BaseModel):
     created_at: str
     tier: str = "free"
     tier_updated_at: str | None = None
+    onboarding_started_at: str | None = None
+    activated_at: str | None = None
+    onboarding_completed_at: str | None = None
+
+
+class OnboardingAdvanceRequest(BaseModel):
+    complete: bool = False
 
 
 class SetTierRequest(BaseModel):
