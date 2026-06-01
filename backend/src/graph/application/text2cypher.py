@@ -167,22 +167,65 @@ class CypherResult:
 # Validation
 
 
+# AGE 1.5 lacks these functions; nodes()/shortestPath() were missing from the
+# original list and would 500 at execution — reject them up front instead.
 _AGE_FORBIDDEN = re.compile(
-    r"\b(relationships|ALL|ANY|FILTER|EXTRACT|REDUCE|FOREACH|CALL)\s*\(",
+    r"\b(relationships|nodes|shortestPath|allShortestPaths|ALL|ANY|FILTER"
+    r"|EXTRACT|REDUCE|FOREACH|CALL)\s*\(",
     re.IGNORECASE,
 )
-_AGE_LABEL_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+# query_graph is a READ path — any mutation keyword is rejected (defence in
+# depth; the executor would also need write grants, but fail closed here).
+_WRITE_KEYWORDS = re.compile(
+    r"\b(CREATE|MERGE|SET|DELETE|REMOVE|DETACH)\b", re.IGNORECASE
+)
+# A raw UUID literal in generated Cypher means the model inlined an id instead
+# of binding it as a param — on the personal graph that is the cross-tenant
+# attack vector (e.g. `{user_id: '<victim-uuid>'}`), so reject it.
+_UUID_LITERAL = re.compile(
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+)
+# user_id must be BOUND to the server param ($user_id), not merely mentioned —
+# matches both the map form `{user_id: $user_id}` and `WHERE n.user_id = $user_id`.
+_USER_ID_BOUND = re.compile(r"user_id\s*[:=]\s*\$user_id")
+# Capture node labels `(:Label)` / `(v:Label)` and edge types `[:T]` / `[r:T]`.
+_NODE_LABEL_RE = re.compile(
+    r"\(\s*(?:[A-Za-z_][A-Za-z0-9_]*)?\s*:\s*([A-Za-z_][A-Za-z0-9_]*)"
+)
+_EDGE_TYPE_RE = re.compile(
+    r"\[\s*(?:[A-Za-z_][A-Za-z0-9_]*)?\s*:\s*([A-Za-z_][A-Za-z0-9_]*)"
+)
 
 
-def _validate_query(query: str) -> str | None:
-    """Return error message if query violates AGE constraints."""
+def _validate_query(query: str, *, graph: str) -> str | None:
+    """Return an error message if *query* violates AGE/security constraints.
+
+    Layers, fail-closed: (1) AGE-unsupported syntax, (2) single-statement,
+    (3) read-only, (4) ontology allowlist (no unknown labels/edge types),
+    (5) tenant scope on the personal graph — the user_id property filter is the
+    ONLY isolation boundary because RLS does not cover AGE label tables.
+    """
     if not query.strip():
         return "empty query"
-    if _AGE_FORBIDDEN.search(query):
-        found = _AGE_FORBIDDEN.search(query).group(0)  # type: ignore[union-attr]
-        return f"forbidden AGE function/keyword: {found}"
+    forbidden = _AGE_FORBIDDEN.search(query)
+    if forbidden:
+        return f"forbidden AGE function/keyword: {forbidden.group(0)}"
     if ";" in query:
         return "multiple statements not allowed"
+    write = _WRITE_KEYWORDS.search(query)
+    if write:
+        return f"write operations are not allowed on graph reads: {write.group(0)}"
+    for m in _NODE_LABEL_RE.finditer(query):
+        if m.group(1) not in graph_schema.ALL_VERTEX_LABELS:
+            return f"unknown vertex label: {m.group(1)}"
+    for m in _EDGE_TYPE_RE.finditer(query):
+        if m.group(1) not in graph_schema.ALL_EDGE_TYPES:
+            return f"unknown edge type: {m.group(1)}"
+    if graph == graph_schema.GRAPH_PERSONAL:
+        if not _USER_ID_BOUND.search(query):
+            return "tenant scope missing: personal-graph query must bind user_id = $user_id"
+        if _UUID_LITERAL.search(query):
+            return "literal id not allowed: bind ids via $params, never inline UUIDs"
     return None
 
 
@@ -258,13 +301,15 @@ class Text2CypherEngine:
                 latency_ms=(time.perf_counter() - start) * 1000,
             )
 
-        # Inject user_id if missing
+        # Force the server-bound tenant id — NEVER trust the LLM's user_id.
+        # Dropping any model-supplied value closes the param-override vector;
+        # the validator additionally rejects inline UUID literals.
         params = dict(params)
-        if "user_id" not in params:
-            params["user_id"] = str(self._user_id)
+        params.pop("user_id", None)
+        params["user_id"] = str(self._user_id)
 
-        # Validate
-        validation_err = _validate_query(cypher_str)
+        # Validate (AGE syntax + read-only + ontology allowlist + tenant scope)
+        validation_err = _validate_query(cypher_str, graph=graph)
         if validation_err:
             return CypherResult(
                 cypher=cypher_str,

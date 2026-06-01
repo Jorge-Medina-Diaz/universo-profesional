@@ -1,14 +1,12 @@
 """Unit tests for UniverseGraphService with a mock repository (no DB)."""
 from __future__ import annotations
 
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
 
 from src.graph.application.universe_graph import UniverseGraphService
-from src.graph.domain import schema
 
 
 class _MockGraphRepo:
@@ -25,14 +23,14 @@ class _MockGraphRepo:
 class TestUpsertEdgeValidation:
     async def test_invalid_edge_type_lowercase(self):
         svc = UniverseGraphService(_MockGraphRepo())
-        with pytest.raises(ValueError, match="UPPER_SNAKE"):
+        with pytest.raises(ValueError, match="ontology allowlist"):
             await svc.upsert_edge(
                 MagicMock(), edge_type="uses_tech", source_id=uuid4(), target_id=uuid4(), user_id=uuid4()
             )
 
     async def test_invalid_edge_type_non_identifier(self):
         svc = UniverseGraphService(_MockGraphRepo())
-        with pytest.raises(ValueError, match="UPPER_SNAKE"):
+        with pytest.raises(ValueError, match="ontology allowlist"):
             await svc.upsert_edge(
                 MagicMock(), edge_type="USES-TECH", source_id=uuid4(), target_id=uuid4(), user_id=uuid4()
             )

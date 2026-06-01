@@ -153,6 +153,93 @@ ISCO_GROUP_OF: Final = "ISCO_GROUP_OF"
 
 
 # ---------------------------------------------------------------------------
+# Allowlists — the SINGLE source of truth for Cypher validation (security).
+#
+# RLS does NOT cover the AGE label tables (set_rls_user only binds
+# app.current_user_id for the SQL-table policies). That makes the `user_id`
+# property filter inside Cypher the ONLY tenant boundary for graph reads, and
+# the relationship/label set the only structural contract. Both the generated
+# -Cypher validator (text2cypher) and the edge-write chokepoint
+# (universe_graph) enforce membership against these sets so neither an LLM nor
+# a stray caller can introduce an unknown label/edge type.
+# ---------------------------------------------------------------------------
+
+PERSONAL_EDGE_TYPES: Final[frozenset[str]] = frozenset(
+    {
+        DEMONSTRATES,
+        PART_OF,
+        USES_TECH,
+        OCCURRED_IN,
+        PRODUCED,
+        EVIDENCES_SIGNAL,
+        LINKS_TO_ESCO,
+        SUPERSEDES,
+        DERIVED_FROM,
+        TOUCHED_IN,
+        MEMBER_OF,
+        RELATED_TO,
+    }
+)
+
+ONTOLOGY_EDGE_TYPES: Final[frozenset[str]] = frozenset(
+    {
+        SKOS_BROADER,
+        SKOS_NARROWER,
+        SKOS_RELATED,
+        ESSENTIAL_FOR,
+        OPTIONAL_FOR,
+        ISCO_GROUP_OF,
+    }
+)
+
+ALL_EDGE_TYPES: Final[frozenset[str]] = PERSONAL_EDGE_TYPES | ONTOLOGY_EDGE_TYPES
+
+# "MergeEvent" has no constant (it is an internal provenance vertex written by
+# the ER pipeline); include the literal so the validator does not reject it.
+PERSONAL_VERTEX_LABELS: Final[frozenset[str]] = frozenset(
+    {
+        ENTITY,
+        EXPERIENCE,
+        EDUCATION,
+        SKILL,
+        PROJECT,
+        CERTIFICATION,
+        COURSE,
+        LANGUAGE,
+        ACHIEVEMENT,
+        INTEREST,
+        ARTIFACT,
+        ARCHITECTURE_DECISION,
+        EVIDENCE,
+        SIGNAL,
+        EPISODE,
+        COMMUNITY,
+        GOAL,
+        "MergeEvent",
+    }
+)
+
+ONTOLOGY_VERTEX_LABELS: Final[frozenset[str]] = frozenset(
+    {
+        OCCUPATION,
+        ESCO_SKILL,
+        ISCO_GROUP,
+    }
+)
+
+ALL_VERTEX_LABELS: Final[frozenset[str]] = (
+    PERSONAL_VERTEX_LABELS | ONTOLOGY_VERTEX_LABELS
+)
+
+
+def is_known_edge_type(edge_type: str, *, graph: str = GRAPH_PERSONAL) -> bool:
+    """True if *edge_type* is a known ontology edge for *graph*."""
+    if graph == GRAPH_ONTOLOGY:
+        return edge_type in ONTOLOGY_EDGE_TYPES
+    return edge_type in PERSONAL_EDGE_TYPES
+
+
+# ---------------------------------------------------------------------------
 # Property conventions
 # ---------------------------------------------------------------------------
 

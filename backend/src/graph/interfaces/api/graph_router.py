@@ -121,6 +121,11 @@ async def resolve(
 # ---------------------------------------------------------------------------
 
 
+# Curated subset of graph_schema.PERSONAL_EDGE_TYPES that users may mutate via
+# the HITL edge endpoint. System/provenance edges (EVIDENCES_SIGNAL,
+# LINKS_TO_ESCO, TOUCHED_IN, MEMBER_OF) are intentionally excluded — those are
+# written by the agent/ER pipeline, never by hand. Built from schema constants
+# (not raw strings) so a renamed/removed type fails loudly at import.
 _ALLOWED_EDGE_TYPES = {
     graph_schema.DEMONSTRATES,
     graph_schema.PART_OF,
@@ -131,6 +136,7 @@ _ALLOWED_EDGE_TYPES = {
     graph_schema.DERIVED_FROM,
     graph_schema.RELATED_TO,
 }
+assert _ALLOWED_EDGE_TYPES <= graph_schema.PERSONAL_EDGE_TYPES
 
 
 class EdgeMutationRequest(BaseModel):

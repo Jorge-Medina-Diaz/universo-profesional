@@ -188,8 +188,8 @@ class UniverseGraphService:
         endpoints didn't exist (the MATCH found nothing) — callers can
         log the dangling reference instead of failing silently.
         """
-        if not edge_type.isidentifier() or not edge_type.isupper():
-            msg = f"edge_type must be an UPPER_SNAKE identifier: {edge_type!r}"
+        if edge_type not in schema.PERSONAL_EDGE_TYPES:
+            msg = f"unknown personal edge_type (not in ontology allowlist): {edge_type!r}"
             raise ValueError(msg)
 
         now_iso = _iso(_now())
@@ -204,7 +204,7 @@ class UniverseGraphService:
         }
         # Best-effort idempotency: find an active edge, otherwise create.
         # The edge_type is interpolated (it's a Cypher relationship type,
-        # not a value), validated against an identifier regex above.
+        # not a value), validated against the ontology allowlist above.
         # AGE 1.5.0 doesn't support MERGE … ON CREATE SET — use COALESCE.
         query = f"""
         MATCH (a {{id: $src, user_id: $user_id}}),
@@ -242,8 +242,8 @@ class UniverseGraphService:
         user_id: UUID,
     ) -> None:
         """Soft-expire an active edge (sets valid_to=now())."""
-        if not edge_type.isidentifier() or not edge_type.isupper():
-            msg = f"edge_type must be an UPPER_SNAKE identifier: {edge_type!r}"
+        if edge_type not in schema.PERSONAL_EDGE_TYPES:
+            msg = f"unknown personal edge_type (not in ontology allowlist): {edge_type!r}"
             raise ValueError(msg)
         params = {
             "src": str(source_id),
@@ -277,8 +277,8 @@ class UniverseGraphService:
         Call this just before `upsert_edge` for relations where a source may
         only point at one target at a time.
         """
-        if not edge_type.isidentifier() or not edge_type.isupper():
-            msg = f"edge_type must be an UPPER_SNAKE identifier: {edge_type!r}"
+        if edge_type not in schema.PERSONAL_EDGE_TYPES:
+            msg = f"unknown personal edge_type (not in ontology allowlist): {edge_type!r}"
             raise ValueError(msg)
         params = {
             "src": str(source_id),
