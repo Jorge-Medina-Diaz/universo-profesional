@@ -29,7 +29,11 @@ from src.shared.orm_loader import import_all_models
 from src.shared.errors import DomainError
 from src.shared.events import get_event_bus
 from src.shared.logging import configure_logging, get_logger
-from src.shared.metrics import errors_total
+from src.shared.metrics import (
+    errors_total,
+    http_request_duration_seconds,
+    http_requests_total,
+)
 from src.shared.middleware import SecurityHeadersMiddleware
 from src.shared.rate_limit import limiter, rate_limit_exceeded_handler
 from src.shared.security import ensure_jwt_keys
@@ -235,18 +239,29 @@ def create_app() -> FastAPI:
         request_id = request.headers.get("X-Request-Id") or str(uuid.uuid4())
         structlog.contextvars.bind_contextvars(request_id=request_id, path=request.url.path)
         start = time.perf_counter()
+        response = None
         try:
             response = await call_next(request)
         except Exception as exc:
             errors_total.labels(code=type(exc).__name__).inc()
             raise
         finally:
-            elapsed_ms = (time.perf_counter() - start) * 1000
+            elapsed = time.perf_counter() - start
+            # Matched route TEMPLATE (e.g. /api/v1/documents/{id}), never the
+            # raw path — keeps Prometheus label cardinality bounded. Unmatched
+            # (404) requests have no scope["route"] → bucket under a constant.
+            route_obj = request.scope.get("route")
+            route = getattr(route_obj, "path", None) or "__unmatched__"
+            status = str(response.status_code) if response is not None else "500"
+            http_requests_total.labels(request.method, route, status).inc()
+            http_request_duration_seconds.labels(request.method, route).observe(elapsed)
             logger.info(
                 "request",
                 method=request.method,
                 path=request.url.path,
-                duration_ms=round(elapsed_ms, 2),
+                route=route,
+                status=status,
+                duration_ms=round(elapsed * 1000, 2),
             )
             structlog.contextvars.clear_contextvars()
         response.headers["X-Request-Id"] = request_id

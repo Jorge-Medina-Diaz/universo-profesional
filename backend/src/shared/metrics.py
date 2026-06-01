@@ -30,6 +30,31 @@ mcp_latency_seconds = Histogram(
 )
 errors_total = Counter("cvs_errors_total", "Total errors by code", ["code"])
 
+# --- HTTP RED metrics (rate / errors / duration) --------------------------
+# `route` MUST be the matched route TEMPLATE (e.g. /api/v1/documents/{id}),
+# never the raw path, or label cardinality explodes one series per concrete id.
+http_requests_total = Counter(
+    "cvs_http_requests_total",
+    "HTTP requests",
+    ["method", "route", "status"],
+)
+http_request_duration_seconds = Histogram(
+    "cvs_http_request_duration_seconds",
+    "HTTP request latency in seconds",
+    ["method", "route"],
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10),
+)
+
+# --- Background-task observability ----------------------------------------
+# Terminal task failures used to be swallowed (recorded as a successful job).
+# This makes the failure modes countable; status in {retry, failed}. See
+# src.shared.worker_failures.
+task_runs_total = Counter(
+    "cvs_task_runs_total",
+    "Background task outcomes",
+    ["task", "status"],
+)
+
 
 # --- Agentic chat observability -------------------------------------------
 # The agentic path had zero token/cost visibility. These let us track run

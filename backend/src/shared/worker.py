@@ -18,6 +18,17 @@ async def startup(ctx: dict[str, Any]) -> None:
     from .logging import configure_logging
 
     configure_logging()
+    # Wire observability for the worker process too (the API does this in its
+    # lifespan). Guarded so a misconfigured DSN/endpoint never blocks boot — and
+    # init_sentry() is what makes worker_failures' capture_exception reach Sentry.
+    try:
+        from .otel_setup import init_otel
+        from .sentry_setup import init_sentry
+
+        init_otel(service_name="cvs-saas-worker")
+        init_sentry()
+    except Exception:  # pragma: no cover - observability must never block boot
+        pass
     # Register EVERY ORM model so SQLAlchemy can resolve cross-table foreign
     # keys (e.g. skills.user_id → users.id) before any task flushes. Without
     # this, worker tasks that write entities (curator, syncs, knowledge
@@ -121,3 +132,7 @@ class WorkerSettings:
     # sync, whose HTTP client alone allows up to 180s.
     job_timeout = 300
     keep_result = 300
+    # Write a Redis health key every 30s so the container healthcheck can probe
+    # the job loop via arq.worker.check_health instead of a bare `pgrep`.
+    health_check_interval = 30
+    health_check_key = "arq:health-check"

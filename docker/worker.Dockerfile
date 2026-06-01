@@ -53,10 +53,10 @@ RUN mkdir -p /app/var/keys /app/var/documents && chown -R app:app /app/var
 
 USER app
 
-# Best-effort liveness: arq's queue health file exists when the worker is
-# running. If we ever need a stronger probe, expose a tiny aiohttp /health
-# endpoint inside the worker process.
-HEALTHCHECK --interval=60s --timeout=5s --start-period=30s --retries=3 \
-    CMD pgrep -f "arq src.shared.worker" >/dev/null || exit 1
+# Liveness via arq's own health check: the worker writes a health key to Redis
+# every health_check_interval (30s); `arq --check` reads it and exits non-zero
+# when the job loop is stalled — a real liveness signal, not just "process alive".
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD arq --check src.shared.worker.WorkerSettings || exit 1
 
 CMD ["arq", "src.shared.worker.WorkerSettings"]

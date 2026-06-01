@@ -12,6 +12,11 @@
 
 ### Latency (`/metrics` Prometheus)
 
+RED metrics are exported per matched **route template** (never the raw path, so
+cardinality stays bounded): `cvs_http_requests_total{method,route,status}` and
+`cvs_http_request_duration_seconds{method,route}`. Alert on
+`rate(cvs_http_requests_total{status=~"5.."}[5m])` and per-route p99 latency.
+
 Endpoints to alert on (p99 > 2 s for 5 min):
 
 - `POST /api/v1/documents/generate-cv` — LLM-bound, threshold 30 s
@@ -26,11 +31,21 @@ checks fail, the machine restarts. Stack-trace appears in `flyctl logs`.
 
 ### Worker (Arq)
 
-Look for these log lines:
+The worker initialises Sentry + OTel on startup, writes a Redis health key
+every 30 s (probe with `arq --check src.shared.worker.WorkerSettings`, which the
+container HEALTHCHECK now uses), and routes task exceptions through
+`src.shared.worker_failures`: transient errors retry with bounded backoff;
+terminal errors are captured to Sentry and re-raised — no longer swallowed as a
+"successful" job. Watch:
 
-- `j_complete=N` per hour — should be > 0 if the app is in use.
-- `j_failed=N` — alert on `failed/complete > 0.1`.
-- `j_ongoing` stays > 0 for hours — likely a stuck task; restart worker.
+- `cvs_task_runs_total{status="failed"}` — alert on
+  `rate(cvs_task_runs_total{status="failed"}[15m]) > 0`; these also reach Sentry.
+- `cvs_task_runs_total{status="retry"}` rising — a provider/network wobble.
+- `j_failed=N` log lines / `j_ongoing` stuck > 0 for hours — restart worker.
+
+> The worker's process metrics (`cvs_task_runs_total`) still need a scrape
+> target — the embedded worker `/metrics` exporter is not yet wired (tracked in
+> the roadmap), so until then these surface via Sentry + structured logs.
 
 ## Dashboards
 

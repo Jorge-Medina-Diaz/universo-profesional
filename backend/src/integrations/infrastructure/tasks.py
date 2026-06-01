@@ -23,6 +23,8 @@ from uuid import UUID
 
 import structlog
 
+from src.shared.worker_failures import handle_task_exception
+
 logger = structlog.get_logger(__name__)
 
 
@@ -60,13 +62,13 @@ async def extract_knowledge_document(
     try:
         return await run_extraction(user_id=user_id, document_id=document_id)
     except Exception as exc:
-        logger.exception(
-            "extract_knowledge_document_failed",
+        handle_task_exception(
+            ctx,
+            exc,
+            task="extract_knowledge_document",
             user_id=user_id,
             document_id=document_id,
-            error=str(exc),
         )
-        return {"ok": False, "error": str(exc)}
 
 
 async def run_github_sync_task(ctx: dict[str, Any], user_id: str) -> dict[str, Any]:
@@ -99,8 +101,7 @@ async def run_github_sync_task(ctx: dict[str, Any], user_id: str) -> dict[str, A
                 await uow.commit()
             return result
         except Exception as exc:
-            logger.exception("github_sync_task_failed", user_id=user_id, error=str(exc))
-            return {"ok": False, "error": str(exc)}
+            handle_task_exception(ctx, exc, task="run_github_sync_task", user_id=user_id)
 
 
 async def run_linkedin_dma_sync_task(
@@ -126,10 +127,9 @@ async def run_linkedin_dma_sync_task(
                 await uow.commit()
             return result
         except Exception as exc:
-            logger.exception(
-                "linkedin_dma_sync_task_failed", user_id=user_id, error=str(exc)
+            handle_task_exception(
+                ctx, exc, task="run_linkedin_dma_sync_task", user_id=user_id
             )
-            return {"ok": False, "error": str(exc)}
 
 
 async def run_linkedin_brightdata_sync_task(
@@ -163,9 +163,6 @@ async def run_linkedin_brightdata_sync_task(
                 await uow.commit()
             return result
         except Exception as exc:
-            logger.exception(
-                "linkedin_brightdata_sync_task_failed",
-                user_id=user_id,
-                error=str(exc),
+            handle_task_exception(
+                ctx, exc, task="run_linkedin_brightdata_sync_task", user_id=user_id
             )
-            return {"ok": False, "error": str(exc)}
