@@ -258,8 +258,46 @@ def _reminders_digest(locale: str, ctx: dict[str, Any]) -> dict[str, str]:
     return {"subject": subject, "text": "\n".join(text_lines), "body_html": body_html}
 
 
+def _finish_setup(locale: str, ctx: dict[str, Any]) -> dict[str, str]:
+    name = _safe_get(ctx, "display_name", "")
+    base = _safe_get(ctx, "frontend_base_url")
+    onboarding_url = f"{base}/#/onboarding"
+    if locale == "en":
+        subject = "Finish setting up your professional universe"
+        lead = (
+            "You created your account but haven't finished setting it up. Import your CV "
+            "or LinkedIn and the agent builds your universe — then you generate tailored "
+            "CVs in seconds."
+        )
+        cta = "Finish setup"
+        text = (
+            f"Hi {name},\n\n{lead}\n\nFinish setup: {onboarding_url}\n\n— Universo Profesional"
+        )
+    else:
+        subject = "Termina de montar tu universo profesional"
+        lead = (
+            "Creaste tu cuenta pero aún no has terminado de configurarla. Importa tu CV o "
+            "LinkedIn y el agente monta tu universo — luego generas CVs a medida en segundos."
+        )
+        cta = "Terminar configuración"
+        text = (
+            f"Hola {name},\n\n{lead}\n\nTermina aquí: {onboarding_url}\n\n— Universo Profesional"
+        )
+    greeting = f"{'Hi' if locale == 'en' else 'Hola'} {name},"
+    body_html = (
+        f'<h1 style="font-size:22px;margin:0 0 12px;font-weight:600;">{greeting}</h1>'
+        f'<p style="margin:0 0 16px;line-height:1.6;font-size:15px;">{lead}</p>'
+        f'<p style="margin:24px 0;"><a href="{onboarding_url}" '
+        'style="display:inline-block;background:#ffda6e;color:#0a0a0a;padding:12px 24px;'
+        'border-radius:12px;text-decoration:none;font-weight:600;font-size:14px;">'
+        f"{cta}</a></p>"
+    )
+    return {"subject": subject, "text": text, "body_html": body_html}
+
+
 _RENDERERS = {
     "welcome": _welcome,
+    "finish_setup": _finish_setup,
     "payment_received": _payment_received,
     "subscription_canceled": _subscription_canceled,
     "account_deleted": _account_deleted,

@@ -45,6 +45,9 @@ class UserOrm(Base):
     onboarding_completed_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), nullable=True
     )
+    day1_email_sent_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
 
 
 class EmailTokenOrm(Base):

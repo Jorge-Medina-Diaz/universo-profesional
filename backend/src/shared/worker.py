@@ -107,6 +107,7 @@ def _collect_cron() -> list[Any]:
     from src.mcp_server.infrastructure.tasks import (
         purge_expired_oauth_tokens,
     )
+    from src.identity.infrastructure.lifecycle_tasks import lifecycle_cron
     from src.universe.infrastructure.reminder_tasks import reminders_cron
 
     return [
@@ -125,6 +126,9 @@ def _collect_cron() -> list[Any]:
         # Reminders scan + email digest at 07:00 UTC — a morning nudge,
         # after the overnight curator has tidied the universe.
         cron(reminders_cron, hour={7}, minute={0}, run_at_startup=False),
+        # Day-1 lifecycle "finish setup" email at 08:00 UTC (re-engage
+        # registered-but-never-activated users; once each, opt-out respected).
+        cron(lifecycle_cron, hour={8}, minute={0}, run_at_startup=False),
     ]
 
 
