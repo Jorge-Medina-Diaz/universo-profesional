@@ -36,11 +36,15 @@ working tree clean.
 |---|---|---|
 | **R7 slice — keyset-paginate the append-only feeds** | `9a55795` | `activity` + `coherence/changes` were timestamp+LIMIT with no cursor/tiebreaker (effectively unbounded; dup/skip on equal timestamps). New `src/shared/pagination.py` (opaque cursor + `build_page`); both feeds keyset on `(ts, id)` returning a `{items, next_cursor}` envelope; FE `Page<T>` + consumers (ActivityPage, UniverseDrawer). Keyset SQL validated against live tables. |
 | **R12 — ATS-readiness on the generate screen** | `6a2cc91` | On-demand match/keyword-coverage/gaps card on the CV result screen, reusing the existing `/jobs/{id}/score` endpoint (generate response now returns `job_id`). |
+| **R16 — per-job interview prep** | `1696bb2` | `interview_preps` table (migration 0035, RLS+FORCE) + grounded-first generation (research brief + question bank + STAR drafts from the user's real entities; LLM-enriched when keyed, degrades to grounded). `InterviewPrepPage` at `/jobs/{id}/prep`, linked from the Kanban. Mock-transcripts deferred. |
+
+> **All three above were re-reviewed by a second adversarial workflow** (found
+> the cursor "never-500" gap, unbounded `activity` limit, R12 stale-score-on
+> -regenerate, and the R16 concurrent-upsert 500 + silent prep-GET error) — **all
+> fixed + committed** (`03c0568`). RLS/LLM-signature/route-parsing concerns were
+> refuted. Gates green; cursor rejects garbage → first page; `/readyz` 200.
 
 ### ⏭ Remainder (deferred — blueprints captured)
-- **R16 — interview-prep artifacts** (next user feature): per-application research
-  brief / question bank / STAR drafts / mock transcripts. Large net-new build
-  (prep-artifacts model + LLM generation + persistence + FE) — a focused pass.
 - **F — applications first-class aggregate**: new bounded context (~13 files) +
   data-migration backfill from `jobs._tracker` + rewiring 6 call-sites + FE. A
   refactor of *working* code (the `applications` table already exists from
