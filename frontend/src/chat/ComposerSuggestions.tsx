@@ -6,9 +6,10 @@
  */
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, BellRing, Link2, Sparkles } from "lucide-react";
+import { FileText, BellRing, Link2, Sparkles, Compass } from "lucide-react";
 import { queryKeys } from "@/shared/queryKeys";
 import { universe, useAuthStore } from "@/shared/api";
+import { useChatState } from "./state";
 
 
 export interface ComposerSuggestion {
@@ -24,6 +25,11 @@ interface Props {
 
 export function ComposerSuggestions({ onSelect }: Props) {
   const authed = !!useAuthStore((s) => s.accessToken);
+  // The currently-focused entity (set when the user taps a graph node →
+  // "talk about", or by the agent's set_chat_focus). Drives a contextual chip
+  // so the composer is proactive about what the user is looking at.
+  const focusMeta = useChatState((s) => s.meta);
+  const focusLabel = typeof focusMeta?.label === "string" ? focusMeta.label : null;
 
   const jobsQ = useQuery({
     queryKey: queryKeys.jobs.all,
@@ -41,6 +47,16 @@ export function ComposerSuggestions({ onSelect }: Props) {
 
   const suggestions = useMemo<ComposerSuggestion[]>(() => {
     const list: ComposerSuggestion[] = [];
+
+    // Contextual chip about the focused entity takes priority.
+    if (focusLabel) {
+      list.push({
+        id: "focus-explore",
+        label: `Profundiza en ${focusLabel}`,
+        prompt: `Cuéntame más sobre ${focusLabel}: qué tengo registrado, cómo se conecta con el resto de mi universo y qué me falta relacionado.`,
+        icon: <Compass size={12} />,
+      });
+    }
 
     const latestJob = (jobsQ.data ?? []).slice().sort(
       (a, b) => new Date((b as { created_at?: string }).created_at ?? 0).getTime() -
@@ -84,7 +100,7 @@ export function ComposerSuggestions({ onSelect }: Props) {
     }
 
     return list.slice(0, 3);
-  }, [jobsQ.data, remindersQ.data]);
+  }, [jobsQ.data, remindersQ.data, focusLabel]);
 
   if (suggestions.length === 0) return null;
 

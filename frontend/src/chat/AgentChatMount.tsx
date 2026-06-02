@@ -81,6 +81,24 @@ function routeHint(path: string): string {
   return "";
 }
 
+/**
+ * Low-typing / proactive doctrine appended to EVERY framing. This is the lever
+ * that turns the assistant from "asks long text questions" into "emits tappable
+ * widgets the user confirms" — the difference between a chatbot that interrogates
+ * and an assistant that proposes.
+ */
+const LOW_TYPING_DOCTRINE = `
+
+PROPÓN, NO PREGUNTES (experiencia fluida, mínimo tecleo):
+- Cuando necesites datos, NO los pidas en prosa: emite un widget TOCABLE.
+  • Varias preguntas relacionadas → \`present_questionnaire\` (mezcla single_choice / multi_choice / scale; incluye \`options\` para que el usuario las toque, deja \`open\` solo para texto genuinamente libre).
+  • Explorar un tema/dominio → \`present_deep_dive\` (secciones con chips/escala).
+  • Un stack o varias skills → \`propose_skill_batch\`.
+  • Una entidad concreta → la \`propose_*\` correspondiente, RELLENA con valores por defecto razonables para que el usuario solo confirme/ajuste.
+- Máximo UNA pregunta de texto libre por turno, y solo si ninguna opción tocable sirve.
+- Lidera con lo que ya sabes ("Doy casi todo por hecho, confírmame solo estas 3 cosas") en vez de interrogar campo a campo.
+- Ofrece siempre opciones concretas para tocar antes que pedir que el usuario escriba.`;
+
 export interface ChatFraming {
   instructions: string;
   title: string;
@@ -90,11 +108,11 @@ export interface ChatFraming {
 /** Resolve the chat's opening framing from the current route. */
 export function chatFraming(path: string): ChatFraming {
   if (path === "/")
-    return { instructions: HOME_INSTRUCTIONS, title: "Universo profesional", initial: HOME_INITIAL };
+    return { instructions: HOME_INSTRUCTIONS + LOW_TYPING_DOCTRINE, title: "Universo profesional", initial: HOME_INITIAL };
   if (path.startsWith("/universe"))
-    return { instructions: UNIVERSE_INSTRUCTIONS, title: "Tu universo · chat", initial: UNIVERSE_INITIAL };
+    return { instructions: UNIVERSE_INSTRUCTIONS + LOW_TYPING_DOCTRINE, title: "Tu universo · chat", initial: UNIVERSE_INITIAL };
   return {
-    instructions: BASE_INSTRUCTIONS + routeHint(path),
+    instructions: BASE_INSTRUCTIONS + routeHint(path) + LOW_TYPING_DOCTRINE,
     title: "Tu agente",
     initial: BASE_INITIAL,
   };
