@@ -31,6 +31,7 @@ from src.universe.domain.entities import (
     Language,
     Project,
     Skill,
+    coerce_patch,
 )
 
 
@@ -79,6 +80,17 @@ class _EntityCrud:
     ) -> None:
         self._repo = repo
         self._scheduler = scheduler
+
+    def _apply_patch(self, item: Any, patch: dict[str, Any]) -> None:
+        """Apply a patch to a domain entity, coercing each field to its declared
+        type. JSON/import carries dates/numbers/uuids as strings, and asyncpg
+        rejects a str where a date/int/uuid is expected (→ 500). This mirrors
+        the create-time coercion in `_Base.__post_init__`, so UPDATE/merge is
+        as type-safe as create. Invalid values raise ValidationError (→ 422)."""
+        coerced = coerce_patch(type(item), patch)
+        for k, v in coerced.items():
+            if hasattr(item, k):
+                setattr(item, k, v)
 
     async def list(self, *, user_id: str) -> list[dict[str, Any]]:
         items = await self._repo.list(UUID(user_id))
@@ -143,9 +155,7 @@ class EducationCrud(_EntityCrud):
         item = await self._repo.get(UUID(user_id), UUID(entity_id))
         if item is None:
             return err(NotFoundError("Education not found"))
-        for k, v in patch.items():
-            if hasattr(item, k):
-                setattr(item, k, v)
+        self._apply_patch(item, patch)
         await self._repo.update(item)
         await self._scheduler.enqueue(entity_type="education", entity_id=item.id)
         uow.add_event(
@@ -188,9 +198,7 @@ class ExperienceCrud(_EntityCrud):
         item = await self._repo.get(UUID(user_id), UUID(entity_id))
         if item is None:
             return err(NotFoundError("Experience not found"))
-        for k, v in patch.items():
-            if hasattr(item, k):
-                setattr(item, k, v)
+        self._apply_patch(item, patch)
         await self._repo.update(item)
         await self._scheduler.enqueue(entity_type="experience", entity_id=item.id)
         uow.add_event(
@@ -233,9 +241,7 @@ class ProjectCrud(_EntityCrud):
         item = await self._repo.get(UUID(user_id), UUID(entity_id))
         if item is None:
             return err(NotFoundError("Project not found"))
-        for k, v in patch.items():
-            if hasattr(item, k):
-                setattr(item, k, v)
+        self._apply_patch(item, patch)
         await self._repo.update(item)
         await self._scheduler.enqueue(entity_type="project", entity_id=item.id)
         uow.add_event(
@@ -281,9 +287,7 @@ class SkillCrud(_EntityCrud):
         item = await self._repo.get(UUID(user_id), UUID(entity_id))
         if item is None:
             return err(NotFoundError("Skill not found"))
-        for k, v in patch.items():
-            if hasattr(item, k):
-                setattr(item, k, v)
+        self._apply_patch(item, patch)
         await self._repo.update(item)
         await self._scheduler.enqueue(entity_type="skill", entity_id=item.id)
         uow.add_event(
@@ -326,9 +330,7 @@ class CertificationCrud(_EntityCrud):
         item = await self._repo.get(UUID(user_id), UUID(entity_id))
         if item is None:
             return err(NotFoundError("Certification not found"))
-        for k, v in patch.items():
-            if hasattr(item, k):
-                setattr(item, k, v)
+        self._apply_patch(item, patch)
         await self._repo.update(item)
         await self._scheduler.enqueue(entity_type="certification", entity_id=item.id)
         uow.add_event(
@@ -368,9 +370,7 @@ class CourseCrud(_EntityCrud):
         item = await self._repo.get(UUID(user_id), UUID(entity_id))
         if item is None:
             return err(NotFoundError("Course not found"))
-        for k, v in patch.items():
-            if hasattr(item, k):
-                setattr(item, k, v)
+        self._apply_patch(item, patch)
         await self._repo.update(item)
         # Refresh the embedding so semantic dedup / dense retrieval don't keep
         # using a stale vector after a title/platform edit (every other
@@ -413,9 +413,7 @@ class LanguageCrud(_EntityCrud):
         item = await self._repo.get(UUID(user_id), UUID(entity_id))
         if item is None:
             return err(NotFoundError("Language not found"))
-        for k, v in patch.items():
-            if hasattr(item, k):
-                setattr(item, k, v)
+        self._apply_patch(item, patch)
         await self._repo.update(item)
         uow.add_event(
             EntryUpdated(
@@ -454,9 +452,7 @@ class AchievementCrud(_EntityCrud):
         item = await self._repo.get(UUID(user_id), UUID(entity_id))
         if item is None:
             return err(NotFoundError("Achievement not found"))
-        for k, v in patch.items():
-            if hasattr(item, k):
-                setattr(item, k, v)
+        self._apply_patch(item, patch)
         await self._repo.update(item)
         uow.add_event(
             EntryUpdated(
@@ -495,9 +491,7 @@ class InterestCrud(_EntityCrud):
         item = await self._repo.get(UUID(user_id), UUID(entity_id))
         if item is None:
             return err(NotFoundError("Interest not found"))
-        for k, v in patch.items():
-            if hasattr(item, k):
-                setattr(item, k, v)
+        self._apply_patch(item, patch)
         await self._repo.update(item)
         uow.add_event(
             EntryUpdated(
@@ -554,9 +548,7 @@ class ArchitectureDecisionCrud(_EntityCrud):
         item = await self._repo.get(UUID(user_id), UUID(entity_id))
         if item is None:
             return err(NotFoundError("ArchitectureDecision not found"))
-        for k, v in patch.items():
-            if hasattr(item, k):
-                setattr(item, k, v)
+        self._apply_patch(item, patch)
         await self._repo.update(item)
         await self._scheduler.enqueue(
             entity_type="architecture_decision", entity_id=item.id
@@ -613,9 +605,7 @@ class ArtifactCrud(_EntityCrud):
         item = await self._repo.get(UUID(user_id), UUID(entity_id))
         if item is None:
             return err(NotFoundError("Artifact not found"))
-        for k, v in patch.items():
-            if hasattr(item, k):
-                setattr(item, k, v)
+        self._apply_patch(item, patch)
         await self._repo.update(item)
         uow.add_event(
             EntryUpdated(

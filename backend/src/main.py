@@ -290,6 +290,63 @@ def create_app() -> FastAPI:
             },
         )
 
+    # DB-level errors that are really CLIENT input problems must not surface as
+    # bare 500s. Map them to structured 4xx (same problem-detail shape) so every
+    # endpoint is resilient to bad/edge data, not just the ones that remember to
+    # catch. Genuine infra DB failures still fall through to the 500 catch-all.
+    from sqlalchemy.exc import DataError, DBAPIError, IntegrityError
+
+    @app.exception_handler(IntegrityError)
+    async def integrity_error_handler(
+        request: Request, exc: IntegrityError
+    ) -> JSONResponse:
+        logger.warning(
+            "integrity_error", path=str(request.url.path), error=str(exc.orig or exc)
+        )
+        return JSONResponse(
+            status_code=409,
+            content={
+                "title": "ConflictError",
+                "detail": "This conflicts with existing data.",
+            },
+        )
+
+    @app.exception_handler(DataError)
+    async def data_error_handler(request: Request, exc: DataError) -> JSONResponse:
+        logger.warning(
+            "data_error", path=str(request.url.path), error=str(exc.orig or exc)
+        )
+        return JSONResponse(
+            status_code=422,
+            content={
+                "title": "ValidationError",
+                "detail": "Some values weren't in the expected format.",
+            },
+        )
+
+    @app.exception_handler(DBAPIError)
+    async def dbapi_error_handler(request: Request, exc: DBAPIError) -> JSONResponse:
+        # asyncpg bind/encode failures (e.g. a str where a date is expected) are
+        # often wrapped as the generic DBAPIError, not DataError. Treat those as
+        # 422 (bad input); anything else is a real DB fault → 500.
+        orig_name = type(getattr(exc, "orig", None)).__name__
+        if "DataError" in orig_name or "SyntaxOrAccessError" in orig_name:
+            logger.warning(
+                "dbapi_data_error", path=str(request.url.path), error=str(exc.orig or exc)
+            )
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "title": "ValidationError",
+                    "detail": "Some values weren't in the expected format.",
+                },
+            )
+        logger.exception("database_error", path=str(request.url.path), error=str(exc))
+        return JSONResponse(
+            status_code=500,
+            content={"title": "InternalServerError", "detail": "A database error occurred"},
+        )
+
     @app.exception_handler(Exception)
     async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
         """Last-resort handler: an unexpected error returns the consistent

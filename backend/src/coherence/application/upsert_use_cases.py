@@ -362,13 +362,22 @@ class UpsertUniverseEntity:
         if not emb_text:
             return MatchResult(kind=MatchKind.NONE)
         ambiguous_low = await _adaptive_ambiguous_low(self._session, user_id)
-        hits = await self._matcher.find_most_similar(
-            user_id=UUID(user_id),
-            entity_type=entity_type,
-            text=emb_text,
-            threshold=ambiguous_low,
-            top_k=3,
-        )
+        # Best-effort: the matcher does an embedding call (network/timeout can
+        # fail). A matcher failure must NOT 500 the write — degrade to "no
+        # semantic match" (the entity is created instead of merged), which is
+        # safe and recoverable. This runs before any write, so no transaction
+        # is poisoned.
+        try:
+            hits = await self._matcher.find_most_similar(
+                user_id=UUID(user_id),
+                entity_type=entity_type,
+                text=emb_text,
+                threshold=ambiguous_low,
+                top_k=3,
+            )
+        except Exception as exc:
+            _log.warning("semantic_match_failed", entity_type=entity_type, error=str(exc))
+            return MatchResult(kind=MatchKind.NONE)
         if not hits:
             return MatchResult(kind=MatchKind.NONE)
         top = hits[0]

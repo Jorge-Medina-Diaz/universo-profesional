@@ -230,6 +230,28 @@ export function useEntityActions(
               }
               qc.invalidateQueries({ queryKey: queryKeys.universe.all });
               qc.invalidateQueries({ queryKey: queryKeys.coherence.changes });
+              // Surface partial failures (no silent batch errors — parity with
+              // the import flow). An item is "not saved" if it errored OR came
+              // back as a validation no-op with no entity_id (bad input the
+              // backend dropped with a reason). The agent still gets the full
+              // per-item result for follow-up.
+              const reasonOf = (resp: UpsertResponse | { error: string }): string =>
+                "error" in resp ? resp.error : (resp.reason ?? "no se guardó");
+              const notSaved = results.filter(
+                (r) => "error" in r.resp || r.resp.entity_id == null,
+              );
+              const okCount = results.length - notSaved.length;
+              if (notSaved.length > 0) {
+                toast.error(
+                  `No se pudieron añadir ${notSaved.length} de ${results.length} skills`,
+                  notSaved
+                    .slice(0, 3)
+                    .map((f) => `${f.name}: ${reasonOf(f.resp)}`)
+                    .join(" · "),
+                );
+              } else if (okCount > 0) {
+                toast.success(`${okCount} skill${okCount > 1 ? "s" : ""} añadidas`);
+              }
               respond?.(JSON.stringify({ accepted: results, rejected }));
             } finally {
               setSaving(null);
