@@ -5,6 +5,7 @@ import { integrations } from "@/shared/api-extra";
 import { queryKeys } from "@/shared/queryKeys";
 import { EntryCard } from "../cards/EntryCard";
 import { ImportReviewCard, type ImportGroup } from "../cards/ImportReviewCard";
+import { PdfImportCard } from "../cards/PdfImportCard";
 import { normalizeImportItem, coherenceUpsert } from "./shared";
 import type { SavingState, UpsertResponse, CopilotActionParams } from "./types";
 
@@ -70,19 +71,21 @@ export function useImportActions(
 
   useCopilotAction({
     name: "propose_pdf_import",
-    description: "Propose uploading a CV PDF for import.",
+    description:
+      "Open an inline CV-PDF importer in the chat: the user drops their PDF, " +
+      "reviews the parsed entries (confidence-flagged, least-certain first) and " +
+      "imports them — all without leaving the conversation. Use whenever the user " +
+      "wants to import/upload a CV or résumé PDF.",
     parameters: [] satisfies CopilotActionParams,
-    renderAndWaitForResponse: ({ respond }) => (
-      <EntryCard
-        title="Subir un CV en PDF"
-        details={{ formato: "PDF", maximo: "10 MB" }}
-        pending={false}
-        ctaLabel="Ir a Conexiones"
-        onConfirm={() => {
-          window.location.hash = "#/connections";
-          respond?.("Redirected to /connections.");
+    renderAndWaitForResponse: ({ respond }: { respond?: (s: string) => void }) => (
+      <PdfImportCard
+        onDone={(summary) => respond?.(JSON.stringify(summary))}
+        onCancel={() => respond?.(JSON.stringify({ cancelled: true }))}
+        onCommitted={() => {
+          qc.invalidateQueries({ queryKey: queryKeys.universe.all });
+          qc.invalidateQueries({ queryKey: queryKeys.graph.snapshot });
+          qc.invalidateQueries({ queryKey: queryKeys.coherence.changes });
         }}
-        onReject={() => respond?.("Cancelled.")}
       />
     ),
   });
@@ -103,9 +106,18 @@ export function useImportActions(
             const clean = normalizeImportItem(g.kind, item as Record<string, unknown>);
             const payload = g.kind === "skill" ? { category: "hard", ...clean } : clean;
             const resp = await coherenceUpsert(g.kind, payload);
-            committed[g.kind] = (committed[g.kind] ?? 0) + 1;
-            total += 1;
             lastResp = resp;
+            // A malformed CREATE returns 200 {status:"noop", entity_id:null} — a
+            // SILENT drop unless we treat it as a failure (no-silent-errors rule).
+            // created/merged/suggested are genuine outcomes; noop/null is not.
+            const notSaved =
+              resp.status === "noop" || (resp.entity_id == null && resp.suggestion_id == null);
+            if (notSaved) {
+              failed.push({ kind: g.kind, error: resp.reason || "no se guardó (dato inválido o duplicado)" });
+            } else {
+              committed[g.kind] = (committed[g.kind] ?? 0) + 1;
+              total += 1;
+            }
           } catch (e) {
             failed.push({ kind: g.kind, error: (e as Error).message });
           }
