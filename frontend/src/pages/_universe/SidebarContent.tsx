@@ -24,11 +24,20 @@ export interface SidebarContentProps {
   onClearKinds: () => void;
   colorBy: "area" | "pillar";
   onSetColorBy: (v: "area" | "pillar") => void;
+  /** Local-graph mode: restrict to the selected node's N-hop neighbourhood. */
+  localGraph: boolean;
+  onSetLocalGraph: (v: boolean) => void;
+  depth: number;
+  onSetDepth: (v: number) => void;
+  hasSelection: boolean;
   shapeByKind: boolean;
   onSetShapeByKind: (v: boolean) => void;
   showEsco: boolean;
   onSetShowEsco: (v: boolean) => void;
   legend: { key: string; label: string; color: string }[];
+  /** Legend groups toggled OFF (hidden from the graph). Empty = all shown. */
+  hiddenAreas: Set<string>;
+  onToggleArea: (key: string) => void;
   filteredSnapshot: GraphSnapshot | null;
   lens: Lens;
 }
@@ -42,11 +51,18 @@ export function SidebarContent({
   onClearKinds,
   colorBy,
   onSetColorBy,
+  localGraph,
+  onSetLocalGraph,
+  depth,
+  onSetDepth,
+  hasSelection,
   shapeByKind,
   onSetShapeByKind,
   showEsco,
   onSetShowEsco,
   legend,
+  hiddenAreas,
+  onToggleArea,
   filteredSnapshot,
   lens,
 }: SidebarContentProps) {
@@ -78,6 +94,39 @@ export function SidebarContent({
       {/* Graph display toggles */}
       {isGraph && (
         <Card padding="sm" className="space-y-2.5 border border-hairline">
+          {/* Local graph — focus the selected node's neighbourhood. */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-ink/80">Grafo local</span>
+            <Switch checked={localGraph} onChange={onSetLocalGraph} />
+          </div>
+          {localGraph && (
+            <div className="space-y-1.5 rounded-card bg-canvas/50 p-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-stone">Saltos</span>
+                <div className="flex items-center gap-1 rounded-full border border-hairline bg-canvas/60 p-0.5 text-[11px]">
+                  {[1, 2, 3].map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => onSetDepth(d)}
+                      aria-pressed={depth === d}
+                      className={cn(
+                        "rounded-full px-2 py-0.5 tabular-nums transition-colors",
+                        depth === d ? "bg-ink text-canvas" : "text-stone hover:text-ink",
+                      )}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {!hasSelection && (
+                <p className="text-[11px] leading-snug text-stone/80">
+                  Selecciona un nodo para enfocar su vecindario.
+                </p>
+              )}
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span className="text-xs text-ink/80">Mostrar vínculos ESCO</span>
             <Switch checked={showEsco} onChange={onSetShowEsco} />
@@ -114,17 +163,44 @@ export function SidebarContent({
         </Card>
       )}
 
-      {/* Legend */}
+      {/* Legend — each chip toggles its group's visibility (Obsidian-style). */}
       {isGraph && legend.length > 0 && filteredSnapshot && (
         <Card padding="sm" className="border border-hairline">
-          <span className="mb-2 block text-xs font-medium text-stone">Leyenda</span>
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-medium text-stone">Leyenda</span>
+            {hiddenAreas.size > 0 && (
+              <button
+                type="button"
+                onClick={() => [...hiddenAreas].forEach(onToggleArea)}
+                className="text-[11px] text-stone transition-colors hover:text-ink"
+              >
+                Mostrar todo
+              </button>
+            )}
+          </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1.5">
-            {legend.map((g) => (
-              <span key={g.key} className="inline-flex items-center gap-1.5 text-[11px] text-ink/80">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: g.color }} />
-                {g.label}
-              </span>
-            ))}
+            {legend.map((g) => {
+              const hidden = hiddenAreas.has(g.key);
+              return (
+                <button
+                  key={g.key}
+                  type="button"
+                  onClick={() => onToggleArea(g.key)}
+                  aria-pressed={!hidden}
+                  title={hidden ? "Mostrar" : "Ocultar"}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1",
+                    hidden ? "text-stone/40 line-through" : "text-ink/80 hover:text-ink",
+                  )}
+                >
+                  <span
+                    className="h-2.5 w-2.5 rounded-full transition-opacity"
+                    style={{ backgroundColor: g.color, opacity: hidden ? 0.3 : 1 }}
+                  />
+                  {g.label}
+                </button>
+              );
+            })}
           </div>
           <p className="mt-1.5 border-t border-hairline pt-1.5 text-[11px] text-stone">
             {filteredSnapshot.node_count} nodos · {filteredSnapshot.edge_count} aristas

@@ -297,7 +297,33 @@ async def linkedin_zip_commit(
         )
         await sessions.mark_committed(UUID(body["session_id"]))
         await uow.commit()
+    await _schedule_graph_enrichment(session, user_id)
     return {"committed": summary}
+
+
+async def _schedule_graph_enrichment(session: Any, user_id: str) -> None:
+    """After an import commit, infer relationship edges so freshly imported
+    entities arrive ALREADY connected in the constellation — otherwise the graph
+    renders isolated dots until the user manually taps "Conectar" (the root cause
+    of the "0 aristas" universe). Prefer the debounced background job (arq
+    worker); if the queue is unreachable, run enrichment inline so relationship
+    inference NEVER silently stops.
+    """
+    import structlog
+
+    log = structlog.get_logger(__name__)
+    try:
+        from src.universe.infrastructure.scheduler import enqueue_graph_enrichment
+
+        if await enqueue_graph_enrichment(UUID(user_id)):
+            return
+        # Queue down (e.g. Redis off) → inline fallback so edges still appear.
+        from src.universe.application.enrichment import enrich_user_graph
+
+        await enrich_user_graph(session, UUID(user_id))
+        await session.commit()
+    except Exception as exc:  # scheduling must never break the import itself
+        log.warning("import_enrichment_schedule_failed", user_id=user_id, error=str(exc))
 
 
 # ---------- PDF CV ---------- #
@@ -389,6 +415,7 @@ async def pdf_commit(
         )
         await sessions.mark_committed(UUID(body.session_id))
         await uow.commit()
+    await _schedule_graph_enrichment(session, user_id)
     return {"committed": summary}
 
 

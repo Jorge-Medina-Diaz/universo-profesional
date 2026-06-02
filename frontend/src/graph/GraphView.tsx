@@ -160,6 +160,13 @@ export interface GraphViewProps {
   shapeByKind?: boolean;
   /** Visually flag nodes that carry an ESCO ontology link. */
   showEsco?: boolean;
+  /**
+   * Local-graph mode: when set (and a node is selected), restrict the view to
+   * the selected node's N-hop neighbourhood (BFS frontier). Undefined = off
+   * (show the whole constellation). The biggest Obsidian "feels infinite but
+   * stays navigable" win.
+   */
+  localDepth?: number;
 }
 
 /** Resolve a node's group key, region label, and colour for the active lens. */
@@ -378,11 +385,13 @@ function GraphEvents({
   onSelectEntity,
   searchQuery,
   celebratingNodes,
+  localDepth,
 }: {
   selectedId?: string | null;
   onSelectEntity?: (sel: GraphSelection | null) => void;
   searchQuery?: string;
   celebratingNodes?: Set<string>;
+  localDepth?: number;
 }) {
   const sigma = useSigma();
   const registerEvents = useRegisterEvents();
@@ -394,6 +403,10 @@ function GraphEvents({
   const dragging = useRef(false);
   const dragMoved = useRef(false);
   const celebrationStart = useRef<Map<string, number>>(new Map());
+  // Local-graph BFS frontier (null = off). Read by the node/edge reducers.
+  const frontier = useRef<Set<string> | null>(null);
+  // Level-of-detail tier from the camera ratio. Read by the node reducer.
+  const lodTier = useRef<"near" | "far">("near");
 
   // Merge prop celebrations into our animated timeline.
   useEffect(() => {
@@ -405,12 +418,64 @@ function GraphEvents({
     }
   }, [celebratingNodes]);
 
+  // Compute the local-graph frontier (BFS to `localDepth` hops from the selected
+  // node) whenever the selection or depth changes. graphology's `neighbors()` is
+  // direction-agnostic, so the neighbourhood spans in+out edges (what the user
+  // expects). null = local mode off → the whole constellation shows.
+  useEffect(() => {
+    const graph = sigma.getGraph();
+    if (!localDepth || !selectedId || !graph.hasNode(selectedId)) {
+      frontier.current = null;
+    } else {
+      const seen = new Set<string>([selectedId]);
+      let layer: string[] = [selectedId];
+      for (let d = 0; d < localDepth; d++) {
+        const next: string[] = [];
+        for (const n of layer) {
+          for (const nb of graph.neighbors(n)) {
+            if (!seen.has(nb)) {
+              seen.add(nb);
+              next.push(nb);
+            }
+          }
+        }
+        layer = next;
+      }
+      frontier.current = seen;
+    }
+    sigma.refresh({ skipIndexation: true });
+  }, [sigma, selectedId, localDepth]);
+
+  // Level-of-detail: re-run the reducers when the camera crosses the far/near
+  // zoom threshold, so a zoomed-out view collapses node art into coloured
+  // regions (the DOM cluster labels still carry the names).
+  useEffect(() => {
+    const camera = sigma.getCamera();
+    const onUpdate = () => {
+      const tier = camera.ratio > 1.7 ? "far" : "near";
+      if (tier !== lodTier.current) {
+        lodTier.current = tier;
+        sigma.refresh({ skipIndexation: true });
+      }
+    };
+    camera.on("updated", onUpdate);
+    return () => {
+      camera.off("updated", onUpdate);
+    };
+  }, [sigma]);
+
   // Install reducers once; hover/selection/search/celebration flip refs + refresh.
   useEffect(() => {
     const graph = sigma.getGraph();
 
     sigma.setSetting("nodeReducer", (node, data) => {
       const res = { ...data } as Record<string, unknown>;
+      // Local-graph mode: hide anything outside the selected node's N-hop
+      // frontier so a dense universe stays navigable.
+      if (frontier.current && !frontier.current.has(node)) {
+        res.hidden = true;
+        return res;
+      }
       const now = Date.now();
       const celebrationStartTime = celebrationStart.current.get(node);
       const focus = hovered.current ?? selected.current;
@@ -436,7 +501,9 @@ function GraphEvents({
         }
       }
 
-      // Search highlight: matching nodes get a ring, non-matching dim to 20 %.
+      // Search: matches PULSE with a glowing halo (Path-of-Exile style) and lift
+      // slightly; non-matches dim so the eye lands on the matches. The pulse is
+      // driven by the search rAF loop below (refreshes while a query is active).
       if (searchQuery && searchQuery.trim()) {
         const q = searchQuery.trim().toLowerCase();
         const label = String(data.label ?? "").toLowerCase();
@@ -447,10 +514,21 @@ function GraphEvents({
           res.label = "";
           res.borderSize = 0;
         } else {
+          const pulse = 0.5 + 0.5 * Math.sin((now / 1000) * Math.PI * 2);
+          res.highlighted = true;
           res.borderColor = colors.current.sunbeam;
-          res.borderSize = 3;
+          res.borderSize = 3 + pulse * 4;
+          res.size = (data.size as number) * (1.1 + pulse * 0.12);
           res.zIndex = 3;
         }
+      }
+
+      // Level-of-detail: zoomed far out with no active focus/search → drop the
+      // pictogram + label so the map reads as coloured regions. Zoom in to
+      // reveal nodes/edges/labels again.
+      if (lodTier.current === "far" && !focus && !(searchQuery && searchQuery.trim())) {
+        res.image = undefined;
+        res.label = "";
       }
 
       // Hover / selection focus.
@@ -473,6 +551,14 @@ function GraphEvents({
 
     sigma.setSetting("edgeReducer", (edge, data) => {
       const res = { ...data } as Record<string, unknown>;
+      // Local-graph mode: hide edges with an endpoint outside the frontier.
+      if (frontier.current) {
+        const [es, et] = graph.extremities(edge);
+        if (!frontier.current.has(es) || !frontier.current.has(et)) {
+          res.hidden = true;
+          return res;
+        }
+      }
       const focus = hovered.current ?? selected.current;
       if (focus && graph.hasNode(focus)) {
         const [s, t] = graph.extremities(edge);
@@ -571,6 +657,19 @@ function GraphEvents({
     return () => cancelAnimationFrame(raf);
   }, [sigma]);
 
+  // Animation loop for the search glow-pulse — runs ONLY while a query is
+  // active, so matched-node halos breathe smoothly, then the loop stops.
+  useEffect(() => {
+    if (!searchQuery || !searchQuery.trim()) return;
+    let raf: number;
+    const loop = () => {
+      sigma.refresh({ skipIndexation: true });
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [sigma, searchQuery]);
+
   // Live theme switch.
   useEffect(() => {
     const apply = () => {
@@ -646,6 +745,7 @@ export function GraphView({
   celebratingNodes,
   shapeByKind,
   showEsco,
+  localDepth,
 }: GraphViewProps) {
   const signature = useMemo(
     () => `${snapshot.node_count}:${(kindsFilter ?? []).join(",")}:${colorBy}:${shapeByKind ?? false}`,
@@ -705,6 +805,7 @@ export function GraphView({
               onSelectEntity={onSelectEntity}
               searchQuery={searchQuery}
               celebratingNodes={celebratingNodes}
+              localDepth={localDepth}
             />
             <ZoomControls />
           </>

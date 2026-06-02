@@ -7,7 +7,7 @@
  * Ported from the former UniversePage. The chat mount, loading skeleton and
  * sidebar are now shared modules (no longer duplicated with the home surface).
  */
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, X, Search, Menu, ChevronUp } from "lucide-react";
@@ -57,9 +57,16 @@ function writeHashParams(params: Record<string, string | undefined>) {
 export function UniverseWorkspace() {
   const [lens, setLens] = useState<Lens>("graph");
   const [activeKinds, setActiveKinds] = useState<Set<string>>(new Set());
+  // Interactive legend: areas/pillars toggled OFF here are hidden from the graph
+  // (Obsidian-style colour-group toggles). Empty = everything visible.
+  const [hiddenAreas, setHiddenAreas] = useState<Set<string>>(new Set());
   const [selectedNode, setSelectedNode] = useState<GraphSelection | null>(null);
   const [enriching, setEnriching] = useState(false);
   const [colorBy, setColorBy] = useState<"area" | "pillar">("area");
+  // Local-graph mode (Obsidian-style): restrict the view to the selected node's
+  // N-hop neighbourhood so a dense universe stays navigable.
+  const [localGraph, setLocalGraph] = useState(false);
+  const [depth, setDepth] = useState(2);
   const [searchQuery, setSearchQuery] = useState("");
   const [celebratingNodes, setCelebratingNodes] = useState<Set<string>>(new Set());
   const [shapeByKind, setShapeByKind] = useState(false);
@@ -218,20 +225,29 @@ export function UniverseWorkspace() {
     return Array.from(set).sort();
   }, [baseSnapshot]);
 
+  // The group key a node belongs to under the active lens — used by both the
+  // legend and its interactive show/hide toggles.
+  const groupKeyOf = useCallback(
+    (n: GraphSnapshot["nodes"][number]): string =>
+      colorBy === "pillar"
+        ? ((n.attributes.pillar as string | null) || "Sin pilar")
+        : areaKey(n.attributes.area, n.attributes.kind),
+    [colorBy],
+  );
+
   const filteredSnapshot: GraphSnapshot | null = useMemo(() => {
     if (!baseSnapshot) return null;
-    if (activeKinds.size === 0) return baseSnapshot;
+    if (activeKinds.size === 0 && hiddenAreas.size === 0) return baseSnapshot;
     const visible = new Set<string>();
     const nodes = baseSnapshot.nodes.filter((n) => {
-      if (activeKinds.has(n.attributes.kind)) {
-        visible.add(n.key);
-        return true;
-      }
-      return false;
+      if (activeKinds.size > 0 && !activeKinds.has(n.attributes.kind)) return false;
+      if (hiddenAreas.size > 0 && hiddenAreas.has(groupKeyOf(n))) return false;
+      visible.add(n.key);
+      return true;
     });
     const edges = baseSnapshot.edges.filter((e) => visible.has(e.source) && visible.has(e.target));
     return { nodes, edges, node_count: nodes.length, edge_count: edges.length };
-  }, [baseSnapshot, activeKinds]);
+  }, [baseSnapshot, activeKinds, hiddenAreas, groupKeyOf]);
 
   // Chat → graph: focus an entity when the agent calls present_graph_view.
   useEffect(() => {
@@ -242,11 +258,20 @@ export function UniverseWorkspace() {
     }
   }, [focusEntityId, lensRevision, baseSnapshot]);
 
+  // Legend is built from the BASE snapshot (kind-filtered, but NOT area-hidden)
+  // so a hidden group still renders as a toggle-off chip you can switch back on.
+  const legendSource = useMemo<GraphSnapshot | null>(() => {
+    if (!baseSnapshot) return null;
+    if (activeKinds.size === 0) return baseSnapshot;
+    const nodes = baseSnapshot.nodes.filter((n) => activeKinds.has(n.attributes.kind));
+    return { ...baseSnapshot, nodes, node_count: nodes.length };
+  }, [baseSnapshot, activeKinds]);
+
   const legend = useMemo<{ key: string; label: string; color: string }[]>(() => {
-    if (!filteredSnapshot) return [];
+    if (!legendSource) return [];
     if (colorBy === "pillar") {
       const seen = new Map<string, { key: string; label: string; color: string }>();
-      for (const n of filteredSnapshot.nodes) {
+      for (const n of legendSource.nodes) {
         const p = (n.attributes.pillar as string | null) || null;
         const key = p || "Sin pilar";
         if (!seen.has(key)) seen.set(key, { key, label: key, color: colorForPillar(p) });
@@ -254,13 +279,13 @@ export function UniverseWorkspace() {
       return [...seen.values()];
     }
     const set = new Set<string>();
-    for (const n of filteredSnapshot.nodes) set.add(areaKey(n.attributes.area, n.attributes.kind));
+    for (const n of legendSource.nodes) set.add(areaKey(n.attributes.area, n.attributes.kind));
     return AREA_ORDER.filter((a) => set.has(a)).map((a) => ({
       key: a,
       label: labelForArea(a),
       color: colorForArea(a),
     }));
-  }, [filteredSnapshot, colorBy]);
+  }, [legendSource, colorBy]);
 
   const handleFocus = (id: string, kind: string, label: string) => {
     if (kind === "document") {
@@ -272,7 +297,7 @@ export function UniverseWorkspace() {
     useChatState.getState().setChatExpanded(true);
   };
 
-  const handleEnrich = async () => {
+  const handleEnrich = useCallback(async () => {
     if (enriching) return;
     setEnriching(true);
     try {
@@ -286,9 +311,32 @@ export function UniverseWorkspace() {
     } finally {
       setEnriching(false);
     }
-  };
+  }, [enriching, queryClient]);
+
+  // Auto-connect: a fresh import lands as isolated nodes (the semantic
+  // RELATED_TO web is only inferred by enrichment). If we have a non-trivial
+  // universe but zero edges, fire enrichment ONCE so the constellation shows
+  // its relationships without the user hunting for the "Conectar" button.
+  const autoEnrichedRef = useRef(false);
+  useEffect(() => {
+    const snap = snapshotQuery.data;
+    if (!snap || enriching || autoEnrichedRef.current) return;
+    if (snap.node_count > 3 && snap.edge_count === 0) {
+      autoEnrichedRef.current = true;
+      void handleEnrich();
+    }
+  }, [snapshotQuery.data, enriching, handleEnrich]);
+
+  // Switching lens (area↔pillar) changes the legend's group keys, so a stale
+  // hidden-set would silently hide the wrong groups — reset it.
+  useEffect(() => {
+    setHiddenAreas(new Set());
+  }, [colorBy]);
 
   const isEmpty = !snapshotQuery.isLoading && (filteredSnapshot?.node_count ?? 0) === 0;
+
+  // Local-graph mode only engages once a node is selected to anchor the BFS.
+  const localDepth = localGraph && selectedNode ? depth : undefined;
 
   useEscapeKey(() => setMobileSidebarOpen(false), mobileSidebarOpen);
 
@@ -309,11 +357,24 @@ export function UniverseWorkspace() {
     onClearKinds: () => setActiveKinds(new Set()),
     colorBy,
     onSetColorBy: setColorBy,
+    localGraph,
+    onSetLocalGraph: setLocalGraph,
+    depth,
+    onSetDepth: setDepth,
+    hasSelection: !!selectedNode,
     shapeByKind,
     onSetShapeByKind: setShapeByKind,
     showEsco,
     onSetShowEsco: setShowEsco,
     legend,
+    hiddenAreas,
+    onToggleArea: (k) =>
+      setHiddenAreas((prev) => {
+        const next = new Set(prev);
+        if (next.has(k)) next.delete(k);
+        else next.add(k);
+        return next;
+      }),
     filteredSnapshot,
     lens,
   };
@@ -352,6 +413,7 @@ export function UniverseWorkspace() {
                     celebratingNodes={celebratingNodes}
                     shapeByKind={shapeByKind}
                     showEsco={showEsco}
+                    localDepth={localDepth}
                   />
                 </Suspense>
               </motion.div>
@@ -425,6 +487,20 @@ export function UniverseWorkspace() {
           )}
 
           <div className="pointer-events-auto flex items-center gap-2">
+            {localDepth ? (
+              <button
+                type="button"
+                onClick={() => setLocalGraph(false)}
+                className="hud-chip pointer-events-auto"
+                aria-label="Salir del grafo local"
+                title="Salir del grafo local"
+              >
+                <span className="text-[13px] leading-none">
+                  Local · {depth} {depth === 1 ? "salto" : "saltos"}
+                </span>
+                <X size={13} />
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={handleEnrich}

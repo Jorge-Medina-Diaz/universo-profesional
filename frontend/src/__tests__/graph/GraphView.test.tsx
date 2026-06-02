@@ -13,6 +13,7 @@ const mockGetGraph = vi.fn(() => ({
   degree: vi.fn(() => 0),
   hasNode: vi.fn(() => true),
   areNeighbors: vi.fn(() => false),
+  neighbors: vi.fn(() => []),
   extremities: vi.fn(() => ["a", "b"]),
   setNodeAttribute: vi.fn(),
 }));
@@ -21,6 +22,8 @@ const mockGetCamera = vi.fn(() => ({
   animatedUnzoom: vi.fn(),
   animatedReset: vi.fn(),
   ratio: 1,
+  on: vi.fn(),
+  off: vi.fn(),
 }));
 const mockGetContainer = vi.fn(() => ({ style: {} }));
 const mockGetNodeDisplayData = vi.fn(() => ({ x: 0, y: 0 }));
