@@ -2,7 +2,11 @@ import { useEffect } from "react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { useQueryClient } from "@tanstack/react-query";
 import { useChatState, type FocusEntity, type WidgetKind } from "../state";
-import { useGraphLensState, type GraphLensMode } from "@/graph/lensState";
+import {
+  useGraphLensState,
+  type GraphLensMode,
+  type GraphViewPatch,
+} from "@/graph/lensState";
 
 import { ProgressCard } from "../cards/ProgressCard";
 import { UploadInlineCard } from "../cards/UploadInlineCard";
@@ -51,6 +55,79 @@ export function useWidgetActions(
       });
       return { ok: true, mode };
     },
+  });
+
+  // --- Agent pilots the constellation (control + animate) ----------------
+  // Both mutate the shared lens control store (lensState.ts); UniverseWorkspace
+  // reads it and feeds GraphView, so the graph reconfigures with no clicks.
+  // Handlers are idempotent (CopilotKit may fire them more than once per call).
+  useCopilotAction({
+    name: "control_graph",
+    description:
+      "Pilot the /universe constellation: filter kinds, hide semantic areas, switch the colour lens, search-highlight, focus a node, or set local-graph depth. Pass only what changes.",
+    available: "enabled",
+    parameters: [
+      { name: "filter_kinds", type: "string[]" },
+      { name: "hide_areas", type: "string[]" },
+      { name: "color_by", type: "string" },
+      { name: "search", type: "string" },
+      { name: "local_depth", type: "number" },
+      { name: "focus_entity_id", type: "string" },
+      { name: "mode", type: "string" },
+    ] satisfies CopilotActionParams,
+    handler: async (args: Record<string, unknown>) => {
+      const patch: Partial<GraphViewPatch> = {};
+      if (Array.isArray(args.filter_kinds)) patch.activeKinds = new Set(args.filter_kinds as string[]);
+      if (Array.isArray(args.hide_areas)) patch.hiddenAreas = new Set(args.hide_areas as string[]);
+      if (args.color_by === "area" || args.color_by === "pillar") patch.colorBy = args.color_by;
+      if (typeof args.search === "string") patch.search = args.search;
+      if (typeof args.local_depth === "number") {
+        patch.localGraph = args.local_depth > 0;
+        if (args.local_depth > 0) patch.depth = Math.max(1, Math.min(3, Math.round(args.local_depth)));
+      }
+      if (typeof args.focus_entity_id === "string" && args.focus_entity_id) {
+        patch.focusEntityId = args.focus_entity_id;
+        if (!args.mode) patch.mode = "focus";
+      }
+      if (typeof args.mode === "string") patch.mode = args.mode as GraphLensMode;
+      if (Object.keys(patch).length > 0) useGraphLensState.getState().setView(patch);
+      return { ok: true, applied: Object.keys(patch) };
+    },
+    render: ({ status }: { status?: string }) => (
+      <GraphControlChip done={status === "complete"} label="vista del grafo" />
+    ),
+  });
+
+  useCopilotAction({
+    name: "animate_graph",
+    description:
+      "Play a one-shot animation on the constellation: 'flyTo' (camera flight to entity_id), 'pulse'/'highlightSet' (glow nodes by ids), 'reset' (recenter). Use after focusing to draw the eye.",
+    available: "enabled",
+    parameters: [
+      { name: "type", type: "string", required: true },
+      { name: "entity_id", type: "string" },
+      { name: "ids", type: "string[]" },
+      { name: "zoom", type: "number" },
+      { name: "duration", type: "number" },
+    ] satisfies CopilotActionParams,
+    handler: async (args: Record<string, unknown>) => {
+      const animate = useGraphLensState.getState().animate;
+      const t = args.type as string;
+      const duration = typeof args.duration === "number" ? args.duration : undefined;
+      if (t === "flyTo" && typeof args.entity_id === "string" && args.entity_id) {
+        animate({ type: "flyTo", entityId: args.entity_id, zoom: typeof args.zoom === "number" ? args.zoom : undefined, duration });
+      } else if ((t === "pulse" || t === "highlightSet") && Array.isArray(args.ids) && args.ids.length) {
+        animate({ type: t, ids: args.ids as string[], duration });
+      } else if (t === "reset") {
+        animate({ type: "reset", duration });
+      } else {
+        return { ok: false, reason: "invalid animate_graph args" };
+      }
+      return { ok: true };
+    },
+    render: ({ status }: { status?: string }) => (
+      <GraphControlChip done={status === "complete"} label="animación del grafo" />
+    ),
   });
 
   useCopilotAction({
@@ -120,6 +197,19 @@ export function useWidgetActions(
       />
     ),
   });
+}
+
+/** Subtle inline chip acknowledging an agent-driven graph control/animation,
+ *  so the action is never silent without cluttering the thread. */
+function GraphControlChip({ done, label }: { done: boolean; label: string }) {
+  return (
+    <div className="my-1 inline-flex items-center gap-1.5 rounded-full border border-hairline bg-canvas/60 px-2.5 py-1 text-[11px] text-stone">
+      <span aria-hidden className={done ? "text-leaf" : "animate-pulse text-sunbeam-ink"}>
+        {done ? "✓" : "✶"}
+      </span>
+      {done ? `Ajusté la ${label}` : `Ajustando la ${label}…`}
+    </div>
+  );
 }
 
 /**

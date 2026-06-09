@@ -56,20 +56,24 @@ function writeHashParams(params: Record<string, string | undefined>) {
 
 export function UniverseWorkspace() {
   const [lens, setLens] = useState<Lens>("graph");
-  const [activeKinds, setActiveKinds] = useState<Set<string>>(new Set());
-  // Interactive legend: areas/pillars toggled OFF here are hidden from the graph
-  // (Obsidian-style colour-group toggles). Empty = everything visible.
-  const [hiddenAreas, setHiddenAreas] = useState<Set<string>>(new Set());
+  // Agent-addressable view knobs live in the shared control store (lensState.ts)
+  // so the chat coordinator AND the sidebar write the same place — the agent can
+  // filter / hide areas / switch lens / search / animate the constellation.
+  const activeKinds = useGraphLensState((s) => s.activeKinds);
+  const hiddenAreas = useGraphLensState((s) => s.hiddenAreas);
+  const colorBy = useGraphLensState((s) => s.colorBy);
+  const localGraph = useGraphLensState((s) => s.localGraph);
+  const depth = useGraphLensState((s) => s.depth);
+  const searchQuery = useGraphLensState((s) => s.search);
+  const shapeByKind = useGraphLensState((s) => s.shapeByKind);
+  const animationCmd = useGraphLensState((s) => s.animationCmd);
+  const setView = useGraphLensState((s) => s.setView);
+  const toggleKind = useGraphLensState((s) => s.toggleKind);
+  const clearKinds = useGraphLensState((s) => s.clearKinds);
+  const toggleArea = useGraphLensState((s) => s.toggleArea);
   const [selectedNode, setSelectedNode] = useState<GraphSelection | null>(null);
   const [enriching, setEnriching] = useState(false);
-  const [colorBy, setColorBy] = useState<"area" | "pillar">("area");
-  // Local-graph mode (Obsidian-style): restrict the view to the selected node's
-  // N-hop neighbourhood so a dense universe stays navigable.
-  const [localGraph, setLocalGraph] = useState(false);
-  const [depth, setDepth] = useState(2);
-  const [searchQuery, setSearchQuery] = useState("");
   const [celebratingNodes, setCelebratingNodes] = useState<Set<string>>(new Set());
-  const [shapeByKind, setShapeByKind] = useState(false);
   const [showEsco, setShowEsco] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const setFocus = useChatState((s) => s.setFocus);
@@ -93,11 +97,12 @@ export function UniverseWorkspace() {
     else setLens("graph");
   }, [lensMode, lensRevision]);
 
-  // Parse URL hash params on mount.
+  // Parse URL hash params on mount → seed the control store.
   useEffect(() => {
     const params = readHashParams();
-    if (params.types) setActiveKinds(new Set(params.types.split(",").filter(Boolean)));
-    if (params.search) setSearchQuery(params.search);
+    if (params.types) setView({ activeKinds: new Set(params.types.split(",").filter(Boolean)) });
+    if (params.search) setView({ search: params.search });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Persist state to URL hash.
@@ -327,12 +332,6 @@ export function UniverseWorkspace() {
     }
   }, [snapshotQuery.data, enriching, handleEnrich]);
 
-  // Switching lens (area↔pillar) changes the legend's group keys, so a stale
-  // hidden-set would silently hide the wrong groups — reset it.
-  useEffect(() => {
-    setHiddenAreas(new Set());
-  }, [colorBy]);
-
   const isEmpty = !snapshotQuery.isLoading && (filteredSnapshot?.node_count ?? 0) === 0;
 
   // Local-graph mode only engages once a node is selected to anchor the BFS.
@@ -347,34 +346,22 @@ export function UniverseWorkspace() {
     knownKinds,
     kindCounts,
     activeKinds,
-    onToggleKind: (k) =>
-      setActiveKinds((prev) => {
-        const next = new Set(prev);
-        if (next.has(k)) next.delete(k);
-        else next.add(k);
-        return next;
-      }),
-    onClearKinds: () => setActiveKinds(new Set()),
+    onToggleKind: toggleKind,
+    onClearKinds: clearKinds,
     colorBy,
-    onSetColorBy: setColorBy,
+    onSetColorBy: (v) => setView({ colorBy: v }),
     localGraph,
-    onSetLocalGraph: setLocalGraph,
+    onSetLocalGraph: (v) => setView({ localGraph: v }),
     depth,
-    onSetDepth: setDepth,
+    onSetDepth: (v) => setView({ depth: v }),
     hasSelection: !!selectedNode,
     shapeByKind,
-    onSetShapeByKind: setShapeByKind,
+    onSetShapeByKind: (v) => setView({ shapeByKind: v }),
     showEsco,
     onSetShowEsco: setShowEsco,
     legend,
     hiddenAreas,
-    onToggleArea: (k) =>
-      setHiddenAreas((prev) => {
-        const next = new Set(prev);
-        if (next.has(k)) next.delete(k);
-        else next.add(k);
-        return next;
-      }),
+    onToggleArea: toggleArea,
     filteredSnapshot,
     lens,
   };
@@ -414,6 +401,7 @@ export function UniverseWorkspace() {
                     shapeByKind={shapeByKind}
                     showEsco={showEsco}
                     localDepth={localDepth}
+                    animationCmd={animationCmd}
                   />
                 </Suspense>
               </motion.div>
@@ -459,7 +447,7 @@ export function UniverseWorkspace() {
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => setView({ search: e.target.value })}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && filteredSnapshot && searchQuery.trim()) {
                       const q = searchQuery.trim().toLowerCase();
@@ -473,7 +461,7 @@ export function UniverseWorkspace() {
                 {searchQuery && (
                   <button
                     type="button"
-                    onClick={() => setSearchQuery("")}
+                    onClick={() => setView({ search: "" })}
                     className="pointer-events-auto absolute right-2.5 top-1/2 -translate-y-1/2 text-stone hover:text-ink"
                     aria-label="Limpiar búsqueda"
                   >
@@ -490,7 +478,7 @@ export function UniverseWorkspace() {
             {localDepth ? (
               <button
                 type="button"
-                onClick={() => setLocalGraph(false)}
+                onClick={() => setView({ localGraph: false })}
                 className="hud-chip pointer-events-auto"
                 aria-label="Salir del grafo local"
                 title="Salir del grafo local"

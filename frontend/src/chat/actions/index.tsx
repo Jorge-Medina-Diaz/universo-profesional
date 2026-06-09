@@ -10,16 +10,18 @@
  * source of truth — easier to audit and reuse from the existing pages).
  */
 import { useEffect, useState } from "react";
-import { useCopilotChat } from "@copilotkit/react-core";
+import { useCopilotChat, useCopilotAction } from "@copilotkit/react-core";
 import { useQueryClient } from "@tanstack/react-query";
 import { useChatState } from "../state";
 import { DiffCard } from "../cards/DiffCard";
+import { GenericToolCard, isSilentTool } from "../cards/GenericToolCard";
 import { useEntityActions } from "./entityActions";
 import { useJobActions } from "./jobActions";
 import { useDocumentActions } from "./documentActions";
 import { useWidgetActions } from "./widgetActions";
 import { useImportActions } from "./importActions";
 import { useGenericActions } from "./genericActions";
+import { useInsightActions } from "./insightActions";
 import type { SavingState, UpsertResponse } from "./types";
 
 export type { CopilotActionParams, CopilotActionParam, CopilotParamType } from "./types";
@@ -44,6 +46,18 @@ export function UniverseActions() {
   useWidgetActions(saving, setSaving, setLastOutcome, qc);
   useImportActions(saving, setSaving, setLastOutcome, qc);
   useGenericActions(saving, setSaving, setLastOutcome, qc);
+  useInsightActions();
+
+  // Wildcard safety net: ANY backend tool without an explicit renderer above
+  // gets a subtle chip so it's never dead-silent (exact-name actions take
+  // precedence). Internal reasoning reads stay quiet via isSilentTool.
+  useCopilotAction({
+    name: "*",
+    render: ({ name, status }: { name?: string; status?: string }) => {
+      if (!name || isSilentTool(name)) return <></>;
+      return <GenericToolCard name={name} status={status} />;
+    },
+  });
 
   // --- Post-write feedback (DiffCard for last merge/created/suggested) ----
   // Rendered inline outside the chat surface so the user gets a tangible

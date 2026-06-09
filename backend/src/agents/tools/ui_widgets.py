@@ -330,6 +330,123 @@ _HITL_TOOLS: list[dict[str, Any]] = [
         ],
     },
     {
+        "name": "control_graph",
+        "description": (
+            "Pilot the user's /universe constellation directly — the same controls "
+            "the user has in the sidebar, on command. Use it to SHOW the user what "
+            "they ask about ('enséñame mi stack de datos', 'oculta el frontend', "
+            "'agrúpalo por pilares'). Read the `graph_view` readable FIRST so you "
+            "reference real entity ids/labels. Pass ONLY the params that change:\n"
+            "- filter_kinds: entity kinds to show (e.g. ['skill','project']); omit/[] = all.\n"
+            "- hide_areas: semantic areas to hide (e.g. ['frontend','cloud']).\n"
+            "- color_by: 'area' | 'pillar'.\n"
+            "- search: highlight nodes matching this text.\n"
+            "- local_depth: 1-3 to focus the selected node's N-hop neighbourhood; 0 = off.\n"
+            "- focus_entity_id: centre + open this node (an id from graph_view).\n"
+            "- mode: 'focus' | 'cluster' | 'timeline' | 'outline'.\n"
+            "For costly/destructive pivots (full re-cluster, prune) use propose_graph_view."
+        ),
+        "params": [
+            {"name": "filter_kinds", "type": "list[str] | None", "default": None},
+            {"name": "hide_areas", "type": "list[str] | None", "default": None},
+            {"name": "color_by", "type": "str | None", "default": None},
+            {"name": "search", "type": "str | None", "default": None},
+            {"name": "local_depth", "type": "int | None", "default": None},
+            {"name": "focus_entity_id", "type": "str | None", "default": None},
+            {"name": "mode", "type": "str | None", "default": None},
+        ],
+    },
+    {
+        "name": "animate_graph",
+        "description": (
+            "Play a one-shot animation on the /universe constellation to draw the "
+            "user's eye. `type` is one of: 'flyTo' (cinematic camera flight to "
+            "`entity_id`; optional `zoom` 0-1, smaller = closer), 'pulse' or "
+            "'highlightSet' (glow a set of nodes by `ids` — spotlight the skills a "
+            "role needs, a cluster, or a path), 'reset' (recenter the camera). Use "
+            "right AFTER control_graph/focus. Reference real ids from the graph_view "
+            "readable. Returns {ok: bool}."
+        ),
+        "params": [
+            {"name": "type", "type": "str"},
+            {"name": "entity_id", "type": "str | None", "default": None},
+            {"name": "ids", "type": "list[str] | None", "default": None},
+            {"name": "zoom", "type": "float | None", "default": None},
+            {"name": "duration", "type": "int | None", "default": None},
+        ],
+    },
+    {
+        "name": "present_trajectory",
+        "description": (
+            "Render the user's career TRAJECTORY as an animated timeline card in "
+            "the chat. Call AFTER a read tool (get_universe_summary / "
+            "universe_retrieve). `milestones` is an ordered list (oldest→newest) of "
+            "{period, title, org?, detail?, entity_id?}; pass entity_id where known "
+            "so the card can light up that node in the graph. Optional title/narrative. "
+            "Use when the user asks to see their path/evolution/journey."
+        ),
+        "params": [
+            {"name": "milestones", "type": "list[dict[str, Any]]"},
+            {"name": "title", "type": "str | None", "default": None},
+            {"name": "narrative", "type": "str | None", "default": None},
+        ],
+    },
+    {
+        "name": "present_experience_card",
+        "description": (
+            "Render a rich EXPERIENCE card (role @ organization, period, impact, "
+            "highlights, skills). Pass entity_id (from the graph_view readable / "
+            "universe_retrieve) so the card can reveal that node in the graph. Use "
+            "when the user wants to see or discuss a specific role."
+        ),
+        "params": [
+            {"name": "role", "type": "str"},
+            {"name": "entity_id", "type": "str | None", "default": None},
+            {"name": "organization", "type": "str | None", "default": None},
+            {"name": "period", "type": "str | None", "default": None},
+            {"name": "impact", "type": "str | None", "default": None},
+            {"name": "highlights", "type": "list[str] | None", "default": None},
+            {"name": "skills", "type": "list[str] | None", "default": None},
+            {"name": "narrative", "type": "str | None", "default": None},
+        ],
+    },
+    {
+        "name": "present_project_card",
+        "description": (
+            "Render a PROJECT showcase card (name, summary, tech_stack, highlights, "
+            "impact, url). Pass entity_id so the card can reveal the node. Use when "
+            "the user asks about a project."
+        ),
+        "params": [
+            {"name": "name", "type": "str"},
+            {"name": "entity_id", "type": "str | None", "default": None},
+            {"name": "summary", "type": "str | None", "default": None},
+            {"name": "tech_stack", "type": "list[str] | None", "default": None},
+            {"name": "highlights", "type": "list[str] | None", "default": None},
+            {"name": "impact", "type": "str | None", "default": None},
+            {"name": "url", "type": "str | None", "default": None},
+        ],
+    },
+    {
+        "name": "present_skill_gap",
+        "description": (
+            "Render a SKILL-GAP / role-fit card for a target role: a match-score ring "
+            "+ have / partial / missing skill chips. Compute the gap by comparing the "
+            "user's universe (universe_retrieve / get_universe_summary) against the "
+            "role. Pass entity_ids = the have-skill node ids so the card can light "
+            "them up. Use after 'what's my gap for X' or a pasted job description."
+        ),
+        "params": [
+            {"name": "target_role", "type": "str"},
+            {"name": "match_score", "type": "int | None", "default": None},
+            {"name": "have", "type": "list[str] | None", "default": None},
+            {"name": "partial", "type": "list[str] | None", "default": None},
+            {"name": "missing", "type": "list[str] | None", "default": None},
+            {"name": "entity_ids", "type": "list[str] | None", "default": None},
+            {"name": "narrative", "type": "str | None", "default": None},
+        ],
+    },
+    {
         "name": "propose_skill_batch",
         "description": (
             "Propose MULTIPLE related skills at once in a single card, so the user "

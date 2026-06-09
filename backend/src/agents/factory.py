@@ -377,12 +377,18 @@ def _build_universe_team():  # type: ignore[no-untyped-def]
         recompute_user_signals,
     )
     from src.agents.tools.ui_widgets import (
+        animate_graph,
         confirm_destructive,
+        control_graph,
         present_document_preview,
+        present_experience_card,
         present_graph_view,
         present_job_match,
         present_progress,
+        present_project_card,
         present_questionnaire,
+        present_skill_gap,
+        present_trajectory,
         preview_list,
         propose_brightdata_sync,
         propose_cover_letter,
@@ -509,8 +515,15 @@ def _build_universe_team():  # type: ignore[no-untyped-def]
             upload_document_inline,
             present_document_preview,
             present_progress,
-            # Graph lens (Sprint O/Q)
+            # Graph lens (Sprint O/Q) + agent-driven graph control/animation
             present_graph_view,
+            control_graph,
+            animate_graph,
+            # Rich generative insight cards
+            present_trajectory,
+            present_experience_card,
+            present_project_card,
+            present_skill_gap,
             # Shared chat state (Sprint C)
             set_chat_focus,
         ],

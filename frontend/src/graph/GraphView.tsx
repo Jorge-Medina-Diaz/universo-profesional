@@ -39,6 +39,7 @@ import { areaKey, colorForArea, colorForPillar, labelForArea } from "@/shared/ar
 import { iconFor, edgeLabel } from "./nodeIcons";
 import { shapeFor } from "./nodeShapes";
 import { kindColor } from "@/shared/kindColors";
+import type { GraphAnimationCmd } from "./lensState";
 
 // Program: coloured disc + white pictogram (area lens)
 const CircleImageProgram = createNodeImageProgram({
@@ -167,6 +168,8 @@ export interface GraphViewProps {
    * stays navigable" win.
    */
   localDepth?: number;
+  /** One-shot camera/highlight command from the agent (`animate_graph`). */
+  animationCmd?: GraphAnimationCmd | null;
 }
 
 /** Resolve a node's group key, region label, and colour for the active lens. */
@@ -386,12 +389,14 @@ function GraphEvents({
   searchQuery,
   celebratingNodes,
   localDepth,
+  animationCmd,
 }: {
   selectedId?: string | null;
   onSelectEntity?: (sel: GraphSelection | null) => void;
   searchQuery?: string;
   celebratingNodes?: Set<string>;
   localDepth?: number;
+  animationCmd?: GraphAnimationCmd | null;
 }) {
   const sigma = useSigma();
   const registerEvents = useRegisterEvents();
@@ -670,6 +675,43 @@ function GraphEvents({
     return () => cancelAnimationFrame(raf);
   }, [sigma, searchQuery]);
 
+  // Agent-driven one-shot animations (animate_graph): cinematic camera flights
+  // and node-set glows. Keyed on animationCmd.id so each command fires once and
+  // an identical re-issue still plays. flyTo→camera.animate; pulse/highlightSet
+  // reuse the celebration glow timeline; reset→camera.animatedReset.
+  useEffect(() => {
+    if (!animationCmd) return;
+    const camera = sigma.getCamera();
+    if (animationCmd.type === "reset") {
+      camera.animatedReset({ duration: animationCmd.duration ?? 320 });
+      return;
+    }
+    if (animationCmd.type === "flyTo") {
+      const raf = requestAnimationFrame(() => {
+        const d = sigma.getNodeDisplayData(animationCmd.entityId);
+        if (d) {
+          camera.animate(
+            { x: d.x, y: d.y, ratio: animationCmd.zoom ?? Math.min(camera.ratio, 0.4) },
+            { duration: animationCmd.duration ?? 600 },
+          );
+        }
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+    // pulse / highlightSet → glow the ids via the celebration timeline + a local
+    // rAF that refreshes until the glow window elapses.
+    const start = Date.now();
+    for (const id of animationCmd.ids) celebrationStart.current.set(id, start);
+    const dur = animationCmd.duration ?? 2200;
+    let raf = 0;
+    const loop = () => {
+      sigma.refresh({ skipIndexation: true });
+      if (Date.now() - start < dur) raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [sigma, animationCmd]);
+
   // Live theme switch.
   useEffect(() => {
     const apply = () => {
@@ -746,6 +788,7 @@ export function GraphView({
   shapeByKind,
   showEsco,
   localDepth,
+  animationCmd,
 }: GraphViewProps) {
   const signature = useMemo(
     () => `${snapshot.node_count}:${(kindsFilter ?? []).join(",")}:${colorBy}:${shapeByKind ?? false}`,
@@ -806,6 +849,7 @@ export function GraphView({
               searchQuery={searchQuery}
               celebratingNodes={celebratingNodes}
               localDepth={localDepth}
+              animationCmd={animationCmd}
             />
             <ZoomControls />
           </>

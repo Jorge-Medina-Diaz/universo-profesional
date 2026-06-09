@@ -11,6 +11,8 @@ import { useCopilotReadable } from "@copilotkit/react-core";
 import { useQuery } from "@tanstack/react-query";
 import { chat, documents, jobs, universe, useAuthStore, auth } from "@/shared/api";
 import { integrations, liveProfile } from "@/shared/api-extra";
+import { graphApi } from "@/graph/api";
+import { useGraphLensState } from "@/graph/lensState";
 import { useChatState } from "./state";
 import { queryKeys } from "@/shared/queryKeys";
 
@@ -168,6 +170,40 @@ export function UniverseReadable() {
       focus.entity && focus.id
         ? { entity: focus.entity, id: focus.id, meta: focus.meta }
         : null,
+  });
+
+  // --- Graph view (agent SEES + can pilot the constellation) -------------
+  // Closes the loop: the agent reads the current lens + filters + a sample of
+  // visible nodes, then drives the view with control_graph / animate_graph
+  // against REAL ids/labels instead of hallucinating.
+  const graphSnap = useQuery({
+    queryKey: queryKeys.graph.snapshot,
+    queryFn: () => graphApi.snapshot(false),
+    enabled: isAuthed,
+    staleTime: FRESH_FOR_MS,
+  });
+  const lens = useGraphLensState();
+  useCopilotReadable({
+    description:
+      "The user's CURRENT /universe graph view: lens mode, focused entity, active filters (kinds / hidden areas / colour-by / search / local-graph depth) and a sample of the visible nodes (id/label/kind/area, capped at 40). Ground every graph command on this: call `control_graph` to filter/hide-areas/switch-lens/focus and `animate_graph` to fly the camera or pulse node sets, using the real entity ids/labels listed here.",
+    value: {
+      mode: lens.mode,
+      focus_entity_id: lens.focusEntityId,
+      color_by: lens.colorBy,
+      local_graph: lens.localGraph,
+      depth: lens.depth,
+      search: lens.search || null,
+      filter_kinds: Array.from(lens.activeKinds),
+      hidden_areas: Array.from(lens.hiddenAreas),
+      node_count: graphSnap.data?.node_count ?? 0,
+      edge_count: graphSnap.data?.edge_count ?? 0,
+      nodes: (graphSnap.data?.nodes ?? []).slice(0, 40).map((n) => ({
+        id: n.key,
+        label: n.attributes.label,
+        kind: n.attributes.kind,
+        area: n.attributes.area ?? null,
+      })),
+    },
   });
 
   // --- Tier ---------------------------------------------------------------
