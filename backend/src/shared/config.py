@@ -220,14 +220,6 @@ class Settings(BaseSettings):
     allow_mock_llm: bool = False
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
-    # R13 (experimental, default OFF): add ONE generalist `entity_curator` agent
-    # — armed with a single generic `propose_entity(entity_type, payload)` tool —
-    # ALONGSIDE the per-entity CRUD specialists. Lets us A/B consolidating the
-    # routing surface before removing the per-entity specialists (a later step).
-    # When OFF, the propose_entity tool is never registered, so its streaming
-    # special-case and frontend action are unreachable: zero blast radius.
-    agents_entity_curator_enabled: bool = False
-
     # P1.B: mount the AgentOS runtime as an isolated sub-app at /os (ops
     # surface: sessions/memories/config + stock AG-UI for A/B). The custom
     # /agui transport is unaffected either way; rollback = flag off.

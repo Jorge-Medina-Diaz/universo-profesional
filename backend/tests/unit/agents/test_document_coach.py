@@ -1,4 +1,4 @@
-"""Unit tests for document_specialist and document tools."""
+"""Unit tests for document_coach (P1.D merge) and document tools."""
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -187,14 +187,14 @@ class TestGetDocument:
         assert result["job_id"] == str(mock_doc.job_id)
 
 
-class TestDocumentSpecialistBuild:
+class TestDocumentCoachBuild:
     def test_builds_with_correct_tools(self):
-        from src.agents.specialists.document_specialist import build_document_specialist
+        from src.agents.specialists.document_coach import build_document_coach
 
         mock_db = MagicMock()
-        specialist = build_document_specialist(db=mock_db)
+        specialist = build_document_coach(db=mock_db)
 
-        assert specialist.name == "document_specialist"
+        assert specialist.name == "document_coach"
         tool_names = {t.name for t in specialist.tools}
         assert "get_universe_summary" in tool_names
         assert "list_documents" in tool_names
@@ -207,35 +207,35 @@ class TestDocumentSpecialistBuild:
         assert "propose_cv_regenerate" in tool_names
 
     def test_instructions_contain_discovery_flow(self):
-        from src.agents.specialists.document_specialist import build_document_specialist
+        from src.agents.specialists.document_coach import build_document_coach
 
         mock_db = MagicMock()
-        specialist = build_document_specialist(db=mock_db)
+        specialist = build_document_coach(db=mock_db)
 
         instructions = "\n".join(specialist.instructions)
-        assert "FLUJO DE DESCUBRIMIENTO" in instructions
-        assert "documento necesitas" in instructions
+        assert "DIMENSIONES" in instructions
+        assert "qué documento" in instructions
         assert "ocasi" in instructions
-        assert "oferta de trabajo concreta" in instructions
-        assert "tono prefieres" in instructions
-        assert "Haz UNA pregunta por turno" in instructions
+        assert "oferta concreta" in instructions
+        assert "tono" in instructions
+        assert "UNA pregunta" in instructions
 
     def test_instructions_forbid_dumping_templates(self):
-        from src.agents.specialists.document_specialist import build_document_specialist
+        from src.agents.specialists.document_coach import build_document_coach
 
         mock_db = MagicMock()
-        specialist = build_document_specialist(db=mock_db)
+        specialist = build_document_coach(db=mock_db)
 
         instructions = "\n".join(specialist.instructions)
-        assert "NUNCA liste todas las plantillas de golpe" in instructions
-        assert "NUNCA generes sin haber pasado por el descubrimiento" in instructions
-        assert "NUNCA inventes una oferta" in instructions
+        assert "NUNCA listes todas de golpe" in instructions
+        assert "NUNCA generes sin" in instructions
+        assert "inventes una oferta" in instructions
 
     def test_instructions_contain_generation_gate(self):
-        from src.agents.specialists.document_specialist import build_document_specialist
+        from src.agents.specialists.document_coach import build_document_coach
 
         mock_db = MagicMock()
-        specialist = build_document_specialist(db=mock_db)
+        specialist = build_document_coach(db=mock_db)
 
         instructions = "\n".join(specialist.instructions)
         assert "GENERACI" in instructions
@@ -244,10 +244,10 @@ class TestDocumentSpecialistBuild:
         assert "propose_cv_regenerate" in instructions
 
     def test_instructions_contain_post_generation(self):
-        from src.agents.specialists.document_specialist import build_document_specialist
+        from src.agents.specialists.document_coach import build_document_coach
 
         mock_db = MagicMock()
-        specialist = build_document_specialist(db=mock_db)
+        specialist = build_document_coach(db=mock_db)
 
         instructions = "\n".join(specialist.instructions)
         assert "TRAS GENERAR" in instructions

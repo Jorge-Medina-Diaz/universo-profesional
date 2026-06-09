@@ -12,42 +12,40 @@ from __future__ import annotations
 
 from src.agents.factory import get_universe_team
 
-# Every specialist the coordinator must be able to route to.
+# Every specialist the coordinator must be able to route to (P1.D roster).
 EXPECTED_MEMBERS = {
-    "experience_specialist",
-    "education_specialist",
-    "project_specialist",
-    "skill_specialist",
-    "certification_specialist",
-    "course_specialist",
-    "language_specialist",
-    "achievement_specialist",
-    "interest_specialist",
-    "note_specialist",
-    "job_strategist",
-    "cv_coach",
-    "curiosity_specialist",
-    "goals_specialist",
-    "insights_specialist",
-    "interview_prep_specialist",
+    "entity_curator",
     "onboarding_specialist",
-    "agent_system_specialist",
-    "tech_radar_specialist",
-    "cloud_posture_specialist",
-    "data_engineering_specialist",
-    "security_posture_specialist",
-    "architecture_specialist",
-    "portfolio_specialist",
+    "discovery_coach",
+    "profile_analyst",
+    "document_coach",
+    "job_strategist",
+    "domain_expert",
 }
 
 # Read-heavy specialists that must use the graph retriever (Sprint O wiring).
 RETRIEVAL_WIRED = {
-    "cv_coach",
-    "insights_specialist",
-    "portfolio_specialist",
-    "tech_radar_specialist",
-    "interview_prep_specialist",
-    "agent_system_specialist",
+    "profile_analyst",
+    "document_coach",
+    "job_strategist",
+    "domain_expert",
+}
+
+# The consolidation must not regress the FE card contract: every per-entity
+# propose_* tool must still exist on the curator (the cards key off tool name).
+CURATOR_PROPOSE_TOOLS = {
+    "propose_experience",
+    "propose_education",
+    "propose_project",
+    "propose_skill",
+    "propose_skill_batch",
+    "propose_certification",
+    "propose_course",
+    "propose_language",
+    "propose_achievement",
+    "propose_interest",
+    "propose_artifact",
+    "propose_entity",
 }
 
 
@@ -65,6 +63,16 @@ def test_all_specialists_are_members() -> None:
     member_names = {m.name for m in team.members}
     missing = EXPECTED_MEMBERS - member_names
     assert not missing, f"coordinator missing specialists: {sorted(missing)}"
+    extra = member_names - EXPECTED_MEMBERS
+    assert not extra, f"unexpected members (roster creep): {sorted(extra)}"
+
+
+def test_curator_keeps_every_propose_card_tool() -> None:
+    team = get_universe_team()
+    curator = next(m for m in team.members if m.name == "entity_curator")
+    names = _tool_names(curator.tools)
+    missing = CURATOR_PROPOSE_TOOLS - names
+    assert not missing, f"entity_curator lost propose tools (breaks FE cards): {sorted(missing)}"
 
 
 def test_coordinator_has_graph_retrieval_tools() -> None:

@@ -1,12 +1,12 @@
-"""Entity curator — experimental generalist specialist (R13).
+"""Entity curator — the ONE capture specialist (P1.D consolidation).
 
-Instead of routing to one specialist per universe entity kind, this single
-agent captures ANY supported entity via the generic `propose_entity` tool. It
-is registered ALONGSIDE the per-entity specialists behind
-`agents_entity_curator_enabled` (default OFF), so we can A/B the consolidated
-routing surface before removing the per-entity specialists. The generic tool
-goes through the SAME HITL + coherence path as the per-entity `propose_*`
-tools (proposal_id injected server-side, resolved via /proposals/{id}/resolve).
+Absorbs the 10 per-entity CRUD specialists (experience, education, project,
+skill, certification, course, language, achievement, interest, note). The
+consolidation removes ROUTING TARGETS, not tools: every rich per-entity
+`propose_*` keeps emitting the same HITL card the frontend already renders
+(TimelineCard for experience/education, batch card for skills, …); the
+generic `propose_entity` covers the long tail (artifact,
+architecture_decision) — same proposal_id + coherence path either way.
 """
 from __future__ import annotations
 
@@ -15,48 +15,133 @@ from typing import Any
 
 def build_entity_curator(*, db: Any):  # type: ignore[no-untyped-def]
     from src.agents.specialists._helpers import build_specialist  # noqa: PLC0415
-    from src.agents.tools.coherence_tools import find_existing  # noqa: PLC0415
+    from src.agents.tools.coherence_tools import (  # noqa: PLC0415
+        find_existing,
+        get_change_history,
+        mark_stale,
+    )
     from src.agents.tools.discovery_tools import (  # noqa: PLC0415
         get_profile_completeness,
     )
+    from src.agents.tools.knowledge_tools import search_knowledge  # noqa: PLC0415
+    from src.agents.tools.notes_tools import (  # noqa: PLC0415
+        add_note,
+        list_notes,
+        update_note,
+    )
+    from src.agents.tools.rubrics_tools import search_rubrics  # noqa: PLC0415
+    from src.agents.tools.shape_tools import upsert_artifact  # noqa: PLC0415
     from src.agents.tools.ui_widgets import (  # noqa: PLC0415
         present_questionnaire,
+        propose_achievement,
+        propose_artifact,
+        propose_certification,
+        propose_course,
+        propose_education,
         propose_entity,
+        propose_experience,
+        propose_github_sync,
+        propose_interest,
+        propose_language,
+        propose_project,
+        propose_skill,
+        propose_skill_batch,
     )
 
     return build_specialist(
         name="entity_curator",
         role=(
-            "Captura cualquier entidad profesional individual (experiencia, "
+            "Captura y mantiene CUALQUIER entidad del universo (experiencia, "
             "formación, proyecto, skill, certificación, curso, idioma, logro, "
-            "interés, artefacto, decisión de arquitectura) en una sola card HITL"
+            "interés, nota, artefacto) mediante conversación + cards HITL"
         ),
         db=db,
-        tools=[propose_entity, find_existing, get_profile_completeness, present_questionnaire],
+        tool_call_limit=10,
+        tools=[
+            # Rich per-entity proposals (each renders its own card in the FE)
+            propose_experience,
+            propose_education,
+            propose_project,
+            propose_skill,
+            propose_skill_batch,
+            propose_certification,
+            propose_course,
+            propose_language,
+            propose_achievement,
+            propose_interest,
+            propose_artifact,
+            # Long-tail generic (architecture_decision, …)
+            propose_entity,
+            # Notes (narrative layer — direct writes, low risk)
+            add_note,
+            update_note,
+            list_notes,
+            # Shared capture toolkit
+            find_existing,
+            get_change_history,
+            get_profile_completeness,
+            present_questionnaire,
+            mark_stale,
+            search_rubrics,
+            search_knowledge,
+            upsert_artifact,
+            propose_github_sync,
+        ],
         instructions=[
-            "Eres el curador de entidades: un generalista que captura UNA entidad "
-            "profesional a la vez. No eres un formulario; conversas para extraer la "
-            "historia y luego propones la captura.",
-            # Context-before-capture (same discipline as the per-entity specialists)
-            "ANTES DE PROPONER: llama `find_existing(entity_type=...)` para ver si la "
-            "entidad ya existe. Si el usuario menciona algo conocido, es una "
-            "actualización — el engine de coherencia fusiona automáticamente.",
-            # The single generic capture tool
-            "CAPTURA: usa `propose_entity(entity_type, payload)`. `entity_type` DEBE "
-            "ser uno de: experience, education, project, skill, certification, course, "
-            "language, achievement, interest, artifact, architecture_decision. "
-            "`payload` es el dict de campos de ese tipo (misma forma que tendría el "
-            "`propose_<tipo>` específico): p.ej. experience → {organization, role, "
-            "start_date, end_date, is_current, description, highlights, competences}; "
-            "skill → {name, category (hard|soft|tool|methodology), level, years}; "
-            "language → {code, name, level}; certification → {name, issuer, issued_on}.",
-            "NUNCA inventes un entity_type fuera de la lista. Si la intención del "
-            "usuario no encaja en ninguno (p.ej. una meta o una nota narrativa), dilo "
-            "claramente y NO llames `propose_entity` — esos casos los gestionan otros "
-            "flujos.",
-            # One entity per turn, conversational (rhythm handled by the shared doctrine)
-            "UNA entidad por turno. Para varias entidades dictadas/importadas a la vez "
-            "NO emitas N propuestas: eso es ingesta en bloque y la gestiona otro flujo.",
-            "Tras proponer, resume brevemente y ofrece el siguiente paso natural.",
+            "Eres el curador del universo: capturas cualquier entidad profesional "
+            "conversando, no rellenando formularios. UNA entidad por turno; varias a "
+            "la vez es INGESTA y la gestiona onboarding_specialist.",
+            # Context-before-capture (shared discipline)
+            "ANTES DE PROPONER: `find_existing(entity_type=...)` SIEMPRE. Si lo "
+            "mencionado ya existe, es una ACTUALIZACIÓN (más años, fin de contrato, "
+            "subió nivel) — propón con los datos nuevos y el engine fusiona.",
+            # Which tool for which kind
+            "HERRAMIENTA POR TIPO: usa el propose_* específico cuando exista "
+            "(experience, education, project, skill, certification, course, language, "
+            "achievement, interest, artifact); `propose_skill_batch` cuando suelte "
+            "varias skills planas ('sé python, react, docker') — NUNCA N propose_skill "
+            "seguidos; `propose_entity(entity_type, payload)` solo para el resto "
+            "(architecture_decision) — entity_type DEBE ser un tipo conocido. Una "
+            "opinión/reflexión/journal es una NOTA: `add_note` con tags ricos (revisa "
+            "`list_notes(tag=...)` antes para extender en vez de duplicar).",
+            # Capture minimums (kind rubric)
+            "MÍNIMOS POR TIPO (pregunta lo que falte, no guardes a medias): "
+            "experiencia=empresa+rol+fechas (añade 1-3 highlights MEDIBLES, 3-5 "
+            "competences, location, employment_type) · skill=nombre+nivel "
+            "(basic|intermediate|high|expert)+años · education=institución+título+"
+            "campo+fechas · project=nombre+rol+tech_stack (+1-2 highlights con "
+            "impacto) · certification=nombre+emisor+fecha · course=título+plataforma+"
+            "fecha · language=idioma+nivel.",
+            # Implicit skills
+            "SKILLS IMPLÍCITAS: 'lideré un equipo'→Liderazgo · 'presenté a "
+            "stakeholders'→Comunicación ejecutiva · 'optimicé queries'→SQL avanzado · "
+            "'monté CI/CD'→DevOps. Confirma sutil: '¿te encaja añadir X al perfil?'.",
+            # Lifecycle events
+            "CICLO DE VIDA: 'dejé X / cambié de trabajo' → actualiza end_date + "
+            "is_current=false de la experiencia anterior (pregunta la fecha). "
+            "'ya no uso X' → `mark_stale(skill_id)` (preserva la historia con "
+            "SUPERSEDES), nunca borres.",
+            # Level calibration
+            "CALIBRACIÓN: ante un nivel ambiguo ('sé Kubernetes'), "
+            "`search_rubrics(query=..., section_kind='criteria', top_k=2)` para "
+            "calibrar, y pregunta natural ('¿montas clusters o despliegas sobre uno?'). "
+            "NO cites la rúbrica.",
+            # Post-capture connection (one follow-up max — doctrine rhythm)
+            "TRAS CAPTURAR: conecta con UNA pregunta natural como máximo: tecnología "
+            "usada allí (skill+USES_TECH), proyecto destacado en esa etapa "
+            "(project+PART_OF), algo público derivado (talk/post/repo → "
+            "propose_artifact; si es un repo, ofrece propose_github_sync). El "
+            "enrichment engine extrae el resto solo.",
+            # Evidence
+            "EVIDENCIA: si algo se aprendió de una fuente (libro/paper/curso), pasa "
+            "derived_from_*_id en el payload para que el grafo cite el origen.",
+            # Questionnaire fallback
+            "CUESTIONARIOS: solo si la conversación no avanza — "
+            "`present_questionnaire` con 2-3 preguntas concretas, nunca como primera "
+            "opción.",
+            # Tone
+            "TONO: compañero técnico cálido, sin jerga de RH. Un script de 50 líneas "
+            "vale tanto como una plataforma enterprise si resolvió un problema real. "
+            "NUNCA digas 'specialist', 'tool' ni 'card' al usuario. No inventes datos.",
         ],
     )

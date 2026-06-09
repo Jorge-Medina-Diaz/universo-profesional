@@ -22,53 +22,77 @@ from src.agents.factory import STATIC_INSTRUCTIONS, get_universe_team
 # ---------------------------------------------------------------------------
 
 GOLDEN_TURNS: list[dict[str, str]] = [
-    # Entity CRUD (10)
-    {"input": "Trabajé en Google como Senior Backend 2020-2023", "specialist": "experience_specialist"},
-    {"input": "Estudié Ingeniería Informática en la UPM", "specialist": "education_specialist"},
-    {"input": "Monté un proyecto personal de scraping con Python", "specialist": "project_specialist"},
-    {"input": "Sé React, TypeScript y Node.js", "specialist": "skill_specialist"},
-    {"input": "Tengo la certificación AWS Solutions Architect", "specialist": "certification_specialist"},
-    {"input": "Hice un curso de Machine Learning en Coursera", "specialist": "course_specialist"},
-    {"input": "Hablo inglés nivel C1 y español nativo", "specialist": "language_specialist"},
-    {"input": "Gané un hackathon en 2022", "specialist": "achievement_specialist"},
-    {"input": "Me interesa la inteligencia artificial aplicada a salud", "specialist": "interest_specialist"},
-    {"input": "Quiero apuntar una reflexión sobre mi carrera", "specialist": "note_specialist"},
-    # Advisory (6)
+    # Single-entity capture (P1.D: all CRUD routes to the curator)
+    {"input": "Trabajé en Google como Senior Backend 2020-2023", "specialist": "entity_curator"},
+    {"input": "Sé React, TypeScript y Node.js", "specialist": "entity_curator"},
+    {"input": "Tengo la certificación AWS Solutions Architect", "specialist": "entity_curator"},
+    {"input": "Quiero apuntar una reflexión sobre mi carrera", "specialist": "entity_curator"},
+    # Job search + interview prep (merged surface)
     {"input": "¿A qué ofertas debería aplicar esta semana?", "specialist": "job_strategist"},
-    {"input": "¿Qué plantilla de CV me conviene para una startup?", "specialist": "cv_coach"},
-    {"input": "Tengo una entrevista técnica mañana en Stripe", "specialist": "interview_prep_specialist"},
-    {"input": "¿Cómo va mi perfil? ¿Qué me falta para senior?", "specialist": "insights_specialist"},
-    {"input": "¿Qué tecnologías debería destacar para un rol de staff?", "specialist": "tech_radar_specialist"},
-    {"input": "Quiero ser tech lead en 6 meses", "specialist": "goals_specialist"},
-    # Verticals + onboarding + portfolio (4)
-    {"input": "Estoy aprendiendo LangGraph y montando un agente multi-tool", "specialist": "curiosity_specialist"},
-    {"input": "Tengo un pipeline de dbt + Airflow + Snowflake en producción", "specialist": "data_engineering_specialist"},
+    {"input": "Tengo una entrevista técnica mañana en Stripe", "specialist": "job_strategist"},
+    # Documents (generation + coaching merged)
+    {"input": "¿Qué plantilla de CV me conviene para una startup?", "specialist": "document_coach"},
+    # Analysis (health / identity / portfolio / goals merged)
+    {"input": "¿Cómo va mi perfil? ¿Qué me falta para senior?", "specialist": "profile_analyst"},
+    {"input": "¿Qué tecnologías debería destacar para un rol de staff?", "specialist": "profile_analyst"},
+    {"input": "Quiero ser tech lead en 6 meses", "specialist": "profile_analyst"},
+    {"input": "¿Qué debería mostrar en mi portfolio para esta oferta?", "specialist": "profile_analyst"},
+    # Discovery + active learning (merged)
+    {"input": "Estoy aprendiendo LangGraph y montando un agente multi-tool", "specialist": "discovery_coach"},
+    # Deep verticals (one expert)
+    {"input": "Tengo un pipeline de dbt + Airflow + Snowflake en producción", "specialist": "domain_expert"},
+    # Onboarding / batch ingest
     {"input": "Mi CV, experiencia y certificaciones", "specialist": "onboarding_specialist"},
-    {"input": "¿Qué debería mostrar en mi portfolio para esta oferta?", "specialist": "portfolio_specialist"},
 ]
 
 # Specialist → minimum tool names that must be present for the golden turn.
 _REQUIRED_TOOLS: dict[str, set[str]] = {
-    "experience_specialist": {"propose_experience", "upsert_experience"},
-    "education_specialist": {"propose_education", "upsert_education"},
-    "project_specialist": {"propose_project", "upsert_project"},
-    "skill_specialist": {"propose_skill", "upsert_skill"},
-    "certification_specialist": {"propose_certification", "upsert_certification"},
-    "course_specialist": {"propose_course", "upsert_course"},
-    "language_specialist": {"propose_language", "upsert_language"},
-    "achievement_specialist": {"propose_achievement", "upsert_achievement"},
-    "interest_specialist": {"propose_interest", "upsert_interest"},
-    "note_specialist": {"add_note", "update_note"},
-    "job_strategist": {"propose_job_create", "list_jobs"},
-    "cv_coach": {"propose_cv_regenerate", "list_documents"},
-    "interview_prep_specialist": {"present_widget", "universe_retrieve"},
-    "insights_specialist": {"compute_profile_health", "get_universe_summary"},
-    "tech_radar_specialist": {"get_universe_shape", "universe_retrieve"},
-    "goals_specialist": {"propose_goal", "list_goals"},
-    "curiosity_specialist": {"present_deep_dive", "add_learning_note"},
-    "data_engineering_specialist": {"present_deep_dive", "upsert_project"},
+    "entity_curator": {
+        "propose_experience",
+        "propose_skill",
+        "propose_skill_batch",
+        "propose_certification",
+        "propose_entity",
+        "add_note",
+        "find_existing",
+        "mark_stale",
+    },
+    "job_strategist": {
+        "propose_job_create",
+        "list_jobs",
+        "present_widget",
+        "universe_retrieve",
+        "get_interview_context_blob",
+    },
+    "document_coach": {
+        "propose_cv_regenerate",
+        "propose_document_generation",
+        "list_documents",
+        "compute_job_match",
+    },
+    "profile_analyst": {
+        "compute_profile_health",
+        "get_universe_summary",
+        "get_universe_shape",
+        "universe_retrieve",
+        "propose_goal",
+        "list_goals",
+        "present_widget",
+        "list_artifacts",
+    },
+    "discovery_coach": {
+        "present_deep_dive",
+        "add_learning_note",
+        "suggest_discovery_questions",
+        "get_profile_completeness",
+    },
+    "domain_expert": {
+        "present_deep_dive",
+        "propose_project",
+        "propose_architecture_decision",
+        "search_rubrics",
+    },
     "onboarding_specialist": {"present_import_review", "get_universe_summary"},
-    "portfolio_specialist": {"get_universe_summary", "present_widget"},
 }
 
 
@@ -168,7 +192,8 @@ class TestGuardrails:
         hooks = getattr(team, "pre_hooks", None)
         assert hooks is not None, "pre_hooks missing from Team"
         hook_names = {type(h).__name__ for h in hooks}
-        assert "PIIDetectionGuardrail" in hook_names
+        # PII detection is deliberately absent: a career-profile product's
+        # legitimate content IS personal data (names, emails on CVs).
         assert "PromptInjectionGuardrail" in hook_names
 
 

@@ -84,44 +84,31 @@ STATIC_INSTRUCTIONS = [
     "generate_document (CV/carta), general_chat (saludo/small-talk). Respeta el intent: "
     "si es discover_profile, NO propongas añadir entidades directamente; haz preguntas. "
     "Si es explore_graph, usa query_graph o explain_path para mostrar conexiones.",
-    # Routing table — CRUD entities
-    "RUTEO CRUD (una entidad cada uno): experience_specialist=experiencia laboral · "
-    "education_specialist=estudios formales · project_specialist=proyectos "
-    "(personales/OSS/work) · skill_specialist=habilidades · "
-    "certification_specialist=certificaciones · course_specialist=cursos · "
-    "language_specialist=idiomas · achievement_specialist=logros/premios/"
-    "publicaciones · interest_specialist=intereses · note_specialist=narrativa "
-    "libre (opiniones, threads de aprendizaje, contexto).",
-    # Routing table — advisory specialists
-    "RUTEO ASESOR: discover_profile_specialist=descubrir el perfil mediante diálogo "
-    "natural (NO exámenes) · cv_coach=documentos generados (qué CV es mejor, plantilla, "
-    "mejorar para una oferta, regenerar) · interview_prep_specialist=entrevista concreta "
-    "próxima o preparación específica · insights_specialist=¿cómo "
-    "voy?/¿qué me falta?/¿listo para senior?/review periódica (health score) · "
-    "tech_radar_specialist=¿qué soy?/¿T-shape?/¿polyglot?/áreas fuertes (profiling, ≠ "
-    "insights) · portfolio_specialist=¿qué muestro?/qué destaco para esta oferta/"
-    "showcase (curaduría de artifacts+signals+shape) · goals_specialist=outcome a "
-    "futuro con horizonte temporal (quiero ser X en 6 meses, ¿cómo voy con mis metas?) · "
-    "job_strategist=búsqueda de empleo (¿a qué oferta aplico?, priorizar el pipeline, "
-    "match de una oferta concreta, crear/archivar ofertas, autopilot de candidatura).",
-    # Routing table — deep verticals (systems, not loose skills)
-    "RUTEO VERTICAL: curiosity_specialist=aprendizaje activo en curso ('estoy "
-    "aprendiendo/investigando/montando X', sin horizonte fijo) · "
-    "agent_system_specialist=sistemas LLM agénticos construidos/operativos "
-    "(Agno/CrewAI/LangGraph, multi-agent, RAG pipelines, eval) · "
-    "data_engineering_specialist=pipelines/warehouses/dbt/Airflow/Kafka/governance · "
-    "cloud_posture_specialist=postura cloud completa · "
-    "security_posture_specialist=AppSec/CloudSec/threat modeling/pentest/compliance/"
-    "certs de seguridad · architecture_specialist=decisión arquitectónica deliberada "
-    "o patrón (ADR estructurado: context→decision→consequences).",
+    # Routing table — the 7 specialists (P1.D consolidation)
+    "RUTEO (7 destinos): entity_curator=capturar/actualizar UNA entidad concreta "
+    "(experiencia, estudios, proyecto terminado, skill, certificación, curso, "
+    "idioma, logro, interés, nota/reflexión, artifact, decisión de arquitectura "
+    "puntual) · onboarding_specialist=universo VACÍO o INGESTA en lote (CV/import/"
+    "2+ entidades de golpe) · discovery_coach=descubrir el perfil preguntando (NO "
+    "exámenes) y aprendizaje activo en curso ('estoy aprendiendo/montando X') · "
+    "profile_analyst=¿cómo voy?/¿qué me falta?/¿qué soy?/¿T-shape?/¿qué muestro?/"
+    "showcase/metas con horizonte ('quiero ser X en 6 meses') · "
+    "document_coach=CV/carta/portfolio/LinkedIn (generar, plantilla, mejorar para "
+    "una oferta, regenerar) · job_strategist=búsqueda de empleo (¿a qué aplico?, "
+    "pipeline, match de oferta, crear/archivar, autopilot, preferencias) Y "
+    "preparación de una entrevista concreta · domain_expert=SISTEMAS técnicos "
+    "completos (agéntico LLM/RAG, stack de datos, postura cloud, postura de "
+    "seguridad, ADRs).",
     # Disambiguation
-    "DESAMBIGUA: tecnología suelta ('sé AWS', 'uso Kafka') = skill_specialist; el "
-    "SISTEMA completo = el vertical (cloud_posture solo si hay ≥2 señales: varios "
-    "servicios, verbo de operación, IaC, observabilidad/coste, o pregunta por su "
-    "postura). Cert suelta = certification; postura completa = security_posture. "
-    "Aprendizaje en curso = curiosity; outcome con horizonte = goals; resultado "
-    "terminado = project. Opinión/reflexión = note; decisión versionable = "
-    "architecture. 'pipeline RAG' (data+LLM) → agent_system primero.",
+    "DESAMBIGUA: tecnología suelta ('sé AWS', 'uso Kafka') = entity_curator; el "
+    "SISTEMA completo = domain_expert (solo con ≥2 señales: varios servicios, "
+    "verbo de operación, IaC, observabilidad/coste, o pregunta por su postura). "
+    "Cert suelta = entity_curator; postura de seguridad completa = domain_expert. "
+    "Aprendizaje en curso = discovery_coach; outcome con horizonte = "
+    "profile_analyst (metas); resultado terminado = entity_curator (project). "
+    "Opinión/reflexión = entity_curator (nota). 'pipeline RAG' (data+LLM) → "
+    "domain_expert. '¿qué muestro?' = profile_analyst; '¿a qué aplico?' = "
+    "job_strategist.",
     # Onboarding
     "ONBOARDING: si get_universe_summary muestra universo VACÍO (0 skills + 0 "
     "experience + 0 projects + headline vacío), rutea a onboarding_specialist. NO si "
@@ -181,9 +168,9 @@ STATIC_INSTRUCTIONS = [
     "trayectoria deseada. detect_software_area para adaptar vocabulario (confidence<0.3 "
     "no asumas área).",
     # Document generation
-    "DOCUMENTOS: si pide CV/carta/portfolio, rutea a document_specialist. "
-    "Él hace descubrimiento conversacional y luego abre el generador. "
-    "cv_coach sigue disponible para coaching de impacto y revisión de CV existentes. "
+    "DOCUMENTOS: si pide CV/carta/portfolio, rutea a document_coach. Él hace "
+    "descubrimiento conversacional, abre el generador y también da coaching de "
+    "impacto sobre documentos existentes. "
     "Para importar el perfil: CV en PDF → propose_pdf_import; GitHub → propose_github_sync; "
     "LinkedIn (Bright Data, PRO — verifica get_tier/is_pro antes y solo ofrécelo si aplica) "
     "→ propose_brightdata_sync. Inícialo siempre desde una card en el chat, nunca pidas al "
@@ -341,32 +328,13 @@ def _build_universe_team():  # type: ignore[no-untyped-def]
     from agno.guardrails import PromptInjectionGuardrail
     from agno.team import Team
 
-    from src.agents.specialists.achievement import build_achievement_specialist
-    from src.agents.specialists.agent_system import build_agent_system_specialist
-    from src.agents.specialists.architecture import build_architecture_specialist
-    from src.agents.specialists.certification import build_certification_specialist
-    from src.agents.specialists.cloud_posture import build_cloud_posture_specialist
-    from src.agents.specialists.course import build_course_specialist
-    from src.agents.specialists.curiosity import build_curiosity_specialist
-    from src.agents.specialists.cv_coach import build_cv_coach
-    from src.agents.specialists.data_engineering import build_data_engineering_specialist
-    from src.agents.specialists.discover_profile import build_discover_profile_specialist
-    from src.agents.specialists.document_specialist import build_document_specialist
-    from src.agents.specialists.education import build_education_specialist
-    from src.agents.specialists.experience import build_experience_specialist
-    from src.agents.specialists.goals import build_goals_specialist
-    from src.agents.specialists.insights import build_insights_specialist
-    from src.agents.specialists.interest import build_interest_specialist
-    from src.agents.specialists.interview_prep import build_interview_prep_specialist
+    from src.agents.specialists.discovery_coach import build_discovery_coach
+    from src.agents.specialists.document_coach import build_document_coach
+    from src.agents.specialists.domain_expert import build_domain_expert
+    from src.agents.specialists.entity_curator import build_entity_curator
     from src.agents.specialists.job_strategist import build_job_strategist
-    from src.agents.specialists.language import build_language_specialist
-    from src.agents.specialists.note import build_note_specialist
     from src.agents.specialists.onboarding import build_onboarding_specialist
-    from src.agents.specialists.portfolio import build_portfolio_specialist
-    from src.agents.specialists.project import build_project_specialist
-    from src.agents.specialists.security_posture import build_security_posture_specialist
-    from src.agents.specialists.skill import build_skill_specialist
-    from src.agents.specialists.tech_radar import build_tech_radar_specialist
+    from src.agents.specialists.profile_analyst import build_profile_analyst
     from src.agents.tools.coherence_tools import (
         find_existing,
         get_change_history,
@@ -431,55 +399,18 @@ def _build_universe_team():  # type: ignore[no-untyped-def]
     )
 
     db = _build_db()
+    # P1.D consolidation: 7 specialists (was 26). Routing targets shrank;
+    # the per-entity propose_* TOOLS all survived inside entity_curator, so
+    # every frontend card keeps rendering unchanged.
     members = [
-        # 10 entity-CRUD specialists
-        build_experience_specialist(db=db),
-        build_education_specialist(db=db),
-        build_project_specialist(db=db),
-        build_skill_specialist(db=db),
-        build_certification_specialist(db=db),
-        build_course_specialist(db=db),
-        build_language_specialist(db=db),
-        build_achievement_specialist(db=db),
-        build_interest_specialist(db=db),
-        build_note_specialist(db=db),
-        # Discovery specialist (Sprint R)
-        build_discover_profile_specialist(db=db),
-        # 2 proactive specialists (Sprint B)
-        build_job_strategist(db=db),
-        build_cv_coach(db=db),
-        # Document generation specialist (conversational discovery)
-        build_document_specialist(db=db),
-        # Curiosity specialist (Sprint D — deep dives)
-        build_curiosity_specialist(db=db),
-        # Sprint E — goals, insights, interview prep, onboarding
-        build_goals_specialist(db=db),
-        build_insights_specialist(db=db),
-        build_interview_prep_specialist(db=db),
-        build_onboarding_specialist(db=db),
-        # Sprint F — polyglot foundation: shape + LLM agents vertical
-        build_agent_system_specialist(db=db),
-        build_tech_radar_specialist(db=db),
-        # Sprint H — cloud + platform vertical
-        build_cloud_posture_specialist(db=db),
-        # Sprint I — data engineering vertical
-        build_data_engineering_specialist(db=db),
-        # Sprint J — security vertical
-        build_security_posture_specialist(db=db),
-        # Sprint K — architecture vertical
-        build_architecture_specialist(db=db),
-        # Sprint L — portfolio capstone (consumes all the above)
-        build_portfolio_specialist(db=db),
+        build_entity_curator(db=db),       # any single-entity capture/update
+        build_onboarding_specialist(db=db),  # empty universe + batch ingest
+        build_discovery_coach(db=db),      # gap discovery + learning deep-dives
+        build_profile_analyst(db=db),      # health / identity / portfolio / goals
+        build_document_coach(db=db),       # CV/letter generation + coaching
+        build_job_strategist(db=db),       # search strategy + interview prep
+        build_domain_expert(db=db),        # deep technical verticals
     ]
-
-    # R13 (experimental, default OFF): add ONE generalist that captures any
-    # universe entity via the generic `propose_entity` tool, ALONGSIDE the
-    # per-entity specialists above. Gated so the consolidated routing surface
-    # can be A/B'd before the per-entity specialists are removed.
-    if get_settings().agents_entity_curator_enabled:
-        from src.agents.specialists.entity_curator import build_entity_curator
-
-        members.append(build_entity_curator(db=db))
 
     return Team(
         name="universe_coordinator",
