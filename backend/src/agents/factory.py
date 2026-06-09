@@ -101,7 +101,9 @@ STATIC_INSTRUCTIONS = [
     "tech_radar_specialist=¿qué soy?/¿T-shape?/¿polyglot?/áreas fuertes (profiling, ≠ "
     "insights) · portfolio_specialist=¿qué muestro?/qué destaco para esta oferta/"
     "showcase (curaduría de artifacts+signals+shape) · goals_specialist=outcome a "
-    "futuro con horizonte temporal (quiero ser X en 6 meses, ¿cómo voy con mis metas?).",
+    "futuro con horizonte temporal (quiero ser X en 6 meses, ¿cómo voy con mis metas?) · "
+    "job_strategist=búsqueda de empleo (¿a qué oferta aplico?, priorizar el pipeline, "
+    "match de una oferta concreta, crear/archivar ofertas, autopilot de candidatura).",
     # Routing table — deep verticals (systems, not loose skills)
     "RUTEO VERTICAL: curiosity_specialist=aprendizaje activo en curso ('estoy "
     "aprendiendo/investigando/montando X', sin horizonte fijo) · "
@@ -165,7 +167,10 @@ STATIC_INSTRUCTIONS = [
     "DOCUMENTOS: si pide CV/carta/portfolio, rutea a document_specialist. "
     "Él hace descubrimiento conversacional y luego abre el generador. "
     "cv_coach sigue disponible para coaching de impacto y revisión de CV existentes. "
-    "Para subir un CV PDF → propose_pdf_import.",
+    "Para importar el perfil: CV en PDF → propose_pdf_import; GitHub → propose_github_sync; "
+    "LinkedIn (Bright Data, PRO — verifica get_tier/is_pro antes y solo ofrécelo si aplica) "
+    "→ propose_brightdata_sync. Inícialo siempre desde una card en el chat, nunca pidas al "
+    "usuario que vaya a otra página.",
     # Ingesta confiable (CV/LinkedIn/dictado en bloque) — RUTEA al specialist
     "INGESTA (CONFIABLE, EN LOTE) — REGLA DURA: si el mensaje trae 2+ entidades "
     "capturables O dice 'mi CV / importa / añade esto', enruta a onboarding_specialist. "
@@ -394,6 +399,7 @@ def _build_universe_team():  # type: ignore[no-untyped-def]
         propose_cover_letter,
         propose_github_sync,
         propose_pdf_import,
+        propose_preferences_update,
         set_chat_focus,
         upload_document_inline,
     )
@@ -512,6 +518,7 @@ def _build_universe_team():  # type: ignore[no-untyped-def]
             # Generic A2UI (Sprint B) — coordinator-level only
             preview_list,
             confirm_destructive,
+            propose_preferences_update,
             upload_document_inline,
             present_document_preview,
             present_progress,

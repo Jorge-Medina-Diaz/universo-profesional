@@ -1,11 +1,9 @@
 import { useCopilotAction } from "@copilotkit/react-core";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/shared/api";
-import { liveProfile } from "@/shared/api-extra";
 import { queryKeys } from "@/shared/queryKeys";
 import { toast } from "@/ui";
 import { ConfirmCard, type ConfirmTone } from "../cards/ConfirmCard";
-import { EntryCard } from "../cards/EntryCard";
 import {
   SelectFromListCard,
   type SelectListItem,
@@ -507,41 +505,6 @@ export function useGenericActions(
         kind={(args.kind as PreviewKind) ?? "jobs"}
         items={(args.items as PreviewItem[]) ?? []}
         title={args.title as string | undefined}
-      />
-    ),
-  });
-
-  // --- Suggestion accept/reject -------------------------------------------
-  useCopilotAction({
-    name: "apply_suggestion",
-    description: "Apply a stored suggestion by id. `action` must be 'accept' or 'reject'.",
-    parameters: [
-      { name: "suggestion_id", type: "string", required: true },
-      { name: "action", type: "string", required: true },
-    ] satisfies CopilotActionParams,
-    renderAndWaitForResponse: ({ args, respond }) => (
-      <EntryCard
-        title={`Sugerencia: ${(args.action as string) ?? "accept"}`}
-        details={{ id: args.suggestion_id }}
-        pending={saving === "sug"}
-        ctaLabel={(args.action as string) === "reject" ? "Rechazar" : "Aceptar"}
-        onConfirm={async () => {
-          setSaving("sug");
-          try {
-            await liveProfile.suggestions.act(
-              String(args.suggestion_id),
-              (args.action as "accept" | "reject") ?? "accept",
-            );
-            qc.invalidateQueries({ queryKey: queryKeys.suggestions.all });
-            respond?.("Done.");
-          } catch (e) {
-            toast.error("No se pudo aplicar la sugerencia", (e as Error).message);
-            respond?.(`Error: ${(e as Error).message}`);
-          } finally {
-            setSaving(null);
-          }
-        }}
-        onReject={() => respond?.("Cancelled.")}
       />
     ),
   });

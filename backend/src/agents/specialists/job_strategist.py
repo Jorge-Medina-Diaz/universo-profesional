@@ -30,6 +30,7 @@ def build_job_strategist(*, db):  # type: ignore[no-untyped-def]
         propose_cover_letter,
         propose_job_create,
         propose_job_status_change,
+        propose_preferences_update,
         select_job_from_list,
     )
     from src.agents.tools.universe_reads import get_universe_summary
@@ -61,6 +62,7 @@ def build_job_strategist(*, db):  # type: ignore[no-untyped-def]
             propose_job_status_change,
             propose_autopilot_run,
             propose_cover_letter,
+            propose_preferences_update,
             confirm_destructive,
             # Server-side (post-confirm)
             compute_job_match,
@@ -137,6 +139,12 @@ def build_job_strategist(*, db):  # type: ignore[no-untyped-def]
             "Si la sugerencia es activar Bright Data LinkedIn sync u otra feature PRO, "
             "verifica primero `get_tier` y solo sugiérelo si is_pro=true; si no, menciónalo "
             "como upgrade opcional.",
+            # Preferences (career strategy owns this)
+            "PREFERENCIAS: si el usuario quiere cambiar sus preferencias de carrera (salario "
+            "objetivo, remoto/híbrido/presencial, tipo de contrato, áreas de interés, roles "
+            "descartados, disponibilidad), propón el cambio con `propose_preferences_update` "
+            "(patch de 1-3 campos + rationale). No edites preferencias en silencio: el usuario "
+            "confirma la card.",
             # Handoff
             "Si el usuario empieza a describir una nueva experiencia laboral, skill, proyecto, etc., "
             "NO la captures aquí — devuelve el control al coordinator para que la rute al especialista correspondiente.",

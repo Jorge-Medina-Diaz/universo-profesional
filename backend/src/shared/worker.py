@@ -77,7 +77,6 @@ def _collect_functions() -> list[Any]:
     from src.universe.infrastructure.projections import project_embeddings_task
     from src.universe.infrastructure.reminder_tasks import process_reminders_task
     from src.universe.infrastructure.tasks import (
-        compute_communities_task,
         enrich_universe_task,
         refresh_embedding,
     )
@@ -85,7 +84,6 @@ def _collect_functions() -> list[Any]:
     return [
         refresh_embedding,
         enrich_universe_task,
-        compute_communities_task,
         render_document,
         send_email,
         hard_delete_expired_accounts,
