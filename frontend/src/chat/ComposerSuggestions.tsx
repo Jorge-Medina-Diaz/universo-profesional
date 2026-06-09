@@ -6,7 +6,7 @@
  */
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, BellRing, Link2, Sparkles, Compass } from "lucide-react";
+import { FileText, BellRing, Link2, Sparkles, Compass, Mic } from "lucide-react";
 import { queryKeys } from "@/shared/queryKeys";
 import { universe, useAuthStore } from "@/shared/api";
 import { useChatState } from "./state";
@@ -55,6 +55,21 @@ export function ComposerSuggestions({ onSelect }: Props) {
         label: `Profundiza en ${focusLabel}`,
         prompt: `Cuéntame más sobre ${focusLabel}: qué tengo registrado, cómo se conecta con el resto de mi universo y qué me falta relacionado.`,
         icon: <Compass size={12} />,
+      });
+    }
+
+    // Proactive: an upcoming interview is a high-signal, time-sensitive trigger
+    // — surface prep before the user thinks to ask (proactive agentic UI).
+    const interviewingJob = (jobsQ.data ?? []).find(
+      (j) => (j as { status?: string }).status === "interviewing",
+    ) as { title?: string; company_name?: string } | undefined;
+    if (interviewingJob) {
+      const name = interviewingJob.title ?? interviewingJob.company_name ?? "tu próxima entrevista";
+      list.push({
+        id: "interview-prep",
+        label: `Prepara tu entrevista: ${name}`,
+        prompt: `Prepárame para la entrevista de ${name}: brief de la empresa, preguntas probables y mis respuestas STAR ancladas en mi universo.`,
+        icon: <Mic size={12} />,
       });
     }
 
