@@ -59,7 +59,6 @@ def _build_redis_settings() -> RedisSettings:
 def _collect_functions() -> list[Any]:
     # Import lazily; tasks are wired here so the worker's task registry is complete.
     from src.agents.workflows.curator import curator_task
-    from src.agents.workflows.session_digest import session_digest_task
     from src.documents.infrastructure.tasks import render_document
     from src.identity.infrastructure.tasks import (
         hard_delete_expired_accounts,
@@ -88,7 +87,6 @@ def _collect_functions() -> list[Any]:
         send_email,
         hard_delete_expired_accounts,
         curator_task,
-        session_digest_task,
         run_github_sync_task,
         run_linkedin_dma_sync_task,
         run_linkedin_brightdata_sync_task,
@@ -101,9 +99,6 @@ def _collect_functions() -> list[Any]:
 
 def _collect_cron() -> list[Any]:
     from src.agents.workflows.curator import curator_cron
-    from src.agents.workflows.session_digest import (
-        session_digest_cron,
-    )
     from src.mcp_server.infrastructure.tasks import (
         purge_expired_oauth_tokens,
     )
@@ -116,9 +111,8 @@ def _collect_cron() -> list[Any]:
     return [
         # Daily curator sweep at 03:00 UTC.
         cron(curator_cron, hour={3}, minute={0}, run_at_startup=False),
-        # Daily conversation-digest refresh at 03:30 UTC (compacts long
-        # chats so the agent keeps a cheap long-term memory).
-        cron(session_digest_cron, hour={3}, minute={30}, run_at_startup=False),
+        # (the 03:30 session-digest cron is gone — P1.C: agno's native
+        # session summaries replaced the custom sliding-window digest.)
         # OAuth token purge at 04:00 UTC (after curator finishes).
         cron(
             purge_expired_oauth_tokens,

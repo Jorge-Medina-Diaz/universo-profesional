@@ -560,13 +560,10 @@ def _build_universe_team():  # type: ignore[no-untyped-def]
             set_chat_focus,
         ],
         instructions=STATIC_INSTRUCTIONS,
-        # v2.6.9 native memory — session summaries + user memories.
-        # These coexist with the app-level sliding_window digest (backend/src/agents/memory/)
-        # which folds OLD messages into a structured summary.  Agno's native layer
-        # handles light conversational facts; the sliding window handles long-horizon
-        # compression.
-        # TODO(2026-06): Deprecate sliding_window once Agno's native summaries alone
-        # keep the context window bounded.
+        # v2.6.9 native memory — session summaries + user memories. P1.C: this
+        # is THE memory layer now; the custom sliding-window digest (+ its
+        # nightly cron) was deleted — agno's summary is what /api/v1/chat/state
+        # serves as the conversation digest.
         enable_session_summaries=True,
         enable_user_memories=True,
         # Memory best-practice (Agno): `enable_agentic_memory` runs a nested
@@ -577,7 +574,12 @@ def _build_universe_team():  # type: ignore[no-untyped-def]
         enable_agentic_memory=False,
         update_memory_on_run=True,
         add_history_to_context=True,
-        num_history_runs=8,
+        # Token-budget history (P1.C): 6 runs of conversation keep coherence
+        # (the session summary covers older turns); historical TOOL traffic is
+        # the real token hog and is rarely useful — readables + the summary
+        # re-inject current state every turn — so cap it hard.
+        num_history_runs=6,
+        max_tool_calls_from_history=3,
         markdown=True,
         # Guardrails — run before every coordinator turn.
         # Team supports pre_hooks in v2.6.9; if it didn't we would apply them

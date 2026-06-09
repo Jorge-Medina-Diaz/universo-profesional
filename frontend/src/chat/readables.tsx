@@ -35,9 +35,8 @@ export function UniverseReadable() {
   });
 
   // --- Conversation digest (long-term memory) ----------------------------
-  // Everything older than the sliding window, compacted by the digest
-  // workflow into open_questions / decisions / mentioned_entities/topics.
-  // Lets the agent recall months of context without re-sending raw turns.
+  // agno's native session summary ({summary, topics}), maintained by the
+  // framework on every run — replaced the custom sliding-window digest.
   const chatState = useQuery({
     queryKey: queryKeys.chat.state,
     queryFn: () => chat.state(),
@@ -46,7 +45,7 @@ export function UniverseReadable() {
   });
   useCopilotReadable({
     description:
-      "Digest of the conversation so far (older than the visible history): open questions, decisions made, and entities/topics discussed over time. Use it to stay coherent across long-running chats and avoid re-asking what's already settled.",
+      "Summary of the conversation so far (older than the visible history) plus its topics. Use it to stay coherent across long-running chats and avoid re-asking what's already settled.",
     value: chatState.data?.digest ?? null,
   });
 
