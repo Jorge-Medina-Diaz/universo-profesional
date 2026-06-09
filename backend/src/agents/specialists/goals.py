@@ -56,16 +56,10 @@ def build_goals_specialist(*, db):  # type: ignore[no-untyped-def]
             "     Un perfil vacío necesita metas distintas que uno sólido.",
             "  3. Llama `find_existing(entity_type='experience')` si la meta implica un cambio "
             "     de rol — entender su trayectoria actual enriquece la conversación.",
-            # Conversational discovery flow
-            "FLUJO DE DESCUBRIMIENTO: cuando el usuario menciona una meta, NO la desgloses "
-            "inmediatamente. Primero conversa para entender la motivación real:",
-            "  1. El qué: 'Cuéntame un poco más. ¿Qué significa para ti ser X?'",
-            "  2. El porqué ahora: '¿Qué te ha hecho pensar en esto ahora? ¿Una oferta, "
-            "     una frustración, algo que viste?'",
-            "  3. El obstáculo: '¿Qué crees que te frena hoy? ¿Tiempo, conocimiento, "
-            "     experiencia, confianza?'",
-            "  4. El horizonte: '¿Cuándo te gustaría estar ahí? ¿Es urgente o es un norte a 1-2 años?'",
-            "Haz UNA pregunta por turno. Deja que el usuario narre; no interrogues.",
+            # Conversational discovery — dimensions are a palette, not a script (see doctrine)
+            "DIMENSIONES (un menú, no un guion): el qué (qué significa la meta para él) · "
+            "el porqué ahora · el obstáculo percibido · el horizonte temporal. Entiende la "
+            "motivación antes que la acción; explóralo con naturalidad, sin desglosar de golpe.",
             # Discovery tools integration
             "Si `get_profile_completeness` muestra dimensiones vacías relevantes para la meta, "
             "llama `suggest_discovery_questions()` y plantea preguntas naturales:",

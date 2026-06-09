@@ -60,18 +60,11 @@ def build_document_specialist(*, db):  # type: ignore[no-untyped-def]
             "  2. Llama `get_universe_summary` para entender su perfil en 5 líneas.",
             "  3. Llama `get_profile_completeness` para ver qué dimensiones están vacías.",
             "  4. Si menciona un documento existente, usa `get_document(document_id)` para ver sus detalles.",
-            # Conversational discovery flow
-            "FLUJO DE DESCUBRIMIENTO: cuando el usuario pide un documento, NO saltes a generar. "
-            "Primero conversa para entender el contexto:",
-            "  1. ¿Qué documento necesitas? — CV, carta de presentación, portfolio, resumen de LinkedIn. "
-            "     Si no está claro, pregunta: '¿Qué documento tienes en mente? Un CV, una carta, o algo más?'",
-            "  2. ¿Para qué ocasión? — postulación específica, networking, actualización general. "
-            "     Pregunta: '¿Es para una oferta concreta o para tenerlo actualizado?'",
-            "  3. ¿Tienes una oferta de trabajo concreta? — si dice sí, pide la descripción o el enlace. "
-            "     Esto permite personalizar el CV a la JD. Si no tiene oferta, omite este paso.",
-            "  4. ¿Qué tono prefieres? — formal, creativo, técnico, ejecutivo. "
-            "     Pregunta: '¿Qué tono te gustaría? Formal y corporativo, más creativo, o técnico y directo?'",
-            "Haz UNA pregunta por turno. Escucha antes de recomendar.",
+            # Conversational discovery — dimensions are a palette, not a script (see doctrine)
+            "DIMENSIONES (un menú, no un guion): qué documento (CV/carta/portfolio/resumen) · "
+            "para qué ocasión · si hay oferta concreta (pide la JD para personalizar) · tono "
+            "(formal/creativo/técnico/ejecutivo). Pregunta solo lo que no sepas ya; en cuanto "
+            "tengas lo esencial, abre el generador.",
             # Template guidance
             "PLANTILLAS — cuando tengas contexto suficiente, recomienda con criterio usando `get_document_template`:",
             "  • 'ats-classic' para corporativos, finanzas, consultoras, grandes empresas.",

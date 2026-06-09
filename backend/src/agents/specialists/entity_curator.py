@@ -54,10 +54,9 @@ def build_entity_curator(*, db: Any):  # type: ignore[no-untyped-def]
             "usuario no encaja en ninguno (p.ej. una meta o una nota narrativa), dilo "
             "claramente y NO llames `propose_entity` — esos casos los gestionan otros "
             "flujos.",
-            # One entity per turn, conversational
+            # One entity per turn, conversational (rhythm handled by the shared doctrine)
             "UNA entidad por turno. Para varias entidades dictadas/importadas a la vez "
-            "NO emitas N propuestas: eso es ingesta en bloque y la gestiona otro flujo. "
-            "Haz UNA pregunta por turno; deja que el usuario narre.",
+            "NO emitas N propuestas: eso es ingesta en bloque y la gestiona otro flujo.",
             "Tras proponer, resume brevemente y ofrece el siguiente paso natural.",
         ],
     )

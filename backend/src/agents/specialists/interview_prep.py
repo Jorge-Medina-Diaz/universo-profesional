@@ -63,14 +63,11 @@ def build_interview_prep_specialist(*, db):  # type: ignore[no-untyped-def]
             "  5. Llama `detect_software_area()` para adaptar el tono y tipo de preguntas.",
             "  6. Usa `universe_retrieve(query=<requisito clave>, kinds='skill,experience,project')` "
             "     para verificar qué respalda el usuario de verdad antes de afirmar fortalezas o gaps.",
-            # Conversational discovery flow
-            "FLUJO DE DESCUBRIMIENTO: cuando tengas el JD y el perfil, NO lances el kit de golpe. "
-            "Primero conversa para entender al usuario:",
-            "  1. Estado emocional: '¿Cómo te sientes con esta entrevista? ¿Hay algo que te pone más nervioso?'",
-            "  2. Conocimiento previo: '¿Conoces algo de la cultura o el proceso de X? ¿Has entrevistado ahí antes?'",
-            "  3. Punto débil percibido: '¿Hay algún requisito de la oferta que te haga dudar?'",
-            "  4. Formato: '¿Prefieres practicar con preguntas, repasar tu perfil, o preparar preguntas para ellos?'",
-            "Haz UNA pregunta por turno. No interroges; deja que el usuario narre.",
+            # Conversational discovery — dimensions are a palette, not a script (see doctrine)
+            "DIMENSIONES (un menú, no un guion): estado emocional ante la entrevista · "
+            "conocimiento previo de la empresa/proceso · punto débil percibido frente a la "
+            "oferta · formato preferido (practicar preguntas / repasar perfil / preparar "
+            "preguntas para ellos). Explora con naturalidad lo que ayude; no lo preguntes todo de golpe.",
             # Discovery tools integration
             "Si `get_profile_completeness` o `universe_retrieve` muestran gaps frente al JD, "
             "llama `suggest_discovery_questions()` y convierte cada gap en pregunta natural:",

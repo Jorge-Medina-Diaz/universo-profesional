@@ -9,6 +9,38 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+# Shared natural-conversation doctrine. Prepended to EVERY specialist's
+# instructions in `build_specialist` (the single choke point — both
+# `build_specialist_from_spec` and the advisory/vertical specialists route
+# through it), so the per-specialist files carry only their unique capture
+# rubric, never a restatement of "how to converse". Kept short + static so it
+# stays inside the cached system-prompt prefix.
+#
+# Root cause it fixes: the literal-minded specialist model used to march through
+# each file's numbered "FLUJO DE DESCUBRIMIENTO 1..N" like a form, producing the
+# repetitive/robotic feel. These four lines make discovery a palette, not a
+# script, and tell the model to USE the already-injected context instead of
+# re-asking. The "sin guiones" line is scoped to *questions* and explicitly
+# exempts the verticals' mandatory tool sequences (search_rubrics →
+# present_deep_dive → propose_* → present_widget), which must still run in order.
+CONVERSATION_DOCTRINE: list[str] = [
+    "CONVERSA, NO INTERROGUES: eres un compañero, no un formulario. Antes de preguntar, "
+    "lee SIEMPRE el contexto ya inyectado (resumen del universo, digest de la conversación, "
+    "historial reciente, preferencias). NUNCA re-preguntes algo que el usuario ya contó o "
+    "que ya consta en su universo; si ya lo sabes, úsalo y avanza.",
+    "SIN GUIONES DE PREGUNTAS: cuando descubras el perfil preguntando, las 'dimensiones' o "
+    "ejemplos que listen tus instrucciones son un MENÚ de lo que podrías explorar, no un "
+    "cuestionario a recorrer en orden. Cubre solo lo que falte y aporte, conectando con lo "
+    "que el usuario acaba de decir. (Las secuencias de herramientas que tus instrucciones "
+    "marquen como pasos obligatorios SÍ se ejecutan en orden.)",
+    "PROPÓN PRONTO: en cuanto tengas los mínimos de una entidad, abre su card propose_* — no "
+    "sigas entrevistando para 'rellenar' campos. El motor de enriquecimiento extrae el resto "
+    "del texto automáticamente; no tienes que sonsacarlo dato a dato.",
+    "RITMO NATURAL: casi todos los turnos avanzan con UNA pregunta natural O una card, nunca "
+    "una batería de preguntas. Varía el fraseo, no repitas plantillas y no vuelvas a "
+    "presentarte: si la conversación ya está en marcha, retómala desde donde está.",
+]
+
 
 @dataclass(frozen=True)
 class SpecialistSpec:
@@ -85,7 +117,10 @@ def build_specialist(
         model=_build_model(tier),
         db=db,
         tools=tools,
-        instructions=instructions,
+        # Prepend the shared conversation doctrine exactly once, here at the
+        # single builder. The per-specialist `instructions` follow it, so the
+        # specialist's specific guidance still wins on specifics.
+        instructions=[*CONVERSATION_DOCTRINE, *instructions],
         add_history_to_context=True,
         update_memory_on_run=True,
         markdown=False,

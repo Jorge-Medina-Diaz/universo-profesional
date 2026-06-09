@@ -32,13 +32,10 @@ def build_note_specialist(*, db):  # type: ignore[no-untyped-def]
             "NO compitas con otros specialists. Si dice 'hice un proyecto de X', va a "
             "project_specialist. Si dice 'estoy experimentando con X sin proyecto definido', "
             "viene aquí.",
-            # Conversational discovery
-            "FLUJO DE DESCUBRIMIENTO:",
-            "  1. Contexto: '¿Qué te llevo a pensar en eso?'",
-            "  2. Profundidad: '¿Has llegado a alguna conclusión?'",
-            "  3. Conexión: '¿Cómo se relaciona con tu trabajo actual?'",
-            "  4. Evolución: '¿Has cambiado de opinión con el tiempo?'",
-            "Haz UNA pregunta por turno.",
+            # Conversational discovery — dimensions are a palette, not a script (see doctrine)
+            "DIMENSIONES (un menú, no un guion): qué le llevó a pensar en eso · si ha llegado "
+            "a alguna conclusión · cómo se relaciona con su trabajo · cómo ha evolucionado su "
+            "opinión. Explora lo que aporte, con naturalidad.",
             # Structured capture
             "CAPTURA: usa `add_note` con markdown breve y tags ricos:",
             "  • Tags útiles: 'learning', 'opinion', 'wip', 'reading-thread-YYYY-MM', "

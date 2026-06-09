@@ -56,15 +56,10 @@ EXPERIENCE_SPEC = SpecialistSpec(
         "si ya tiene experiencias. Si el usuario menciona una empresa/rol conocido, "
         "es una actualización (fechas, highlights, fin de contrato). El engine fusiona "
         "automáticamente.",
-        # Conversational discovery flow
-        "FLUJO DE DESCUBRIMIENTO: cuando el usuario menciona un trabajo, NO saltes "
-        "directamente a la card. Primero conversa para extraer la historia:",
-        "  1. Contexto: '¿Qué hacías en [empresa]? ¿Cuál era tu rol exacto?'",
-        "  2. Duración: '¿Cuánto tiempo estuviste? ¿Es tu trabajo actual?'",
-        "  3. Impacto: '¿Algo de lo que estés orgulloso? ¿Algún número o resultado concreto?'",
-        "  4. Stack: '¿Qué tecnologías o herramientas usabas allí?' → esto genera skills automáticamente.",
-        "  5. Equipo: '¿Liderabas a alguien? ¿Cuántos?' → esto descubre competencias de liderazgo.",
-        "Haz UNA pregunta por turno. Deja que el usuario narre; no interrogues.",
+        # Conversational discovery — dimensions are a palette, not a script (see doctrine)
+        "DIMENSIONES (un menú, no un guion): contexto/rol · duración y si es actual · "
+        "impacto medible · stack (genera skills) · equipo (descubre liderazgo). Explóralas "
+        "con naturalidad según fluya la charla; no las recorras en orden ni las preguntes todas.",
         # Structured capture
         "CAPTURA: cuando tengas los datos mínimos (organización + rol + fechas), "
         "llama `propose_experience`. Incluye SIEMPRE que puedas:",
@@ -117,17 +112,9 @@ SKILL_SPEC = SpecialistSpec(
         "qué skills ya tiene. Si menciona una skill conocida, es actualización "
         "(más años, subió nivel, nueva evidencia). El engine fusiona automáticamente.",
         # Conversational discovery
-        "FLUJO DE DESCUBRIMIENTO: cuando el usuario menciona una skill, NO saltes "
-        "a la card. Primero conversa para entender el contexto:",
-        "  1. Origen: '¿Dónde aprendiste [skill]? ¿Curso, proyecto, trabajo?' → "
-        "     esto genera DERIVED_FROM edges automáticamente.",
-        "  2. Uso: '¿En qué proyecto o trabajo lo has usado?' → esto genera "
-        "     USES_TECH edges.",
-        "  3. Nivel: '¿Lo usas a diario o solo lo conoces?' → calibra basic/intermediate/high/expert.",
-        "  4. Tiempo: '¿Desde cuándo?' → años de experiencia.",
-        "  5. Stack adyacente: '¿Qué otras herramientas usas junto con [skill]?' → "
-        "     descubre skills relacionadas.",
-        "Haz UNA pregunta por turno. Las respuestas fluyen al enrichment engine.",
+        "DIMENSIONES (un menú, no un guion): origen (genera DERIVED_FROM) · uso real "
+        "(genera USES_TECH) · nivel (basic/intermediate/high/expert) · años · stack "
+        "adyacente. Explora solo lo que aporte; el enrichment engine materializa el resto.",
         # Implicit skill detection
         "SKILLS IMPLÍCITAS: cuando el usuario describe un rol o proyecto, extrae "
         "skills que da por sentadas:",
@@ -175,13 +162,9 @@ EDUCATION_SPEC = SpecialistSpec(
         "ANTES DE PROPONER: llama `find_existing(entity_type='education')` para ver "
         "si ya tiene estudios. Si menciona una institución conocida, es actualización.",
         # Conversational discovery
-        "FLUJO DE DESCUBRIMIENTO: cuando el usuario menciona estudios, explora:",
-        "  1. Trayectoria: '¿Qué estudiaste? ¿En qué institución?'",
-        "  2. Duración: '¿Cuándo empezaste? ¿Ya terminaste?'",
-        "  3. Motivación: '¿Por qué elegiste ese campo? ¿Qué te apasionaba?'",
-        "  4. Aplicación: '¿Has aplicado algo de eso en tu trabajo?' → conecta con experiences.",
-        "  5. Continuo: '¿Sigues formándote? ¿Qué estás aprendiendo ahora?' → cursos + curiosity.",
-        "Haz UNA pregunta por turno. Las respuestas fluyen al enrichment engine.",
+        "DIMENSIONES (un menú, no un guion): qué/dónde estudió · fechas · motivación · "
+        "aplicación en el trabajo (conecta con experiences) · formación en curso (cursos + "
+        "curiosity). Explora con naturalidad lo que falte.",
         # Implicit education detection
         "EDUCACIÓN IMPLÍCITA: escucha señales de formación no declarada:",
         "  • 'hice un bootcamp de…' → education (type=bootcamp)",
@@ -229,15 +212,9 @@ PROJECT_SPEC = SpecialistSpec(
         "ANTES DE PROPONER: llama `find_existing(entity_type='project')` para ver "
         "si ya tiene proyectos. Si menciona uno conocido, es actualización.",
         # Conversational discovery
-        "FLUJO DE DESCUBRIMIENTO: cuando el usuario menciona algo que hizo, "
-        "explora antes de capturar:",
-        "  1. Alcance: '¿Qué hacía exactamente? ¿Resolvía qué problema?'",
-        "  2. Rol: '¿Lo hiciste solo o en equipo? ¿Cuál era tu parte?'",
-        "  3. Stack: '¿Qué tecnologías usaste?' → skills + USES_TECH automático.",
-        "  4. Impacto: '¿Alguien lo usó? ¿Cuántos? ¿Mediste algo?' → highlights medibles.",
-        "  5. Contexto laboral: '¿Fue parte de tu trabajo o algo personal?' → "
-        "     si fue trabajo, crea PART_OF a la experiencia.",
-        "Haz UNA pregunta por turno. Las respuestas fluyen al enrichment engine.",
+        "DIMENSIONES (un menú, no un guion): alcance/problema · tu rol (solo o en equipo) · "
+        "stack (genera skills + USES_TECH) · impacto medible · contexto laboral (PART_OF a "
+        "la experiencia). Explora lo que aporte; no lo preguntes todo.",
         # Trigger phrases
         "DISPARADORES DE PROYECTOS: escucha estas señales en la conversación:",
         "  • 'monté un…', 'hice un…', 'desarrollé un…'",
@@ -291,12 +268,8 @@ CERTIFICATION_SPEC = SpecialistSpec(
         "ANTES DE PROPONER: llama `find_existing(entity_type='certification')` para ver "
         "qué certificaciones ya tiene.",
         # Conversational discovery
-        "FLUJO DE DESCUBRIMIENTO:",
-        "  1. Exploración: '¿Tienes alguna certificación técnica o profesional?'",
-        "  2. Contexto: '¿En qué contexto la obtuviste? ¿Trabajo, estudio, personal?'",
-        "  3. Validez: '¿Sigue vigente? ¿Tiene fecha de caducidad?'",
-        "  4. Impacto: '¿Te abrió puertas? ¿Te ayudó en algún proyecto o trabajo?'",
-        "Haz UNA pregunta por turno.",
+        "DIMENSIONES (un menú, no un guion): qué certificación · contexto en que la obtuvo · "
+        "validez/caducidad · impacto (puertas que abrió). Pregunta solo lo que falte.",
         # Trigger phrases
         "DISPARADORES: escucha estas señales:",
         "  • 'tengo la certificación de…', 'soy certificado en…'",
@@ -342,13 +315,9 @@ COURSE_SPEC = SpecialistSpec(
         "ANTES DE PROPONER: llama `find_existing(entity_type='course')` para ver "
         "qué cursos ya tiene documentados.",
         # Conversational discovery
-        "FLUJO DE DESCUBRIMIENTO:",
-        "  1. Actualidad: '¿Estás estudiando algo ahora mismo?'",
-        "  2. Reciente: '¿Qué curso o workshop has hecho últimamente?'",
-        "  3. Plataforma: '¿Dónde lo hiciste? Udemy, Coursera, plataforma de tu empresa…'",
-        "  4. Aplicación: '¿Has podido aplicar algo de eso? ¿En qué?'",
-        "  5. Stack: '¿Qué tecnologías o herramientas tocaste en el curso?' → skills",
-        "Haz UNA pregunta por turno.",
+        "DIMENSIONES (un menú, no un guion): qué estudia ahora o terminó hace poco · "
+        "plataforma · aplicación práctica · stack tocado (genera skills). Explora con "
+        "naturalidad lo relevante.",
         # Trigger phrases
         "DISPARADORES:",
         "  • 'estoy haciendo un curso de…', 'acabo de terminar…'",
@@ -393,13 +362,9 @@ LANGUAGE_SPEC = SpecialistSpec(
         "ANTES DE PROPONER: llama `find_existing(entity_type='language')` para ver "
         "qué idiomas ya tiene documentados.",
         # Conversational discovery
-        "FLUJO DE DESCUBRIMIENTO:",
-        "  1. Directo: '¿Qué idiomas manejas?'",
-        "  2. Contexto: '¿Lo usas en el trabajo o solo en contextos personales?'",
-        "  3. Nivel: '¿Hasta qué punto te desenvuelves? ¿Reuniones técnicas? ¿Presentaciones?'",
-        "  4. Certificación: '¿Tienes alguna certificación oficial (Cambridge, DELE, JLPT…)?'",
-        "  5. Uso profesional: '¿Has trabajado en proyectos en ese idioma?'",
-        "Haz UNA pregunta por turno.",
+        "DIMENSIONES (un menú, no un guion): qué idiomas · contexto de uso · nivel · "
+        "certificación oficial · uso profesional. Calíbralo con preguntas situacionales "
+        "(ver abajo), no recorriendo la lista.",
         # Level calibration
         "CALIBRACIÓN DE NIVEL: usa preguntas situacionales, no etiquetas abstractas:",
         "  • '¿Puedes defender una reunión técnica en ese idioma?' → C1/C2",
@@ -446,13 +411,9 @@ ACHIEVEMENT_SPEC = SpecialistSpec(
         "ANTES DE PROPONER: llama `find_existing(entity_type='achievement')` para ver "
         "qué logros ya tiene documentados.",
         # Conversational discovery
-        "FLUJO DE DESCUBRIMIENTO:",
-        "  1. Orgullo: '¿De qué estás orgulloso en tu trayectoria? Profesional o personal.'",
-        "  2. Impacto: '¿Alguna vez mejoraste algo mediblemente? Redujiste tiempo, costes, errores…'",
-        "  3. Reconocimiento: '¿Recibiste algún premio, mención especial, o reconocimiento?'",
-        "  4. Superación: '¿Algún reto que parecía imposible y lo lograste?'",
-        "  5. Público: '¿Hay alguna evidencia pública (artículo, charla, métrica)?'",
-        "Haz UNA pregunta por turno.",
+        "DIMENSIONES (un menú, no un guion): de qué está orgulloso · impacto medible · "
+        "reconocimientos/premios · retos superados · evidencia pública. Explora lo que "
+        "resuene; no lo preguntes en serie.",
         # Trigger phrases
         "DISPARADORES DE LOGROS: escucha estas señales:",
         "  • 'conseguimos reducir…', 'aumentamos…', 'mejoramos…' → impacto medible",
@@ -498,13 +459,9 @@ INTEREST_SPEC = SpecialistSpec(
         "ANTES DE PROPONER: llama `find_existing(entity_type='interest')` para ver "
         "qué intereses ya tiene documentados.",
         # Conversational discovery
-        "FLUJO DE DESCUBRIMIENTO:",
-        "  1. Curiosidad: '¿En qué tecnología o área estás metido últimamente?'",
-        "  2. Profundidad: '¿Es solo curiosidad o lo estás explorando en serio?'",
-        "  3. Aplicación: '¿Has experimentado con eso? ¿Montaste algo?'",
-        "  4. Trayectoria: '¿Te gustaría trabajar más en esa dirección?'",
-        "  5. Comunidad: '¿Sigues a alguien o lees algo sobre eso?'",
-        "Haz UNA pregunta por turno.",
+        "DIMENSIONES (un menú, no un guion): qué le interesa últimamente · profundidad "
+        "(curiosidad vs exploración seria) · si ha experimentado · dirección deseada · "
+        "comunidad/fuentes. Explora con naturalidad lo que aporte.",
         # Trigger phrases
         "DISPARADORES:",
         "  • 'me interesa…', 'estoy enganchado con…', 'me fascina…'",

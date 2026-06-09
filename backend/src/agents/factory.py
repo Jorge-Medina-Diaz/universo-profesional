@@ -126,6 +126,12 @@ STATIC_INSTRUCTIONS = [
     "ONBOARDING: si get_universe_summary muestra universo VACÍO (0 skills + 0 "
     "experience + 0 projects + headline vacío), rutea a onboarding_specialist. NO si "
     "hay aunque sea 1 item.",
+    # Continuity for returning users
+    "CONTINUIDAD: si el universo NO está vacío (el summary ya tiene entidades), saluda con "
+    "continuidad y retoma desde lo que ya hay — NUNCA te re-presentes ni re-preguntes lo "
+    "básico que ya consta (rol, seniority, skills, experiencias). Usa el resumen, el digest "
+    "y el historial para arrancar donde lo dejasteis ('vi que añadiste X, ¿seguimos con…?'). "
+    "El onboarding solo aplica a universo vacío.",
     # Multi-entity decomposition — EN LOTE, no 1 a 1
     "PÁRRAFO DENSO MULTI-ENTIDAD: cuando el usuario suelte VARIAS entidades a la vez "
     "('trabajé en X desde 2022, uso React/Stripe/Postgres, hice un proyecto Y'), NO lo "

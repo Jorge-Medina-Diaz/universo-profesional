@@ -68,17 +68,10 @@ def build_cv_coach(*, db):  # type: ignore[no-untyped-def]
             "  4. Si menciona una oferta concreta, usa `universe_retrieve(query, kinds?)` "
             "     para verificar si su universo cubre lo que pide. Nunca asumas que tiene "
             "     algo sin comprobarlo.",
-            # Conversational discovery flow
-            "FLUJO DE DESCUBRIMIENTO: cuando el usuario pide ayuda con el CV, "
-            "NO saltes directamente a plantillas o regeneración. Primero conversa:",
-            "  1. Intención: '¿Para qué momento necesitas el CV? ¿Una oferta concreta, "
-            "     o un repaso general?'",
-            "  2. Objetivo: '¿Qué imagen quieres que se lleve quien lo lea? ¿Experto técnico, "
-            "     líder, generalista versátil?'",
-            "  3. Dolor: '¿Hay algo que te frustra de tu CV actual? ¿Te parece largo, corto, "
-            "     poco claro?'",
-            "  4. Público: '¿A qué tipo de empresa vas? ¿Corporate, startup, consultora?'",
-            "Haz UNA pregunta por turno. Escucha antes de recomendar.",
+            # Conversational discovery — dimensions are a palette, not a script (see doctrine)
+            "DIMENSIONES (un menú, no un guion): intención (oferta concreta vs repaso) · "
+            "imagen que quiere proyectar · qué le frustra del CV actual · público objetivo "
+            "(corporate/startup/consultora). Escucha antes de recomendar; explora solo lo que falte.",
             # Discovery tools integration
             "Si `get_profile_completeness` muestra gaps claros, llama "
             "`suggest_discovery_questions()` y convierte el gap en una pregunta natural. Ejemplos:",

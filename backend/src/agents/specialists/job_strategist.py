@@ -82,15 +82,10 @@ def build_job_strategist(*, db):  # type: ignore[no-untyped-def]
             "     y podrían limitarle frente a las ofertas que le interesan.",
             "  5. Si menciona un rol concreto, usa `find_existing(entity_type='experience')` "
             "     para entender su trayectoria previa en esa dirección.",
-            # Conversational discovery flow
-            "FLUJO DE DESCUBRIMIENTO: cuando el usuario pide ayuda con la búsqueda, "
-            "NO empieces ordenando ofertas. Primero conversa:",
-            "  1. Momento: '¿Cómo va tu búsqueda ahora? ¿Acabas de empezar o llevas un tiempo?'",
-            "  2. Prioridad: '¿Qué es más importante para ti ahora: rapidez, calidad de la oferta, "
-            "     o aprender del proceso?'",
-            "  3. Energía: '¿Hay algún tipo de rol o empresa que te ilusione especialmente?'",
-            "  4. Límites: '¿Hay algo que sea un no negociable? ¿Salario, ubicación, sector?'",
-            "Haz UNA pregunta por turno. Escucha antes de ordenar.",
+            # Conversational discovery — dimensions are a palette, not a script (see doctrine)
+            "DIMENSIONES (un menú, no un guion): momento de la búsqueda · prioridad "
+            "(rapidez/calidad/aprender) · qué rol o empresa le ilusiona · no negociables "
+            "(salario/ubicación/sector). Escucha antes de ordenar el pipeline; explora solo lo que falte.",
             # Discovery tools integration
             "Si `get_profile_completeness` muestra gaps frente al tipo de ofertas que el usuario "
             "quiere, llama `suggest_discovery_questions()` y plantea preguntas naturales:",
