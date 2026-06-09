@@ -52,6 +52,7 @@ from src.agents.interfaces.agui_postrun import (
     _enrich_universe_from_chat,
     _persist_agno_usage,
 )
+from src.agents.interfaces.stream_metrics import RunTimer
 from src.shared.db import get_session_factory, set_rls_user
 from src.shared.metrics import (
     agent_proposals_total,
@@ -248,7 +249,9 @@ async def _surface_team_external_tools(
         yield adapted
 
 
-async def _run_team_with_attachments(team: Any, run_input: RunAgentInput) -> Any:
+async def _run_team_with_attachments(
+    team: Any, run_input: RunAgentInput, timer: RunTimer | None = None
+) -> Any:
     """Like agno's `run_team`, but also passes image attachments and inline PDF
     text to `team.arun`. (agno's stock extractor keeps text only.)"""
     run_id = run_input.run_id or str(uuid.uuid4())
@@ -293,6 +296,8 @@ async def _run_team_with_attachments(team: Any, run_input: RunAgentInput) -> Any
                     )
             except Exception as exc:
                 logger.warning("intent_router_failed", error=str(exc), user_id=str(user_id))
+        if timer:
+            timer.mark("intent_done")
 
         response_stream = team.arun(
             input=user_input,
@@ -304,6 +309,8 @@ async def _run_team_with_attachments(team: Any, run_input: RunAgentInput) -> Any
             session_state=session_state,
             run_id=run_id,
         )
+        if timer:
+            timer.mark("run_started")
         async for event in async_stream_agno_response_as_agui_events(
             response_stream=_surface_team_external_tools(
                 response_stream, user_id=user_id
@@ -319,7 +326,11 @@ async def _run_team_with_attachments(team: Any, run_input: RunAgentInput) -> Any
 
 
 async def _clean_event_stream(
-    events: Any, encoder: EventEncoder, *, flag_empty_run: bool = False
+    events: Any,
+    encoder: EventEncoder,
+    *,
+    flag_empty_run: bool = False,
+    timer: RunTimer | None = None,
 ):
     """Yield encoded AG-UI frames with two route-mode artefacts removed.
 
@@ -350,6 +361,11 @@ async def _clean_event_stream(
         # as real output even when there's no assistant text.
         if etype is not None and "TOOL_CALL" in str(etype):
             produced_output = True
+            if timer:
+                timer.mark("ttft")
+        # Text deltas are buffered until END (dedup), so the user-visible TTFT
+        # for text is the END that flushes the first non-empty message —
+        # marked below where CONTENT is emitted.
         if etype == EventType.RUN_ERROR:
             error_seen = True
         # Intercept a real run that finished without producing anything: surface
@@ -400,6 +416,8 @@ async def _clean_event_stream(
                 yield encoder.encode(buf["start"])
                 if cleaned and not is_dup:
                     produced_output = True
+                    if timer:
+                        timer.mark("ttft")
                     emitted_concat += norm
                     yield encoder.encode(
                         TextMessageContentEvent(
@@ -437,7 +455,9 @@ async def _clean_event_stream(
 async def _stream_chat(
     *, request: Request, run_body: dict[str, Any], guard_concurrency: bool = False
 ) -> StreamingResponse | JSONResponse:
+    timer = RunTimer()
     user_id = _extract_user_id_from_jwt(request)
+    timer.mark("auth_done")
 
     try:
         run_input = RunAgentInput.model_validate(run_body)
@@ -536,8 +556,10 @@ async def _stream_chat(
         for m in (run_input.messages or [])
     )
     flag_empty_run = guard_concurrency and has_user_message
+    timer.mark("validated")
 
     team = await build_team_for_user(str(user_id))
+    timer.mark("team_resolved")
     encoder = EventEncoder()
 
     return StreamingResponse(
@@ -549,6 +571,7 @@ async def _stream_chat(
             user_id=str(user_id),
             enforced_thread_id=enforced_thread_id,
             acquired=acquired,
+            timer=timer,
         ),
         media_type="text/event-stream",
         headers={
@@ -568,6 +591,7 @@ async def _event_stream(
     user_id: str,
     enforced_thread_id: str,
     acquired: bool,
+    timer: RunTimer | None = None,
 ):
     """Yield encoded AG-UI frames for a single agent run.
 
@@ -578,9 +602,10 @@ async def _event_stream(
     status = "completed"
     try:
         async for frame in _clean_event_stream(
-            _run_team_with_attachments(team, run_input),
+            _run_team_with_attachments(team, run_input, timer=timer),
             encoder,
             flag_empty_run=flag_empty_run,
+            timer=timer,
         ):
             yield frame
     except Exception as exc:
@@ -617,6 +642,8 @@ async def _event_stream(
     finally:
         if acquired:
             await _release_stream_slot(user_id)
+        if timer:
+            timer.finish(user_id=user_id, status=status)
         agent_runs_total.labels(
             agent="universe_coordinator", status=status
         ).inc()

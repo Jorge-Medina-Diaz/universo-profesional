@@ -72,6 +72,16 @@ agent_tokens_total = Counter(
     "LLM tokens consumed by agent runs",
     ["agent", "kind"],
 )
+# Per-stage latency from the moment the chat request hits the bridge:
+# auth_done → validated → team_resolved → intent_done → run_started →
+# ttft (first visible text/tool frame) → stream_done. The buckets skew low
+# because the optimization target is sub-second TTFT.
+agent_stage_seconds = Histogram(
+    "cvs_agent_stage_seconds",
+    "Elapsed seconds from chat-request start to each pipeline stage",
+    ["stage"],
+    buckets=(0.05, 0.1, 0.2, 0.35, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0, 8.0, 13.0, 21.0),
+)
 
 # --- Proposal + discovery observability -----------------------------------
 agent_proposals_total = Counter(
