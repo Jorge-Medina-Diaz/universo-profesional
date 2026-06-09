@@ -443,6 +443,18 @@ def create_app() -> FastAPI:
     app.include_router(chat_sessions_router, prefix="/api/v1/chat", tags=["chat"])
     app.include_router(agents_api_router, prefix="/api/v1/agents", tags=["agents"])
 
+    # P1.B — AgentOS runtime substrate, isolated under /os (own JWT middleware,
+    # per-user resource isolation). Flag-gated; rollback = AGENTOS_ENABLED=false.
+    if get_settings().agentos_enabled:
+        from src.agents.os_app import build_agentos_subapp
+
+        try:
+            app.mount("/os", build_agentos_subapp())
+        except Exception as exc:
+            # The custom /agui bridge is the user-facing path; a broken ops
+            # mount must degrade loudly, not take the app down.
+            logger.error("agentos_mount_failed", error=str(exc), exc_info=True)
+
     from src.coherence.interfaces.api.router import router as coherence_router
 
     app.include_router(coherence_router, prefix="/api/v1/coherence", tags=["coherence"])

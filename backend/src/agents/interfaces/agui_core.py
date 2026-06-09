@@ -22,11 +22,18 @@ _background_tasks: set[asyncio.Task] = set()
 
 # Per-user concurrent-stream cap. SSE chat streams are long-lived; without a
 # cap a single user could open dozens in parallel and exhaust the DB pool.
-# This guard is per-process (in-memory) — a pragmatic safety net; the Redis
-# rate limit above is the cross-replica control.
+# Redis-backed (cross-replica — required for multi-machine deploys); falls
+# back to the in-memory counter if Redis is down so chat never hard-fails on
+# a cache hiccup. The slot key carries a TTL so a crashed worker can't leak
+# slots forever.
 _MAX_CONCURRENT_STREAMS_PER_USER = 3
+_STREAM_SLOT_TTL_SECONDS = 15 * 60  # > any sane run; expired slots self-heal
 _active_streams: dict[str, int] = {}
 _active_streams_lock = asyncio.Lock()
+
+
+def _slot_key(user_id: str) -> str:
+    return f"agui:streams:{user_id}"
 
 _AGENT_DESCRIPTORS: dict[str, dict[str, Any]] = {
     "universe_coordinator": {
@@ -46,6 +53,21 @@ _AGENT_DESCRIPTORS: dict[str, dict[str, Any]] = {
 
 
 async def _acquire_stream_slot(user_id: str) -> bool:
+    try:
+        from src.shared.redis import get_redis
+
+        redis = get_redis()
+        key = _slot_key(user_id)
+        current = await redis.incr(key)
+        # Refresh the TTL on every acquire — the key only needs to outlive
+        # in-flight runs, not be a precise clock.
+        await redis.expire(key, _STREAM_SLOT_TTL_SECONDS)
+        if current > _MAX_CONCURRENT_STREAMS_PER_USER:
+            await redis.decr(key)
+            return False
+        return True
+    except Exception:
+        logger.warning("stream_slot_redis_down_fallback_memory", user_id=user_id)
     async with _active_streams_lock:
         current = _active_streams.get(user_id, 0)
         if current >= _MAX_CONCURRENT_STREAMS_PER_USER:
@@ -55,6 +77,19 @@ async def _acquire_stream_slot(user_id: str) -> bool:
 
 
 async def _release_stream_slot(user_id: str) -> None:
+    try:
+        from src.shared.redis import get_redis
+
+        redis = get_redis()
+        key = _slot_key(user_id)
+        # DECR floor at 0 — a release after the TTL expired the key must not
+        # leave a negative counter that would inflate the cap.
+        current = await redis.decr(key)
+        if current is not None and int(current) < 0:
+            await redis.delete(key)
+        return
+    except Exception:
+        logger.warning("stream_slot_redis_down_release_memory", user_id=user_id)
     async with _active_streams_lock:
         current = _active_streams.get(user_id, 0)
         if current <= 1:

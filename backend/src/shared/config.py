@@ -228,6 +228,11 @@ class Settings(BaseSettings):
     # special-case and frontend action are unreachable: zero blast radius.
     agents_entity_curator_enabled: bool = False
 
+    # P1.B: mount the AgentOS runtime as an isolated sub-app at /os (ops
+    # surface: sessions/memories/config + stock AG-UI for A/B). The custom
+    # /agui transport is unaffected either way; rollback = flag off.
+    agentos_enabled: bool = False
+
     # --- Retrieval reranking (cross-encoder stage after RRF) ---
     # Retrieve a wider candidate pool cheaply (BM25+dense+PPR+RRF), then
     # rerank the top-N against the query for a precision lift. Default uses

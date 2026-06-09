@@ -97,6 +97,8 @@ services:
       # alembic keeps the owner role via DATABASE_URL_SYNC (DDL rights).
       DATABASE_URL: postgresql+asyncpg://cvs_app:cvs_app_dev_password@postgres:5432/cvs
       DATABASE_URL_SYNC: postgresql://cvs:cvs_dev_password@postgres:5432/cvs
+      # AgentOS ops substrate mounted at /os (P1.B). Dev-on to exercise it.
+      AGENTOS_ENABLED: ${AGENTOS_ENABLED:-true}
       REDIS_URL: redis://redis:6379/0
       EMAIL_HOST: mailhog
       EMAIL_PORT: 1025
