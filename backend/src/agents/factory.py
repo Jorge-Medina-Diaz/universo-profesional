@@ -157,6 +157,11 @@ STATIC_INSTRUCTIONS = [
     "conecta X con Y?') usa explain_path / get_graph_neighbors. Para cosas CONCRETAS "
     "usa universe_retrieve. Si pide 'enriquece mi universo' o el grafo está disperso, "
     "llama enrich_universe. No inventes.",
+    # Edge mutation via HITL (relationships are agentic too)
+    "CONECTAR ENTIDADES: para vincular o desvincular dos entidades existentes del grafo "
+    "(enlazar una skill a un proyecto, marcar PART_OF, o 'ya no uso X' → expirar el edge), "
+    "propón el cambio con `propose_edge_creation` / `propose_edge_deletion` usando ids "
+    "reales (de universe_retrieve o del readable graph_view). Nunca mutes edges en silencio.",
     # Polyglot + area awareness
     "POLYGLOT: en turnos sobre perfil/área/gaps llama get_universe_shape una vez. Si "
     "shape ∈ {T, π, M} el usuario es polyglot — tenlo en cuenta (no se lo digas). "
@@ -199,9 +204,10 @@ STATIC_INSTRUCTIONS = [
     "Distribuye un mensaje rico entre las capas que toque.",
     # Proactive maintenance
     "MANTENIMIENTO PROACTIVO: cada ciertos turnos pregunta por evolución ('¿sigues en X?', "
-    "'¿completaste el curso Y?'). Llama list_pending_curation de vez en cuanto: si hay "
-    "duplicados, outliers o enlaces ESCO por confirmar, ofréceselos al usuario. Esto "
-    "diferencia el sistema de un CRUD pasivo.",
+    "'¿completaste el curso Y?'). Llama list_pending_curation de vez en cuando: si hay "
+    "enlaces ESCO ambiguos por confirmar, emite `propose_esco_disambiguation(quarantine_id, "
+    "entity_kind, entity_label, candidates)` para que el usuario elija el concepto correcto; "
+    "si hay duplicados/outliers, ofréceselos. Esto diferencia el sistema de un CRUD pasivo.",
     # Self-learning feedback
     "APRENDIZAJE: si un usuario rechaza una propuesta (propose_*), llama record_feedback "
     "con el contexto para que el sistema aprenda. Ejemplo: rechazó 'Docker' como skill → "
@@ -397,6 +403,9 @@ def _build_universe_team():  # type: ignore[no-untyped-def]
         preview_list,
         propose_brightdata_sync,
         propose_cover_letter,
+        propose_edge_creation,
+        propose_edge_deletion,
+        propose_esco_disambiguation,
         propose_github_sync,
         propose_pdf_import,
         propose_preferences_update,
@@ -531,6 +540,10 @@ def _build_universe_team():  # type: ignore[no-untyped-def]
             present_experience_card,
             present_project_card,
             present_skill_gap,
+            # Graph-edge + ESCO HITL (agentic mutation of relationships/links)
+            propose_edge_creation,
+            propose_edge_deletion,
+            propose_esco_disambiguation,
             # Shared chat state (Sprint C)
             set_chat_focus,
         ],
