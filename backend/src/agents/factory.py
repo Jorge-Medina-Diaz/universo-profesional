@@ -163,6 +163,12 @@ STATIC_INSTRUCTIONS = [
     "conecta X con Y?') usa explain_path / get_graph_neighbors. Para cosas CONCRETAS "
     "usa universe_retrieve. Si pide 'enriquece mi universo' o el grafo está disperso, "
     "llama enrich_universe. No inventes.",
+    # Grounding / anti-hallucination — answer from retrieval, cite real entities
+    "FUNDAMENTA TUS RESPUESTAS: para '¿qué soy?/¿mis fortalezas?/¿cómo voy?/¿qué me "
+    "falta?' responde SOLO desde lo que devuelvan universe_retrieve + get_career_pillars "
+    "+ explain_path, y apóyate en esas entidades/relaciones reales (nómbralas). Si el "
+    "retrieval vuelve vacío o pobre, dilo ('aún no tengo X en tu universo') y ofrece "
+    "capturarlo — NUNCA rellenes con suposiciones ni inventes logros/skills.",
     # Edge mutation via HITL (relationships are agentic too)
     "CONECTAR ENTIDADES: para vincular o desvincular dos entidades existentes del grafo "
     "(enlazar una skill a un proyecto, marcar PART_OF, o 'ya no uso X' → expirar el edge), "

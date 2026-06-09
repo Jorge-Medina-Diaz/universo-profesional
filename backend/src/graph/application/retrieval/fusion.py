@@ -63,6 +63,22 @@ def reciprocal_rank_fusion(
 # ---------------------------------------------------------------------------
 
 
+def _ppr_seeds(
+    dense_res: list[ScoredItem], bm25_res: list[ScoredItem]
+) -> list[UUID]:
+    """Seed PPR from the UNION of dense top-3 (cosine-gated >0.5) and BM25 top-3.
+
+    Dense alone goes dark on exact-name/keyword queries the embedding misses
+    (acronyms, tool/proper names); adding BM25 hits keeps the structural lane
+    firing exactly when keyword matched. HippoRAG itself seeds from recognised
+    query entities, not embeddings alone. PPR's inverse-degree weighting + RRF
+    keep weak BM25 seeds from dominating. Dense-first, deduped.
+    """
+    dense_seeds = [item.entity_id for item in dense_res[:3] if item.score > 0.5]
+    bm25_seeds = [item.entity_id for item in bm25_res[:3]]
+    return list(dict.fromkeys([*dense_seeds, *bm25_seeds]))
+
+
 async def hybrid_retrieve(
     session: AsyncSession,
     user_id: UUID,
@@ -97,7 +113,7 @@ async def hybrid_retrieve(
         session, user_id, query, top_k=per_lane_k, kinds=kinds
     )
 
-    seeds = [item.entity_id for item in dense_res[:3] if item.score > 0.5]
+    seeds = _ppr_seeds(dense_res, bm25_res)
     ppr_res = await ppr.retrieve(
         session, user_id, query, top_k=per_lane_k, kinds=kinds, seeds=seeds
     )
@@ -117,7 +133,13 @@ async def _rerank(
     query: str, fused: list[HybridResult], *, top_k: int
 ) -> list[HybridResult]:
     """Reorder the fused pool with the configured reranker (best-effort)."""
-    if len(fused) <= 1:
+    # Latency/token gate: the default reranker is an LLM round-trip that runs
+    # INSIDE the agent's turn. It only earns that cost when the fused pool is
+    # WIDER than what we return (so it actually drops candidates, not just
+    # reorders the final list). On small graphs / narrow results, keep the RRF
+    # order and skip the call. (A hosted cross-encoder — config RERANK_API_KEY —
+    # stays the option when rerank quality matters more than the latency.)
+    if len(fused) <= max(1, top_k):
         return fused[:top_k]
     from src.graph.application.reranker import RerankCandidate, get_reranker
 
