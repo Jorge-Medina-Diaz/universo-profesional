@@ -188,4 +188,26 @@ def install_anthropic_sanitizer() -> None:
 
     _patched.__wrapped__ = original  # type: ignore[attr-defined]
     claude_mod.format_messages = _patched
+
+    # P1.E: agno's _apply_cache_tools hardcodes {"type": "ephemeral"} (5m).
+    # With model-level extended_cache_time=True the SYSTEM block carries
+    # ttl='1h', and Anthropic rejects a 1h block AFTER a 5m one (blocks are
+    # processed tools → system → messages). Honor the flag on the tools
+    # block too — the 47-tool schema is the largest stable prefix we cache.
+    original_cache_tools = claude_mod.Claude._apply_cache_tools
+
+    def _patched_cache_tools(self: Any, request_kwargs: dict[str, Any]) -> None:
+        original_cache_tools(self, request_kwargs)
+        if (
+            getattr(self, "extended_cache_time", False)
+            and self.cache_tools
+            and request_kwargs.get("tools")
+        ):
+            request_kwargs["tools"][-1]["cache_control"] = {
+                "type": "ephemeral",
+                "ttl": "1h",
+            }
+
+    _patched_cache_tools.__wrapped__ = original_cache_tools  # type: ignore[attr-defined]
+    claude_mod.Claude._apply_cache_tools = _patched_cache_tools
     _INSTALLED = True

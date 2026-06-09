@@ -127,6 +127,11 @@ STATIC_INSTRUCTIONS = [
     "intenciones que NO son entidades del universo (crear una meta, cambiar "
     "preferencias) sí van con su card propia (propose_goal / propose_preferences_update) "
     "en turnos aparte.",
+    # Parallel reads (P1.E — agno gathers batched tool calls concurrently)
+    "LECTURAS EN PARALELO: cuando necesites varias lecturas independientes para "
+    "orientarte (p.ej. get_universe_summary + find_gaps + get_universe_shape), "
+    "pídelas TODAS en el mismo turno de herramientas — se ejecutan en paralelo. "
+    "No encadenes lecturas independientes una a una.",
     # Orientation + retrieval-first
     "ORIENTACIÓN: get_universe_summary/find_gaps para situarte. Para encontrar entidades "
     "usa universe_retrieve(query, kinds?) — keyword+semántica+grafo (PPR/RRF). "
@@ -283,6 +288,11 @@ def _build_model(tier: ModelTier = "coordinator") -> Model:
             api_key=byok_key or settings.anthropic_api_key,
             cache_system_prompt=True,
             cache_tools=True,
+            # P1.E: 1-hour cache TTL (write costs 2x once; reads stay 0.1x).
+            # The system prompt + tool schema are stable across the whole day,
+            # so the extended window keeps the cache warm between sessions —
+            # not just within one rapid-fire chat.
+            extended_cache_time=True,
             temperature=_TEMPERATURE_BY_TIER[tier],
             max_tokens=_MAX_TOKENS,
         )
@@ -319,11 +329,17 @@ def _build_db():  # type: ignore[no-untyped-def]
     )
 
 
-def _build_universe_team():  # type: ignore[no-untyped-def]
+def _build_universe_team(coordinator_tier: ModelTier = "coordinator"):  # type: ignore[no-untyped-def]
     """Construct the universe coordinator team (uncached builder).
 
     Reads `_byok_override` (via `_build_model`) at build time, so building this
     while the contextvar is set yields a team wired to a user's BYOK key.
+
+    `coordinator_tier` picks the COORDINATOR's model (P1.E tier routing):
+    "coordinator" = strong (Sonnet) for analysis/document/graph turns;
+    "specialist" = fast (Haiku) for routine routing (general chat, single
+    entity capture) where the member does the real work anyway. Members keep
+    their own tiers either way.
     """
     from agno.guardrails import PromptInjectionGuardrail
     from agno.team import Team
@@ -415,7 +431,7 @@ def _build_universe_team():  # type: ignore[no-untyped-def]
     return Team(
         name="universe_coordinator",
         members=members,
-        model=_build_model(),
+        model=_build_model(coordinator_tier),
         db=db,
         # v2.6.9 route-mode flags — replaces deprecated `mode="route"`.
         # respond_directly=True  → the chosen member's run IS the response stream
@@ -529,14 +545,25 @@ def _build_universe_team():  # type: ignore[no-untyped-def]
     )
 
 
-@lru_cache(maxsize=1)
-def get_universe_team():  # type: ignore[no-untyped-def]
-    """The cached coordinator team built with the platform LLM key.
+@lru_cache(maxsize=2)
+def _platform_team(coordinator_tier: ModelTier):  # type: ignore[no-untyped-def]
+    """Cached platform-key team per coordinator tier (strong | fast)."""
+    return _build_universe_team(coordinator_tier)
 
-    This is the hot path for every non-BYOK user — a single shared, stateless
-    team (state lives in the DB).
+
+def get_universe_team():  # type: ignore[no-untyped-def]
+    """The cached strong-coordinator team built with the platform LLM key.
+
+    This is the hot path for every non-BYOK user — a shared, stateless team
+    (state lives in the DB). Tier-routed runs may use the fast variant via
+    `build_team_for_user`.
     """
-    return _build_universe_team()
+    return _platform_team("coordinator")
+
+
+# Intents whose turns are routine enough for the fast (Haiku) coordinator:
+# the member does the real work; the coordinator only routes.
+_FAST_LANE_INTENTS = {"general_chat", "expand_universe"}
 
 
 @lru_cache(maxsize=32)
@@ -560,11 +587,12 @@ def _byok_team(user_id: str, provider: str, key: str):  # type: ignore[no-untype
         _byok_override.reset(token)
 
 
-async def build_team_for_user(user_id: str):  # type: ignore[no-untyped-def]
+async def build_team_for_user(user_id: str, intent: str | None = None):  # type: ignore[no-untyped-def]
     """Return the team to drive a run for `user_id`.
 
-    Non-BYOK users get the exact same cached object as before; only users who
-    configured their own key hit the (separately cached) per-user team. Any
+    Non-BYOK users get a cached platform team; with `agents_tier_routing_enabled`
+    and a routine `intent`, the FAST (Haiku-coordinator) variant serves the turn.
+    BYOK users always get their (separately cached) strong per-user team. Any
     failure to resolve the key falls back to the platform team rather than
     breaking the chat.
     """
@@ -575,6 +603,11 @@ async def build_team_for_user(user_id: str):  # type: ignore[no-untyped-def]
     except Exception:
         cred = None
     if not cred:
-        return get_universe_team()
+        if (
+            intent in _FAST_LANE_INTENTS
+            and get_settings().agents_tier_routing_enabled
+        ):
+            return _platform_team("specialist")
+        return _platform_team("coordinator")
     provider, key = cred
     return _byok_team(user_id, provider, key)

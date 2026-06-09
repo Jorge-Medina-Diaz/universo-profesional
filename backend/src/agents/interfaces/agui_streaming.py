@@ -249,8 +249,41 @@ async def _surface_team_external_tools(
         yield adapted
 
 
+async def _route_intent(user_id: str, user_input: str) -> dict[str, Any]:
+    """Classify the message + build provider context (P1.E: runs BEFORE team
+    selection so tier routing can use the intent). Returns the session_state
+    keys to merge; empty dict on any failure — never blocks the turn."""
+    try:
+        factory = get_session_factory()
+        async with factory() as db_session:
+            await set_rls_user(db_session, UUID(str(user_id)))
+            router = IntentRouter(db_session, UUID(str(user_id)))
+            intent = await router.classify(user_input)
+            provider = await router.get_provider(intent)
+            memory_ctx = await provider.get_memory_context()
+            logger.info(
+                "intent_routed",
+                user_id=str(user_id),
+                intent=intent.name,
+                provider=intent.provider_name,
+                confidence=intent.confidence,
+            )
+            return {
+                "_provider_intent": intent.name,
+                "_provider_name": intent.provider_name,
+                "_provider_confidence": intent.confidence,
+                "_provider_memory_context": memory_ctx,
+            }
+    except Exception as exc:
+        logger.warning("intent_router_failed", error=str(exc), user_id=str(user_id))
+        return {}
+
+
 async def _run_team_with_attachments(
-    team: Any, run_input: RunAgentInput, timer: RunTimer | None = None
+    team: Any,
+    run_input: RunAgentInput,
+    timer: RunTimer | None = None,
+    intent_state: dict[str, Any] | None = None,
 ) -> Any:
     """Like agno's `run_team`, but also passes image attachments and inline PDF
     text to `team.arun`. (agno's stock extractor keeps text only.)"""
@@ -271,33 +304,10 @@ async def _run_team_with_attachments(
         if run_input.forwarded_props and isinstance(run_input.forwarded_props, dict):
             user_id = run_input.forwarded_props.get("user_id")
         session_state = validate_agui_state(run_input.state, run_input.thread_id)
-
-        # Sprint R: Intent Router — classify user message and enrich session_state
-        # with provider context so tools can adapt behaviour downstream.
-        if user_id and user_input:
-            try:
-                factory = get_session_factory()
-                async with factory() as db_session:
-                    await set_rls_user(db_session, UUID(str(user_id)))
-                    router = IntentRouter(db_session, UUID(str(user_id)))
-                    intent = await router.classify(user_input)
-                    provider = await router.get_provider(intent)
-                    memory_ctx = await provider.get_memory_context()
-                    session_state["_provider_intent"] = intent.name
-                    session_state["_provider_name"] = intent.provider_name
-                    session_state["_provider_confidence"] = intent.confidence
-                    session_state["_provider_memory_context"] = memory_ctx
-                    logger.info(
-                        "intent_routed",
-                        user_id=str(user_id),
-                        intent=intent.name,
-                        provider=intent.provider_name,
-                        confidence=intent.confidence,
-                    )
-            except Exception as exc:
-                logger.warning("intent_router_failed", error=str(exc), user_id=str(user_id))
-        if timer:
-            timer.mark("intent_done")
+        # Intent + provider context precomputed in _stream_chat (so the team
+        # variant could be chosen by intent).
+        if intent_state:
+            session_state.update(intent_state)
 
         response_stream = team.arun(
             input=user_input,
@@ -355,6 +365,24 @@ async def _clean_event_stream(
     emitted_concat = ""
     produced_output = False
     error_seen = False
+    # P1.E live streaming: the buffered-until-END design made perceived TTFT
+    # equal FULL generation time (~7s). The FIRST text message of a run is the
+    # member's actual reply (duplicates/notices come AFTER it under
+    # respond_directly), so it streams live with two guards:
+    #   • prefix gate: hold the first chars until they prove non-plumbing
+    #     (the external-exec/HITL notices arrive as a leading sentence);
+    #   • tail holdback: always lag by a small window so a TRAILING notice can
+    #     still be stripped at END before it ever reaches the client.
+    # Messages 2+ keep the buffered dedup path unchanged.
+    _PREFIX_GATE = 48
+    _TAIL_HOLD = 64
+    live_mid: str | None = None  # message currently streaming live
+    live_done = False  # only the first text message gets the live path
+
+    def _strip_notices(s: str) -> str:
+        s = _HITL_NOTICE_RE.sub(" ", s)
+        return _EXTERNAL_EXEC_NOTICE_RE.sub(" ", s)
+
     async for event in events:
         etype = getattr(event, "type", None)
         # A tool call (HITL card, present_widget, present_graph_view, …) counts
@@ -399,10 +427,69 @@ async def _clean_event_stream(
             # fall through → RUN_FINISHED is yielded at the bottom of the loop
         try:
             if etype == EventType.TEXT_MESSAGE_START:
-                buffers[event.message_id] = {"start": event, "text": ""}
+                buffers[event.message_id] = {
+                    "start": event,
+                    "text": "",
+                    # candidate for live streaming only if no text message has
+                    # used the live lane yet this run
+                    "live_candidate": not live_done,
+                    "emitted_upto": 0,  # chars already streamed to the client
+                    "started_emitted": False,
+                }
                 continue
             if etype == EventType.TEXT_MESSAGE_CONTENT and event.message_id in buffers:
-                buffers[event.message_id]["text"] += event.delta or ""
+                buf = buffers[event.message_id]
+                buf["text"] += event.delta or ""
+                if buf["live_candidate"]:
+                    text = buf["text"]
+                    if live_mid is None:
+                        # Prefix gate: wait until the head is provably real
+                        # content (long enough and not a plumbing notice).
+                        head = _strip_notices(text[: _PREFIX_GATE * 3]).strip()
+                        if len(text) >= _PREFIX_GATE and len(head) >= 24:
+                            live_mid = event.message_id
+                            live_done = True
+                    if live_mid == event.message_id:
+                        # Stream everything except the tail holdback window.
+                        flush_upto = max(0, len(buf["text"]) - _TAIL_HOLD)
+                        if flush_upto > buf["emitted_upto"]:
+                            if not buf["started_emitted"]:
+                                buf["started_emitted"] = True
+                                yield encoder.encode(buf["start"])
+                            chunk = buf["text"][buf["emitted_upto"] : flush_upto]
+                            buf["emitted_upto"] = flush_upto
+                            produced_output = True
+                            if timer:
+                                timer.mark("ttft")
+                            yield encoder.encode(
+                                TextMessageContentEvent(
+                                    type=EventType.TEXT_MESSAGE_CONTENT,
+                                    message_id=event.message_id,
+                                    delta=chunk,
+                                )
+                            )
+                continue
+            if (
+                etype == EventType.TEXT_MESSAGE_END
+                and event.message_id in buffers
+                and buffers[event.message_id].get("started_emitted")
+            ):
+                # Live-streamed message: clean + flush the held tail, close.
+                buf = buffers.pop(event.message_id)
+                tail = _strip_notices(buf["text"][buf["emitted_upto"] :])
+                tail = tail.rstrip() if not tail.strip() else tail
+                if tail.strip():
+                    yield encoder.encode(
+                        TextMessageContentEvent(
+                            type=EventType.TEXT_MESSAGE_CONTENT,
+                            message_id=event.message_id,
+                            delta=tail,
+                        )
+                    )
+                # Register the full cleaned text so the team's restatement
+                # (message 2+) still dedups against it.
+                emitted_concat += _norm_text(_strip_notices(buf["text"]).strip())
+                yield encoder.encode(event)
                 continue
             if etype == EventType.TEXT_MESSAGE_END and event.message_id in buffers:
                 buf = buffers.pop(event.message_id)
@@ -433,20 +520,31 @@ async def _clean_event_stream(
         yield encoder.encode(event)
     # Defensive: flush any unterminated buffers with a proper START + CONTENT +
     # END sequence. Emitting START alone left the message bubble permanently
-    # open (CopilotKit shows a never-ending spinner).
+    # open (CopilotKit shows a never-ending spinner). Live-streamed buffers
+    # already emitted START + a prefix — only their held tail is flushed.
     for buf in buffers.values():
         mid = buf["start"].message_id
-        yield encoder.encode(buf["start"])
-        cleaned = _HITL_NOTICE_RE.sub(" ", buf["text"])
-        cleaned = _EXTERNAL_EXEC_NOTICE_RE.sub(" ", cleaned).strip()
-        if cleaned:
-            yield encoder.encode(
-                TextMessageContentEvent(
-                    type=EventType.TEXT_MESSAGE_CONTENT,
-                    message_id=mid,
-                    delta=cleaned,
+        if buf.get("started_emitted"):
+            tail = _strip_notices(buf["text"][buf["emitted_upto"] :]).strip()
+            if tail:
+                yield encoder.encode(
+                    TextMessageContentEvent(
+                        type=EventType.TEXT_MESSAGE_CONTENT,
+                        message_id=mid,
+                        delta=tail,
+                    )
                 )
-            )
+        else:
+            yield encoder.encode(buf["start"])
+            cleaned = _strip_notices(buf["text"]).strip()
+            if cleaned:
+                yield encoder.encode(
+                    TextMessageContentEvent(
+                        type=EventType.TEXT_MESSAGE_CONTENT,
+                        message_id=mid,
+                        delta=cleaned,
+                    )
+                )
         yield encoder.encode(
             TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=mid)
         )
@@ -558,7 +656,18 @@ async def _stream_chat(
     flag_empty_run = guard_concurrency and has_user_message
     timer.mark("validated")
 
-    team = await build_team_for_user(str(user_id))
+    # P1.E: intent first (timeout-capped inside the router), so the team
+    # variant can be tier-routed by intent. The passive connect channel never
+    # reaches here, so this runs once per real generation.
+    intent_state: dict[str, Any] = {}
+    user_text = _last_user_text(run_input.messages or [])
+    if user_text:
+        intent_state = await _route_intent(str(user_id), user_text)
+    timer.mark("intent_done")
+
+    team = await build_team_for_user(
+        str(user_id), intent=intent_state.get("_provider_intent")
+    )
     timer.mark("team_resolved")
     encoder = EventEncoder()
 
@@ -572,6 +681,7 @@ async def _stream_chat(
             enforced_thread_id=enforced_thread_id,
             acquired=acquired,
             timer=timer,
+            intent_state=intent_state,
         ),
         media_type="text/event-stream",
         headers={
@@ -592,6 +702,7 @@ async def _event_stream(
     enforced_thread_id: str,
     acquired: bool,
     timer: RunTimer | None = None,
+    intent_state: dict[str, Any] | None = None,
 ):
     """Yield encoded AG-UI frames for a single agent run.
 
@@ -602,7 +713,9 @@ async def _event_stream(
     status = "completed"
     try:
         async for frame in _clean_event_stream(
-            _run_team_with_attachments(team, run_input, timer=timer),
+            _run_team_with_attachments(
+                team, run_input, timer=timer, intent_state=intent_state
+            ),
             encoder,
             flag_empty_run=flag_empty_run,
             timer=timer,

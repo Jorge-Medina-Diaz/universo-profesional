@@ -18,6 +18,7 @@ Architecture:
 """
 from __future__ import annotations
 
+import asyncio
 import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -139,6 +140,11 @@ _KEYWORD_PATTERNS: list[tuple[str, list[str], float]] = [
 # ---------------------------------------------------------------------------
 
 
+# Budget for the LLM classify fallback (P1.E). Past this, a default intent
+# beats waiting — the coordinator re-reads the message anyway.
+_LLM_CLASSIFY_TIMEOUT_SECONDS = 1.2
+
+
 class IntentRouter:
     """Classify user messages and return the appropriate provider."""
 
@@ -171,7 +177,11 @@ class IntentRouter:
         if len(message.strip()) < 15:
             return Intent(name="general_chat", confidence=0.7, provider_name="universe_curator")
 
-        # 3. LLM fallback for ambiguous input (only when fast-path misses)
+        # 3. LLM fallback for ambiguous input (only when fast-path misses).
+        # HARD LATENCY BUDGET (P1.E): this sits on the chat hot path BEFORE the
+        # team runs — the baseline measured it at 1.5-5.1s/turn. A slow classify
+        # is worth less than a fast default, so it gets a wait_for cap and a
+        # tiny max_tokens (the reply is a one-line JSON).
         try:
             from src.shared.config import get_settings
 
@@ -181,26 +191,32 @@ class IntentRouter:
                 from anthropic import AsyncAnthropic
 
                 client = AsyncAnthropic(api_key=settings.anthropic_api_key)
-                response = await client.messages.create(
-                    model=settings.agents_specialist_model or "claude-haiku-4-5-20251001",
-                    max_tokens=256,
-                    system=_INTENT_CLASSIFICATION_PROMPT,
-                    messages=[{"role": "user", "content": message}],
+                response = await asyncio.wait_for(
+                    client.messages.create(
+                        model=settings.agents_specialist_model or "claude-haiku-4-5-20251001",
+                        max_tokens=64,
+                        system=_INTENT_CLASSIFICATION_PROMPT,
+                        messages=[{"role": "user", "content": message}],
+                    ),
+                    timeout=_LLM_CLASSIFY_TIMEOUT_SECONDS,
                 )
                 raw = str(response.content[0].text)
             elif provider == "openai":
                 from openai import AsyncOpenAI
 
                 client = AsyncOpenAI(api_key=settings.openai_api_key)
-                response = await client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {"role": "system", "content": _INTENT_CLASSIFICATION_PROMPT},
-                        {"role": "user", "content": message},
-                    ],
-                    max_tokens=256,
-                    temperature=0.1,
-                    response_format={"type": "json_object"},
+                response = await asyncio.wait_for(
+                    client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[
+                            {"role": "system", "content": _INTENT_CLASSIFICATION_PROMPT},
+                            {"role": "user", "content": message},
+                        ],
+                        max_tokens=64,
+                        temperature=0.1,
+                        response_format={"type": "json_object"},
+                    ),
+                    timeout=_LLM_CLASSIFY_TIMEOUT_SECONDS,
                 )
                 raw = str(response.choices[0].message.content)
             else:
@@ -208,6 +224,10 @@ class IntentRouter:
 
             import json
 
+            # Haiku sometimes wraps the JSON in a markdown fence.
+            raw = raw.strip()
+            if raw.startswith("```"):
+                raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.S)
             parsed = json.loads(raw)
             intent_name = parsed.get("intent", "expand_universe")
             confidence = float(parsed.get("confidence", 0.7))

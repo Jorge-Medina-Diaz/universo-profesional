@@ -225,6 +225,11 @@ class Settings(BaseSettings):
     # /agui transport is unaffected either way; rollback = flag off.
     agentos_enabled: bool = False
 
+    # P1.E: routine intents (general_chat, expand_universe) run on the FAST
+    # Haiku-led coordinator variant; analysis/document/graph turns keep the
+    # strong coordinator. Judged via proposal-rejection + empty-run metrics.
+    agents_tier_routing_enabled: bool = False
+
     # --- Retrieval reranking (cross-encoder stage after RRF) ---
     # Retrieve a wider candidate pool cheaply (BM25+dense+PPR+RRF), then
     # rerank the top-N against the query for a precision lift. Default uses

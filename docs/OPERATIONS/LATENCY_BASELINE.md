@@ -1,5 +1,17 @@
 # Chat latency baseline — pre-optimization record (2026-06-10)
 
+> **POST-P1 RESULT (same 20-turn script, after P1.C/D/E):**
+> ttft p50 **3.11s** (was 6.63s, −53%) · ttft p95 7.32s (was 13.79s) ·
+> ttfb ~1.1s (intent now runs pre-stream) · total p50 ~15s but the reply
+> live-streams from ttft, so total ≈ reading time, not waiting time.
+> What moved it: live-streaming the first member message through the cleaner
+> (perceived ttft used to equal FULL generation), intent classify hard-capped
+> at 1.2s + moved before team selection, 26→7 consolidation (smaller routing
+> prompt), tier-routed Haiku coordinator on routine intents, 1h cache TTL on
+> system+tools (agno's 5m tools block patched — see anthropic_sanitize).
+> Remaining to sub-1s: overlap the pre-stream intent hop, trim the
+> coordinator delegation round-trip. Tracked for P2.
+
 Recorded with `backend/scripts/latency_baseline.py` (20 Spanish turns, real
 Anthropic, dev docker stack, warm team cache) at commit `5fa6624`.
 **Every Phase-1 optimization is judged against these numbers.**

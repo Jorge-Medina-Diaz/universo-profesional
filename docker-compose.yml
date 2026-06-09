@@ -99,6 +99,8 @@ services:
       DATABASE_URL_SYNC: postgresql://cvs:cvs_dev_password@postgres:5432/cvs
       # AgentOS ops substrate mounted at /os (P1.B). Dev-on to exercise it.
       AGENTOS_ENABLED: ${AGENTOS_ENABLED:-true}
+      # Tier-routed coordinator (P1.E). Dev-on to exercise it.
+      AGENTS_TIER_ROUTING_ENABLED: ${AGENTS_TIER_ROUTING_ENABLED:-true}
       REDIS_URL: redis://redis:6379/0
       EMAIL_HOST: mailhog
       EMAIL_PORT: 1025
