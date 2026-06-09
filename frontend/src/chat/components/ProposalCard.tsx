@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { Badge, Button, ChatMessageMotion, Input, Textarea, cn, toast } from "@/ui";
 import { KIND_TONE, toneClass, toneFor } from "@/shared/typeTones";
+import { entityRichBody } from "./EntityProposalBody";
 import { resolveProposal } from "../actions/shared";
 import type { UpsertResponse } from "../actions/types";
 
@@ -320,21 +321,25 @@ export function ProposalCard({
               ))}
             </div>
           ) : (
-            <dl className="text-xs space-y-1.5">
-              {visibleFields(payload).map(([k, v]) => (
-                <div
-                  key={k}
-                  className="grid grid-cols-[110px_1fr] gap-3 items-baseline"
-                >
-                  <dt className="text-stone font-medium capitalize truncate" title={k}>
-                    {k.replace(/_/g, " ")}
-                  </dt>
-                  <dd className="text-ink break-words">
-                    {Array.isArray(v) ? v.join(", ") : String(v)}
-                  </dd>
-                </div>
-              ))}
-            </dl>
+            // Kind-aware rich body for structured kinds (skill/project); falls
+            // back to the generic key/value list for everything else.
+            entityRichBody(payload.entity_type, payload.entity_data) ?? (
+              <dl className="text-xs space-y-1.5">
+                {visibleFields(payload).map(([k, v]) => (
+                  <div
+                    key={k}
+                    className="grid grid-cols-[110px_1fr] gap-3 items-baseline"
+                  >
+                    <dt className="text-stone font-medium capitalize truncate" title={k}>
+                      {k.replace(/_/g, " ")}
+                    </dt>
+                    <dd className="text-ink break-words">
+                      {Array.isArray(v) ? v.join(", ") : String(v)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )
           )}
         </div>
 

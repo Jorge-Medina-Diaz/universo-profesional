@@ -183,9 +183,27 @@ export function UniverseReadable() {
     staleTime: FRESH_FOR_MS,
   });
   const lens = useGraphLensState();
+  // Token trim: the node sample is the heavy part of this readable and it used
+  // to ship on EVERY turn (40 nodes ≈ ~600 tok) even when the user is just
+  // adding a skill. Only include the sample when a graph context is actually in
+  // play (a focus/search/local-graph view) or the graph is small enough to be
+  // free; otherwise ship just the tiny lens-state + counts. The agent still
+  // sees node_count (so it knows the graph isn't empty) and can call
+  // `universe_retrieve` for specific ids when it needs them.
+  const nodeCount = graphSnap.data?.node_count ?? 0;
+  const graphActive = !!(lens.focusEntityId || lens.search || lens.localGraph);
+  const includeSample = graphActive || nodeCount <= 15;
+  const nodeSample = includeSample
+    ? (graphSnap.data?.nodes ?? []).slice(0, 15).map((n) => ({
+        id: n.key,
+        label: n.attributes.label,
+        kind: n.attributes.kind,
+        area: n.attributes.area ?? null,
+      }))
+    : [];
   useCopilotReadable({
     description:
-      "The user's CURRENT /universe graph view: lens mode, focused entity, active filters (kinds / hidden areas / colour-by / search / local-graph depth) and a sample of the visible nodes (id/label/kind/area, capped at 40). Ground every graph command on this: call `control_graph` to filter/hide-areas/switch-lens/focus and `animate_graph` to fly the camera or pulse node sets, using the real entity ids/labels listed here.",
+      "The user's CURRENT /universe graph view: lens mode, focused entity, active filters (kinds / hidden areas / colour-by / search / local-graph depth) and counts. A sample of visible nodes (id/label/kind/area, capped at 15) is included ONLY when a graph view is active (focus/search/local-graph) or the graph is small — on other turns `nodes` is empty to save tokens; use `universe_retrieve` to look up specific ids. Ground every graph command on this: `control_graph` to filter/hide-areas/switch-lens/focus and `animate_graph` to fly the camera or pulse node sets, using real entity ids/labels.",
     value: {
       mode: lens.mode,
       focus_entity_id: lens.focusEntityId,
@@ -195,14 +213,10 @@ export function UniverseReadable() {
       search: lens.search || null,
       filter_kinds: Array.from(lens.activeKinds),
       hidden_areas: Array.from(lens.hiddenAreas),
-      node_count: graphSnap.data?.node_count ?? 0,
+      node_count: nodeCount,
       edge_count: graphSnap.data?.edge_count ?? 0,
-      nodes: (graphSnap.data?.nodes ?? []).slice(0, 40).map((n) => ({
-        id: n.key,
-        label: n.attributes.label,
-        kind: n.attributes.kind,
-        area: n.attributes.area ?? null,
-      })),
+      nodes: nodeSample,
+      nodes_sampled: includeSample,
     },
   });
 
