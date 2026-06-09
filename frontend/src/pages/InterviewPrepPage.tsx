@@ -16,6 +16,7 @@ import {
   Surface,
   toast,
 } from "@/ui";
+import { AgenticCTA } from "@/chat/AgenticCTA";
 
 export function InterviewPrepPage({ jobId }: { jobId: string }) {
   const qc = useQueryClient();
@@ -54,6 +55,12 @@ export function InterviewPrepPage({ jobId }: { jobId: string }) {
         eyebrow="Entrevista"
         title="Preparación de entrevista"
         subtitle="Brief de investigación, banco de preguntas y borradores STAR — anclados en tu universo y en esta oferta."
+      />
+
+      <AgenticCTA
+        title="Prepárate conmigo"
+        subtitle="Te guío con preguntas sobre la oferta y el rol, y montamos brief + banco de preguntas + respuestas STAR."
+        prompt="Prepárame para esta entrevista. Pregúntame por la oferta y el rol, y guíame paso a paso por el brief, las preguntas probables y mis respuestas STAR."
       />
 
       {prep.isLoading ? (

@@ -34,6 +34,7 @@ import {
   type ImportPreviewSelection,
 } from "@/widgets/ImportPreviewTable";
 import { queryKeys } from "@/shared/queryKeys";
+import { AgenticCTA } from "@/chat/AgenticCTA";
 
 interface SyncRun {
   id: string;
@@ -105,6 +106,12 @@ export function ConnectionsPage() {
         eyebrow="Importar"
         title="Conexiones"
         subtitle="Conecta tus cuentas para construir tu universo en minutos. No reescribimos lo que ya tienes — lo absorbemos."
+      />
+
+      <AgenticCTA
+        title="Importa conmigo"
+        subtitle="Dime qué tienes (CV en PDF, GitHub, LinkedIn) y te guío la importación paso a paso."
+        prompt="Ayúdame a importar mi perfil. Pregúntame qué fuente quiero usar (CV en PDF, GitHub o LinkedIn) y guíame con la tarjeta de importación correspondiente."
       />
 
       {flash && (

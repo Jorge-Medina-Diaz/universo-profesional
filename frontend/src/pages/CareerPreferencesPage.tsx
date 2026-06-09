@@ -26,6 +26,7 @@ import {
   toast,
 } from "@/ui";
 import { queryKeys } from "@/shared/queryKeys";
+import { AgenticCTA } from "@/chat/AgenticCTA";
 
 const EMPTY: CareerPreferences = {
   status: null,
@@ -116,6 +117,12 @@ export function CareerPreferencesPage() {
             {save.isPending ? "Guardando" : "Guardar"}
           </Button>
         }
+      />
+
+      <AgenticCTA
+        title="Ajusta tus preferencias conmigo"
+        subtitle="Dime qué cambia (estado, salario, remoto, áreas, roles) y lo confirmas en una tarjeta."
+        prompt="Quiero ajustar mis preferencias de carrera. Pregúntame qué cambiar (estado de búsqueda, rango salarial, remoto/híbrido/presencial, áreas, roles preferidos o descartados) y propón el cambio con una tarjeta de confirmación."
       />
 
       <Stagger className="flex flex-col gap-4 md:gap-6" delayStep={0.05}>

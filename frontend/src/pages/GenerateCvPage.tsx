@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { FileDown, Sparkles, ChevronDown, Wand2 } from "lucide-react";
 import { documents, jobs } from "@/shared/api";
 import type { JsonResume } from "@/shared/hooks/useJsonResume";
+import { AgenticCTA } from "@/chat/AgenticCTA";
 import {
   Badge,
   Button,
@@ -105,6 +106,14 @@ export function GenerateCvPage() {
         title={kind === "cover_letter" ? "Carta de presentación" : t("cv.generate")}
         subtitle="Pega una oferta o su URL. El agente adapta tu universo, no inventa nada que no tengas."
       />
+
+      <Reveal>
+        <AgenticCTA
+          title="Genera tu documento conmigo"
+          subtitle="Te hago un par de preguntas y propongo plantilla, tono e idioma — sin inventar nada."
+          prompt="Ayúdame a generar mi documento. Hazme las preguntas clave (oferta o URL objetivo, tono, idioma, plantilla) y propón la generación con propose_document_generation."
+        />
+      </Reveal>
 
       <Reveal>
         <div

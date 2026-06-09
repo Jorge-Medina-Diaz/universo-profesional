@@ -10,6 +10,7 @@ import { GitHubIcon } from "@/ui/icons";
 import { Button, Card, PageHeader, Reveal, Skeleton, Stagger, Surface } from "@/ui";
 import { enableCopilot, useCopilotReady } from "@/app/CopilotProvider";
 import { useAuthStore } from "@/shared/api";
+import { useChatState } from "@/chat/state";
 import { completeOnboarding } from "@/shared/onboarding";
 
 const CopilotSurface = lazy(() =>
@@ -31,7 +32,9 @@ Tono: cercano, sin jerga, en español por defecto.`;
 const INITIAL = `¡Empezamos! En menos de 5 minutos tendrás tu universo profesional montado. ¿Prefieres conectar GitHub o LinkedIn ahora, o que te entreviste para añadir experiencias a mano?`;
 
 interface Shortcut {
-  href: string;
+  /** Seeds this prompt into the on-page chat (agent drives the import) — the
+   *  tiles no longer navigate away from the conversation. */
+  prompt: string;
   icon: React.ReactNode;
   badgeTone: "leaf" | "sunbeam" | "stone";
   iconBg: string;
@@ -42,7 +45,7 @@ interface Shortcut {
 
 const SHORTCUTS: Shortcut[] = [
   {
-    href: "#/connections",
+    prompt: "Quiero importar mi perfil de LinkedIn.",
     icon: <span aria-hidden className="font-bold text-sm">in</span>,
     badgeTone: "leaf",
     iconBg: "bg-[#0a66c2]",
@@ -51,7 +54,7 @@ const SHORTCUTS: Shortcut[] = [
     body: "Sincroniza tu perfil completo en segundos.",
   },
   {
-    href: "#/connections",
+    prompt: "Conecta mi GitHub para traer repos, lenguajes y temas.",
     icon: <GitHubIcon size={20} />,
     badgeTone: "stone",
     iconBg: "bg-ink",
@@ -60,7 +63,7 @@ const SHORTCUTS: Shortcut[] = [
     body: "Repos, lenguajes y temas como evidencia.",
   },
   {
-    href: "#/connections",
+    prompt: "Quiero subir mi CV en PDF para importarlo.",
     icon: <FileText size={20} />,
     badgeTone: "sunbeam",
     iconBg: "bg-sunbeam",
@@ -97,7 +100,12 @@ export function OnboardingChatPage() {
 
         <Stagger className="grid sm:grid-cols-3 gap-3 md:gap-4" delayStep={0.06} initialDelay={0.1}>
           {SHORTCUTS.map((s) => (
-            <a key={s.title} href={s.href} className="block group">
+            <button
+              key={s.title}
+              type="button"
+              onClick={() => useChatState.getState().setPendingInjection({ content: s.prompt })}
+              className="block group w-full text-left"
+            >
               <Card padding="md" interactive className="h-full flex flex-col gap-3">
                 <span
                   aria-hidden
@@ -110,10 +118,10 @@ export function OnboardingChatPage() {
                   <p className="text-xs text-stone leading-relaxed">{s.body}</p>
                 </div>
                 <span className="text-xs text-stone group-hover:text-ink mt-auto inline-flex items-center gap-1 transition-colors">
-                  Conectar <ArrowRight size={12} />
+                  Empezar en el chat <ArrowRight size={12} />
                 </span>
               </Card>
-            </a>
+            </button>
           ))}
         </Stagger>
 
