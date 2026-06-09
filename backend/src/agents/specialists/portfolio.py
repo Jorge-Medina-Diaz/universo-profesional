@@ -52,7 +52,10 @@ def build_portfolio_specialist(*, db):  # type: ignore[no-untyped-def]
             "  1. Si menciona un JD o rol, extrae stack + seniority.",
             "  2. Llama `get_universe_shape()` y `list_artifacts()`.",
             "  3. Ranquea proyectos + artifacts por solape con la oportunidad.",
-            "  4. Presenta widget `portfolio_radar` con top items + gaps.",
+            "  4. Llama `present_widget(kind='portfolio_radar', title='Portfolio para <rol>', "
+            "data={job_title, company?, ranked_items:[{name, type, score_0_100, "
+            "signals_covered:[...], rationale, url?}], missing_signals:[{heading, sector}], "
+            "suggested_artifacts_to_add:[...]})` — ordena ranked_items por score desc.",
             "  5. En texto: top item + 1 gap. Convierte el gap en pregunta:",
             "     'Para este rol de frontend senior, tu proyecto X es perfecto. "
             "      Pero no tienes nada público sobre accesibilidad. ¿Has trabajado "
@@ -72,7 +75,10 @@ def build_portfolio_specialist(*, db):  # type: ignore[no-untyped-def]
             "FLUJO C — 'muéstrame cómo he crecido':",
             "  1. `get_universe_summary()` + `list_artifacts()` + "
             "     `get_user_rubric_coverage(status='own')` ordenado por fecha.",
-            "  2. Presenta widget `learning_trajectory` cronológico.",
+            "  2. Llama `present_widget(kind='learning_trajectory', title='Tu crecimiento', "
+            "data={items:[{when:'YYYY-MM', kind:'course|project|artifact|signal|certification|talk', "
+            "title, area}], areas_added_last_year:[...], signals_acquired_last_year:N})` — "
+            "items en orden cronológico (más antiguo primero).",
             "  3. Cierra con pregunta de descubrimiento:",
             "     '¿Hay algún hito de aprendizaje reciente que no hayamos documentado?'",
             # Portfolio as conversation

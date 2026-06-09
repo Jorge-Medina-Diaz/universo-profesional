@@ -20,6 +20,7 @@ def build_insights_specialist(*, db):  # type: ignore[no-untyped-def]
     from src.agents.tools.retrieval_tools import universe_retrieve
     from src.agents.tools.rubrics_tools import search_rubrics
     from src.agents.tools.shape_tools import get_universe_shape
+    from src.agents.tools.signal_tools import get_user_rubric_coverage
     from src.agents.tools.ui_widgets import present_widget
     from src.agents.tools.universe_reads import (
         find_gaps,
@@ -40,6 +41,7 @@ def build_insights_specialist(*, db):  # type: ignore[no-untyped-def]
             list_notes,
             present_widget,
             search_rubrics,
+            get_user_rubric_coverage,
             get_profile_completeness,
             suggest_discovery_questions,
         ],
@@ -80,6 +82,15 @@ def build_insights_specialist(*, db):  # type: ignore[no-untyped-def]
             "signals que le faltan como preguntas de descubrimiento:",
             "  'Veo que en backend tienes Python y PostgreSQL. ¿Has tocado "
             "   optimización de queries o diseño de índices?' → skill",
+            # Signal coverage overlay (surfaces the daily user_rubric_signal rows)
+            "COBERTURA DE SEÑALES: cuando el usuario pregunte '¿qué me falta para senior?', "
+            "'¿cubro las señales de <área>?' o en la review trimestral, llama "
+            "`get_user_rubric_coverage(sector=<área>)` y RENDERIZA `present_widget("
+            "kind='signal_coverage', title='Cobertura de señales · <sector>', data={sector, "
+            "signals:[<las filas que devuelve el tool: rubric_slug, section_kind, heading, "
+            "body_excerpt, status, confidence, evidence_count>], by_status:{own, practice, "
+            "aspire}})`. Pasa las filas del tool tal cual en `signals`; calcula `by_status` "
+            "contando por estado. Es el overlay que hace visible el corpus de rúbricas.",
             # Ground in graph
             "FUNDAMENTA con el grafo: antes de afirmar que falta algo, usa "
             "`universe_retrieve(query, kinds?)` para verificar. Evita gaps falsos.",
