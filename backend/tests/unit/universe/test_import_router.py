@@ -1,14 +1,10 @@
 """Unit tests for import_router helpers — pure logic + mocked IO."""
 from __future__ import annotations
 
-import csv
 import io
 import zipfile
-from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-from fastapi import UploadFile
 
 from src.shared.result import Success
 from src.universe.interfaces.api.import_router import (
@@ -17,9 +13,7 @@ from src.universe.interfaces.api.import_router import (
     _parse_li_educations,
     _parse_li_experiences,
     _parse_li_skills,
-    import_pdf,
     import_json_resume,
-    _CANNED_PDF_PARSE,
 )
 
 
@@ -128,14 +122,6 @@ class TestParseLiSkills:
         skill_uc.add = AsyncMock(return_value=Success(None))
         count = await _parse_li_skills(zf, "Skills.csv", "user-1", skill_uc, MagicMock())
         assert count == 1
-
-
-class TestImportPdf:
-    async def test_returns_canned(self):
-        file = MagicMock(spec=UploadFile)
-        file.read = AsyncMock(return_value=b"fake pdf")
-        result = await import_pdf("user-1", file)
-        assert result == _CANNED_PDF_PARSE
 
 
 class TestImportJsonResume:

@@ -89,6 +89,11 @@ async def _clean_db() -> AsyncIterator[None]:
     _assert_test_database()
     factory = get_session_factory()
     async with factory() as session:
+        # Trusted service scope: when the suite runs as the RLS-subject role
+        # (cvs_app), the per-table policies would silently hide every other
+        # user's rows and these DELETEs would no-op. SET LOCAL reverts at
+        # the commit below.
+        await session.execute(text("SET LOCAL app.bypass_rls = 'on'"))
         # Cascade delete from the root user table.
         await session.execute(text("DELETE FROM users"))
         # Belt-and-suspenders: explicitly delete tables that might not

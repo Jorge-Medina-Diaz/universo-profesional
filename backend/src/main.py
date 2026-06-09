@@ -42,15 +42,25 @@ logger = get_logger(__name__)
 
 
 async def _ensure_agno_indexes() -> None:
-    """Create runtime indexes on tables managed by Agno (not in Alembic)."""
+    """Create runtime indexes on tables managed by Agno (not in Alembic).
+
+    CREATE INDEX IF NOT EXISTS checks table ownership before the existence
+    shortcut, so under the RLS-subject role (cvs_app, non-owner) it raises
+    even when the index is already there — probe pg_indexes first.
+    """
     try:
         async with get_session_factory()() as session:
-            await session.execute(
-                text(
-                    "CREATE INDEX IF NOT EXISTS ix_agno_messages_session ON agno_messages(session_id)"
-                )
+            exists = await session.scalar(
+                text("SELECT 1 FROM pg_indexes WHERE indexname = 'ix_agno_messages_session'")
             )
-            await session.commit()
+            if not exists:
+                await session.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_agno_messages_session"
+                        " ON agno_messages(session_id)"
+                    )
+                )
+                await session.commit()
     except Exception as exc:
         logger.warning("agno_index_setup_failed", error=str(exc))
 
@@ -67,7 +77,9 @@ async def _maybe_auto_seed_esco() -> None:
                 text("SELECT count(*) FROM ontology_search WHERE label = 'Occupation'")
             )
             count = result.scalar_one()
-            if count > 1000:
+            # The sample seed loads exactly 1000 occupations — >= keeps the
+            # dev warning quiet on a correctly seeded sample DB.
+            if count >= 1000:
                 return
     except Exception as exc:
         logger.warning("esco_seed_check_failed", error=str(exc))

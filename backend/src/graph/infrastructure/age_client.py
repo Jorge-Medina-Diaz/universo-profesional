@@ -46,10 +46,14 @@ async def ensure_age_loaded(session: AsyncSession) -> None:
     """
     if session.info.get("age_loaded"):
         return
-    # `LOAD 'age'` is a no-op if shared_preload_libraries already loaded
-    # the library, but is required if it didn't (e.g. when running tests
-    # against a vanilla postgres image).
-    await session.execute(text("LOAD 'age'"))
+    # Explicit `LOAD 'age'` is superuser-only; under the RLS-subject app role
+    # (`cvs_app`) it raises and aborts the transaction. Postgres auto-loads the
+    # library the first time an ag_catalog C function (e.g. cypher()) runs, so
+    # the explicit LOAD is only useful — and only permitted — for superusers
+    # (e.g. tests against a vanilla image without shared_preload_libraries).
+    is_superuser = await session.scalar(text("SELECT current_setting('is_superuser')"))
+    if is_superuser == "on":
+        await session.execute(text("LOAD 'age'"))
     await session.execute(
         text("SELECT set_config('search_path', 'ag_catalog,public,\"$user\"', false)")
     )

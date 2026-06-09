@@ -1,3 +1,5 @@
+> **[HISTORICO 2026-06-09]** Registro del pase de remediacion (cerrado). El paso pendiente R2 (rol cvs_app) se COMPLETO el 2026-06-09 — ver SECURITY_RLS_STATUS.md. Hoja de ruta vigente: el plan de transformacion.
+
 # Product Roadmap — Progress & Resume-Here
 
 Companion to [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) (the 12-lens deep audit:

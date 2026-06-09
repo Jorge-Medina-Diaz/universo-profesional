@@ -43,8 +43,12 @@ COPY --from=age-builder /usr/share/postgresql/16/extension/age* \
 # init helpers — the simplest path is to set it through the start command.
 # Postgres 16's docker image honours POSTGRES_INITDB_ARGS but not
 # arbitrary config knobs, so we drop a conf.d file that gets included.
+# search_path keeps public FIRST: with ag_catalog first, any DB created
+# without a per-database override (e.g. a fresh cvs_test) sends every
+# unqualified CREATE TABLE — including alembic_version itself — into
+# ag_catalog. Cypher only needs ag_catalog *present*, not first.
 RUN mkdir -p /etc/postgresql/conf.d \
-    && printf "shared_preload_libraries = 'age'\nsearch_path = 'ag_catalog, \"\$user\", public'\n" \
+    && printf "shared_preload_libraries = 'age'\nsearch_path = '\"\$user\", public, ag_catalog'\n" \
        > /etc/postgresql/conf.d/age.conf
 
 # Tell postgres to read that conf.d file. We piggyback on the official
@@ -54,4 +58,4 @@ RUN mkdir -p /etc/postgresql/conf.d \
 # instead expose the conf via the image as a default include.
 CMD ["postgres", \
      "-c", "shared_preload_libraries=age", \
-     "-c", "search_path=ag_catalog,\"$user\",public"]
+     "-c", "search_path=\"$user\",public,ag_catalog"]

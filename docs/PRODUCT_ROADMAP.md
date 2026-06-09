@@ -1,3 +1,5 @@
+> **[HISTORICO 2026-06-09]** Auditoria de mayo 2026; la mayoria de sus 20 items se remediaron (ver PRODUCT_ROADMAP_PROGRESS.md). La hoja de ruta vigente es el plan de transformacion.
+
 # Product Deep-Audit Roadmap
 
 > Generated from a 12-lens principal-level audit (career-product, onboarding,

@@ -19,7 +19,22 @@ pytestmark = [pytest.mark.integration, pytest.mark.asyncio]
 _TABLE = "notes"
 
 
+async def _create_user(user_id: uuid.UUID) -> None:
+    """Seed a bare users row (service scope) so notes.user_id's FK holds.
+
+    Under the owner/superuser the FK target could be skipped silently; under
+    cvs_app the policy also hides foreign users, so the seed must run in the
+    trusted service scope.
+    """
+    async with with_user_session(None) as s:
+        await s.execute(
+            text("INSERT INTO users (id, email) VALUES (:id, :email)"),
+            {"id": str(user_id), "email": f"rls-{user_id}@test.local"},
+        )
+
+
 async def _insert_note(user_id: uuid.UUID, body: str) -> uuid.UUID:
+    await _create_user(user_id)
     note_id = uuid.uuid4()
     async with with_user_session(user_id) as s:
         await s.execute(

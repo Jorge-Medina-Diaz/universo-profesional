@@ -44,7 +44,27 @@ async def session_dep() -> AsyncSession:
 SessionDep = Annotated[AsyncSession, Depends(session_dep)]
 
 
-def register_user_dep(session: SessionDep) -> RegisterUser:
+async def pre_auth_session_dep() -> AsyncSession:
+    """Session for the UNAUTHENTICATED identity flows.
+
+    register/login/refresh/verify/reset/MFA ARE the trust boundary: they
+    identify the user by credential or token-hash lookup and must write
+    user-scoped rows (subscriptions, refresh_tokens, email_tokens) before any
+    JWT — and therefore any RLS user context — exists. They run in the trusted
+    service scope (policy bypass). Every authenticated surface keeps the
+    per-user RLS context set by current_user_id(). Endpoints sharing this
+    session MUST declare `PreAuthSessionDep` too, so FastAPI's dependency
+    cache hands the use-case factories the same scoped session.
+    """
+    async for s in get_session():
+        await set_rls_user(s, None)
+        yield s
+
+
+PreAuthSessionDep = Annotated[AsyncSession, Depends(pre_auth_session_dep)]
+
+
+def register_user_dep(session: PreAuthSessionDep) -> RegisterUser:
     return RegisterUser(
         SqlAlchemyUserRepository(session),
         SqlAlchemyEmailTokenRepository(session),
@@ -52,11 +72,11 @@ def register_user_dep(session: SessionDep) -> RegisterUser:
     )
 
 
-def create_trial_subscription_dep(session: SessionDep) -> CreateTrialSubscription:
+def create_trial_subscription_dep(session: PreAuthSessionDep) -> CreateTrialSubscription:
     return CreateTrialSubscription(SqlAlchemySubscriptionRepository(session))
 
 
-def verify_email_dep(session: SessionDep) -> VerifyEmail:
+def verify_email_dep(session: PreAuthSessionDep) -> VerifyEmail:
     async def _send_welcome(user_id: UUID) -> None:
         await enqueue_transactional_email(
             user_id=user_id, template="welcome", context=None
@@ -69,28 +89,28 @@ def verify_email_dep(session: SessionDep) -> VerifyEmail:
     )
 
 
-def login_dep(session: SessionDep) -> Login:
+def login_dep(session: PreAuthSessionDep) -> Login:
     return Login(
         SqlAlchemyUserRepository(session),
         SqlAlchemyRefreshTokenRepository(session),
     )
 
 
-def refresh_dep(session: SessionDep) -> RefreshAccess:
+def refresh_dep(session: PreAuthSessionDep) -> RefreshAccess:
     return RefreshAccess(
         SqlAlchemyUserRepository(session),
         SqlAlchemyRefreshTokenRepository(session),
     )
 
 
-def complete_mfa_login_dep(session: SessionDep) -> CompleteMfaLogin:
+def complete_mfa_login_dep(session: PreAuthSessionDep) -> CompleteMfaLogin:
     return CompleteMfaLogin(
         SqlAlchemyUserRepository(session),
         SqlAlchemyRefreshTokenRepository(session),
     )
 
 
-def request_password_reset_dep(session: SessionDep) -> RequestPasswordReset:
+def request_password_reset_dep(session: PreAuthSessionDep) -> RequestPasswordReset:
     return RequestPasswordReset(
         SqlAlchemyUserRepository(session),
         SqlAlchemyEmailTokenRepository(session),
@@ -98,7 +118,7 @@ def request_password_reset_dep(session: SessionDep) -> RequestPasswordReset:
     )
 
 
-def reset_password_dep(session: SessionDep) -> ResetPassword:
+def reset_password_dep(session: PreAuthSessionDep) -> ResetPassword:
     return ResetPassword(
         SqlAlchemyUserRepository(session),
         SqlAlchemyEmailTokenRepository(session),

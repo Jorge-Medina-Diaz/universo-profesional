@@ -1,8 +1,11 @@
-# Universo Profesional — SaaS B2C (MVP)
+# Universo Profesional — SaaS B2C
 
-Un SaaS B2C español que sustituye al "CV en Word" por un **Universo Profesional** versionado, con un servidor MCP remoto (OAuth 2.1 + PKCE + DCR) como diferenciador clave.
+Un SaaS B2C español que sustituye al "CV en Word" por un **Universo Profesional**: una base de conocimiento profesional viva (grafo AGE + ESCO + GraphRAG de 4 lanes) mantenida por chat agéntico (equipo Agno + CopilotKit), que genera CVs ad-hoc optimizados para ATS y expone un servidor MCP remoto (OAuth 2.1 + PKCE + DCR).
 
-> **Estado:** MVP local (todo mockeado, sin credenciales externas). Ver [docs/PLAN.md](docs/PLAN.md) para la especificación técnica completa y de mercado.
+> **Estado:** en transformación hacia producción según el plan de 6 fases
+> (foundations → AgentOS+latencia → GenUI agent-native → loops proactivos →
+> twin público → ops). Funciona local con LLM real (Anthropic) o mock.
+> [docs/PLAN.md](docs/PLAN.md) es la spec HISTÓRICA de mercado/arquitectura.
 
 ---
 
@@ -147,12 +150,18 @@ docker compose exec backend alembic upgrade head
 Ver [docs/PLAN.md](docs/PLAN.md) §G para diagramas y §H para el esquema de datos.
 
 ### Bounded contexts (`backend/src/`)
-- `identity/` — registro, login, JWT, MFA, RGPD export/delete
+- `identity/` — registro, login, JWT, MFA/TOTP, RGPD export/delete
 - `universe/` — el "Universo Profesional" (educations, experiences, projects, skills, etc.) — **core del producto**
-- `documents/` — CVs generados (inmutables, versionados, S3-emulado en filesystem)
-- `ai_generation/` — pipeline RAG mockeado (parse JD → embed → retrieve top-K → rerank RRF → LLM mock → JSON Resume → WeasyPrint PDF + python-docx)
-- `mcp_server/` — OAuth 2.1 AS (RFC 8414 + 9728 + 8707 + 7591) + 8 MCP tools
-- `billing/` — quota enforcement + mock Stripe
+- `coherence/` — motor de coherencia: toda escritura pasa por upsert semántico con reglas de merge + ESCO linking
+- `graph/` — Apache AGE (grafos `universe_personal`/`universe_ontology`) + retrieval híbrido BM25+dense+PPR+community con RRF y rerank
+- `agents/` — equipo Agno (coordinador + especialistas), tools HITL, bridge AG-UI para CopilotKit
+- `documents/` — CVs/cover letters generados (grounded tailoring con LLM real, render WeasyPrint/python-docx, share público)
+- `knowledge/` — chunks pgvector para documentos largos
+- `notes/` — notas markdown con tags
+- `integrations/` — GitHub OAuth/sync, LinkedIn (CSV/DMA), Bright Data (stub)
+- `rubrics/` — corpus de rúbricas/señales con overlay personal
+- `mcp_server/` — OAuth 2.1 AS (RFC 8414 + 9728 + 8707 + 7591) + tools MCP
+- `billing/` — quota enforcement + Stripe (mock/real)
 
 ---
 
@@ -226,9 +235,17 @@ CVs-SaaS/
 
 ---
 
-## Lo que NO entra en el MVP
+## Qué hay y qué falta
 
-Cover letters, applications tracker, recordatorios, mobile app, más de 1 plantilla, multi-template, web push, Europass JSON-LD, BYOK, Stripe real, LLM real, Affinda real, email real, cloud deploy, plan Pro, PostHog/Sentry, DPO/EIPD. Ver §L del spec para roadmap completo a v1 y v2.
+Ya construido (la lista vieja de "NO entra en el MVP" quedó obsoleta):
+cover letters, applications tracker tipado, recordatorios + emails de ciclo
+de vida, 4 plantillas, exports JSON Resume + Europass, BYOK, MFA/TOTP,
+LLM real (Anthropic/OpenAI/Mistral), S3 adapter, Sentry/OTel opcionales,
+deploy Fly.io (3 apps), RLS forzado con rol no-superusuario.
+
+Pendiente: ver [PENDING.md](PENDING.md) y el plan de transformación
+(GenUI agent-native completo, loops proactivos del KB, twin público,
+autoscaling/E2E).
 
 ---
 

@@ -93,7 +93,9 @@ services:
     restart: unless-stopped
     container_name: cvs-backend
     environment:
-      DATABASE_URL: postgresql+asyncpg://cvs:cvs_dev_password@postgres:5432/cvs
+      # Runtime connects as the RLS-subject role (NOSUPERUSER NOBYPASSRLS);
+      # alembic keeps the owner role via DATABASE_URL_SYNC (DDL rights).
+      DATABASE_URL: postgresql+asyncpg://cvs_app:cvs_app_dev_password@postgres:5432/cvs
       DATABASE_URL_SYNC: postgresql://cvs:cvs_dev_password@postgres:5432/cvs
       REDIS_URL: redis://redis:6379/0
       EMAIL_HOST: mailhog
@@ -167,7 +169,9 @@ services:
     restart: unless-stopped
     container_name: cvs-worker
     environment:
-      DATABASE_URL: postgresql+asyncpg://cvs:cvs_dev_password@postgres:5432/cvs
+      # Same RLS-subject role as the backend; service-scope tasks bypass via
+      # the app.bypass_rls policy flag, not via role privileges.
+      DATABASE_URL: postgresql+asyncpg://cvs_app:cvs_app_dev_password@postgres:5432/cvs
       REDIS_URL: redis://redis:6379/0
       STORAGE_ROOT: /app/var/documents
       CANONICAL_BASE_URL: http://localhost:8000

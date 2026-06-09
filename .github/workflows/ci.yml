@@ -62,18 +62,34 @@ jobs:
         working-directory: backend
         run: |
           uv sync --all-extras
-      - name: Ensure pgvector extensions
+      - name: Provision test database (cvs_test) + extensions
         env:
           PGPASSWORD: cvs_dev_password
         run: |
           sudo apt-get install -y postgresql-client
-          psql -h localhost -U cvs -d cvs -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pgcrypto;"
-      - name: Alembic migrate
+          # The conftest guard refuses to clean any DB whose name lacks 'test';
+          # the suite runs against a dedicated cvs_test database.
+          psql -h localhost -U cvs -d cvs -c "CREATE DATABASE cvs_test OWNER cvs;"
+          # The AGE image ships a sane '"$user", public, ag_catalog' default,
+          # but pin it per-DB anyway: with ag_catalog first, a from-scratch
+          # migration sends every unqualified CREATE TABLE into ag_catalog.
+          psql -h localhost -U cvs -d cvs -c "ALTER DATABASE cvs_test SET search_path = \"\$user\", public, ag_catalog;"
+          psql -h localhost -U cvs -d cvs_test -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE EXTENSION IF NOT EXISTS age;"
+      - name: Alembic migrate (as owner)
         working-directory: backend
         env:
-          DATABASE_URL: postgresql+asyncpg://cvs:cvs_dev_password@localhost:5432/cvs
-          DATABASE_URL_SYNC: postgresql://cvs:cvs_dev_password@localhost:5432/cvs
+          DATABASE_URL: postgresql+asyncpg://cvs:cvs_dev_password@localhost:5432/cvs_test
+          DATABASE_URL_SYNC: postgresql://cvs:cvs_dev_password@localhost:5432/cvs_test
         run: uv run alembic upgrade head
+      - name: Provision RLS-subject runtime role (cvs_app)
+        env:
+          PGPASSWORD: cvs_dev_password
+        run: |
+          # Tests run as the same NOSUPERUSER NOBYPASSRLS role the app uses in
+          # prod — otherwise RLS enforcement is fictional in CI (superusers
+          # bypass FORCE RLS unconditionally).
+          psql -h localhost -U cvs -d cvs_test -f backend/scripts/provision_app_role.sql
+          psql -h localhost -U cvs -d cvs_test -c "ALTER ROLE cvs_app PASSWORD 'cvs_app_ci_password';"
       # Linting — must pass before merge.
       - name: Ruff
         working-directory: backend
@@ -86,12 +102,22 @@ jobs:
       - name: Import-linter
         working-directory: backend
         run: uv run lint-imports
+      # Guard against marker rot: the requires_age suite must still exist —
+      # combined with the conftest fail-not-skip guard this keeps the build
+      # honest about the graph engine actually being exercised.
+      - name: Assert AGE-marked tests are collected
+        working-directory: backend
+        run: |
+          COUNT=$(uv run pytest -m requires_age --collect-only -q 2>/dev/null | grep -c "::" || true)
+          echo "requires_age tests collected: $COUNT"
+          test "$COUNT" -ge 3
       # Test suite with coverage threshold.  Single process avoids DB contention.
+      # Runs as cvs_app (the RLS-subject role) — alembic stays on the owner.
       - name: Pytest with coverage
         working-directory: backend
         env:
-          DATABASE_URL: postgresql+asyncpg://cvs:cvs_dev_password@localhost:5432/cvs
-          DATABASE_URL_SYNC: postgresql://cvs:cvs_dev_password@localhost:5432/cvs
+          DATABASE_URL: postgresql+asyncpg://cvs_app:cvs_app_ci_password@localhost:5432/cvs_test
+          DATABASE_URL_SYNC: postgresql://cvs:cvs_dev_password@localhost:5432/cvs_test
           REDIS_URL: redis://localhost:6379/1
           ENV: test
           CANONICAL_BASE_URL: http://test
@@ -103,9 +129,7 @@ jobs:
           EMAIL_PORT: "1025"
         run: |
           mkdir -p /tmp/cvs-docs
-          # Coverage threshold is intentionally permissive on the first
-          # production push — we'll ratchet it up sprint by sprint.
-          uv run pytest -q --cov=src --cov-report=xml --cov-report=term --cov-fail-under=40
+          uv run pytest -q --cov=src --cov-report=xml --cov-report=term --cov-fail-under=50
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v4
@@ -197,12 +221,16 @@ jobs:
       - name: Install backend deps
         working-directory: backend
         run: uv sync --all-extras
-      - name: Ensure pgvector extensions
+      - name: Ensure extensions + sane search_path
         env:
           PGPASSWORD: cvs_dev_password
         run: |
           sudo apt-get install -y postgresql-client
-          psql -h localhost -U cvs -d cvs -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+          # Pin public-first search_path BEFORE migrating: older published
+          # images default to ag_catalog-first, which sends a from-scratch
+          # migration's unqualified CREATE TABLEs into ag_catalog.
+          psql -h localhost -U cvs -d cvs -c "ALTER DATABASE cvs SET search_path = \"\$user\", public, ag_catalog;"
+          psql -h localhost -U cvs -d cvs -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE EXTENSION IF NOT EXISTS age;"
       - name: Alembic migrate
         working-directory: backend
         env:

@@ -16,7 +16,7 @@ from src.identity.application.use_cases import (
     VerifyEmail,
 )
 from src.identity.interfaces.api.deps import (
-    SessionDep,
+    PreAuthSessionDep,
     complete_mfa_login_dep,
     create_trial_subscription_dep,
     get_request_meta,
@@ -55,7 +55,7 @@ async def register(
     body: RegisterRequest,
     uc: Annotated[RegisterUser, Depends(register_user_dep)],
     trial_uc: Annotated[CreateTrialSubscription, Depends(create_trial_subscription_dep)],
-    session: SessionDep,
+    session: PreAuthSessionDep,
 ) -> RegisterResponse:
     async with unit_of_work(session) as uow:
         result = await uc.execute(
@@ -84,7 +84,7 @@ async def register(
 async def verify_email(
     body: VerifyEmailRequest,
     uc: Annotated[VerifyEmail, Depends(verify_email_dep)],
-    session: SessionDep,
+    session: PreAuthSessionDep,
 ) -> GenericOkResponse:
     async with unit_of_work(session) as uow:
         result = await uc.execute(token=body.token, uow=uow)
@@ -100,7 +100,7 @@ async def login(
     request: Request,
     body: LoginRequest,
     uc: Annotated[Login, Depends(login_dep)],
-    session: SessionDep,
+    session: PreAuthSessionDep,
 ) -> TokenResponse:
     meta = get_request_meta(request)
     async with unit_of_work(session) as uow:
@@ -140,7 +140,7 @@ async def mfa_login(
     request: Request,
     body: MfaLoginRequest,
     uc: Annotated[CompleteMfaLogin, Depends(complete_mfa_login_dep)],
-    session: SessionDep,
+    session: PreAuthSessionDep,
 ) -> TokenResponse:
     """Second step of an MFA login: exchange the mfa_token + TOTP code."""
     meta = get_request_meta(request)
@@ -170,7 +170,7 @@ async def refresh(
     body: RefreshRequest,
     request: Request,
     uc: Annotated[RefreshAccess, Depends(refresh_dep)],
-    session: SessionDep,
+    session: PreAuthSessionDep,
 ) -> TokenResponse:
     meta = get_request_meta(request)
     async with unit_of_work(session) as uow:
@@ -197,7 +197,7 @@ async def password_reset_request(
     request: Request,
     body: PasswordResetRequest,
     uc: Annotated[RequestPasswordReset, Depends(request_password_reset_dep)],
-    session: SessionDep,
+    session: PreAuthSessionDep,
 ) -> GenericOkResponse:
     async with unit_of_work(session) as uow:
         await uc.execute(email=str(body.email), uow=uow)
@@ -209,7 +209,7 @@ async def password_reset_request(
 async def password_reset_confirm(
     body: PasswordResetConfirm,
     uc: Annotated[ResetPassword, Depends(reset_password_dep)],
-    session: SessionDep,
+    session: PreAuthSessionDep,
 ) -> GenericOkResponse:
     async with unit_of_work(session) as uow:
         result = await uc.execute(token=body.token, new_password=body.new_password, uow=uow)

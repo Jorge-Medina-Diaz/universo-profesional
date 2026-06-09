@@ -101,7 +101,12 @@ async def set_rls_user(session: AsyncSession, user_id: UUID | None) -> None:
     """
     if user_id is None:
         await session.execute(text("SET LOCAL app.bypass_rls = 'on'"))
-        await session.execute(text("RESET app.current_user_id"))
+        # NOT `RESET`: RESET is session-scoped and *defines* an unset custom
+        # GUC as '' on the pooled connection, which used to poison the
+        # policies' ::uuid cast in later transactions. SET LOCAL '' is
+        # transaction-scoped and the canonical policies (0039) treat '' as
+        # unset via NULLIF — default-deny preserved.
+        await session.execute(text("SET LOCAL app.current_user_id = ''"))
         return
     # UUID() ensures the value is a well-formed UUID before interpolation.
     safe_uuid = str(UUID(str(user_id)))

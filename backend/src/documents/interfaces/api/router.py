@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
@@ -27,6 +27,7 @@ from src.documents.infrastructure.repositories import (
 from src.identity.interfaces.api.deps import CurrentUserId, SessionDep, current_user_id
 from src.shared.embeddings import get_embeddings_service
 from src.shared.metrics import cv_generated_total
+from src.shared.rate_limit import limiter
 from src.shared.storage import get_storage
 from src.shared.uow import unit_of_work
 from src.universe.infrastructure.semantic_search import PgVectorSemanticSearch
@@ -282,22 +283,43 @@ async def share_document(
 # Mounted at /api/v1/share/{token} from main.py.
 public_router = APIRouter()
 
+# Anonymous surface: keyed by IP (no JWT sub available) — coarse, but caps
+# token enumeration and PDF-download hammering.
+_SHARE_RATE = "30/minute"
 
-@public_router.get("/{token}")
-async def resolve_share_token(token: str, session: SessionDep) -> dict[str, Any]:
+# Shared CVs hold personal data: never cache on intermediaries, never index.
+_SHARE_HEADERS = {
+    "Cache-Control": "private, no-store",
+    "X-Robots-Tag": "noindex, nofollow",
+}
+
+
+def _shared_doc_or_error(doc: Any) -> Any:
+    """404 for unknown tokens, 410 for expired ones — on EVERY public route.
+
+    The isinstance guard makes the comparison type-safe, so no try/except is
+    needed; a previous bare `except Exception: pass` swallowed the 410 itself
+    and served expired links forever (and the PDF route skipped the check
+    entirely until P0.4).
+    """
     from datetime import datetime
 
-    repo = SqlAlchemyDocumentRepository(session)
-    doc = await repo.get_by_share_token(token)
     if doc is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
-    # Optional expiry — repository row also stores `share_expires_at`.
-    # The isinstance guard makes the comparison type-safe, so no try/except is
-    # needed; a previous bare `except Exception: pass` swallowed the 410 itself
-    # and served expired links forever.
     expires_raw = getattr(doc, "share_expires_at", None)
     if isinstance(expires_raw, datetime) and expires_raw < datetime.now(UTC):
         raise HTTPException(status_code=status.HTTP_410_GONE, detail="expired")
+    return doc
+
+
+@public_router.get("/{token}")
+@limiter.limit(_SHARE_RATE)
+async def resolve_share_token(
+    request: Request, token: str, session: SessionDep, response: Response
+) -> dict[str, Any]:
+    repo = SqlAlchemyDocumentRepository(session)
+    doc = _shared_doc_or_error(await repo.get_by_share_token(token))
+    response.headers.update(_SHARE_HEADERS)
     return {
         "document_id": str(doc.id),
         "kind": doc.kind,
@@ -311,16 +333,18 @@ async def resolve_share_token(token: str, session: SessionDep) -> dict[str, Any]
 
 
 @public_router.get("/{token}/pdf")
-async def get_share_pdf(token: str, session: SessionDep) -> Response:
+@limiter.limit(_SHARE_RATE)
+async def get_share_pdf(request: Request, token: str, session: SessionDep) -> Response:
     repo = SqlAlchemyDocumentRepository(session)
-    doc = await repo.get_by_share_token(token)
-    if doc is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    doc = _shared_doc_or_error(await repo.get_by_share_token(token))
     data = await _read_blob_or_404(doc.pdf_path, not_found="not_found")
     suffix = Path(doc.pdf_path).suffix.lower() or ".pdf"
     media = "application/pdf" if suffix == ".pdf" else "text/html"
     return Response(
         content=data,
         media_type=media,
-        headers={"Content-Disposition": f'attachment; filename="cv-{doc.id}{suffix}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="cv-{doc.id}{suffix}"',
+            **_SHARE_HEADERS,
+        },
     )

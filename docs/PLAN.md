@@ -1,3 +1,5 @@
+> **[HISTORICO 2026-06-09]** Spec fundacional de mercado/arquitectura. NO refleja el estado actual del producto; la hoja de ruta vigente es el plan de transformacion (ver PENDING.md y memoria del proyecto).
+
 # Especificación técnica y análisis de mercado — SaaS B2C de gestión integral del ciclo de vida profesional con servidor MCP
 
 > Documento en español. Punto de partida operativo y accionable para arrancar diseño y desarrollo del producto.

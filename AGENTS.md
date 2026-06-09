@@ -74,7 +74,7 @@ Esta regla está **forzada por `import-linter`** (configurado en `pyproject.toml
 | `documents/` | Generación de CVs/cover letters, almacenamiento, compartir |
 | `ai_generation/` | Pipeline RAG (mockeado en MVP): parse JD → embed → retrieve → rerank → LLM → JSON Resume → PDF/DOCX |
 | `billing/` | Cuotas, suscripciones, Stripe (mock/real) |
-| `agents/` | Agentes Agno, 28 especialistas, herramientas, flujos de trabajo, memoria, context providers, auto-enrichment |
+| `agents/` | Agentes Agno: coordinador + 27 módulos especialistas (consolidación a ~7 en curso — ver plan de transformación), herramientas, flujos de trabajo, memoria, context providers, auto-enrichment |
 | `coherence/` | Motor de coherencia: cada escritura pasa por upsert con reglas de merge declarativas |
 | `graph/` | Apache AGE + ontología ESCO (Sprint M en adelante) |
 | `knowledge/` | RAG / base de conocimiento (chunks en pgvector) |
