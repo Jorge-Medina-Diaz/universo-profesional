@@ -337,6 +337,17 @@ export function UniverseWorkspace() {
   // Local-graph mode only engages once a node is selected to anchor the BFS.
   const localDepth = localGraph && selectedNode ? depth : undefined;
 
+  // User selection → also push to the control store's focus, so the graph_view
+  // readable reports what the user is looking at (bidirectional: the agent sees
+  // your manual focus on its next turn).
+  const handleSelectEntity = useCallback(
+    (sel: GraphSelection | null) => {
+      setSelectedNode(sel);
+      setView({ focusEntityId: sel?.id ?? null });
+    },
+    [setView],
+  );
+
   useEscapeKey(() => setMobileSidebarOpen(false), mobileSidebarOpen);
 
   // One prop bundle, spread into BOTH the desktop aside and the mobile sheet
@@ -394,7 +405,7 @@ export function UniverseWorkspace() {
                     snapshot={filteredSnapshot}
                     kindsFilter={Array.from(activeKinds)}
                     selectedId={selectedNode?.id ?? null}
-                    onSelectEntity={setSelectedNode}
+                    onSelectEntity={handleSelectEntity}
                     colorBy={colorBy}
                     searchQuery={searchQuery}
                     celebratingNodes={celebratingNodes}
@@ -452,7 +463,7 @@ export function UniverseWorkspace() {
                     if (e.key === "Enter" && filteredSnapshot && searchQuery.trim()) {
                       const q = searchQuery.trim().toLowerCase();
                       const match = filteredSnapshot.nodes.find((n) => n.attributes.label.toLowerCase().includes(q));
-                      if (match) setSelectedNode({ id: match.key, kind: match.attributes.kind, label: match.attributes.label });
+                      if (match) handleSelectEntity({ id: match.key, kind: match.attributes.kind, label: match.attributes.label });
                     }
                   }}
                   placeholder="Buscar en el grafo…"
@@ -509,8 +520,8 @@ export function UniverseWorkspace() {
         <NodeDetailDrawer
           selection={selectedNode}
           snapshot={filteredSnapshot}
-          onClose={() => setSelectedNode(null)}
-          onNavigate={setSelectedNode}
+          onClose={() => handleSelectEntity(null)}
+          onNavigate={handleSelectEntity}
           onChatFocus={handleFocus}
         />
 

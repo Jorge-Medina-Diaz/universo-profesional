@@ -698,15 +698,24 @@ function GraphEvents({
       });
       return () => cancelAnimationFrame(raf);
     }
-    // pulse / highlightSet → glow the ids via the celebration timeline + a local
-    // rAF that refreshes until the glow window elapses.
+    // pulse / highlightSet → glow the ids via the celebration timeline. For
+    // highlightSet we STAGGER (~110ms apart) so the constellation lights up
+    // node-by-node — the cinematic "reveal" moment. Each id starts its glow when
+    // its slot arrives (celebrationStart=now → proper 0→1 spring).
     const start = Date.now();
-    for (const id of animationCmd.ids) celebrationStart.current.set(id, start);
-    const dur = animationCmd.duration ?? 2200;
+    const stagger = animationCmd.type === "highlightSet" ? 110 : 0;
+    const schedule = animationCmd.ids.map((id, i) => ({ id, at: start + i * stagger }));
+    const until = start + stagger * Math.max(0, animationCmd.ids.length - 1) + (animationCmd.duration ?? 2000);
     let raf = 0;
     const loop = () => {
+      const now = Date.now();
+      for (const s of schedule) {
+        if (now >= s.at && !celebrationStart.current.has(s.id)) {
+          celebrationStart.current.set(s.id, now);
+        }
+      }
       sigma.refresh({ skipIndexation: true });
-      if (Date.now() - start < dur) raf = requestAnimationFrame(loop);
+      if (now < until) raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
