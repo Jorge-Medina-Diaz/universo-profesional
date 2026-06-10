@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 
 import {
   AgentMsg,
-  LandingFormCard,
   LandingNudgeChip,
   LandingProposalCard,
   UserMsg,
@@ -15,7 +14,7 @@ import {
   type ConstellationRegion,
 } from "@/landing/components/SemanticConstellation";
 
-const STEP_MS = [2600, 2400, 3400, 3200, 2600, 3800] as const; // per-step dwell
+const STEP_MS = [2200, 2600, 2200, 3000, 3400, 3000, 4200] as const;
 const TOTAL_STEPS = STEP_MS.length;
 
 const MEMORY_REGIONS: ConstellationRegion[] = [
@@ -25,10 +24,12 @@ const MEMORY_REGIONS: ConstellationRegion[] = [
 ];
 
 /**
- * The hero IS the product: a looping generative-UI theater where the agent
- * asks an elaborate question, materializes a real FormCard, turns the answer
- * into a ProposalCard, grows the memory panel, and nudges the user onward.
- * Faithful simulation — the live proof is the twin section below.
+ * The hero IS the product — and the interaction model IS the canonical one:
+ * the USER initiates ("monté un ecommerce"), the agent reacts with specific
+ * interest, OFFERS to investigate (the repo), gracefully accepts "no",
+ * pulls the thread with OPEN questions, then synthesizes into a proposal
+ * and closes with an inviting nudge. Faithful simulation — the live proof
+ * is the twin section below.
  */
 export function HeroLiveDemo() {
   const { t } = useTranslation("landing");
@@ -57,10 +58,10 @@ export function HeroLiveDemo() {
     return () => window.clearTimeout(timer);
   }, [step, reduced]);
 
-  // memory grows exactly when the proposal lands confirmed (step 4)
+  // memory grows exactly when the synthesis lands (step 5: proposal confirmed)
   useEffect(() => {
-    if (step === 4) {
-      constellation.current?.pulseFrom(0.1, 0.9, "exp");
+    if (step === 5) {
+      constellation.current?.pulseFrom(0.1, 0.9, "proj");
       window.setTimeout(() => constellation.current?.pulseFrom(0.1, 0.9, "skill"), 420);
     }
   }, [step]);
@@ -82,43 +83,31 @@ export function HeroLiveDemo() {
       </div>
 
       <div className="grid md:grid-cols-[1fr_180px]">
-        {/* the conversation theater */}
+        {/* the conversation — user first, always */}
         <div
           ref={scrollRef}
           className="flex flex-col gap-2.5 p-4 h-[400px] md:h-[440px] overflow-hidden"
           key={cycle}
         >
-          <AgentMsg>{t("hero.demo.q")}</AgentMsg>
-          {step >= 1 && <UserMsg>{t("hero.demo.a")}</UserMsg>}
-          {step >= 2 && (
-            <LandingFormCard
-              title={t("hero.demo.formTitle")}
-              fields={[
-                { label: t("hero.demo.f1"), kind: "text", value: step >= 3 ? "40 máquinas · 3 clústeres" : "40 máq" },
-                {
-                  label: t("hero.demo.f2"),
-                  kind: "select",
-                  options: ["Helm", "Kustomize", "Manifiestos"],
-                  selected: step >= 3 ? "Helm" : undefined,
-                },
-                { label: t("hero.demo.f3"), kind: "scale", selected: step >= 3 ? 4 : undefined },
-              ]}
-            />
-          )}
-          {step >= 4 && (
+          <UserMsg>{t("hero.demo.u1")}</UserMsg>
+          {step >= 1 && <AgentMsg>{t("hero.demo.a1")}</AgentMsg>}
+          {step >= 2 && <UserMsg>{t("hero.demo.u2")}</UserMsg>}
+          {step >= 3 && <AgentMsg>{t("hero.demo.a2")}</AgentMsg>}
+          {step >= 4 && <UserMsg>{t("hero.demo.u3")}</UserMsg>}
+          {step >= 5 && (
             <LandingProposalCard
-              kind="experience"
+              kind="project"
               title={t("hero.demo.proposalTitle")}
               confidence="Alta"
               fields={[
-                [t("hero.demo.p1"), "Kubernetes · Helm"],
-                [t("hero.demo.p2"), "40 máquinas, 3 clústeres"],
+                [t("hero.demo.p1"), "Next.js · Stripe · IA generativa"],
+                [t("hero.demo.p2"), t("hero.demo.p2v")],
               ]}
-              confirmed={step >= 5}
+              confirmed={step >= 6}
             />
           )}
           <AnimatePresence>
-            {step >= 5 && (
+            {step >= 6 && (
               <div className="mt-1">
                 <LandingNudgeChip label={t("hero.demo.nudge")} />
               </div>

@@ -3,8 +3,6 @@ import { useTranslation } from "react-i18next";
 
 import {
   AgentMsg,
-  LandingDiaryCard,
-  LandingFormCard,
   LandingImportCard,
   LandingNudgeChip,
   LandingProposalCard,
@@ -75,37 +73,31 @@ export function MaintainByChat() {
           >
             {beat === "weekly" && (
               <>
-                <LandingDiaryCard
-                  delay={0.1}
-                  chips={[
-                    { label: "Avancé en un proyecto", active: true },
-                    { label: "Aprendí algo" },
-                    { label: "Di una charla", active: true },
-                  ]}
-                  text="Cerré la migración y di una charla interna sobre data contracts"
-                />
-                <AgentMsg delay={1.0}>
-                  Buen movimiento. La charla me interesa: ¿audiencia técnica o negocio? ¿La
-                  reutilizarías como artículo? Te dejo dos detalles rápidos:
+                <UserMsg delay={0.1}>
+                  Este finde estuve practicando con LangGraph: monté un agente de soporte.
+                </UserMsg>
+                <AgentMsg delay={0.9}>
+                  ¡Buen fin de semana! ¿Tienes el repo a mano y le echo un vistazo? Y si no,
+                  cuéntame: ¿qué hace el agente y qué fue lo que más te costó?
                 </AgentMsg>
-                <LandingFormCard
-                  delay={1.8}
-                  title="Sobre la charla de data contracts"
-                  fields={[
-                    { label: "Audiencia", kind: "select", options: ["Técnica", "Negocio", "Mixta"], selected: "Mixta" },
-                    { label: "¿Cuánta gente?", kind: "scale", selected: 3 },
-                  ]}
-                />
+                <UserMsg delay={2.0}>
+                  Luego te paso el repo. Lo interesante: le di memoria por hilos, y aprendí a
+                  base de pelearme con los checkpoints.
+                </UserMsg>
+                <AgentMsg delay={2.9}>
+                  Eso de los checkpoints es justo el tipo de detalle que un CV nunca cuenta y
+                  una entrevista sí pregunta. Te lo guardo así:
+                </AgentMsg>
                 <LandingProposalCard
-                  delay={2.8}
-                  kind="achievement"
-                  title="Charla interna: data contracts en la práctica"
+                  delay={3.7}
+                  kind="project"
+                  title="Agente de soporte con LangGraph"
                   confidence="Alta"
-                  fields={[["Contexto", "Northwind · equipo plataforma"], ["Conecta con", "Spark · liderazgo"]]}
+                  fields={[["Aprendizaje", "memoria por hilos · checkpoints"], ["Estado", "práctica personal"]]}
                   confirmed
                 />
                 <div>
-                  <LandingNudgeChip delay={3.6} label="Tu memoria no tiene nada de mentoría este año, ¿hubo algo?" />
+                  <LandingNudgeChip delay={4.4} label="Cuando me pases el repo lo analizo y amplío esto." />
                 </div>
               </>
             )}
@@ -126,14 +118,16 @@ export function MaintainByChat() {
                   ]}
                 />
                 <AgentMsg delay={2.6}>
-                  Guardado. He conectado Spark con tu etapa en Northwind y la charla de PyConES.
-                  ¿Seguimos con lo de freelance o lo dejamos para otro día?
+                  Guardado. Me llama la atención tu etapa en Lumen Health: años de APIs
+                  clínicas no es poca cosa. Cuéntame, ¿qué fue lo más difícil de trabajar en
+                  salud, y de qué estás más orgulloso de esa época?
                 </AgentMsg>
               </>
             )}
             {beat === "discovery" && (
               <>
-                <AgentMsg delay={0.1}>
+                <UserMsg delay={0.1}>Tengo 10 minutos. Pregúntame algo que le falte a mi memoria.</UserMsg>
+                <AgentMsg delay={0.8}>
                   Tu memoria dice que migraste 40 pipelines y que mentorizas a 4 personas — pero
                   no cuenta CÓMO decides qué migrar primero. Eso es criterio técnico que un CV
                   nunca recoge. ¿Me lo cuentas?
@@ -151,10 +145,10 @@ export function MaintainByChat() {
                 />
                 <AgentMsg delay={3.0}>
                   Esto conecta tu lado de datos con liderazgo técnico — justo lo que tu memoria
-                  tenía flojo. ¿Lo reflejamos también como logro con una métrica?
+                  tenía más flojo. ¿Hay alguna historia de esa época que te guste contar?
                 </AgentMsg>
                 <div>
-                  <LandingNudgeChip delay={3.8} label="Añadir logro: -38% coste de cómputo" />
+                  <LandingNudgeChip delay={3.8} label="Si te animas, me cuentas la del -38% de coste y la guardo con números." />
                 </div>
               </>
             )}
