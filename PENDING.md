@@ -24,9 +24,10 @@ desglosado. Todo eso EXISTE. Lo único de aquella lista aún cierto:
 
 ## 🔜 Siguiente pase del plan de transformación (P3 restante + P5)
 
-- **P3.C** — rutear `github_sync` por el motor de coherencia (hoy escribe
-  repos directos: sin ESCO/edges/embeddings) + deep-extract LLM por repo;
-  card `propose_linkedin_csv_import` (promover `linkedin_csv_deep.py`).
+- **P3.C restante** — card `propose_linkedin_csv_import` (par BE tool + FE
+  upload card, promover `linkedin_csv_deep.py`) y deep-extract LLM por repo
+  (README→highlights). El ruteo de `github_sync` por coherencia YA está
+  hecho (8f0e42b+).
 - **P3.E** — endpoint agregado `review-queue` + sheet FE + badge Home;
   métrica `cvs_ingestion_to_queryable_seconds` (SLO p95 ≤ 60s).
 - **P5** — verificación S3 runtime, `min_machines_running=2`, Playwright

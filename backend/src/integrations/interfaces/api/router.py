@@ -167,6 +167,7 @@ async def github_sync(user_id: CurrentUserId, session: SessionDep) -> dict[str, 
         SqlAlchemySkillRepository(session),
         SqlAlchemyInterestRepository(session),
         SqlAlchemyExperienceRepository(session),
+        session=session,
     )
     async with unit_of_work(session) as uow:
         result = await uc.execute(user_id=user_id, uow=uow)

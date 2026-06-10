@@ -95,6 +95,7 @@ async def run_github_sync_task(ctx: dict[str, Any], user_id: str) -> dict[str, A
                 SqlAlchemySkillRepository(session),
                 SqlAlchemyInterestRepository(session),
                 SqlAlchemyExperienceRepository(session),
+                session=session,
             )
             async with unit_of_work(session) as uow:
                 result = await uc.execute(user_id=user_id, uow=uow)

@@ -422,6 +422,7 @@ async def _h_sync_github(*, session, user_id, client_id, args):
         SqlAlchemySkillRepository(session),
         SqlAlchemyInterestRepository(session),
         SqlAlchemyExperienceRepository(session),
+        session=session,
     )
     uow = _new_uow(session)
     return await uc.execute(user_id=str(user_id), uow=uow)
