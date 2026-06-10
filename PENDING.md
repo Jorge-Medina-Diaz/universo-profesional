@@ -22,6 +22,18 @@ desglosado. Todo eso EXISTE. Lo único de aquella lista aún cierto:
 | **Alertas de cuota MCP** | Sin aviso al acercarse al límite de invocaciones |
 | **S3 runtime** | Adaptador completo pero sin verificar contra un bucket real (fase 5 del plan) |
 
+## 🔜 Siguiente pase del plan de transformación (P3 restante + P5)
+
+- **P3.C** — rutear `github_sync` por el motor de coherencia (hoy escribe
+  repos directos: sin ESCO/edges/embeddings) + deep-extract LLM por repo;
+  card `propose_linkedin_csv_import` (promover `linkedin_csv_deep.py`).
+- **P3.E** — endpoint agregado `review-queue` + sheet FE + badge Home;
+  métrica `cvs_ingestion_to_queryable_seconds` (SLO p95 ≤ 60s).
+- **P5** — verificación S3 runtime, `min_machines_running=2`, Playwright
+  golden path nocturno, métricas de negocio (onboarding/captura/nudges).
+- Pulir: chip de estado ante RUN_ERROR (gate isLoading), ruta `/goals`
+  (añadir al Router o retirar), suggestions nativas de CopilotKit.
+
 ## 🔶 Deuda heredada del pase de auditoría (deferred-by-design)
 
 - **R4 slices 2-4** — proyección snapshot/AGE por outbox + rebuild-from-SQL.
