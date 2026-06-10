@@ -44,6 +44,8 @@ const LinkedInCallbackPage = lazyPage(
 );
 const ActivityPage = lazyPage(() => import("@/pages/ActivityPage"), "ActivityPage");
 const SharePage = lazyPage(() => import("@/pages/SharePage"), "SharePage");
+const PublicTwinPage = lazyPage(() => import("@/pages/PublicTwinPage"), "PublicTwinPage");
+const TwinSettingsPage = lazyPage(() => import("@/pages/TwinSettingsPage"), "TwinSettingsPage");
 const CareerPreferencesPage = lazyPage(
   () => import("@/pages/CareerPreferencesPage"),
   "CareerPreferencesPage",
@@ -115,6 +117,7 @@ export function Router() {
     path === "/onboarding/chat" ||
     path.startsWith("/legal/") ||
     path.startsWith("/share/") ||
+    path.startsWith("/t/") ||
     path.startsWith("/auth/");
 
   // Assume "has data" until the query actually SUCCEEDS, so neither a loading
@@ -182,6 +185,10 @@ function resolveRoute(path: string, query: URLSearchParams, isAuthed: boolean) {
     const token = path.slice("/share/".length);
     return <SharePage token={token} />;
   }
+  if (path.startsWith("/t/")) {
+    const slug = path.slice("/t/".length);
+    return <PublicTwinPage slug={slug} embed={query.get("embed") === "1"} />;
+  }
   if (path.startsWith("/legal/")) {
     return <LegalPage doc={path.slice("/legal/".length)} />;
   }
@@ -213,6 +220,7 @@ function resolveRoute(path: string, query: URLSearchParams, isAuthed: boolean) {
     return <InterviewPrepPage jobId={jobId} />;
   }
   if (path === "/reminders") return <RemindersPage />;
+  if (path === "/twin") return <TwinSettingsPage />;
   if (path.startsWith("/documents/")) {
     const docId = path.slice("/documents/".length);
     return <DocumentViewerPage id={docId} />;

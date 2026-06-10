@@ -1,10 +1,13 @@
 # Public Digital Twin — architecture & requirements (design doc)
 
-> Status: **DESIGN ONLY** (approved scope of the 2026-06 transformation plan,
-> phase 4). No public endpoints exist yet; the only groundwork shipped is the
-> `public_profiles` table (migration 0040) so later phases need no schema
-> dance. Implementation is a future cycle, after the GenUI + proactive-loop
-> phases land.
+> Status: **MVP SHIPPED** (2026-06-10) — `backend/src/public_profile/` +
+> migration 0042 + `#/t/{slug}` page + `?embed=1` iframe widget + `/twin`
+> owner panel. Live-verified: tenant isolation (RLS via owner-scoped
+> sessions), disabled/unknown slug → 404, 10/min per-IP + 150/day per-slug
+> budgets, lead capture + owner analytics. Still future: semantic cache,
+> SSR/SEO route, dedicated `cvs_twin` read-only DB role, Pro-tier gate,
+> CAPTCHA, per-entity redaction UI (the `visibility` column already gates
+> per-entity exposure server-side).
 
 ## 1. Product framing
 

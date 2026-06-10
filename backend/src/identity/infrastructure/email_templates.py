@@ -295,6 +295,27 @@ def _finish_setup(locale: str, ctx: dict[str, Any]) -> dict[str, str]:
     return {"subject": subject, "text": text, "body_html": body_html}
 
 
+def _twin_lead(locale: str, ctx: dict[str, Any]) -> dict[str, str]:
+    contact = _safe_get(ctx, "contact", "")
+    message = _safe_get(ctx, "message", "")
+    base = _safe_get(ctx, "frontend_base_url")
+    twin_url = f"{base}/#/twin"
+    if locale == "en":
+        subject = "Your twin got a new contact request"
+        intro = "Someone chatted with your digital twin and left their contact:"
+        cta = "Open twin panel"
+    else:
+        subject = "Tu gemelo digital ha recibido un contacto"
+        intro = "Alguien ha hablado con tu gemelo digital y ha dejado su contacto:"
+        cta = "Abrir panel del twin"
+    text = "\n\n".join([intro, f"{contact}\n{message}", twin_url])
+    body_html = (
+        f"<p>{intro}</p><p><strong>{contact}</strong></p>"
+        f"<p>{message}</p><p><a href=\"{twin_url}\">{cta}</a></p>"
+    )
+    return {"subject": subject, "text": text, "body_html": body_html}
+
+
 _RENDERERS = {
     "welcome": _welcome,
     "finish_setup": _finish_setup,
@@ -302,6 +323,7 @@ _RENDERERS = {
     "subscription_canceled": _subscription_canceled,
     "account_deleted": _account_deleted,
     "reminders_digest": _reminders_digest,
+    "twin_lead": _twin_lead,
 }
 
 

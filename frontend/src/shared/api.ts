@@ -801,6 +801,65 @@ export interface BillingUsage {
   usage: BillingUsageItem[];
 }
 
+export interface TwinCuration {
+  visible_kinds: string[];
+  charter: string;
+  suggested_questions: string[];
+}
+export interface TwinConfig {
+  configured: boolean;
+  enabled: boolean;
+  slug: string | null;
+  curation: TwinCuration;
+  allowed_kinds: string[];
+  stats: {
+    sessions_7d: number;
+    recent_questions: { question: string; at: string }[];
+    leads: { contact: string; message: string | null; at: string }[];
+  };
+}
+export interface PublicTwinProfile {
+  slug: string;
+  display_name: string;
+  headline: string | null;
+  kind_counts: Record<string, number>;
+  suggested_questions: string[];
+  disclosure: string;
+}
+
+export const twin = {
+  get: () => api<TwinConfig>("/api/v1/twin"),
+  update: (body: {
+    enabled?: boolean;
+    slug?: string;
+    curation?: TwinCuration;
+  }) => api<TwinConfig>("/api/v1/twin", { method: "PUT", body: JSON.stringify(body) }),
+  regenerateSlug: () => api<{ slug: string }>("/api/v1/twin/slug", { method: "POST" }),
+};
+
+export const publicTwin = {
+  profile: (slug: string) =>
+    api<PublicTwinProfile>(`/api/v1/public/twin/${slug}`, { authRequired: false }),
+  chat: (
+    slug: string,
+    body: {
+      message: string;
+      history: { role: "user" | "assistant"; content: string }[];
+      session_id?: string | null;
+    },
+  ) =>
+    api<{ answer: string; session_id: string | null; limit_reached?: boolean }>(
+      `/api/v1/public/twin/${slug}/chat`,
+      { method: "POST", body: JSON.stringify(body), authRequired: false },
+    ),
+  lead: (slug: string, body: { contact: string; message?: string }) =>
+    api<{ ok: boolean }>(`/api/v1/public/twin/${slug}/lead`, {
+      method: "POST",
+      body: JSON.stringify(body),
+      authRequired: false,
+    }),
+};
+
 export const billing = {
   plans: () => api<{ plans: Plan[] }>("/api/v1/billing/plans", { authRequired: false }),
   subscription: () => api<SubscriptionDto>("/api/v1/billing/subscription"),

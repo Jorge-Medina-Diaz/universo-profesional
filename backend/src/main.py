@@ -410,6 +410,15 @@ def create_app() -> FastAPI:
     from src.universe.interfaces.api.nudges_router import router as nudges_router
 
     app.include_router(nudges_router, prefix="/api/v1/nudges", tags=["nudges"])
+
+    # Public digital twin (docs/TWIN_DESIGN.md): owner config + public surface
+    from src.public_profile.interfaces.api.owner_router import router as twin_owner_router
+    from src.public_profile.interfaces.api.public_router import router as twin_public_router
+
+    app.include_router(twin_owner_router, prefix="/api/v1/twin", tags=["twin"])
+    app.include_router(
+        twin_public_router, prefix="/api/v1/public/twin", tags=["twin-public"]
+    )
     app.include_router(import_router, prefix="/api/v1/import", tags=["import"])
     app.include_router(documents_router, prefix="/api/v1/documents", tags=["documents"])
     app.include_router(documents_share_router, prefix="/api/v1/share", tags=["share"])

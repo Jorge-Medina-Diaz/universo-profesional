@@ -36,6 +36,7 @@ const NAV_LEFT: NavItem[] = [
 const NAV_RIGHT: NavItem[] = [
   { href: "#/cv/new", label: "Generar CV", match: (p) => p.startsWith("/cv") },
   { href: "#/mcp", label: "MCP", match: (p) => p.startsWith("/mcp") },
+  { href: "#/twin", label: "Twin", match: (p) => p.startsWith("/twin") },
 ];
 
 export function Layout({ title, isAuthed, children }: Props) {
@@ -66,6 +67,11 @@ export function Layout({ title, isAuthed, children }: Props) {
 
   // Public marketing landing owns the whole viewport: it ships its own
   // dark "cosmos" nav + footer, so the light app chrome must step aside.
+  // Public twin surface: zero app chrome (it embeds in third-party portfolios).
+  if (path.startsWith("/t/")) {
+    return <>{children}</>;
+  }
+
   const isLanding = !isAuthed && path === "/";
   if (isLanding) {
     return (

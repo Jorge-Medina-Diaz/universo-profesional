@@ -82,6 +82,9 @@ export const queryKeys = {
     subscription: ["billing", "subscription"] as const,
     usage: ["billing", "usage"] as const,
   },
+  twin: {
+    config: ["twin", "config"] as const,
+  },
   connections: {
     all: ["connections"] as const,
   },
