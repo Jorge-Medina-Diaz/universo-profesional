@@ -21,6 +21,9 @@ export const queryKeys = {
     all: ["reminders"] as const,
     pending: ["reminders", "pending"] as const,
   },
+  nudges: {
+    active: ["nudges", "active"] as const,
+  },
   suggestions: {
     all: ["suggestions"] as const,
     pending: ["suggestions", "pending"] as const,

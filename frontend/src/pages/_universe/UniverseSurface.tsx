@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import { PanelRightOpen, LayoutGrid } from "lucide-react";
 import { useChatState } from "@/chat/state";
+import { nudges, useAuthStore } from "@/shared/api";
 import { graphApi, type GraphSnapshot } from "@/graph/api";
 import { AgentChatMount } from "@/chat/AgentChatMount";
 import { Button, GalaxyIllustration } from "@/ui";
@@ -85,6 +86,7 @@ function AmbientUniverse() {
 
       {/* Floating controls — top right */}
       <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
+        <NudgeBadge />
         <Button
           size="sm"
           variant="outline"
@@ -120,6 +122,39 @@ function AmbientUniverse() {
         <WidgetsSheet open={widgetsSheetOpen} onOpenChange={setWidgetsSheetOpen} />
       </Suspense>
     </div>
+  );
+}
+
+/**
+ * Subtle pill showing how many proactive nudges await — clicking expands the
+ * agent chat, where the chips live above the composer. Plain TanStack query
+ * (no CopilotKit hooks) so it's safe in this always-mounted shell.
+ */
+function NudgeBadge() {
+  const authed = !!useAuthStore((s) => s.accessToken);
+  const setChatExpanded = useChatState((s) => s.setChatExpanded);
+  const nudgesQ = useQuery({
+    queryKey: queryKeys.nudges.active,
+    queryFn: () => nudges.active(),
+    enabled: authed,
+    staleTime: 5 * 60_000,
+  });
+  const count = nudgesQ.data?.nudges.length ?? 0;
+  if (count === 0) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => setChatExpanded(true)}
+      aria-label={`${count} sugerencia${count > 1 ? "s" : ""} pendiente${count > 1 ? "s" : ""} — abrir chat`}
+      className="inline-flex h-9 items-center gap-2 rounded-full border border-hairline bg-canvas/90 px-3.5 text-xs text-stone backdrop-blur transition-colors hover:text-ink"
+    >
+      <span
+        aria-hidden
+        className="h-1.5 w-1.5 rounded-full bg-nova shadow-[0_0_8px_var(--color-nova)]"
+      />
+      <span className="tabular-nums font-medium text-ink">{count}</span>
+      pendiente{count > 1 ? "s" : ""}
+    </button>
   );
 }
 

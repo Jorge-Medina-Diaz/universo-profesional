@@ -420,6 +420,27 @@ export const chat = {
     ),
 };
 
+/** Proactive nudge computed server-side (Phase 3). `payload.chip` is the short
+ *  composer-chip label; `payload.prompt` is the full opening turn injected
+ *  into the chat when the user accepts the nudge. */
+export interface NudgeRow {
+  id: string;
+  kind: string;
+  payload: { prompt: string; chip: string; [key: string]: unknown };
+  created_at: string;
+}
+
+export type NudgeAckAction = "acted" | "dismissed";
+
+export const nudges = {
+  active: () => api<{ nudges: NudgeRow[] }>("/api/v1/nudges/active"),
+  ack: (id: string, action: NudgeAckAction) =>
+    api<void>(`/api/v1/nudges/${id}/ack`, {
+      method: "POST",
+      body: JSON.stringify({ action }),
+    }),
+};
+
 export const universe = {
   summary: () => api<UniverseSummary>("/api/v1/universe/summary"),
   list: (kind: string) => api<Record<string, unknown>[]>(`/api/v1/universe/${kind}`),

@@ -5,10 +5,11 @@
  * latest job, pending reminders, missing integrations, etc.
  */
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { FileText, BellRing, Link2, Sparkles, Compass, Mic } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { FileText, BellRing, Link2, Sparkles, Compass, Mic, X } from "lucide-react";
 import { queryKeys } from "@/shared/queryKeys";
-import { universe, useAuthStore } from "@/shared/api";
+import { universe, nudges, useAuthStore, type NudgeRow, type NudgeAckAction } from "@/shared/api";
+import { toast } from "@/ui";
 import { useChatState } from "./state";
 
 
@@ -25,6 +26,7 @@ interface Props {
 
 export function ComposerSuggestions({ onSelect }: Props) {
   const authed = !!useAuthStore((s) => s.accessToken);
+  const qc = useQueryClient();
   // The currently-focused entity (set when the user taps a graph node →
   // "talk about", or by the agent's set_chat_focus). Drives a contextual chip
   // so the composer is proactive about what the user is looking at.
@@ -44,6 +46,39 @@ export function ComposerSuggestions({ onSelect }: Props) {
     enabled: authed,
     staleTime: 5 * 60_000,
   });
+
+  // Proactive server-computed nudges (Phase 3) — each renders as its own chip
+  // with an explicit dismiss affordance; accepting one seeds its prompt into
+  // the thread via the pendingInjection channel and acks it as 'acted'.
+  const nudgesQ = useQuery({
+    queryKey: queryKeys.nudges.active,
+    queryFn: () => nudges.active(),
+    enabled: authed,
+    staleTime: 5 * 60_000,
+  });
+  const activeNudges = (nudgesQ.data?.nudges ?? []).filter(
+    (n) => typeof n.payload?.chip === "string" && n.payload.chip.trim() !== "",
+  );
+
+  const ackNudge = async (id: string, action: NudgeAckAction) => {
+    try {
+      await nudges.ack(id, action);
+    } catch (e) {
+      toast.error("No se pudo actualizar el aviso", (e as Error).message);
+    } finally {
+      // Refetch regardless — on failure the chip reappears (server truth).
+      void qc.invalidateQueries({ queryKey: queryKeys.nudges.active });
+    }
+  };
+
+  const acceptNudge = (n: NudgeRow) => {
+    const prompt =
+      typeof n.payload?.prompt === "string" && n.payload.prompt.trim()
+        ? n.payload.prompt
+        : n.payload.chip;
+    useChatState.getState().setPendingInjection({ content: prompt });
+    void ackNudge(n.id, "acted");
+  };
 
   const suggestions = useMemo<ComposerSuggestion[]>(() => {
     const list: ComposerSuggestion[] = [];
@@ -117,10 +152,37 @@ export function ComposerSuggestions({ onSelect }: Props) {
     return list.slice(0, 3);
   }, [jobsQ.data, remindersQ.data, focusLabel]);
 
-  if (suggestions.length === 0) return null;
+  if (suggestions.length === 0 && activeNudges.length === 0) return null;
 
   return (
     <div className="composer-suggestions">
+      {activeNudges.map((n) => (
+        // Not a <button> wrapper: the dismiss ✕ lives INSIDE the chip and
+        // nested buttons are invalid HTML — so the chip is a group of two.
+        <div key={n.id} role="group" className="composer-suggestion-chip">
+          <button
+            type="button"
+            onClick={() => acceptNudge(n)}
+            className="inline-flex min-w-0 items-center gap-[5px]"
+          >
+            <span className="composer-suggestion-chip__icon">
+              <Sparkles size={12} />
+            </span>
+            <span className="composer-suggestion-chip__label truncate">
+              {n.payload.chip}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => void ackNudge(n.id, "dismissed")}
+            aria-label="Descartar sugerencia"
+            title="Descartar"
+            className="-mr-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full opacity-50 transition-opacity hover:opacity-100"
+          >
+            <X size={11} />
+          </button>
+        </div>
+      ))}
       {suggestions.map((s) => (
         <button
           key={s.id}
