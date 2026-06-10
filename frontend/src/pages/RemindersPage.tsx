@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Bell, Briefcase, Calendar, Check, RefreshCw, Mail } from "lucide-react";
 import { account, universe, type ReminderRow } from "@/shared/api";
 import { queryKeys } from "@/shared/queryKeys";
+import { AgentPageBridge } from "@/chat/useAgentPageBridge";
 import {
   Badge,
   BellQuietIllustration,
@@ -94,6 +95,62 @@ export function RemindersPage() {
 
   return (
     <Surface width="md" spacing="md">
+      {/* P2.E — the agent can SEE the pending reminders and act in place. */}
+      <AgentPageBridge
+        pageId="reminders"
+        readable={{
+          description:
+            "The reminders page the user is viewing: pending count, the top reminders (id, kind, title, due_at) and whether email digests are enabled. Use `dismiss_reminder` / `toggle_reminder_email` to act in place.",
+          value: {
+            pending: list.length,
+            email_reminders: prefs.data?.email_reminders ?? null,
+            reminders: list.slice(0, 8).map((r) => ({
+              id: r.id,
+              kind: r.kind,
+              title: r.title,
+              due_at: r.due_at,
+            })),
+          },
+        }}
+        actions={[
+          {
+            name: "dismiss_reminder",
+            description:
+              "Dismiss a pending reminder on the page the user is viewing (it stays in the audit trail).",
+            parameters: [{ name: "id", type: "string", required: true }],
+            handler: async (args) => {
+              // Accept both `id` (page contract) and `reminder_id` (the
+              // backend server-tool arg name) so either spelling works.
+              const id = String(args.id ?? args.reminder_id ?? "");
+              const target = list.find((r) => r.id === id);
+              if (!target) return `error: no encuentro el recordatorio '${id}'.`;
+              try {
+                await dismiss.mutateAsync(id);
+                return `ok: recordatorio '${target.title}' descartado.`;
+              } catch (e) {
+                return `error: ${(e as Error).message}`;
+              }
+            },
+          },
+          {
+            name: "toggle_reminder_email",
+            description:
+              "Enable or disable the daily reminder email digest for the user.",
+            parameters: [{ name: "enabled", type: "boolean", required: true }],
+            handler: async (args) => {
+              const enabled = args.enabled === true || args.enabled === "true";
+              try {
+                await toggleEmail.mutateAsync(enabled);
+                return enabled
+                  ? "ok: emails de recordatorios activados."
+                  : "ok: emails de recordatorios desactivados.";
+              } catch (e) {
+                return `error: ${(e as Error).message}`;
+              }
+            },
+          },
+        ]}
+      />
       <PageHeader
         eyebrow="Mantenimiento"
         title="Recordatorios"

@@ -29,6 +29,7 @@ import {
 import { universe, type UniverseSearchHit } from "@/shared/api";
 import { cn } from "@/ui";
 import { queryKeys } from "@/shared/queryKeys";
+import { useChatState } from "@/chat/state";
 
 interface Command {
   id: string;
@@ -250,17 +251,14 @@ export function CommandPalette() {
   };
 
   const runHit = (hit: UniverseSearchHit) => {
+    // Hand the hit to /universe via the page-context channel (P2.C) — the
+    // workspace consumes `focus_entity_id` and focuses that node.
+    useChatState.getState().setPendingPageContext({
+      route: "/universe",
+      context: { focus_entity_id: hit.entity_id, entity_type: hit.entity_type },
+    });
     window.location.hash = `#/universe`;
     setOpen(false);
-    // Persist a hint so UniversePage could scroll-to / highlight in a future iteration.
-    try {
-      sessionStorage.setItem(
-        "cvs-saas-last-search-hit",
-        JSON.stringify({ entity_type: hit.entity_type, entity_id: hit.entity_id }),
-      );
-    } catch {
-      /* ignore */
-    }
   };
 
   const onInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

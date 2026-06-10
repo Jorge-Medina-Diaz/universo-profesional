@@ -23,6 +23,7 @@ import { SidebarContent, type SidebarContentProps } from "./SidebarContent";
 import { AREA_ORDER, areaKey, colorForArea, colorForPillar, labelForArea } from "@/shared/areaColors";
 import { AgentChatMount } from "@/chat/AgentChatMount";
 import { queryKeys } from "@/shared/queryKeys";
+import { usePageContext } from "@/shared/usePageContext";
 import { useDiscoveryStream } from "@/shared/hooks/useDiscoveryStream";
 import { useEscapeKey } from "@/shared/useEscapeKey";
 import { Button, GalaxyIllustration, Skeleton, toast } from "@/ui";
@@ -104,6 +105,19 @@ export function UniverseWorkspace() {
     if (params.search) setView({ search: params.search });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // P2.C — context handed off by `navigate_to('/universe', …)` or the
+  // CommandPalette: focus a node (local graph) and/or seed a search.
+  const pageCtx = usePageContext<{ focus_entity_id?: string; search?: string }>("/universe");
+  useEffect(() => {
+    if (!pageCtx) return;
+    if (typeof pageCtx.focus_entity_id === "string" && pageCtx.focus_entity_id) {
+      setView({ focusEntityId: pageCtx.focus_entity_id, localGraph: true });
+    }
+    if (typeof pageCtx.search === "string" && pageCtx.search) {
+      setView({ search: pageCtx.search });
+    }
+  }, [pageCtx, setView]);
 
   // Persist state to URL hash.
   useEffect(() => {

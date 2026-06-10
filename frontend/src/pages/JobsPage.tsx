@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { jobs, type JobRow, type JobStatus } from "@/shared/api";
 import { usePullToRefresh } from "@/shared/usePullToRefresh";
+import { usePageContext } from "@/shared/usePageContext";
+import { AgentPageBridge } from "@/chat/useAgentPageBridge";
 import {
   Badge,
   Button,
@@ -105,24 +107,28 @@ export function JobsPage() {
     return () => clearTimeout(t);
   }, [focusedJobId]);
 
-  // Agent-initiated autopilot — `propose_autopilot_run` confirms then drops
-  // a job_id in sessionStorage and redirects here. We read it on mount and
-  // open the AutopilotRunner with the right job.
+  // Agent-initiated autopilot — `propose_autopilot_run` confirms, drops the
+  // job_id into the page-context channel (P2.C) and navigates here. Once the
+  // jobs are loaded we open the AutopilotRunner with the right job.
   const jobsData = query.data;
+  const pageCtx = usePageContext<{ job_id?: string; filter?: string }>("/jobs");
+  const launchedAutopilotRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!jobsData) return;
-    try {
-      const raw = sessionStorage.getItem("cvs-saas-autopilot-launch");
-      if (!raw) return;
-      sessionStorage.removeItem("cvs-saas-autopilot-launch");
-      const data = JSON.parse(raw) as { job_id?: string };
-      if (!data.job_id) return;
-      const job = jobsData.find((j) => j.id === data.job_id);
-      if (job) setAutopilotJob(job);
-    } catch {
-      /* ignore */
+    if (!jobsData || !pageCtx?.job_id) return;
+    if (launchedAutopilotRef.current === pageCtx.job_id) return;
+    const job = jobsData.find((j) => j.id === pageCtx.job_id);
+    if (job) {
+      launchedAutopilotRef.current = pageCtx.job_id;
+      setAutopilotJob(job);
     }
-  }, [jobsData]);
+  }, [jobsData, pageCtx]);
+
+  // Agent-settable board filter (P2.E `filter_jobs`) — narrows the kanban /
+  // list by title, company or notes. Always visibly indicated + clearable.
+  const [agentFilter, setAgentFilter] = useState("");
+  useEffect(() => {
+    if (typeof pageCtx?.filter === "string") setAgentFilter(pageCtx.filter);
+  }, [pageCtx]);
   const [draft, setDraft] = useState({
     title: "",
     company_name: "",
@@ -205,8 +211,19 @@ export function JobsPage() {
     qc.invalidateQueries({ queryKey: queryKeys.jobs.all });
   });
 
+  const visibleItems = useMemo(() => {
+    const all = query.data ?? [];
+    const q = agentFilter.trim().toLowerCase();
+    if (!q) return all;
+    return all.filter(
+      (j) =>
+        (j.title ?? "").toLowerCase().includes(q) ||
+        (j.company_name ?? "").toLowerCase().includes(q) ||
+        (j.notes ?? "").toLowerCase().includes(q),
+    );
+  }, [query.data, agentFilter]);
+
   const grouped = useMemo(() => {
-    const items = query.data ?? [];
     const map: Record<JobStatus, JobRow[]> = {
       interested: [],
       applied: [],
@@ -215,14 +232,16 @@ export function JobsPage() {
       rejected: [],
       archived: [],
     };
-    for (const j of items) {
+    for (const j of visibleItems) {
       map[j.status]?.push(j);
     }
     return map;
-  }, [query.data]);
+  }, [visibleItems]);
 
   if (query.isLoading) return <PageSkeleton />;
 
+  // Emptiness is judged on the UNFILTERED list so an agent filter never
+  // flips the board into the first-run empty state.
   const items = query.data ?? [];
   const isEmpty = items.length === 0 && !creating;
 
@@ -309,6 +328,100 @@ export function JobsPage() {
           </>
         }
       />
+
+      {/* P2.E — the agent can SEE the board and act on it in place. */}
+      <AgentPageBridge
+        pageId="jobs"
+        readable={{
+          description:
+            "The jobs kanban board the user is viewing: view mode, active filter, totals and per-column jobs (id, title, company). Use `move_job_stage` to move a job between columns and `filter_jobs` to narrow the board.",
+          value: {
+            view,
+            filter: agentFilter || null,
+            total: items.length,
+            visible: visibleItems.length,
+            columns: COLUMNS.map((c) => ({
+              id: c.id,
+              label: c.label,
+              count: grouped[c.id]?.length ?? 0,
+              jobs: (grouped[c.id] ?? []).slice(0, 8).map((j) => ({
+                id: j.id,
+                title: j.title,
+                company: j.company_name,
+                match_score: j.match_score,
+              })),
+            })),
+          },
+        }}
+        actions={[
+          {
+            name: "move_job_stage",
+            description:
+              "Move a job on the kanban the user is viewing to a new status. `new_status` must be one of: interested, applied, interviewing, offer, rejected, archived.",
+            parameters: [
+              { name: "job_id", type: "string", required: true },
+              { name: "new_status", type: "string", required: true },
+            ],
+            handler: async (args) => {
+              const jobId = String(args.job_id ?? "");
+              const newStatus = String(args.new_status ?? "") as JobStatus;
+              const valid: JobStatus[] = [
+                "interested",
+                "applied",
+                "interviewing",
+                "offer",
+                "rejected",
+                "archived",
+              ];
+              if (!valid.includes(newStatus)) {
+                return `error: estado inválido '${newStatus}'. Válidos: ${valid.join(", ")}.`;
+              }
+              const job = (query.data ?? []).find((j) => j.id === jobId);
+              if (!job) return `error: no encuentro la oferta '${jobId}' en el tablero.`;
+              try {
+                await patch.mutateAsync({ id: jobId, body: { status: newStatus } });
+                return `ok: '${job.title ?? jobId}' movida a ${newStatus}.`;
+              } catch (e) {
+                return `error: ${(e as Error).message}`;
+              }
+            },
+          },
+          {
+            name: "filter_jobs",
+            description:
+              "Filter the visible jobs board by free text (matches title, company and notes). Pass an empty string to clear the filter.",
+            parameters: [{ name: "query", type: "string", required: true }],
+            handler: (args) => {
+              const q = String(args.query ?? "").trim();
+              setAgentFilter(q);
+              if (!q) return "ok: filtro retirado, tablero completo visible.";
+              const matches = (query.data ?? []).filter(
+                (j) =>
+                  (j.title ?? "").toLowerCase().includes(q.toLowerCase()) ||
+                  (j.company_name ?? "").toLowerCase().includes(q.toLowerCase()) ||
+                  (j.notes ?? "").toLowerCase().includes(q.toLowerCase()),
+              ).length;
+              return `ok: filtro '${q}' aplicado — ${matches} oferta(s) visibles.`;
+            },
+          },
+        ]}
+      />
+
+      {/* Agent-applied filter is never silent: visible chip + one-tap clear. */}
+      {agentFilter && (
+        <div className="flex items-center gap-2">
+          <Badge tone="nova" size="sm" dot>
+            Filtro: {agentFilter}
+          </Badge>
+          <button
+            type="button"
+            onClick={() => setAgentFilter("")}
+            className="text-xs text-stone hover:text-ink transition-colors underline-offset-2 hover:underline"
+          >
+            Quitar filtro
+          </button>
+        </div>
+      )}
 
       <AnimatePresence>
         {creating && (
@@ -435,7 +548,7 @@ export function JobsPage() {
 
       {!isEmpty && view === "list" && (
         <Stagger className="flex flex-col gap-3" delayStep={0.03}>
-          {items.map((j) => (
+          {visibleItems.map((j) => (
             <JobListRow
               key={j.id}
               job={j}
@@ -761,19 +874,14 @@ function KanbanCard({
         <button
           type="button"
           onClick={() => {
-            try {
-              sessionStorage.setItem(
-                "cvs-saas-prefill-job",
-                JSON.stringify({
-                  job_url: job.url,
-                  job_description: job.description_raw,
-                  title: job.title,
-                  company_name: job.company_name,
-                }),
-              );
-            } catch {
-              /* ignore */
-            }
+            // Hand the offer to /cv/new via the page-context channel (P2.C).
+            useChatState.getState().setPendingPageContext({
+              route: "/cv/new",
+              context: {
+                job_url: job.url ?? undefined,
+                job_description: job.description_raw || undefined,
+              },
+            });
             window.location.hash = "#/cv/new";
           }}
           className="inline-flex items-center gap-0.5 text-xs text-stone hover:text-ink transition-colors ml-auto"

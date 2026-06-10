@@ -400,11 +400,24 @@ export interface ChatStateResponse {
   message_count: number;
 }
 
+export interface ThreadMessageDto {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string | null;
+}
+
 export const chat = {
   // Long-term conversation memory: the digest of everything older than the
   // sliding window, computed by the session-digest workflow. Injected into
   // the agent context as a readable so long chats stay coherent cheaply.
   state: () => api<ChatStateResponse>("/api/v1/chat/state"),
+  // Scroll-back history for the single per-user AG-UI thread (main-{userId}).
+  // Used by useChatRehydration to repopulate the chat after a reload.
+  threadMessages: (threadId: string, limit = 60) =>
+    api<{ messages: ThreadMessageDto[]; nextCursor: string | null }>(
+      `/agui/threads/${encodeURIComponent(threadId)}/messages?limit=${limit}`,
+    ),
 };
 
 export const universe = {

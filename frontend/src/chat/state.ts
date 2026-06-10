@@ -10,6 +10,7 @@
  *      the chat. Memory-only: refreshing the page clears them.
  */
 import { create } from "zustand";
+import type { AgentStatus } from "./agentState";
 
 export type FocusEntity =
   | "job"
@@ -82,6 +83,22 @@ interface ChatStateStore extends ChatFocus {
   pendingInjection: { content: string } | null;
   setPendingInjection: (payload: { content: string } | null) => void;
 
+  /** Live agent activity (mirrors the AG-UI shared state) so always-mounted
+   *  chrome (FloatingChat's status chip) can show it WITHOUT importing
+   *  CopilotKit. Written by CopilotSurface, null when idle. */
+  agentActivity: { status: AgentStatus; label: string } | null;
+  setAgentActivity: (a: { status: AgentStatus; label: string } | null) => void;
+
+  /** One-shot page context handed off by `navigate_to` (and other writers,
+   *  e.g. CommandPalette / kanban CV button) for the DESTINATION page to
+   *  consume on mount. Replaces the old sessionStorage prefill hacks. */
+  pendingPageContext: { route: string; context: Record<string, unknown>; ts: number } | null;
+  setPendingPageContext: (
+    payload: { route: string; context: Record<string, unknown> } | null,
+  ) => void;
+  /** Return-and-clear the pending context — only when `route` matches. */
+  consumePageContext: (route: string) => Record<string, unknown> | null;
+
   widgets: ChatWidget[];
   addWidget: (
     w: Omit<ChatWidget, "id" | "createdAt"> & { id?: string },
@@ -108,7 +125,7 @@ function widgetMatchesExisting(a: ChatWidget, b: ChatWidget): boolean {
   return a.title === b.title;
 }
 
-export const useChatState = create<ChatStateStore>((set) => ({
+export const useChatState = create<ChatStateStore>((set, get) => ({
   ...initialFocus,
   activeSessionId: null,
   setActiveSessionId: (id) => set({ activeSessionId: id }),
@@ -116,6 +133,21 @@ export const useChatState = create<ChatStateStore>((set) => ({
   setChatExpanded: (v) => set({ chatExpanded: v }),
   pendingInjection: null,
   setPendingInjection: (payload) => set({ pendingInjection: payload }),
+  agentActivity: null,
+  setAgentActivity: (a) => set({ agentActivity: a }),
+  pendingPageContext: null,
+  setPendingPageContext: (payload) =>
+    set({
+      pendingPageContext: payload
+        ? { route: payload.route, context: payload.context, ts: Date.now() }
+        : null,
+    }),
+  consumePageContext: (route) => {
+    const pending = get().pendingPageContext;
+    if (!pending || pending.route !== route) return null;
+    set({ pendingPageContext: null });
+    return pending.context;
+  },
   widgets: [],
 
   setFocus: (focus) =>

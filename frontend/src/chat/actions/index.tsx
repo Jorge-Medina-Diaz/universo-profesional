@@ -22,6 +22,8 @@ import { useWidgetActions } from "./widgetActions";
 import { useImportActions } from "./importActions";
 import { useGenericActions } from "./genericActions";
 import { useInsightActions } from "./insightActions";
+import { useNavigationActions } from "./navigationActions";
+import { useFormActions } from "./formActions";
 import type { SavingState, UpsertResponse } from "./types";
 
 export type { CopilotActionParams, CopilotActionParam, CopilotParamType } from "./types";
@@ -47,6 +49,8 @@ export function UniverseActions() {
   useImportActions(saving, setSaving, setLastOutcome, qc);
   useGenericActions(saving, setSaving, setLastOutcome, qc);
   useInsightActions();
+  useNavigationActions();
+  useFormActions();
 
   // Wildcard safety net: ANY backend tool without an explicit renderer above
   // gets a subtle chip so it's never dead-silent (exact-name actions take

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
@@ -6,6 +6,8 @@ import { FileDown, Sparkles, ChevronDown, Wand2 } from "lucide-react";
 import { documents, jobs } from "@/shared/api";
 import type { JsonResume } from "@/shared/hooks/useJsonResume";
 import { AgenticCTA } from "@/chat/AgenticCTA";
+import { AgentPageBridge } from "@/chat/useAgentPageBridge";
+import { usePageContext } from "@/shared/usePageContext";
 import {
   Badge,
   Button,
@@ -23,55 +25,77 @@ import {
   type ProgressStep,
 } from "@/ui";
 
+/** Context handed off by `navigate_to('/cv/new', …)`, the kanban "CV" button
+ *  and chat proposals — replaces the old sessionStorage prefill keys. */
+interface CvPageContext {
+  job_description?: string;
+  job_url?: string;
+  kind?: string;
+  template?: string;
+  tone?: string;
+  language?: string;
+  regenerate_document_id?: string;
+}
+
 export function GenerateCvPage() {
   const { t } = useTranslation();
-  const [jobDesc, setJobDesc] = useState(_DEMO_JD);
-  const [jobUrl, setJobUrl] = useState("");
-  const [template, setTemplate] = useState("ats-classic");
-  const [language, setLanguage] = useState<"es" | "en">("es");
-  const [tone, setTone] = useState("professional");
-  const [kind, setKind] = useState<"cv" | "cover_letter">("cv");
+  // One-shot page context (P2.C) — available on the very first render so the
+  // useState initializers below can seed directly from it.
+  const ctx = usePageContext<CvPageContext>("/cv/new");
+  const [jobDesc, setJobDesc] = useState(ctx?.job_description ?? _DEMO_JD);
+  const [jobUrl, setJobUrl] = useState(ctx?.job_url ?? "");
+  const [template, setTemplate] = useState(
+    ctx?.template && TEMPLATES.some((tpl) => tpl.id === ctx.template)
+      ? ctx.template
+      : "ats-classic",
+  );
+  const [language, setLanguage] = useState<"es" | "en">(
+    ctx?.language === "en" ? "en" : "es",
+  );
+  const [tone, setTone] = useState(ctx?.tone ?? "professional");
+  const [kind, setKind] = useState<"cv" | "cover_letter">(
+    ctx?.kind === "cover_letter" ? "cover_letter" : "cv",
+  );
   const [showJson, setShowJson] = useState(false);
   const [resultKind, setResultKind] = useState<"cv" | "cover_letter">("cv");
 
-  // Prefill from JobsPage / chat-driven cover-letter proposal +
-  // chat-driven `propose_cv_regenerate` (template / language / tone overrides).
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem("cvs-saas-prefill-job");
-      if (raw) {
-        sessionStorage.removeItem("cvs-saas-prefill-job");
-        const data = JSON.parse(raw) as {
-          job_url?: string;
-          job_description?: string;
-        };
-        if (data.job_url) setJobUrl(data.job_url);
-        if (data.job_description) setJobDesc(data.job_description);
-      }
-      const kindHint = sessionStorage.getItem("cvs-saas-prefill-kind");
-      if (kindHint === "cv" || kindHint === "cover_letter") {
-        sessionStorage.removeItem("cvs-saas-prefill-kind");
-        setKind(kindHint);
-      }
-      // `propose_cv_regenerate` drops template/language/tone overrides here.
-      const regenRaw = sessionStorage.getItem("cvs-saas-cv-regenerate");
-      if (regenRaw) {
-        sessionStorage.removeItem("cvs-saas-cv-regenerate");
-        const regen = JSON.parse(regenRaw) as {
-          template?: string;
-          language?: string;
-          tone?: string;
-        };
-        if (regen.template) setTemplate(regen.template);
-        if (regen.language === "es" || regen.language === "en") {
-          setLanguage(regen.language);
-        }
-        if (regen.tone) setTone(regen.tone);
-      }
-    } catch {
-      /* ignore */
+  /** Patch the form from a context payload / agent `set_cv_params` call.
+   *  Returns the list of fields actually applied (validated). */
+  const applyParams = useCallback((p: CvPageContext): string[] => {
+    const applied: string[] = [];
+    if (typeof p.job_description === "string" && p.job_description.trim()) {
+      setJobDesc(p.job_description);
+      applied.push("job_description");
     }
+    if (typeof p.job_url === "string") {
+      setJobUrl(p.job_url);
+      applied.push("job_url");
+    }
+    if (p.template && TEMPLATES.some((tpl) => tpl.id === p.template)) {
+      setTemplate(p.template);
+      applied.push("template");
+    }
+    if (p.language === "es" || p.language === "en") {
+      setLanguage(p.language);
+      applied.push("language");
+    }
+    if (p.tone === "professional" || p.tone === "conversational") {
+      setTone(p.tone);
+      applied.push("tone");
+    }
+    if (p.kind === "cv" || p.kind === "cover_letter") {
+      setKind(p.kind);
+      applied.push("kind");
+    }
+    return applied;
   }, []);
+
+  // Late-arriving context: the agent can navigate_to('/cv/new', …) while the
+  // user is ALREADY here (no remount) — apply it reactively. The mount-time
+  // application is an idempotent re-set of the initializer values.
+  useEffect(() => {
+    if (ctx) applyParams(ctx);
+  }, [ctx, applyParams]);
 
   // R12 — on-demand ATS readiness: reuses the jobs match-scoring endpoint
   // (keyword coverage vs the JD + gaps). Declared before `gen` so a new
@@ -101,6 +125,46 @@ export function GenerateCvPage() {
 
   return (
     <Surface width="xl" spacing="md">
+      {/* P2.E — the agent can SEE the form state and PATCH it in place. */}
+      <AgentPageBridge
+        pageId="cv-generator"
+        readable={{
+          description:
+            "Current state of the CV / cover-letter generator form the user is viewing: kind, template, tone, language, whether a job URL/description is loaded, and generation status. Use `set_cv_params` to patch it in place.",
+          value: {
+            kind,
+            template,
+            tone,
+            language,
+            job_url: jobUrl || null,
+            job_description_chars: jobDesc.length,
+            generating: gen.isPending,
+            has_result: !!gen.data,
+            regenerate_document_id: ctx?.regenerate_document_id ?? null,
+          },
+        }}
+        actions={[
+          {
+            name: "set_cv_params",
+            description:
+              "Patch the document generator form on the page the user is viewing. Pass only the fields to change: job_description, job_url, template ('ats-classic'|'modern'|'minimal'), tone ('professional'|'conversational'), language ('es'|'en'), kind ('cv'|'cover_letter').",
+            parameters: [
+              { name: "job_description", type: "string" },
+              { name: "job_url", type: "string" },
+              { name: "template", type: "string" },
+              { name: "tone", type: "string" },
+              { name: "language", type: "string" },
+              { name: "kind", type: "string" },
+            ],
+            handler: (args) => {
+              const applied = applyParams(args as CvPageContext);
+              return applied.length > 0
+                ? `ok: formulario actualizado (${applied.join(", ")}).`
+                : "error: ningún campo válido que aplicar — revisa los valores de template/tone/language/kind.";
+            },
+          },
+        ]}
+      />
       <PageHeader
         eyebrow="Generación"
         title={kind === "cover_letter" ? "Carta de presentación" : t("cv.generate")}

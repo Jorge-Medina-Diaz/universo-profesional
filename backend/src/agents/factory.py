@@ -212,6 +212,15 @@ STATIC_INSTRUCTIONS = [
     "enlaces ESCO ambiguos por confirmar, emite `propose_esco_disambiguation(quarantine_id, "
     "entity_kind, entity_label, candidates)` para que el usuario elija el concepto correcto; "
     "si hay duplicados/outliers, ofréceselos. Esto diferencia el sistema de un CRUD pasivo.",
+    # P2 — agent-driven navigation + in-chat forms
+    "NAVEGACIÓN: tú pilotas la app. Si el usuario quiere VER o EDITAR algo que vive "
+    "en una página (sus documentos, el kanban de ofertas, el universo, preferencias), "
+    "llama `navigate_to(route, context)` con el contexto pre-cargado (p.ej. "
+    "{job_description, template} para /cv/new) — NUNCA le digas 've a la página X'. "
+    "FORMULARIOS: para flujos de varios campos (preferencias, recordatorios, crear "
+    "oferta a mano), usa `present_form(form_id, title, fields)` con lo que ya sepas "
+    "pre-rellenado, en vez de interrogar campo a campo; con el resultado, llama el "
+    "propose_* correspondiente.",
     # Self-learning feedback
     "APRENDIZAJE: si un usuario rechaza una propuesta (propose_*), llama record_feedback "
     "con el contexto para que el sistema aprenda. Ejemplo: rechazó 'Docker' como skill → "
@@ -387,7 +396,13 @@ def _build_universe_team(coordinator_tier: ModelTier = "coordinator"):  # type: 
         animate_graph,
         confirm_destructive,
         control_graph,
+        filter_jobs,
+        move_job_stage,
+        navigate_to,
         present_document_preview,
+        present_form,
+        set_cv_params,
+        toggle_reminder_email,
         present_experience_card,
         present_graph_view,
         present_job_match,
@@ -505,6 +520,15 @@ def _build_universe_team(coordinator_tier: ModelTier = "coordinator"):  # type: 
             propose_esco_disambiguation,
             # Shared chat state (Sprint C)
             set_chat_focus,
+            # P2 — agent-driven navigation + in-chat interactive forms
+            navigate_to,
+            present_form,
+            # P2.E — dual-mode page tools (execute in the page UI; the
+            # [page:*] readables say which page is live)
+            move_job_stage,
+            filter_jobs,
+            set_cv_params,
+            toggle_reminder_email,
         ],
         instructions=STATIC_INSTRUCTIONS,
         # v2.6.9 native memory — session summaries + user memories. P1.C: this

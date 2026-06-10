@@ -8,10 +8,9 @@
  * floating panel's focus handlers), and failures render in-thread via
  * `ErrorMessage`.
  *
- * NOTE: scroll-back rehydration was removed — seeding `setMessages` with a plain
- * `{id,role,content}` shape corrupts CopilotKit 1.57's message list (user bubbles
- * stop rendering). Restoring history needs proper AG-UI Message construction; the
- * agno backend still keeps session memory so the agent stays context-aware.
+ * Scroll-back rehydration is BACK (P2.B): useChatRehydration seeds the thread
+ * with proper `TextMessage` instances (the documented-safe construction — the
+ * old plain `{id,role,content}` literals corrupted CopilotKit 1.57's list).
  */
 import { useEffect } from "react";
 import { CopilotChat } from "@copilotkit/react-ui";
@@ -19,7 +18,7 @@ import { CopilotChat } from "@copilotkit/react-ui";
 // separate stylesheet that gets hoisted into index.html. The styles are only
 // injected when this lazy chunk actually loads (~29 KB, gzipped ~6 KB).
 import copilotkitCss from "@copilotkit/react-ui/styles.css?inline";
-import { useCopilotChat, useCoAgentStateRender } from "@copilotkit/react-core";
+import { useCopilotChat, useCoAgent, useCoAgentStateRender } from "@copilotkit/react-core";
 import { toast } from "@/ui";
 import { AgentMessage, PersonMessage, Composer, ErrorMessage } from "@/chat/ChatUI";
 import { UniverseActions } from "@/chat/actions";
@@ -29,6 +28,13 @@ import { RemindersBanner } from "@/chat/RemindersBanner";
 import { appendUserMessage } from "@/chat/appendMessage";
 import { ThinkingSteps } from "@/chat/ThinkingSteps";
 import { useChatState } from "@/chat/state";
+import {
+  AGENT_NAME,
+  agentStatusLabel,
+  thinkingStepsFromState,
+  type AgentSharedState,
+} from "@/chat/agentState";
+import { useChatRehydration } from "@/chat/useChatRehydration";
 
 interface Props {
   instructions: string;
@@ -50,27 +56,33 @@ export function CopilotSurface({ instructions, title, initial }: Props) {
     };
   }, []);
 
-  // Real-time agent state rendering ( predictive state updates from the backend ).
-  // Falls back to heuristic steps in AgentMessage when the backend does not emit
-  // explicit agent-state messages.
-  useCoAgentStateRender({
-    name: "universe_coordinator",
-    render: ({ status, state, nodeName }) => {
-      const steps = [] as Array<{ id: string; label: string; status: "pending" | "active" | "done" }>;
-      const s = state as Record<string, unknown> | undefined;
-      if (s?.step) {
-        steps.push({ id: "agent-step", label: String(s.step), status: status === "inProgress" ? "active" : "done" });
-      } else if (nodeName) {
-        const labelMap: Record<string, string> = {
-          analyze: "Analizando tu perfil…",
-          search: "Buscando experiencias relevantes…",
-          score: "Calculando match score…",
-          review: "Revisando recordatorios…",
-          sync: "Sincronizando datos…",
-          draft: "Redactando respuesta…",
-        };
-        steps.push({ id: nodeName, label: labelMap[nodeName] || nodeName, status: status === "inProgress" ? "active" : "done" });
-      }
+  // P2.B — REAL shared state from the backend (STATE_SNAPSHOT + STATE_DELTAs,
+  // see backend state_emitter.py). Replaces the old nodeName heuristics.
+  const { state: agentState } = useCoAgent<AgentSharedState>({ name: AGENT_NAME });
+
+  // Publish the humanized status into the Zustand store so always-mounted
+  // chrome (FloatingChat's collapsed-dock chip) can show it WITHOUT importing
+  // the heavy CopilotKit bundle. Cleared on unmount so no stale chip lingers.
+  const setAgentActivity = useChatState((s) => s.setAgentActivity);
+  useEffect(() => {
+    const label = agentStatusLabel(agentState);
+    setAgentActivity(
+      label && agentState?.agent_status
+        ? { status: agentState.agent_status, label }
+        : null,
+    );
+  }, [agentState, setAgentActivity]);
+  useEffect(() => () => setAgentActivity(null), [setAgentActivity]);
+
+  // Scroll-back rehydration (P2.B) — fills an empty thread from
+  // GET /agui/threads/main-{userId}/messages after a reload.
+  useChatRehydration();
+
+  // In-thread progress pipeline driven by the same shared state.
+  useCoAgentStateRender<AgentSharedState>({
+    name: AGENT_NAME,
+    render: ({ status, state }) => {
+      const steps = thinkingStepsFromState(state, status === "inProgress");
       if (steps.length === 0) return null;
       return <ThinkingSteps steps={steps} />;
     },

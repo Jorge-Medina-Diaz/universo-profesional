@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { jobs, type JobStatus } from "@/shared/api";
 import { queryKeys } from "@/shared/queryKeys";
 import { toast } from "@/ui";
+import { useChatState } from "../state";
 import { ConfirmCard } from "../cards/ConfirmCard";
 
 import { JobMatchCard } from "../cards/JobMatchCard";
@@ -188,19 +189,17 @@ export function useJobActions(
         }}
         confirmLabel="Empezar"
         onConfirm={() => {
-          try {
-            sessionStorage.setItem(
-              "cvs-saas-autopilot-launch",
-              JSON.stringify({
-                job_id: args.job_id,
-                template: args.suggested_template,
-                language: args.suggested_language,
-                tone: args.suggested_tone,
-              }),
-            );
-          } catch {
-            /* ignore */
-          }
+          // Hand the launch to /jobs via the page-context channel (P2.C) —
+          // JobsPage opens the AutopilotRunner for this job once loaded.
+          useChatState.getState().setPendingPageContext({
+            route: "/jobs",
+            context: {
+              job_id: args.job_id,
+              template: args.suggested_template,
+              language: args.suggested_language,
+              tone: args.suggested_tone,
+            },
+          });
           window.location.hash = "#/jobs";
           respond?.(JSON.stringify({ ok: true, launched: true }));
         }}

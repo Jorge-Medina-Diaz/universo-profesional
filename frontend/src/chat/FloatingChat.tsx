@@ -21,6 +21,9 @@ export interface FloatingChatProps {
 export function FloatingChat({ children, onExpandedChange }: FloatingChatProps) {
   const expanded = useChatState((s) => s.chatExpanded);
   const setExpanded = useChatState((s) => s.setChatExpanded);
+  // Live agent status (written by CopilotSurface from the AG-UI shared state).
+  // Null when idle — the chip disappears entirely.
+  const agentActivity = useChatState((s) => s.agentActivity);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const set = (v: boolean) => {
@@ -58,9 +61,35 @@ export function FloatingChat({ children, onExpandedChange }: FloatingChatProps) 
           !expanded && "chat-collapsed",
         )}
       >
+        {/* Collapsed-dock status chip — the agent is visibly "alive" even with
+            the panel folded. Reuses the thinking-dots pulse styling. */}
+        {!expanded && agentActivity && (
+          <div
+            aria-live="polite"
+            className="pointer-events-none absolute top-2 right-3 z-10 flex max-w-[60%] items-center gap-1.5 rounded-full border border-hairline bg-surface/90 px-2.5 py-1 text-[11px] text-stone backdrop-blur-sm"
+          >
+            <span className="thinking-dots shrink-0">
+              <i /> <i /> <i />
+            </span>
+            <span className="truncate">{agentActivity.label}</span>
+          </div>
+        )}
         {expanded && (
           <div className="flex items-center justify-between px-4 py-2 hairline-b shrink-0">
-            <span className="eyebrow">Tu universo · chat</span>
+            <span className="flex min-w-0 items-center gap-3">
+              <span className="eyebrow shrink-0">Tu universo · chat</span>
+              {agentActivity && (
+                <span
+                  aria-live="polite"
+                  className="flex min-w-0 items-center gap-1.5 text-[11px] text-stone"
+                >
+                  <span className="thinking-dots shrink-0">
+                    <i /> <i /> <i />
+                  </span>
+                  <span className="truncate">{agentActivity.label}</span>
+                </span>
+              )}
+            </span>
             <button
               type="button"
               aria-label="Minimizar chat"

@@ -712,9 +712,14 @@ async def _event_stream(
     started = _time.monotonic()
     status = "completed"
     try:
+        from src.agents.interfaces.state_emitter import emit_agent_state
+
         async for frame in _clean_event_stream(
-            _run_team_with_attachments(
-                team, run_input, timer=timer, intent_state=intent_state
+            emit_agent_state(
+                _run_team_with_attachments(
+                    team, run_input, timer=timer, intent_state=intent_state
+                ),
+                intent_state,
             ),
             encoder,
             flag_empty_run=flag_empty_run,

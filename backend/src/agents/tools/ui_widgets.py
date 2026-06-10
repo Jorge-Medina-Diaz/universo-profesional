@@ -820,6 +820,97 @@ _HITL_TOOLS: list[dict[str, Any]] = [
             {"name": "rationale", "type": "str | None", "default": None},
         ],
     },
+    {
+        "name": "navigate_to",
+        "description": (
+            "Navigate the app to a page for the user (P2: agent-driven "
+            "navigation). `route` MUST be one of: '/', '/universe', '/jobs', "
+            "'/documents', '/cv/new', '/notes', '/activity', '/reminders', "
+            "'/connections', '/preferences', '/settings'. `context` "
+            "is an optional dict the destination page consumes to pre-fill or "
+            "focus itself (e.g. {job_description: '...', template: 'modern'} "
+            "for /cv/new, or {focus_entity_id: '...'} for /universe). Use it "
+            "INSTEAD of telling the user to go somewhere: when they ask to see "
+            "or edit something that lives on a page, take them there. State "
+            "`reason` in one short clause. Resolves immediately, no card."
+        ),
+        "params": [
+            {"name": "route", "type": "str"},
+            {"name": "context", "type": "dict[str, Any] | None", "default": None},
+            {"name": "reason", "type": "str | None", "default": None},
+        ],
+    },
+    {
+        "name": "present_form",
+        "description": (
+            "Render an interactive form card IN the chat and wait for the "
+            "user's values (P2: agent-piloted forms — use this instead of "
+            "asking field-by-field or sending the user to a settings page). "
+            "`form_id` identifies the flow (e.g. 'career_preferences', "
+            "'reminder', 'job_create', 'cv_generate', 'notification_prefs'). "
+            "`fields` is a list of {id, label, kind, options?, value?, "
+            "placeholder?} where kind is one of: text | textarea | select | "
+            "multiselect | date | number | toggle. Pre-fill `value` with "
+            "everything you already know. The tool result is a JSON dict "
+            "{field_id: value} (or 'cancelled') — follow up with the matching "
+            "propose_* / action using those values."
+        ),
+        "params": [
+            {"name": "form_id", "type": "str"},
+            {"name": "title", "type": "str"},
+            {"name": "fields", "type": "list[dict[str, Any]]"},
+            {"name": "submit_label", "type": "str | None", "default": None},
+            {"name": "intro", "type": "str | None", "default": None},
+        ],
+    },
+    {
+        "name": "move_job_stage",
+        "description": (
+            "Move a job card on the /jobs kanban to a new stage for the user. "
+            "ONLY when the user is on /jobs (the [page:jobs] readable is "
+            "present) — otherwise navigate_to('/jobs') first. `new_status` is "
+            "one of: interested | applied | interviewing | offer | rejected | "
+            "archived. Executes immediately on the board (no card)."
+        ),
+        "params": [
+            {"name": "job_id", "type": "str"},
+            {"name": "new_status", "type": "str"},
+        ],
+    },
+    {
+        "name": "filter_jobs",
+        "description": (
+            "Filter the /jobs board by free text (title/company/notes match). "
+            "ONLY when the user is on /jobs. Empty query clears the filter. "
+            "The user sees a removable filter chip."
+        ),
+        "params": [{"name": "query", "type": "str"}],
+    },
+    {
+        "name": "set_cv_params",
+        "description": (
+            "Patch the CV generator form on /cv/new for the user (any subset "
+            "of: job_description, kind, template, tone, language). ONLY when "
+            "the user is on /cv/new (the [page:cv-generator] readable is "
+            "present) — otherwise navigate_to('/cv/new', context) instead."
+        ),
+        "params": [
+            {"name": "job_description", "type": "str | None", "default": None},
+            {"name": "kind", "type": "str | None", "default": None},
+            {"name": "template", "type": "str | None", "default": None},
+            {"name": "tone", "type": "str | None", "default": None},
+            {"name": "language", "type": "str | None", "default": None},
+        ],
+    },
+    {
+        "name": "toggle_reminder_email",
+        "description": (
+            "Enable/disable the user's reminder e-mails from the /reminders "
+            "page. ONLY when the user is on /reminders (the [page:reminders] "
+            "readable is present)."
+        ),
+        "params": [{"name": "enabled", "type": "bool"}],
+    },
 ]
 
 for _spec in _HITL_TOOLS:

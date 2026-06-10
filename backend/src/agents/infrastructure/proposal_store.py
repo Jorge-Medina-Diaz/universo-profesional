@@ -15,7 +15,10 @@ from typing import Any
 
 from src.shared.redis import get_redis
 
-_PROPOSAL_TTL_SECONDS = 300  # 5 minutes
+# P2: 24h — a card left open while the user thinks it over must not 404
+# on confirm (the old 5-minute TTL did exactly that). Resolution deletes
+# the key, so the window only bounds ABANDONED proposals.
+_PROPOSAL_TTL_SECONDS = 24 * 3600
 
 
 def _key(user_id: str, proposal_id: str) -> str:
