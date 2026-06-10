@@ -351,9 +351,15 @@ const en: typeof es = {
 
 let registered = false;
 
-/** Idempotent: call from the landing entry; bundles ship with this chunk. */
+/** Idempotent. MUST run after i18n.init() (addResourceBundle only exists
+ *  post-init) — call it from the component body, never at module scope:
+ *  the landing chunk can be evaluated before app/i18n.ts initializes. */
 export function registerLandingI18n() {
   if (registered) return;
+  if (typeof i18n.addResourceBundle !== "function") {
+    i18n.on("initialized", () => registerLandingI18n());
+    return;
+  }
   i18n.addResourceBundle("es", "landing", es, true, true);
   i18n.addResourceBundle("en", "landing", en, true, true);
   registered = true;

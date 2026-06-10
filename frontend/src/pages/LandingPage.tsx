@@ -13,8 +13,6 @@ import { McpNative } from "@/landing/sections/McpNative";
 import { Trust } from "@/landing/sections/Trust";
 import { TwinLive } from "@/landing/sections/TwinLive";
 
-registerLandingI18n();
-
 /**
  * The landing — one claim, three proofs, one ask (see plan: landing redesign).
  *
@@ -25,6 +23,7 @@ registerLandingI18n();
  * nova appears only where the agent acts.
  */
 export function LandingPage() {
+  registerLandingI18n();
   const { t } = useTranslation("landing");
 
   return (
