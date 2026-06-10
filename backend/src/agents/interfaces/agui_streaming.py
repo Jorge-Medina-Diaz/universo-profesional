@@ -40,6 +40,7 @@ from src.agents.interfaces.agui_core import (
     _acquire_stream_slot,
     _background_tasks,
     _extract_user_id_from_jwt,
+    _conversation_window,
     _last_user_text,
     _norm_text,
     _release_stream_slot,
@@ -777,7 +778,7 @@ async def _event_stream(
         # source of new professional knowledge. Fire-and-forget so the SSE
         # closes immediately for the client.
         with contextlib.suppress(Exception):
-            user_text = _last_user_text(run_input.messages)
+            user_text = _conversation_window(run_input.messages)
             if user_text:
                 _t = asyncio.create_task(
                     _enrich_universe_from_chat(

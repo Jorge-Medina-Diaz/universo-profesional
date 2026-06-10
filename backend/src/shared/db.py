@@ -100,18 +100,38 @@ async def set_rls_user(session: AsyncSession, user_id: UUID | None) -> None:
     validated as a UUID and the bypass value is a literal, so this is safe.
     """
     if user_id is None:
-        await session.execute(text("SET LOCAL app.bypass_rls = 'on'"))
-        # NOT `RESET`: RESET is session-scoped and *defines* an unset custom
-        # GUC as '' on the pooled connection, which used to poison the
-        # policies' ::uuid cast in later transactions. SET LOCAL '' is
-        # transaction-scoped and the canonical policies (0039) treat '' as
-        # unset via NULLIF — default-deny preserved.
-        await session.execute(text("SET LOCAL app.current_user_id = ''"))
-        return
-    # UUID() ensures the value is a well-formed UUID before interpolation.
-    safe_uuid = str(UUID(str(user_id)))
-    await session.execute(text("SET LOCAL app.bypass_rls = 'off'"))
-    await session.execute(text(f"SET LOCAL app.current_user_id = '{safe_uuid}'"))
+        bypass, uid = "on", ""
+    else:
+        # UUID() ensures the value is a well-formed UUID before interpolation.
+        bypass, uid = "off", str(UUID(str(user_id)))
+
+    # NOT `RESET` for the empty case: RESET is session-scoped and *defines* an
+    # unset custom GUC as '' on the pooled connection, which used to poison the
+    # policies' ::uuid cast in later transactions. SET LOCAL '' is
+    # transaction-scoped and the canonical policies (0039) treat '' as unset
+    # via NULLIF — default-deny preserved.
+    await session.execute(text(f"SET LOCAL app.bypass_rls = '{bypass}'"))
+    await session.execute(text(f"SET LOCAL app.current_user_id = '{uid}'"))
+
+    # RE-ARM ON EVERY NEW TRANSACTION. `SET LOCAL` dies at commit/rollback, so
+    # any flow that commits mid-session (the enrichment engine writes N
+    # entities; routers that commit then read back) silently lost its RLS
+    # scope: the next transaction ran GUC-less → reads saw nothing and writes
+    # violated WITH CHECK. This event listener replays the GUCs at the start
+    # of each transaction on THIS session, killing the whole bug class.
+    sync_session = session.sync_session
+    sync_session.info["_rls_args"] = (bypass, uid)
+    if not sync_session.info.get("_rls_listener"):
+        sync_session.info["_rls_listener"] = True
+
+        @event.listens_for(sync_session, "after_begin")
+        def _rearm_rls(sess, _transaction, connection):  # type: ignore[no-untyped-def]
+            args = sess.info.get("_rls_args")
+            if not args:
+                return
+            b, u = args
+            connection.exec_driver_sql(f"SET LOCAL app.bypass_rls = '{b}'")
+            connection.exec_driver_sql(f"SET LOCAL app.current_user_id = '{u}'")
 
 
 from contextlib import asynccontextmanager

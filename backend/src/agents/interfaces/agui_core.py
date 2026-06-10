@@ -155,6 +155,39 @@ def _last_user_text(messages: list[Any]) -> str | None:
     return None
 
 
+def _conversation_window(messages: list[Any], *, max_turns: int = 8, max_chars: int = 4500) -> str | None:
+    """Transcript of the recent conversation for the enrichment engine.
+
+    A single user sentence ("el catálogo lo genera una IA") extracts poorly in
+    isolation: cross-turn context is what lets the engine attach the AI catalog
+    to the SAME ecommerce project mentioned three turns earlier and harvest the
+    full corpus (stack, highlights, learnings). The last user message is marked
+    as the FOCUS; agent turns are included as context only.
+    """
+    turns: list[str] = []
+    for msg in reversed(messages):
+        role = getattr(msg, "role", None)
+        content = getattr(msg, "content", None)
+        if not isinstance(content, str) or not content.strip():
+            continue
+        if role == "user":
+            turns.append(f"Usuario: {content.strip()}")
+        elif role == "assistant":
+            turns.append(f"Agente: {content.strip()[:400]}")
+        if len(turns) >= max_turns:
+            break
+    if not turns:
+        return None
+    turns.reverse()
+    # mark the focus (last user line)
+    for i in range(len(turns) - 1, -1, -1):
+        if turns[i].startswith("Usuario: "):
+            turns[i] = "Usuario (FOCO — extrae lo nuevo de aquí): " + turns[i][len("Usuario: "):]
+            break
+    transcript = "\n".join(turns)
+    return transcript[-max_chars:]
+
+
 def _ts_to_iso(ts: Any) -> str | None:
     if ts is None:
         return None

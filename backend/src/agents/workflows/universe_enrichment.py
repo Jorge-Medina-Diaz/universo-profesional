@@ -71,10 +71,27 @@ class EnrichmentResult:
 
 _ENTITY_EXTRACTION_PROMPT = """You are an expert professional-profile extractor for a knowledge-graph system.
 
-Given a free-text message from a user (in Spanish or English), extract ALL
-structured entities mentioned — explicit AND implicit. The user is chatting
-naturally; your job is to surface the professional knowledge buried in their
-words.
+You receive either a free-text message OR a conversation transcript
+("Usuario:"/"Agente:" lines, the last user line marked as FOCO). Extract ALL
+structured entities — explicit AND implicit. The user is chatting naturally;
+your job is to surface the professional knowledge buried in their words.
+
+Transcript rules (when the input is a conversation):
+  • SYNTHESIZE ACROSS TURNS: details scattered over several turns belong to
+    ONE entity. If the user said "monté un ecommerce" three turns ago, "con
+    Next.js y Stripe" later and "el catálogo lo genera una IA" after that,
+    that is ONE project with tech_stack ["Next.js","Stripe","IA generativa"]
+    and a highlight about the AI catalog — NOT three fragments.
+  • The FOCO line is what's new; earlier turns give it context and details.
+  • Extract ONLY what the USER asserts. The agent's lines are context — never
+    extract from agent suggestions or questions the user did not confirm.
+  • Personal context that frames a project ("para la tienda de mi hermana")
+    belongs in the entity description, it is not an entity itself.
+  • Learnings deserve their own entities: "aprendí mucho de X peleándome con
+    Y" → skill X + achievement (title: what was learned, context: Y).
+  • BE EXHAUSTIVE: a rich 5-turn story should typically yield 5-10 entities
+    (the project, every technology as a skill, the learnings, achievements)
+    with FULL payloads (tech_stack, highlights, competences, descriptions).
 
 Supported kinds and fields:
   experience   — {organization, role, start_date, end_date, description, highlights[], competences[], employment_type, location}
@@ -488,7 +505,7 @@ class UniverseEnrichmentEngine:
         user_msgs = [m for m in messages[1:] if m["role"] == "user"]
         response = await client.messages.create(
             model=self._settings.agents_specialist_model or "claude-haiku-4-5-20251001",
-            max_tokens=2048,
+            max_tokens=4096,
             system=system,
             messages=[{"role": "user", "content": m["content"]} for m in user_msgs],
         )
@@ -501,7 +518,7 @@ class UniverseEnrichmentEngine:
         response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
-            max_tokens=2048,
+            max_tokens=4096,
             temperature=0.1,
             response_format={"type": "json_object"},
         )
