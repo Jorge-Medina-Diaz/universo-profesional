@@ -130,6 +130,12 @@ services:
       redis:
         condition: service_healthy
     command: ["arq", "src.shared.worker.WorkerSettings"]
+    # The backend image's HEALTHCHECK curls :8000 — the worker runs arq, no
+    # HTTP server, so the inherited check always reported unhealthy. arq is
+    # PID 1: process death == container exit (restart: unless-stopped), so a
+    # liveness probe adds nothing — disable the inherited one.
+    healthcheck:
+      disable: true
 
   frontend:
     build:
