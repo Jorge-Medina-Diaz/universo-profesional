@@ -5,17 +5,19 @@ import { SectionHeading } from "@/landing/components/SectionHeading";
 
 const EASE = [0.2, 0.8, 0.2, 1] as const;
 
-const TERMINAL_LINES = [
-  { kind: "cmd", text: "$ claude" },
-  { kind: "dim", text: "connected · universo-profesional (MCP · OAuth 2.1)" },
-  { kind: "dim", text: "tools: universe.search · universe.profile · documents.generate_cv · jobs.match" },
-  { kind: "cmd", text: "> genera un CV para esta oferta de Backend Engineer" },
-  { kind: "out", text: "✓ CV generado con 11 evidencias de tu universo → cv_backend_2026.pdf" },
-] as const;
-
-/** §8 — the agent-economy claim: your universe as tools in any MCP client. */
-export function McpNative() {
+/** §4 v2 — Estrella 1B: daily memory maintenance from Claude/ChatGPT/Cursor.
+ *  Capture + recall, zero CV talk. */
+export function McpDaily() {
   const { t } = useTranslation("landing");
+
+  const lines = [
+    { kind: "cmd", text: t("mcp.term.cmd1") },
+    { kind: "tool", text: `⚙ ${t("mcp.term.tool1")}` },
+    { kind: "out", text: t("mcp.term.out1") },
+    { kind: "cmd", text: t("mcp.term.cmd2") },
+    { kind: "tool", text: `⚙ ${t("mcp.term.tool2")}` },
+    { kind: "out", text: t("mcp.term.out2") },
+  ] as const;
 
   return (
     <section className="py-24 md:py-32 px-5" aria-label={t("mcp.title")}>
@@ -45,25 +47,28 @@ export function McpNative() {
           transition={{ duration: 0.6, ease: EASE }}
           className="rounded-2xl overflow-hidden border border-[var(--cos-hairline)] bg-[#0b0d10] shadow-float"
         >
-          <div className="flex items-center gap-1.5 px-4 py-3 border-b border-white/5">
-            <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-white/15" />
-            <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-white/15" />
-            <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-white/15" />
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+            <div className="flex items-center gap-1.5">
+              <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-white/15" />
+              <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-white/15" />
+              <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-white/15" />
+            </div>
+            <span className="text-[10px] font-mono text-white/30">Claude Desktop · MCP</span>
           </div>
           <div className="px-5 py-5 font-mono text-[12.5px] leading-7">
-            {TERMINAL_LINES.map((line, i) => (
+            {lines.map((line, i) => (
               <motion.p
                 key={i}
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
                 viewport={{ once: true, margin: "-40px" }}
-                transition={{ duration: 0.3, delay: 0.3 + i * 0.45 }}
+                transition={{ duration: 0.3, delay: 0.3 + i * 0.5 }}
                 className={
                   line.kind === "cmd"
                     ? "text-[#f4f1ea]"
                     : line.kind === "out"
                       ? "text-[#6ece9d]"
-                      : "text-[#6c6962]"
+                      : "text-[#00d4aa]/80"
                 }
               >
                 {line.text}
@@ -74,7 +79,7 @@ export function McpNative() {
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
-              transition={{ delay: 2.8 }}
+              transition={{ delay: 3.6 }}
               className="inline-block w-2 h-4 bg-[#00d4aa] align-middle animate-pulse"
             />
           </div>

@@ -15,7 +15,7 @@ export function Manifesto() {
   ];
 
   return (
-    <section className="py-28 md:py-40 px-5" aria-label="Manifesto">
+    <section className="cosmos-light py-28 md:py-40 px-5" aria-label="Manifesto">
       <div className="mx-auto max-w-3xl">
         <p className="font-display leading-[1.18] text-[clamp(26px,3.6vw,44px)]">
           {lines.map((line, i) => (

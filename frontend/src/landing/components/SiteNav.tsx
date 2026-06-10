@@ -7,9 +7,9 @@ import { useTheme } from "@/shared/useTheme";
 
 /** i18n keys in the landing namespace; resolved inside SiteNav. */
 const LINKS = [
-  { key: "nav.product", href: "#producto" },
+  { key: "nav.memory", href: "#memoria" },
   { key: "nav.twin", href: "#twin" },
-  { key: "nav.engine", href: "#engine" },
+  { key: "nav.payoff", href: "#payoff" },
   { key: "nav.pricing", href: "#precios" },
 ];
 
@@ -215,7 +215,6 @@ export function SiteNav() {
           {/* Right actions */}
           <div className="flex items-center gap-2">
             <LanguageSwitch className="hidden md:inline-flex" />
-            <ThemeToggleButton className="hidden sm:grid" />
             <button
               onClick={() => go("#/login")}
               className="hidden rounded-full px-4 py-2 text-sm font-medium text-[var(--cos-stone)] transition-colors hover:text-[var(--cos-ink)] sm:block"

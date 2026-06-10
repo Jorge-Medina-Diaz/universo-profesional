@@ -6,7 +6,6 @@ from uuid import UUID
 
 import structlog
 
-from src.shared.db import get_session_factory
 from src.shared.embeddings import get_embeddings_service
 from src.universe.domain.entities import (
     Achievement,
@@ -59,13 +58,18 @@ def _is_note(entity_type: str) -> bool:
 
 
 async def refresh_embedding(ctx: dict[str, Any], *, entity_type: str, entity_id: str) -> None:
+    # Service scope (bypass RLS): the worker runs as cvs_app, and a raw
+    # session sees NOTHING under FORCE RLS — this task silently no-op'd for
+    # every user after the RLS flip (rows invisible → session.get → None).
+    # The entity id is the capability here; embeddings are infra-level.
+    from src.shared.db import with_user_session
+
     embedder = get_embeddings_service()
-    factory = get_session_factory()
 
     if _is_note(entity_type):
         from src.notes.infrastructure.orm import NoteOrm
 
-        async with factory() as session:
+        async with with_user_session(None) as session:
             row = await session.get(NoteOrm, UUID(entity_id))
             if row is None:
                 return
@@ -82,7 +86,7 @@ async def refresh_embedding(ctx: dict[str, Any], *, entity_type: str, entity_id:
         return
     orm_cls, entity_cls = _ENTITY_MAP[entity_type]
 
-    async with factory() as session:
+    async with with_user_session(None) as session:
         row = await session.get(orm_cls, UUID(entity_id))
         if row is None:
             return
@@ -103,10 +107,10 @@ async def enrich_universe_task(ctx: dict[str, Any], *, user_id: str) -> dict[str
     Infers semantic (RELATED_TO) + structural (USES_TECH/PART_OF) edges across
     the user's entities and writes them via the graph layer. Idempotent.
     """
+    from src.shared.db import with_user_session
     from src.universe.application.enrichment import enrich_user_graph
 
-    factory = get_session_factory()
-    async with factory() as session:
+    async with with_user_session(UUID(user_id)) as session:
         stats = await enrich_user_graph(session, UUID(user_id))
         await session.commit()
         logger.info("enrich_universe_task_done", user_id=user_id, **stats.as_dict())
@@ -117,8 +121,9 @@ async def compute_communities_task(ctx: dict[str, Any], *, user_id: str) -> dict
     """Background community detection ("career pillars") for one user."""
     from src.graph.application.communities import compute_communities
 
-    factory = get_session_factory()
-    async with factory() as session:
+    from src.shared.db import with_user_session
+
+    async with with_user_session(UUID(user_id)) as session:
         pillars = await compute_communities(session, UUID(user_id))
         await session.commit()
         logger.info("compute_communities_task_done", user_id=user_id, count=len(pillars))

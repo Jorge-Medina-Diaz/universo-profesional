@@ -32,7 +32,7 @@ RGPD desde el origen, hosting en la UE, cifrado en reposo y en tránsito, y aisl
   embeddable iframe widget for portfolios. Visitors can leave contact leads.
 
 ## The three pillars
-1. FEED: a living knowledge graph fed by conversation (CV/LinkedIn/GitHub
+1. FEED: an agentic memory system fed by conversation (CV/LinkedIn/GitHub
    import with human review, weekly diary nudges, agentic discovery).
 2. EXPLOIT: ATS-ready CVs per job offer grounded ONLY in graph evidence
    (no invention), cover letters, application tracking, interview prep.

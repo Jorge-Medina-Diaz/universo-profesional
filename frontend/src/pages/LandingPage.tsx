@@ -2,14 +2,13 @@ import { useTranslation } from "react-i18next";
 
 import { SiteNav } from "@/landing/components/SiteNav";
 import { registerLandingI18n } from "@/landing/i18n";
-import { AgentPilot } from "@/landing/sections/AgentPilot";
+import { AnswerAnatomy } from "@/landing/sections/AnswerAnatomy";
 import { Closing } from "@/landing/sections/Closing";
-import { EngineRoom } from "@/landing/sections/EngineRoom";
-import { ExploitOffer } from "@/landing/sections/ExploitOffer";
-import { FeedTheUniverse } from "@/landing/sections/FeedTheUniverse";
 import { Hero } from "@/landing/sections/Hero";
+import { MaintainByChat } from "@/landing/sections/MaintainByChat";
 import { Manifesto } from "@/landing/sections/Manifesto";
-import { McpNative } from "@/landing/sections/McpNative";
+import { McpDaily } from "@/landing/sections/McpDaily";
+import { MemoryPayoff } from "@/landing/sections/MemoryPayoff";
 import { Trust } from "@/landing/sections/Trust";
 import { TwinLive } from "@/landing/sections/TwinLive";
 
@@ -27,17 +26,16 @@ export function LandingPage() {
   const { t } = useTranslation("landing");
 
   return (
-    <div className="landing-cosmos min-h-screen">
+    <div className="landing-cosmos cosmos-deep-root min-h-screen">
       <SiteNav />
       <main>
         <Hero />
         <Manifesto />
-        <FeedTheUniverse />
-        <ExploitOffer />
+        <MaintainByChat />
+        <McpDaily />
         <TwinLive />
-        <AgentPilot />
-        <EngineRoom />
-        <McpNative />
+        <AnswerAnatomy />
+        <MemoryPayoff />
         <Trust />
         <Closing />
       </main>

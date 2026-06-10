@@ -1281,6 +1281,67 @@
   --cos-hero-scrim-rgb: 7, 8, 10;             /* hero legibility veil (deep space) */
 }
 
+/* Dark-FIRST landing root — the v2 landing is deep space by default,
+ * independent of the user's app theme. Cream appears only via .cosmos-light
+ * bands. (ui-ux-pro-max: Dark Premium direction.) */
+.landing-cosmos.cosmos-deep-root {
+  --cos-bg: #07080a;
+  --cos-bg-2: #0b0d10;
+  --cos-ink: #f4f1ea;
+  --cos-stone: #b6b1a6;            /* raised from #9c988e — body legibility */
+  --cos-faint: #7d7a72;
+  --cos-hairline: rgba(244, 241, 234, 0.10);
+  --cos-hairline-strong: rgba(244, 241, 234, 0.20);
+  --cos-panel: rgba(255, 255, 255, 0.03);
+  --cos-panel-raised: rgba(255, 255, 255, 0.055);
+  --cos-fill: rgba(255, 255, 255, 0.03);
+  --cos-fill-strong: rgba(255, 255, 255, 0.06);
+  --cos-on-ink: #0a0a0a;
+  --cos-dim-color: rgba(244, 241, 234, 0.38);
+  --cos-label-bg: rgba(8, 9, 11, 0.55);
+  --cos-star: rgba(244, 241, 234, 0.10);
+  --cos-edge: rgba(244, 241, 234, 0.07);
+  --cos-track: rgba(244, 241, 234, 0.12);
+  --cos-scrim: rgba(5, 6, 8, 0.7);
+  --cos-hero-scrim-rgb: 7, 8, 10;
+}
+
+/* Cream RESPIRO band inside the dark landing (manifesto). */
+.cosmos-light {
+  --cos-bg: #fbf9f3;
+  --cos-ink: #14130f;
+  --cos-stone: #5f5a51;
+  --cos-faint: #8a857b;
+  --cos-hairline: rgba(20, 19, 15, 0.10);
+  --cos-hairline-strong: rgba(20, 19, 15, 0.16);
+  --cos-panel: rgba(255, 255, 255, 0.62);
+  --cos-fill: rgba(20, 19, 15, 0.035);
+  --cos-fill-strong: rgba(20, 19, 15, 0.06);
+  --cos-dim-color: rgba(20, 19, 15, 0.35);
+  background-color: var(--cos-bg);
+  color: var(--cos-ink);
+}
+
+/* The twin card glow — a CLASS, never an inline style: an inline box-shadow
+ * on the motion wrapper created a stacking context that broke input focus. */
+.twin-glow {
+  box-shadow: 0 0 40px rgba(0, 212, 170, 0.15);
+}
+
+/* High-impact animated gradient headline (sunbeam → leaf → nova). */
+.cos-gradient-text {
+  background: linear-gradient(95deg, var(--cos-sun) 0%, var(--cos-leaf) 45%, var(--cos-nova) 90%);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: gradient-shift 9s ease infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cos-gradient-text { animation: none; }
+}
+
 /* Deep-space BAND scope — §5 twin + §7 engine live in space regardless of
  * data-theme. Same values as the dark landing; in user-dark mode the band
  * differentiates itself via its denser starfield (.cosmos-deep::after). */
@@ -1502,4 +1563,9 @@
 @keyframes cos-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }

@@ -65,3 +65,41 @@ BEGIN
     END IF;
 END
 $$;
+
+-- Pre-create every known AGE label as the OWNER. Creating a NEW label
+-- requires ownership of _ag_label_vertex/_ag_label_edge, which cvs_app
+-- (rightly) lacks — without this, the first enrichment on a fresh DB dies
+-- with "must be owner of table _ag_label_edge".
+DO $$
+DECLARE
+    g text;
+    vl text;
+    el text;
+BEGIN
+    FOREACH g IN ARRAY ARRAY['universe_personal'] LOOP
+        FOREACH vl IN ARRAY ARRAY[
+            'Achievement','ArchitectureDecision','Artifact','Certification',
+            'Course','Education','Evidence','Experience','Interest',
+            'Language','Project','Skill'
+        ] LOOP
+            BEGIN
+                PERFORM ag_catalog.create_vlabel(g, vl);
+            EXCEPTION WHEN OTHERS THEN NULL;  -- already exists
+            END;
+        END LOOP;
+        FOREACH el IN ARRAY ARRAY[
+            'DEMONSTRATES','DERIVED_FROM','EVIDENCES_SIGNAL','LINKS_TO_ESCO',
+            'MEMBER_OF','MERGED_INTO','OCCURRED_IN','PART_OF','PRODUCED',
+            'RELATED_TO','SUPERSEDES','TOUCHED_IN','USES_TECH'
+        ] LOOP
+            BEGIN
+                PERFORM ag_catalog.create_elabel(g, el);
+            EXCEPTION WHEN OTHERS THEN NULL;  -- already exists
+            END;
+        END LOOP;
+        -- the label tables AGE just created belong to the owner; grant DML
+        EXECUTE format('GRANT USAGE ON SCHEMA %I TO cvs_app', g);
+        EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA %I TO cvs_app', g);
+    END LOOP;
+END
+$$;
