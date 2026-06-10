@@ -23,22 +23,10 @@ _pool: Any | None = None
 
 
 async def _get_pool() -> Any | None:
-    """Return a cached Arq pool, or None if Redis is down."""
-    global _pool
-    if _pool is not None:
-        return _pool
-    from arq import create_pool
-    from arq.connections import RedisSettings
+    """Return the process-wide Arq pool, or None if Redis is down."""
+    from src.shared.arq_pool import get_arq_pool
 
-    from src.shared.config import get_settings
-
-    settings = get_settings()
-    try:
-        _pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
-    except Exception as exc:
-        logger.warning("arq_pool_unavailable", error=str(exc))
-        _pool = None
-    return _pool
+    return await get_arq_pool()
 
 
 async def enqueue_integration_task(name: str, **kwargs: Any) -> dict[str, Any]:

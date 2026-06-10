@@ -19,7 +19,10 @@ from src.billing.infrastructure.payments import (
     MockStripeProvider,
     get_payments_provider,
 )
-from src.billing.infrastructure.repositories import SqlAlchemySubscriptionRepository
+from src.billing.infrastructure.repositories import (
+    SqlAlchemyQuotaRepository,
+    SqlAlchemySubscriptionRepository,
+)
 from src.identity.interfaces.api.deps import CurrentUserId, SessionDep
 from src.shared.config import get_settings
 from src.shared.metrics import stripe_conversion_total
@@ -71,6 +74,43 @@ async def get_subscription(user_id: CurrentUserId, session: SessionDep) -> dict[
         "current_period_end": sub.current_period_end.isoformat() if sub.current_period_end else None,
         "limits": sub.limits.__dict__,
     }
+
+
+@router.get("/usage")
+async def get_usage(user_id: CurrentUserId, session: SessionDep) -> dict[str, Any]:
+    """Current-period quota usage per metered resource (PENDING: MCP quota
+    visibility). `limit` of 0/None means the resource is not available on the
+    plan; the FE warns at >=80%."""
+    from uuid import UUID
+
+    from src.billing.application.use_cases import _period_key
+    from src.shared.security import utc_now
+
+    uid = UUID(user_id)
+    sub = await GetOrCreateSubscription(
+        SqlAlchemySubscriptionRepository(session)
+    ).execute(uid)
+    quotas = SqlAlchemyQuotaRepository(session)
+    limits = sub.limits
+    resources = {
+        "mcp_call": (limits.mcp_daily_calls if limits.mcp_access else 0, "day"),
+        "cv_generated": (limits.monthly_cv, "month"),
+        "cover_letter_generated": (limits.monthly_cover_letters, "month"),
+    }
+    now = utc_now()
+    usage = []
+    for resource, (cap, window) in resources.items():
+        used = await quotas.current(uid, resource, _period_key(resource, now))
+        usage.append(
+            {
+                "resource": resource,
+                "used": used,
+                "limit": cap,
+                "window": window,
+                "remaining": max(0, cap - used) if cap else 0,
+            }
+        )
+    return {"plan": sub.plan, "usage": usage}
 
 
 class CheckoutRequest(BaseModel):
@@ -199,7 +239,9 @@ async def stripe_webhook(
 
     from sqlalchemy import text as _sql_text
 
-    from src.billing.infrastructure.repositories import SqlAlchemySubscriptionRepository
+    from src.billing.infrastructure.repositories import (
+        SqlAlchemySubscriptionRepository,
+    )
     from src.shared.security import utc_now
 
     # Idempotency: Stripe retries delivery on any non-2xx/timeout with the SAME

@@ -60,18 +60,31 @@ export function CopilotSurface({ instructions, title, initial }: Props) {
   // see backend state_emitter.py). Replaces the old nodeName heuristics.
   const { state: agentState } = useCoAgent<AgentSharedState>({ name: AGENT_NAME });
 
+  // The chat's actual run lifecycle. If a run dies (RUN_ERROR / network drop)
+  // no final state delta ever arrives, so the shared state alone would leave
+  // the dock chip stuck on "Pensando…" forever.
+  const { isLoading } = useCopilotChat();
+
   // Publish the humanized status into the Zustand store so always-mounted
   // chrome (FloatingChat's collapsed-dock chip) can show it WITHOUT importing
   // the heavy CopilotKit bundle. Cleared on unmount so no stale chip lingers.
   const setAgentActivity = useChatState((s) => s.setAgentActivity);
   useEffect(() => {
-    const label = agentStatusLabel(agentState);
-    setAgentActivity(
-      label && agentState?.agent_status
-        ? { status: agentState.agent_status, label }
-        : null,
-    );
-  }, [agentState, setAgentActivity]);
+    if (isLoading) {
+      // Normal flow: mirror the streamed shared state while the run is live.
+      const label = agentStatusLabel(agentState);
+      setAgentActivity(
+        label && agentState?.agent_status
+          ? { status: agentState.agent_status, label }
+          : null,
+      );
+      return;
+    }
+    // Run finished (or died without a final delta) → force idle. Small grace
+    // so the chip doesn't flicker between "answering" and the message landing.
+    const t = setTimeout(() => setAgentActivity(null), 1000);
+    return () => clearTimeout(t);
+  }, [agentState, isLoading, setAgentActivity]);
   useEffect(() => () => setAgentActivity(null), [setAgentActivity]);
 
   // Scroll-back rehydration (P2.B) — fills an empty thread from

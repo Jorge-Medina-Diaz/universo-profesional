@@ -2,18 +2,18 @@
  * LinkedInImportCard — chat-native import of the official LinkedIn data
  * export (ZIP): explain how to get it → drop → parse → review → commit.
  *
- * Mirrors PdfImportCard's flow, with ONE honest difference: the backend
- * `/linkedin/zip/commit` endpoint commits the WHOLE parsed session (it has no
- * `selection` contract), so the review phase is a transparent preview — the
- * card says explicitly that everything shown will be imported instead of
- * offering checkboxes that would silently do nothing (no-silent-errors).
+ * Mirrors PdfImportCard's review UX: per-item checkboxes (all selected by
+ * default) and a granular commit. The backend `/linkedin/zip/commit` endpoint
+ * accepts `{session_id, selection}` where selection maps kind → indices into
+ * parsed[kind]; a kind absent from the map commits NOTHING, so the commit
+ * always sends every kind key with its selected indices (empty = skip kind).
  *
  * Failures are surfaced inline (banner) + toast — never console-only.
  */
 import { useMemo, useState } from "react";
-import { AlertTriangle, Check, Info, X } from "lucide-react";
+import { AlertTriangle, Check, X } from "lucide-react";
 import { integrations } from "@/shared/api-extra";
-import { Badge, Button, ChatMessageMotion, DropZone, LinkedInIcon, toast } from "@/ui";
+import { Badge, Button, ChatMessageMotion, DropZone, LinkedInIcon, cn, toast } from "@/ui";
 
 type Item = Record<string, unknown>;
 type ParsedZip = Record<string, Item[] | Record<string, unknown>>;
@@ -100,6 +100,8 @@ export function LinkedInImportCard({ reason, onDone, onCancel, onCommitted }: Li
   const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedZip | null>(null);
+  // Excluded rows keyed by `${sectionKey}:${originalIndex}` (default = included).
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [summary, setSummary] = useState<LinkedInImportSummary | null>(null);
 
   const sections = useMemo(() => {
@@ -110,10 +112,16 @@ export function LinkedInImportCard({ reason, onDone, onCancel, onCommitted }: Li
     })).filter((s) => s.rows.length > 0);
   }, [parsed]);
 
-  const totalParsed = useMemo(
-    () => sections.reduce((n, s) => n + s.rows.length, 0),
-    [sections],
-  );
+  const counts = useMemo(() => {
+    let total = 0;
+    let selected = 0;
+    for (const s of sections)
+      for (let idx = 0; idx < s.rows.length; idx++) {
+        total += 1;
+        if (!excluded.has(`${s.cfg.key}:${idx}`)) selected += 1;
+      }
+    return { total, selected };
+  }, [sections, excluded]);
 
   const handleFiles = async (files: File[]) => {
     const f = files[0];
@@ -131,6 +139,7 @@ export function LinkedInImportCard({ reason, onDone, onCancel, onCommitted }: Li
       }
       setSessionId(res.session_id);
       setParsed(res.parsed);
+      setExcluded(new Set()); // default: everything selected
       setPhase("review");
     } catch (e) {
       const msg = (e as Error).message;
@@ -141,12 +150,30 @@ export function LinkedInImportCard({ reason, onDone, onCancel, onCommitted }: Li
     }
   };
 
+  const toggle = (key: string, idx: number) =>
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      const k = `${key}:${idx}`;
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+
   const commit = async () => {
     if (!sessionId) return;
     setPhase("committing");
     setError(null);
+    // ALWAYS include every kind key: a kind absent from the map commits
+    // nothing on the backend, so an empty array is the explicit "skip all".
+    const selection: Record<string, number[]> = {};
+    for (const cfg of SECTIONS) {
+      const arr = parsed && Array.isArray(parsed[cfg.key]) ? (parsed[cfg.key] as Item[]) : [];
+      selection[cfg.key] = arr
+        .map((_, idx) => idx)
+        .filter((idx) => !excluded.has(`${cfg.key}:${idx}`));
+    }
     try {
-      const res = (await integrations.linkedin.commitZip(sessionId)) as {
+      const res = (await integrations.linkedin.commitZip(sessionId, selection)) as {
         committed?: Record<string, number>;
       };
       const committed = res?.committed ?? {};
@@ -155,11 +182,11 @@ export function LinkedInImportCard({ reason, onDone, onCancel, onCommitted }: Li
       const sum = { committed, total };
       setSummary(sum);
       setPhase("done");
-      // No silent drops: if fewer landed than were parsed, say so.
-      if (total < totalParsed) {
+      // No silent drops: if fewer landed than were selected, say so.
+      if (total < counts.selected) {
         toast.error(
           "Algunos elementos no se guardaron",
-          `${totalParsed - total} de ${totalParsed} no entraron (duplicados o datos incompletos).`,
+          `${counts.selected - total} de ${counts.selected} no entraron (duplicados o datos incompletos).`,
         );
       } else {
         toast.success(`Importé ${total} ${total === 1 ? "elemento" : "elementos"} de LinkedIn`);
@@ -214,7 +241,7 @@ export function LinkedInImportCard({ reason, onDone, onCancel, onCommitted }: Li
               {phase === "intro"
                 ? reason ||
                   "Sube el export oficial de tus datos y estructuro experiencias, formación, skills, idiomas, certificaciones y proyectos."
-                : "Revisa el contenido antes de confirmar. El export se importa completo; después podrás depurar o borrar cualquier elemento desde el chat."}
+                : "Todo viene seleccionado. Quita lo que no quieras importar; solo se guardará lo marcado."}
             </p>
           </div>
         </div>
@@ -255,7 +282,7 @@ export function LinkedInImportCard({ reason, onDone, onCancel, onCommitted }: Li
 
         {(phase === "review" || phase === "committing") && (
           <>
-            {totalParsed === 0 ? (
+            {counts.total === 0 ? (
               <div className="mb-4 rounded-card border border-hairline bg-canvas px-3 py-4 text-center text-xs text-stone">
                 El ZIP no contenía datos importables. Prueba con el export completo de LinkedIn.
               </div>
@@ -263,10 +290,10 @@ export function LinkedInImportCard({ reason, onDone, onCancel, onCommitted }: Li
               <>
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-[11px] text-stone">
-                    {totalParsed} {totalParsed === 1 ? "elemento detectado" : "elementos detectados"}
+                    {counts.selected} de {counts.total} seleccionados
                   </span>
                 </div>
-                <div className="mb-3 flex max-h-[46vh] flex-col gap-4 overflow-y-auto pr-1">
+                <div className="mb-4 flex max-h-[46vh] flex-col gap-4 overflow-y-auto pr-1">
                   {sections.map(({ cfg, rows }) => (
                     <div key={cfg.key}>
                       <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-stone">
@@ -274,18 +301,34 @@ export function LinkedInImportCard({ reason, onDone, onCancel, onCommitted }: Li
                       </div>
                       <ul className="flex flex-col gap-1.5">
                         {rows.map((it, idx) => {
+                          const k = `${cfg.key}:${idx}`;
+                          const on = !excluded.has(k);
                           const sec = cfg.secondary?.(it);
                           return (
                             <li
-                              key={`${cfg.key}:${idx}`}
-                              className="flex items-center gap-3 rounded-card border border-ink/8 bg-canvas p-2.5"
+                              key={k}
+                              className={cn(
+                                "flex items-center gap-3 rounded-card border p-2.5 transition-colors",
+                                on
+                                  ? "border-ink/8 bg-canvas"
+                                  : "border-dashed border-ink/15 bg-canvas/40 opacity-55",
+                              )}
                             >
-                              <span
-                                aria-hidden
-                                className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-leaf text-ink"
+                              <button
+                                type="button"
+                                onClick={() => toggle(cfg.key, idx)}
+                                aria-pressed={on}
+                                aria-label={on ? "Quitar" : "Incluir"}
+                                disabled={phase === "committing"}
+                                className={cn(
+                                  "grid h-6 w-6 shrink-0 place-items-center rounded-full transition-all",
+                                  on
+                                    ? "bg-leaf text-ink"
+                                    : "border border-ink/15 text-stone hover:border-ink/40",
+                                )}
                               >
-                                <Check size={13} strokeWidth={2.5} />
-                              </span>
+                                {on ? <Check size={13} strokeWidth={2.5} /> : <X size={11} />}
+                              </button>
                               <div className="min-w-0 flex-1">
                                 <div className="truncate text-sm text-ink">{cfg.primary(it)}</div>
                                 {sec && <div className="truncate text-[11px] text-stone">{sec}</div>}
@@ -297,27 +340,21 @@ export function LinkedInImportCard({ reason, onDone, onCancel, onCommitted }: Li
                     </div>
                   ))}
                 </div>
-                <div className="mb-4 flex items-start gap-2 rounded-card border border-hairline bg-canvas px-3 py-2 text-[11px] text-stone">
-                  <Info size={13} className="mt-0.5 shrink-0" />
-                  <span>
-                    El export de LinkedIn se importa completo (sin selección individual). El motor de
-                    coherencia fusiona duplicados automáticamente.
-                  </span>
-                </div>
               </>
             )}
           </>
         )}
 
         <div className="flex items-center justify-end gap-2">
-          {(phase === "review" || phase === "committing") && totalParsed > 0 ? (
+          {(phase === "review" || phase === "committing") && counts.total > 0 ? (
             <Button
               size="sm"
               loading={phase === "committing"}
+              disabled={counts.selected === 0 && phase !== "committing"}
               onClick={commit}
               leadingIcon={phase !== "committing" && <Check size={14} strokeWidth={2.5} />}
             >
-              {phase === "committing" ? "Guardando" : `Importar todo (${totalParsed})`}
+              {phase === "committing" ? "Guardando" : `Importar (${counts.selected})`}
             </Button>
           ) : null}
           <Button

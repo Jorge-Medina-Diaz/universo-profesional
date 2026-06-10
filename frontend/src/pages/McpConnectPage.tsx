@@ -12,7 +12,7 @@ import {
   cn,
   toast,
 } from "@/ui";
-import { mcp } from "@/shared/api";
+import { billing, mcp } from "@/shared/api";
 import { queryKeys } from "@/shared/queryKeys";
 
 type ClientId = "claude" | "codex" | "cursor" | "windsurf";
@@ -77,6 +77,16 @@ export function McpConnectPage() {
     retry: false,
   });
 
+  // PENDING: quota visibility — warn before the daily MCP allowance runs out.
+  const usage = useQuery({
+    queryKey: queryKeys.billing.usage,
+    queryFn: () => billing.usage(),
+    staleTime: 60_000,
+    retry: false,
+  });
+  const mcpUsage = usage.data?.usage.find((u) => u.resource === "mcp_call");
+  const quotaRatio = mcpUsage && mcpUsage.limit > 0 ? mcpUsage.used / mcpUsage.limit : 0;
+
   const hasData = stats.data && stats.data.total_invocations > 0;
 
   return (
@@ -88,6 +98,20 @@ export function McpConnectPage() {
       />
 
       <Stagger className="flex flex-col gap-4 md:gap-6" delayStep={0.05}>
+        {mcpUsage && quotaRatio >= 0.8 && (
+          <div
+            role="status"
+            className={
+              quotaRatio >= 1
+                ? "rounded-xl border border-danger/40 bg-danger-soft px-4 py-3 text-sm text-danger"
+                : "rounded-xl border border-hairline bg-sunbeam-soft px-4 py-3 text-sm text-ink"
+            }
+          >
+            {quotaRatio >= 1
+              ? `Límite diario alcanzado: ${mcpUsage.used} de ${mcpUsage.limit} llamadas MCP. Se reinicia mañana.`
+              : `Has usado ${mcpUsage.used} de ${mcpUsage.limit} llamadas MCP hoy - el límite se reinicia mañana.`}
+          </div>
+        )}
         <Card padding="lg">
           <div className="flex items-center gap-3 mb-3">
             <span

@@ -75,10 +75,14 @@ export const integrations = {
       });
       return resp.json();
     },
-    commitZip: (session_id: string) =>
+    // `selection` maps kind → indices into parsed[kind]; only listed items
+    // commit, and a kind ABSENT from the map commits nothing — callers doing
+    // granular review must include EVERY kind key (empty array = skip kind).
+    // Omitting `selection` keeps the legacy commit-everything behaviour.
+    commitZip: (session_id: string, selection?: Record<string, number[]>) =>
       api<Record<string, unknown>>("/api/v1/integrations/linkedin/zip/commit", {
         method: "POST",
-        body: JSON.stringify({ session_id }),
+        body: JSON.stringify(selection ? { session_id, selection } : { session_id }),
       }),
     // Legacy alias for older callers
     commit: (session_id: string) =>

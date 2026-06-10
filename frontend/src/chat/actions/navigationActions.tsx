@@ -23,7 +23,6 @@ const ALLOWED_ROUTES = [
   "/connections",
   "/preferences",
   "/settings",
-  "/goals",
 ] as const;
 
 export function useNavigationActions() {

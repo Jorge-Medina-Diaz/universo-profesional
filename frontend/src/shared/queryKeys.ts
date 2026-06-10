@@ -80,6 +80,7 @@ export const queryKeys = {
   billing: {
     plans: ["billing", "plans"] as const,
     subscription: ["billing", "subscription"] as const,
+    usage: ["billing", "usage"] as const,
   },
   connections: {
     all: ["connections"] as const,

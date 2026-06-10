@@ -4,10 +4,6 @@ from __future__ import annotations
 from uuid import UUID
 
 import structlog
-from arq import create_pool
-from arq.connections import RedisSettings
-
-from src.shared.config import get_settings
 from src.universe.application.ports import EmbeddingRefreshScheduler
 
 logger = structlog.get_logger(__name__)
@@ -20,20 +16,10 @@ class ArqEmbeddingScheduler(EmbeddingRefreshScheduler):
     synchronously to keep the system usable in dev.
     """
 
-    def __init__(self) -> None:
-        self._pool: Any | None = None
-
     async def _get_pool(self) -> Any:
-        if self._pool is None:
-            settings = get_settings()
-            try:
-                self._pool = await create_pool(
-                    RedisSettings.from_dsn(settings.redis_url)
-                )
-            except Exception as exc:
-                logger.warning("arq_pool_unavailable", error=str(exc))
-                self._pool = None
-        return self._pool
+        from src.shared.arq_pool import get_arq_pool
+
+        return await get_arq_pool()
 
     async def enqueue(self, *, entity_type: str, entity_id: UUID) -> None:
         pool = await self._get_pool()
@@ -59,7 +45,6 @@ class ArqEmbeddingScheduler(EmbeddingRefreshScheduler):
 # on every chat turn — a chatty conversation paid the graph-wide cost per
 # message on the API process. We move it to a coalesced background job.
 
-_enrichment_pool: Any | None = None
 
 
 async def _get_enrichment_pool() -> Any | None:
@@ -71,17 +56,9 @@ async def _get_enrichment_pool() -> Any | None:
     app startup: a pool created before the fork would share sockets across
     workers and corrupt. Same pattern as integrations/infrastructure/queue.py.
     """
-    global _enrichment_pool
-    if _enrichment_pool is not None:
-        return _enrichment_pool
-    try:
-        _enrichment_pool = await create_pool(
-            RedisSettings.from_dsn(get_settings().redis_url)
-        )
-    except Exception as exc:
-        logger.warning("enrichment_arq_pool_unavailable", error=str(exc))
-        _enrichment_pool = None
-    return _enrichment_pool
+    from src.shared.arq_pool import get_arq_pool
+
+    return await get_arq_pool()
 
 
 async def enqueue_graph_enrichment(user_id: UUID) -> bool:

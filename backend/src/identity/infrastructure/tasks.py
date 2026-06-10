@@ -90,23 +90,19 @@ async def enqueue_transactional_email(
 
     # Try to enqueue on Arq; fall back to inline send.
     try:
-        from arq import create_pool
-        from arq.connections import RedisSettings
+        from src.shared.arq_pool import get_arq_pool
 
-        from src.shared.config import get_settings
-
-        pool = await create_pool(RedisSettings.from_dsn(get_settings().redis_url))
-        try:
-            await pool.enqueue_job(
-                "send_email",
-                to=str(user.email),
-                subject=rendered["subject"],
-                body=rendered["text"],
-                html=rendered.get("html"),
-                tags=[template],
-            )
-        finally:
-            await pool.aclose()
+        pool = await get_arq_pool()
+        if pool is None:
+            raise RuntimeError("arq pool unavailable")
+        await pool.enqueue_job(
+            "send_email",
+            to=str(user.email),
+            subject=rendered["subject"],
+            body=rendered["text"],
+            html=rendered.get("html"),
+            tags=[template],
+        )
     except Exception as exc:
         logger.warning("email_enqueue_fallback_inline", error=str(exc))
         await send_email(

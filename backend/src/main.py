@@ -186,6 +186,12 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         await dispose_redis()
     except Exception as exc:
         logger.warning("redis_dispose_failed", error=str(exc))
+    try:
+        from src.shared.arq_pool import dispose_arq_pool
+
+        await dispose_arq_pool()
+    except Exception as exc:
+        logger.warning("arq_pool_dispose_failed", error=str(exc))
 
 
 def _wire_event_subscribers() -> None:
@@ -517,19 +523,13 @@ def create_app() -> FastAPI:
 
         # Redis (best-effort — only enabled when worker queue is configured)
         try:
-            from arq import create_pool
-            from arq.connections import RedisSettings
+            from src.shared.arq_pool import get_arq_pool
 
             async def _ping_redis() -> None:
-                pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
-                try:
-                    await pool.ping()
-                except AttributeError:
-                    # older arq exposes the underlying redis as .pool
-                    pass
-                finally:
-                    pool.close()
-                    await pool.wait_closed() if hasattr(pool, "wait_closed") else None
+                pool = await get_arq_pool()
+                if pool is None:
+                    raise RuntimeError("redis unreachable")
+                await pool.ping()
 
             await asyncio.wait_for(_ping_redis(), timeout=2.0)
             results["redis"] = "ok"

@@ -295,6 +295,7 @@ async def linkedin_zip_commit(
             project_uc=proj_uc,
             course_uc=course_uc,
             uow=uow,
+            selection=body.get("selection"),
         )
         await sessions.mark_committed(UUID(body["session_id"]))
         await uow.commit()

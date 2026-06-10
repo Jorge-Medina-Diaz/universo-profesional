@@ -786,9 +786,26 @@ export interface GenerateCvResponse {
   job_id: string | null;
 }
 
+export interface BillingUsageItem {
+  /** "mcp_call" | "cv_generated" | "cover_letter_generated" */
+  resource: string;
+  used: number;
+  /** 0 = the resource is not available on the current plan. */
+  limit: number;
+  /** Quota window, e.g. "day" | "month". */
+  window: string;
+  remaining: number;
+}
+export interface BillingUsage {
+  plan: string;
+  usage: BillingUsageItem[];
+}
+
 export const billing = {
   plans: () => api<{ plans: Plan[] }>("/api/v1/billing/plans", { authRequired: false }),
   subscription: () => api<SubscriptionDto>("/api/v1/billing/subscription"),
+  /** Per-resource usage counters vs the active plan's limits. */
+  usage: () => api<BillingUsage>("/api/v1/billing/usage"),
   /** Production checkout: backend returns a Stripe hosted URL; if Stripe is
    *  in mock mode the URL is a local /billing/checkout-mock?... we navigate
    *  to directly. */

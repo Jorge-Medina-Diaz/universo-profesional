@@ -285,8 +285,13 @@ async def commit_parsed(
     project_uc: Any,
     course_uc: Any,
     uow: Any,
+    selection: dict[str, list[int]] | None = None,
 ) -> dict[str, int]:
     """Helper to commit the parsed payload via the existing universe CRUDs.
+
+    `selection` maps kind -> list of indices into `parsed[kind]`; when given,
+    ONLY those items commit (a kind missing from the map commits nothing).
+    None keeps the import-everything behavior.
 
     Each item is committed inside a savepoint so a single bad row doesn't
     poison the rest of the transaction. We also coerce date strings to
@@ -316,7 +321,11 @@ async def commit_parsed(
         ("projects", project_uc, "projects"),
         ("courses", course_uc, "courses"),
     ]:
-        for payload in parsed.get(item, []):
+        items = parsed.get(item, [])
+        if selection is not None:
+            wanted = set(selection.get(item, []))
+            items = [p for i, p in enumerate(items) if i in wanted]
+        for payload in items:
             clean = coerce_dates_in_payload(dict(payload))
             try:
                 if session is not None:
