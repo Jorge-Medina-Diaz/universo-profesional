@@ -28,8 +28,16 @@ async def get_profile_completeness(run_context: Any) -> dict[str, Any]:
     """
     from uuid import UUID
 
+    from src.shared.db import with_user_session
+
     user_id = UUID(str(run_context.user_id))
-    session = run_context.session
+    # agno's RunContext carries NO DB session (audit finding: AttributeError
+    # at runtime) — open an RLS-scoped one for the read.
+    async with with_user_session(user_id) as session:
+        return await _profile_completeness(session, user_id)
+
+
+async def _profile_completeness(session, user_id):  # type: ignore[no-untyped-def]
 
     # Counts per entity kind — read from the igraph snapshot. Querying the AGE
     # label tables directly (`SELECT FROM universe_personal.<Label>`) is wrong:

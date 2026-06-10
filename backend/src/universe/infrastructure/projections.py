@@ -29,8 +29,9 @@ _BATCH = 500
 async def _set_cursor(session: AsyncSession, name: str, seq: int) -> None:
     await session.execute(
         text(
-            "UPDATE outbox_projection_cursor SET last_event_seq = :s, updated_at = now() "
-            "WHERE projection_name = :n"
+            "INSERT INTO outbox_projection_cursor (projection_name, last_event_seq, updated_at) "
+            "VALUES (:n, :s, now()) "
+            "ON CONFLICT (projection_name) DO UPDATE SET last_event_seq = :s, updated_at = now()"
         ),
         {"s": seq, "n": name},
     )

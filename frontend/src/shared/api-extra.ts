@@ -73,6 +73,12 @@ export const integrations = {
         },
         body: fd,
       });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(
+          (err as { detail?: string }).detail ?? `HTTP ${resp.status}`,
+        );
+      }
       return resp.json();
     },
     // `selection` maps kind → indices into parsed[kind]; only listed items
@@ -137,6 +143,12 @@ export const integrations = {
         },
         body: fd,
       });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(
+          (err as { detail?: string }).detail ?? `HTTP ${resp.status}`,
+        );
+      }
       return resp.json();
     },
     commit: (session_id: string, selection?: Record<string, number[]>) =>

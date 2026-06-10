@@ -39,7 +39,10 @@ WORKDIR /app
 
 COPY pyproject.toml uv.lock* ./
 RUN uv venv /opt/venv && \
-    uv sync --frozen --no-install-project || uv sync --no-install-project
+    uv sync --locked --no-install-project
+# --locked FAILS the build when uv.lock drifts from pyproject.toml. The old
+# '--frozen || uv sync' fallback installed a stale lock silently — that's how
+# the image shipped without aioboto3 while pyproject declared it.
 
 
 # ---------- Runtime ----------

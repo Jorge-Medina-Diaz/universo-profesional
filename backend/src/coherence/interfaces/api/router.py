@@ -155,20 +155,20 @@ async def review_queue(
         await session.execute(
             text(
                 "SELECT id::text AS id, kind, title, body, created_at "
-                "FROM suggestions WHERE status = 'pending' "
+                "FROM suggestions WHERE status = 'pending' AND user_id = :uid "
                 "ORDER BY priority DESC, created_at DESC LIMIT :lim"
             ),
-            {"lim": limit},
+            {"lim": limit, "uid": user_id},
         )
     ).all()
     quar = (
         await session.execute(
             text(
                 "SELECT id::text AS id, kind, reason, notes, created_at "
-                "FROM entity_quarantine WHERE resolved_at IS NULL "
+                "FROM entity_quarantine WHERE resolved_at IS NULL AND user_id = :uid "
                 "ORDER BY created_at DESC LIMIT :lim"
             ),
-            {"lim": limit},
+            {"lim": limit, "uid": user_id},
         )
     ).all()
     items = [

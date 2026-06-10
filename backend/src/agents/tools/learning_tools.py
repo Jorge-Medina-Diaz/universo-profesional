@@ -44,11 +44,11 @@ async def record_agent_feedback(
     """
     from uuid import UUID
 
+    from src.shared.db import with_user_session
+
     user_id = UUID(str(run_context.user_id))
-    session = run_context.session
     scope = getattr(run_context, "memory_scope", "universe_updates")
 
-    engine = SelfLearningEngine(session)
     feedback = UserFeedback(
         user_id=user_id,
         session_id=getattr(run_context, "session_id", ""),
@@ -59,8 +59,11 @@ async def record_agent_feedback(
         sentiment=sentiment,
         correction_detail=correction_detail,
     )
-    await engine.record(feedback)
-    await session.commit()
+    # agno's RunContext carries NO DB session (audit finding) — open an
+    # RLS-scoped one for the write.
+    async with with_user_session(user_id) as session:
+        await SelfLearningEngine(session).record(feedback)
+        await session.commit()
 
     logger.info(
         "agent_feedback_recorded",

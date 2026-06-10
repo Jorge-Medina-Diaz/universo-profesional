@@ -108,8 +108,19 @@ class S3StorageAdapter:
             )
 
     async def read(self, key: str) -> bytes:
+        from botocore.exceptions import ClientError
+
         async with self._client() as s3:
-            obj = await s3.get_object(Bucket=self._bucket, Key=self._full_key(key))
+            try:
+                obj = await s3.get_object(Bucket=self._bucket, Key=self._full_key(key))
+            except ClientError as exc:
+                err = exc.response.get("Error", {})
+                status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+                if err.get("Code") in ("404", "NoSuchKey", "NotFound") or status == 404:
+                    # Port contract: missing key -> FileNotFoundError, same as
+                    # the filesystem adapter, so callers map it to a 404.
+                    raise FileNotFoundError(key) from exc
+                raise
             async with obj["Body"] as stream:
                 return await stream.read()
 

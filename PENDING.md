@@ -31,9 +31,15 @@ mejoras menores:
   todo) — añadir selección granular en backend si se quiere paridad con PDF.
 - Playwright E2E: el job de CI existe por-push; valorar specs del golden
   path nuevo (diary/nudges) cuando haya remote.
-- Pulir: chip de estado ante RUN_ERROR (gate isLoading), ruta `/goals`
-  (añadir al Router o retirar), suggestions nativas de CopilotKit,
-  GitHub deep-extract usa top-5 repos (subir si conviene).
+- ~~Pulir~~ HECHO (2026-06-10): selección granular LinkedIn, chip RUN_ERROR,
+  `/goals` retirado del allowlist FE, aviso de cuota MCP (>80%), pools arq
+  consolidados, `uv.lock` regenerado (la imagen prod no llevaba aioboto3),
+  S3 verificado contra MinIO, query_graph registrado, run_context.session
+  corregido (crasheaba get_profile_completeness y record_feedback).
+- DECISIÓN: suggestions nativas de CopilotKit (useCopilotChatSuggestions)
+  NO se adoptan — disparan una llamada LLM por turno (latencia+coste) y los
+  chips de nudges ya cubren la proactividad de forma determinista y gratis.
+- GitHub deep-extract se queda en top-5 repos (coste LLM acotado).
 
 ## 🔶 Deuda heredada del pase de auditoría (deferred-by-design)
 

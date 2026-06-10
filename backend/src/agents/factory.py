@@ -383,6 +383,7 @@ def _build_universe_team(coordinator_tier: ModelTier = "coordinator"):  # type: 
     from src.agents.tools.notes_tools import list_notes
 
     # Sprint O — hybrid graph retrieval (BM25 + dense + PPR + RRF).
+    from src.agents.tools.graph_query_tools import query_graph
     from src.agents.tools.retrieval_tools import (
         enrich_universe,
         explain_path,
@@ -472,6 +473,7 @@ def _build_universe_team(coordinator_tier: ModelTier = "coordinator"):  # type: 
             # Universe reads (graph-first, Sprint O — preferred)
             universe_retrieve,
             get_graph_neighbors,
+            query_graph,
             explain_path,
             # Universe enrichment — infer relationships on request.
             enrich_universe,
