@@ -98,10 +98,13 @@ async def hybrid_retrieve(
     """
     from src.shared.config import get_settings
 
+    from src.graph.application.retrieval.knowledge import KnowledgeRetriever
+
     bm25 = BM25Retriever()
     dense = DenseRetriever()
     ppr = PPRRetriever()
     community = CommunityRetriever()
+    knowledge = KnowledgeRetriever()
 
     # Lanes run sequentially because asyncpg only allows one operation
     # per connection. PPR piggybacks on the dense lane's top results for
@@ -120,11 +123,18 @@ async def hybrid_retrieve(
     community_res = await community.retrieve(
         session, user_id, query, top_k=per_lane_k
     )
+    # P3.D — uploaded documents (papers/PDFs) join the same fusion; an empty
+    # or failing lane contributes nothing.
+    knowledge_res = await knowledge.retrieve(
+        session, user_id, query, top_k=min(per_lane_k, 10)
+    )
 
     # Fuse a WIDER pool than top_k so the reranker has candidates to reorder.
     pool = max(top_k, get_settings().rerank_candidate_pool)
     fused = reciprocal_rank_fusion(
-        [bm25_res, dense_res, ppr_res, community_res], k=k_rrf, top_k=pool
+        [bm25_res, dense_res, ppr_res, community_res, knowledge_res],
+        k=k_rrf,
+        top_k=pool,
     )
     return await _rerank(query, fused, top_k=top_k)
 

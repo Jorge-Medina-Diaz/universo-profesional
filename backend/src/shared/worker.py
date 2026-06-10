@@ -73,6 +73,7 @@ def _collect_functions() -> list[Any]:
     from src.mcp_server.infrastructure.tasks import (
         purge_expired_oauth_tokens,
     )
+    from src.universe.infrastructure.nudge_tasks import sweep_nudges_task
     from src.universe.infrastructure.projections import project_embeddings_task
     from src.universe.infrastructure.reminder_tasks import process_reminders_task
     from src.universe.infrastructure.tasks import (
@@ -83,6 +84,7 @@ def _collect_functions() -> list[Any]:
     return [
         refresh_embedding,
         enrich_universe_task,
+        sweep_nudges_task,
         render_document,
         send_email,
         hard_delete_expired_accounts,
@@ -105,6 +107,7 @@ def _collect_cron() -> list[Any]:
     from src.identity.infrastructure.lifecycle_tasks import lifecycle_cron
     from src.identity.infrastructure.tasks import hard_delete_expired_accounts
     from src.integrations.infrastructure.tasks import resync_cron
+    from src.universe.infrastructure.nudge_tasks import nudge_sweep_cron
     from src.universe.infrastructure.projections import project_embeddings_task
     from src.universe.infrastructure.reminder_tasks import reminders_cron
 
@@ -126,6 +129,9 @@ def _collect_cron() -> list[Any]:
         # Reminders scan + email digest at 07:00 UTC — a morning nudge,
         # after the overnight curator has tidied the universe.
         cron(reminders_cron, hour={7}, minute={0}, run_at_startup=False),
+        # Daily proactive-nudge sweep at 07:30 UTC (after reminders, so the
+        # composer chips and the email digest don't double-prompt the user).
+        cron(nudge_sweep_cron, hour={7}, minute={30}, run_at_startup=False),
         # Day-1 lifecycle "finish setup" email at 08:00 UTC (re-engage
         # registered-but-never-activated users; once each, opt-out respected).
         cron(lifecycle_cron, hour={8}, minute={0}, run_at_startup=False),

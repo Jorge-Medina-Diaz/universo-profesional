@@ -911,6 +911,25 @@ _HITL_TOOLS: list[dict[str, Any]] = [
         ),
         "params": [{"name": "enabled", "type": "bool"}],
     },
+    {
+        "name": "present_diary_card",
+        "description": (
+            "Open the weekly-capture diary card (P3): quick chips + free text "
+            "so the user can log what they did lately in seconds. Use when the "
+            "user accepts the '¿Qué has hecho esta semana?' nudge, says "
+            "something like 'te cuento mi semana', or you want a LOW-FRICTION "
+            "capture instead of an interrogation. `period` e.g. 'esta semana'. "
+            "`focus_hints` = up to 3 short strings tailored to THIS user (their "
+            "active projects/goals) shown as chips. Result: JSON "
+            "{chips: [...], text: '...'} or 'nothing_new' — with content, "
+            "thank them in ONE line (the extraction engine files everything); "
+            "with 'nothing_new', acknowledge warmly and drop the topic."
+        ),
+        "params": [
+            {"name": "period", "type": "str"},
+            {"name": "focus_hints", "type": "list[str] | None", "default": None},
+        ],
+    },
 ]
 
 for _spec in _HITL_TOOLS:

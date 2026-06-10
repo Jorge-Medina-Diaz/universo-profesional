@@ -178,6 +178,34 @@ async def suggest_discovery_questions(run_context: Any) -> dict[str, Any]:
             }
         ]
 
+    # P3 anti-repetition: drop anything asked in the last 30 days, and log
+    # what survives so the NEXT call (or the nudge engine) won't repeat it.
+    # "Proactive but never repetitive" is a product invariant, not a style.
+    try:
+        from src.shared.db import with_user_session
+        from src.universe.application.nudges import (
+            hash_question,
+            log_question_asked,
+            question_asked_recently,
+        )
+
+        async with with_user_session(user_id) as cap_session:
+            fresh: list[dict[str, Any]] = []
+            for q in questions:
+                q_text = str(q.get("question", ""))
+                if not q_text:
+                    continue
+                qh = hash_question(q_text)
+                if await question_asked_recently(cap_session, user_id, qh):
+                    continue
+                await log_question_asked(
+                    cap_session, user_id, qh, str(q.get("target_dimension") or "")
+                )
+                fresh.append(q)
+            questions = fresh
+    except Exception as exc:  # filtering must never break discovery
+        logger.warning("capture_log_filter_failed", error=str(exc), user_id=str(user_id))
+
     logger.info(
         "discovery_questions_suggested",
         user_id=str(user_id),
@@ -188,4 +216,9 @@ async def suggest_discovery_questions(run_context: Any) -> dict[str, Any]:
         "profile_completeness": completeness,
         "suggested_questions": questions,
         "focus_dimensions": sparse,
+        "note": (
+            "Las preguntas repetidas en los ultimos 30 dias se han filtrado. "
+            "Si la lista llega vacia, NO interrogues: retoma lo ultimo que el "
+            "usuario conto o pregunta por novedades de esta semana."
+        ),
     }

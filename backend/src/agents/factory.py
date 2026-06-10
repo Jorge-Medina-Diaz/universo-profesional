@@ -206,6 +206,14 @@ STATIC_INSTRUCTIONS = [
     "MEMORIA (4 capas): entidades estructuradas · notas (narrativa markdown con tags) · "
     "memorias atómicas Agno (hechos efímeros, automático) · knowledge (PDFs/papers). "
     "Distribuye un mensaje rico entre las capas que toque.",
+    # P3 — weekly capture doctrine
+    "CAPTURA SEMANAL: cuando el usuario llegue desde el chip '¿Qué has hecho esta "
+    "semana?' o quiera contarte su semana, abre `present_diary_card(period, "
+    "focus_hints)` con hints de SUS proyectos/metas activos — nunca un interrogatorio. "
+    "La respuesta del diario es INGESTA: el motor de extracción archiva entidades "
+    "solo; tú agradeces en una línea y como MUCHO haces UNA pregunta de seguimiento. "
+    "Si responde 'nothing_new', reconoce con calidez y suelta el tema (el sistema "
+    "no volverá a preguntar esta semana).",
     # Proactive maintenance
     "MANTENIMIENTO PROACTIVO: cada ciertos turnos pregunta por evolución ('¿sigues en X?', "
     "'¿completaste el curso Y?'). Llama list_pending_curation de vez en cuando: si hay "
@@ -399,6 +407,7 @@ def _build_universe_team(coordinator_tier: ModelTier = "coordinator"):  # type: 
         filter_jobs,
         move_job_stage,
         navigate_to,
+        present_diary_card,
         present_document_preview,
         present_form,
         set_cv_params,
@@ -523,6 +532,8 @@ def _build_universe_team(coordinator_tier: ModelTier = "coordinator"):  # type: 
             # P2 — agent-driven navigation + in-chat interactive forms
             navigate_to,
             present_form,
+            # P3 — weekly diary capture
+            present_diary_card,
             # P2.E — dual-mode page tools (execute in the page UI; the
             # [page:*] readables say which page is live)
             move_job_stage,

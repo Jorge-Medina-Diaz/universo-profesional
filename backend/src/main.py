@@ -399,6 +399,11 @@ def create_app() -> FastAPI:
     app.include_router(universe_router, prefix="/api/v1/universe", tags=["universe"])
     app.include_router(goals_router, prefix="/api/v1/goals", tags=["goals"])
     app.include_router(shape_router, prefix="/api/v1/universe/shape", tags=["universe"])
+
+    # P3 — proactive nudges (composer chips / Home badge)
+    from src.universe.interfaces.api.nudges_router import router as nudges_router
+
+    app.include_router(nudges_router, prefix="/api/v1/nudges", tags=["nudges"])
     app.include_router(import_router, prefix="/api/v1/import", tags=["import"])
     app.include_router(documents_router, prefix="/api/v1/documents", tags=["documents"])
     app.include_router(documents_share_router, prefix="/api/v1/share", tags=["share"])
