@@ -441,6 +441,23 @@ export const nudges = {
     }),
 };
 
+/** One row of the unified review inbox (pending suggestions + quarantine). */
+export interface ReviewQueueItem {
+  id: string;
+  source: "suggestion" | "quarantine";
+  kind: string | null;
+  title: string;
+  detail: string | null;
+  created_at: string | null;
+}
+
+export const coherence = {
+  reviewQueue: (limit = 20) =>
+    api<{ items: ReviewQueueItem[]; total: number }>(
+      `/api/v1/coherence/review-queue?limit=${limit}`,
+    ),
+};
+
 export const universe = {
   summary: () => api<UniverseSummary>("/api/v1/universe/summary"),
   list: (kind: string) => api<Record<string, unknown>[]>(`/api/v1/universe/${kind}`),

@@ -30,6 +30,7 @@ export const queryKeys = {
   },
   coherence: {
     changes: ["coherence", "changes"] as const,
+    reviewQueue: ["coherence", "review-queue"] as const,
   },
   integrations: {
     all: ["integrations"] as const,

@@ -16,7 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import { PanelRightOpen, LayoutGrid } from "lucide-react";
 import { useChatState } from "@/chat/state";
-import { nudges, useAuthStore } from "@/shared/api";
+import { coherence, nudges, useAuthStore } from "@/shared/api";
 import { graphApi, type GraphSnapshot } from "@/graph/api";
 import { AgentChatMount } from "@/chat/AgentChatMount";
 import { Button, GalaxyIllustration } from "@/ui";
@@ -32,6 +32,9 @@ const GraphView = lazy(() =>
 );
 const WidgetsSheet = lazy(() =>
   import("@/chat/WidgetsSheet").then((m) => ({ default: m.WidgetsSheet })),
+);
+const ReviewQueueSheet = lazy(() =>
+  import("@/widgets/ReviewQueueSheet").then((m) => ({ default: m.ReviewQueueSheet })),
 );
 
 export function UniverseSurface({ mode }: { mode: UniverseMode }) {
@@ -87,6 +90,7 @@ function AmbientUniverse() {
       {/* Floating controls — top right */}
       <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
         <NudgeBadge />
+        <ReviewQueueBadge />
         <Button
           size="sm"
           variant="outline"
@@ -155,6 +159,46 @@ function NudgeBadge() {
       <span className="tabular-nums font-medium text-ink">{count}</span>
       pendiente{count > 1 ? "s" : ""}
     </button>
+  );
+}
+
+/**
+ * Sibling pill to NudgeBadge: how many coherence items (suggestions +
+ * quarantine) await review. Opens the ReviewQueueSheet slide-over, where each
+ * item routes into the chat. Plain TanStack query, same rules as NudgeBadge.
+ */
+function ReviewQueueBadge() {
+  const authed = !!useAuthStore((s) => s.accessToken);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const queueQ = useQuery({
+    queryKey: queryKeys.coherence.reviewQueue,
+    queryFn: () => coherence.reviewQueue(20),
+    enabled: authed,
+    staleTime: 5 * 60_000,
+  });
+  const total = queueQ.data?.total ?? 0;
+  if (total === 0 && !sheetOpen) return null;
+  return (
+    <>
+      {total > 0 && (
+        <button
+          type="button"
+          onClick={() => setSheetOpen(true)}
+          aria-label={`${total} elemento${total > 1 ? "s" : ""} por revisar — abrir cola de revisión`}
+          className="inline-flex h-9 items-center gap-2 rounded-full border border-hairline bg-canvas/90 px-3.5 text-xs text-stone backdrop-blur transition-colors hover:text-ink"
+        >
+          <span
+            aria-hidden
+            className="h-1.5 w-1.5 rounded-full bg-sunbeam shadow-[0_0_8px_var(--color-sunbeam-yellow)]"
+          />
+          <span className="tabular-nums font-medium text-ink">{total}</span>
+          por revisar
+        </button>
+      )}
+      <Suspense fallback={null}>
+        <ReviewQueueSheet open={sheetOpen} onOpenChange={setSheetOpen} />
+      </Suspense>
+    </>
   );
 }
 

@@ -5,6 +5,7 @@ import { integrations } from "@/shared/api-extra";
 import { queryKeys } from "@/shared/queryKeys";
 import { EntryCard } from "../cards/EntryCard";
 import { ImportReviewCard, type ImportGroup } from "../cards/ImportReviewCard";
+import { LinkedInImportCard } from "../cards/LinkedInImportCard";
 import { PdfImportCard } from "../cards/PdfImportCard";
 import { normalizeImportItem, coherenceUpsert } from "./shared";
 import type { SavingState, UpsertResponse, CopilotActionParams } from "./types";
@@ -81,6 +82,37 @@ export function useImportActions(
       <PdfImportCard
         onDone={(summary) => respond?.(JSON.stringify(summary))}
         onCancel={() => respond?.(JSON.stringify({ cancelled: true }))}
+        onCommitted={() => {
+          qc.invalidateQueries({ queryKey: queryKeys.universe.all });
+          qc.invalidateQueries({ queryKey: queryKeys.graph.snapshot });
+          qc.invalidateQueries({ queryKey: queryKeys.coherence.changes });
+        }}
+      />
+    ),
+  });
+
+  useCopilotAction({
+    name: "propose_linkedin_csv_import",
+    description:
+      "Open an inline LinkedIn data-export importer in the chat: explains how " +
+      "to download the official 'Get a copy of your data' ZIP, parses it " +
+      "(experiences, education, skills, languages, certifications, projects) " +
+      "and imports it after the user reviews — available to every tier. Use " +
+      "whenever the user wants to import their LinkedIn profile.",
+    parameters: [
+      { name: "reason", type: "string", required: false },
+    ] satisfies CopilotActionParams,
+    renderAndWaitForResponse: ({
+      args,
+      respond,
+    }: {
+      args: Record<string, unknown>;
+      respond?: (s: string) => void;
+    }) => (
+      <LinkedInImportCard
+        reason={typeof args?.reason === "string" ? args.reason : undefined}
+        onDone={(summary) => respond?.(JSON.stringify(summary))}
+        onCancel={() => respond?.("cancelled")}
         onCommitted={() => {
           qc.invalidateQueries({ queryKey: queryKeys.universe.all });
           qc.invalidateQueries({ queryKey: queryKeys.graph.snapshot });
