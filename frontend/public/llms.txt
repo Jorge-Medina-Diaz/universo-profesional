@@ -23,3 +23,26 @@ RGPD desde el origen, hosting en la UE, cifrado en reposo y en tránsito, y aisl
 - [Crear una cuenta](/#/register)
 - [Servidor MCP](/#/mcp)
 - [Privacidad](/#/legal/privacy)
+
+## Digital twin (live demo)
+- Anyone can talk to a demo professional twin at /#/t/demo — a fictional,
+  clearly-labeled profile running on the production engine (per-user RLS
+  isolation, curated-facts-only retrieval, PII scrubbing, rate limits).
+- Users publish their own twin at /#/twin: a shareable public URL plus an
+  embeddable iframe widget for portfolios. Visitors can leave contact leads.
+
+## The three pillars
+1. FEED: a living knowledge graph fed by conversation (CV/LinkedIn/GitHub
+   import with human review, weekly diary nudges, agentic discovery).
+2. EXPLOIT: ATS-ready CVs per job offer grounded ONLY in graph evidence
+   (no invention), cover letters, application tracking, interview prep.
+3. AGENT-NATIVE APP: one chat pilots navigation, forms, cards and the
+   graph visualization. Native MCP server (OAuth 2.1) exposes the universe
+   as tools in Claude/ChatGPT/Cursor.
+
+## Engine (reproducible facts)
+- Hybrid retrieval: BM25 + dense (pgvector) + Personalized PageRank +
+  graph communities, fused with RRF (k=60).
+- Per-user graph: Apache AGE + pgvector + igraph snapshots; EU ESCO
+  ontology (~3,000 occupations, ~14,000 skills).
+- Multi-tenant Postgres RLS on every query, including the public twin.

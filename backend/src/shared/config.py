@@ -229,6 +229,10 @@ class Settings(BaseSettings):
     # Haiku-led coordinator variant; analysis/document/graph turns keep the
     # strong coordinator. Judged via proposal-rejection + empty-run metrics.
     agents_tier_routing_enabled: bool = False
+    # Public demo twin (landing live demo): the slug gets a raised daily turn
+    # budget; per-IP and per-session caps stay at their normal values.
+    demo_twin_slug: str = "demo"
+    demo_twin_daily_turns: int = 1000
 
     # --- Retrieval reranking (cross-encoder stage after RRF) ---
     # Retrieve a wider candidate pool cheaply (BM25+dense+PPR+RRF), then

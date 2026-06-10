@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 
 /* ------------------------------------------------------------------ *
  *  SemanticConstellation
@@ -67,6 +74,30 @@ interface Signal {
   color: string;
 }
 
+/** A free pulse travelling from an arbitrary point to a region anchor —
+ *  the "agent feeds the graph" motif (nova thread). */
+interface FreePulse {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  t: number;
+  speed: number;
+  color: string;
+  /** region to ignite a node in when the pulse lands (or -1) */
+  igniteRegion: number;
+}
+
+export interface ConstellationHandle {
+  /** Birth a node in a region (sunbeam flash, settles into the field). */
+  igniteNode(regionId: string): void;
+  /** Send a nova pulse from a normalised (0..1) point toward a region;
+   *  ignites a node there on arrival when `ignite` is true. */
+  pulseFrom(x01: number, y01: number, regionId: string, ignite?: boolean): void;
+  /** Ease the camera onto a region (null resets to the full field). */
+  flyTo(regionId: string | null): void;
+}
+
 /** tiny seeded RNG so layout is stable between renders/resizes */
 function makeRng(seed: number) {
   let s = seed >>> 0;
@@ -82,25 +113,34 @@ function hexToRgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-export function SemanticConstellation({
-  regions = DEFAULT_REGIONS,
-  className = "",
-  interactive = true,
-  showLabels = true,
-  intensity = 1,
-}: {
+export const SemanticConstellation = forwardRef<ConstellationHandle, {
   regions?: ConstellationRegion[];
   className?: string;
   interactive?: boolean;
   showLabels?: boolean;
   /** 0..1 — scales node count / motion for denser or calmer fields */
   intensity?: number;
-}) {
+  /** true counts of what is actually drawn — feeds honest counters */
+  onStats?: (nodes: number, edges: number) => void;
+}>(function SemanticConstellation({
+  regions = DEFAULT_REGIONS,
+  className = "",
+  interactive = true,
+  showLabels = true,
+  intensity = 1,
+  onStats,
+}, handleRef) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const nodesRef = useRef<Node[]>([]);
   const edgesRef = useRef<Edge[]>([]);
   const signalsRef = useRef<Signal[]>([]);
+  const pulsesRef = useRef<FreePulse[]>([]);
+  const cameraRef = useRef({ scale: 1, ox: 0, oy: 0, ts: 1, tx: 0, ty: 0 });
+  const onStatsRef = useRef(onStats);
+  onStatsRef.current = onStats;
+  const reducedRef = useRef(false);
+  const birthNodeRef = useRef<(regionIdx: number) => void>(() => {});
   const rafRef = useRef(0);
   const sizeRef = useRef({ w: 0, h: 0 });
   const pointerRef = useRef({ x: -9999, y: -9999, tx: 0, ty: 0, cx: 0, cy: 0 });
@@ -127,6 +167,7 @@ export function SemanticConstellation({
     });
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    reducedRef.current = reduced;
     const coarse = window.matchMedia("(max-width: 768px)").matches;
     const allowPointer = interactive && !coarse && !reduced;
 
@@ -228,6 +269,8 @@ export function SemanticConstellation({
       nodesRef.current = nodes;
       edgesRef.current = edges;
       signalsRef.current = [];
+      pulsesRef.current = [];
+      onStatsRef.current?.(nodes.length, edges.length);
       setReady(true);
     }
 
@@ -271,6 +314,16 @@ export function SemanticConstellation({
       const signals = signalsRef.current;
       const p = pointerRef.current;
       ctx!.clearRect(0, 0, w, h);
+
+      // camera easing (flyTo) — zoom toward a region without rebuilding
+      const cam = cameraRef.current;
+      cam.scale += (cam.ts - cam.scale) * 0.06;
+      cam.ox += (cam.tx - cam.ox) * 0.06;
+      cam.oy += (cam.ty - cam.oy) * 0.06;
+      ctx!.save();
+      ctx!.translate(w / 2, h / 2);
+      ctx!.scale(cam.scale, cam.scale);
+      ctx!.translate(-w / 2 - cam.ox, -h / 2 - cam.oy);
 
       // ease the global parallax offset toward the pointer target
       p.cx += (p.tx * 14 - p.cx) * 0.06;
@@ -392,6 +445,34 @@ export function SemanticConstellation({
         ctx!.globalAlpha = 1;
       }
 
+      // free pulses (agent feeds a region) — the nova thread
+      const pulses = pulsesRef.current;
+      for (let i = pulses.length - 1; i >= 0; i--) {
+        const fp = pulses[i];
+        fp.t += fp.speed;
+        if (fp.t >= 1) {
+          if (fp.igniteRegion >= 0) birthNodeRef.current(fp.igniteRegion);
+          pulses.splice(i, 1);
+          continue;
+        }
+        const t = fp.t;
+        const mx = (fp.x0 + fp.x1) / 2;
+        const my = Math.min(fp.y0, fp.y1) - 40;
+        const it = 1 - t;
+        const sx = it * it * fp.x0 + 2 * it * t * mx + t * t * fp.x1;
+        const sy = it * it * fp.y0 + 2 * it * t * my + t * t * fp.y1;
+        const [r, g, bl] = hexToRgb(fp.color);
+        const grad = ctx!.createRadialGradient(sx, sy, 0, sx, sy, 9);
+        grad.addColorStop(0, `rgba(${r},${g},${bl},0.95)`);
+        grad.addColorStop(1, `rgba(${r},${g},${bl},0)`);
+        ctx!.fillStyle = grad;
+        ctx!.beginPath();
+        ctx!.arc(sx, sy, 9, 0, Math.PI * 2);
+        ctx!.fill();
+      }
+
+      ctx!.restore();
+
       // Under prefers-reduced-motion, paint a single static frame and STOP —
       // re-queuing would keep the edges oscillating (Math.sin(frame*…)) and the
       // nodes drifting, which is exactly what reduced-motion users opt out of.
@@ -400,6 +481,49 @@ export function SemanticConstellation({
         rafRef.current = requestAnimationFrame(draw);
       }
     }
+
+    function birthNode(regionIdx: number) {
+      const { w, h } = sizeRef.current;
+      const region = regions[regionIdx];
+      if (!region || !w) return;
+      const min = Math.min(w, h);
+      const spread = (region.spread ?? 0.1) * min;
+      const ang = Math.random() * Math.PI * 2;
+      const r = Math.pow(Math.random(), 0.7) * spread;
+      const rx = region.cx * w + Math.cos(ang) * r;
+      const ry = region.cy * h + Math.sin(ang) * r * 0.85;
+      const nodes = nodesRef.current;
+      nodes.push({
+        rx,
+        ry,
+        x: rx,
+        y: ry,
+        vx: 0,
+        vy: 0,
+        radius: 2.6,
+        color: region.color,
+        region: regionIdx,
+        anchor: false,
+        pulse: 0,
+        pulseSpeed: 0.012,
+        bobPhase: Math.random() * Math.PI * 2,
+        bobAmp: 3 + Math.random() * 3,
+      });
+      const anchor = nodes.findIndex((n) => n.anchor && n.region === regionIdx);
+      if (anchor >= 0) {
+        edgesRef.current.push({
+          a: nodes.length - 1,
+          b: anchor,
+          color: region.color,
+          cross: false,
+        });
+      }
+      onStatsRef.current?.(nodes.length, edgesRef.current.length);
+      if (reducedRef.current && !rafRef.current) {
+        rafRef.current = requestAnimationFrame(draw);
+      }
+    }
+    birthNodeRef.current = birthNode;
 
     rafRef.current = requestAnimationFrame(draw);
 
@@ -426,6 +550,52 @@ export function SemanticConstellation({
       }
     };
   }, [regions, interactive, intensity]);
+
+  useImperativeHandle(handleRef, () => ({
+    igniteNode: (regionId: string) => {
+      const idx = regions.findIndex((r) => r.id === regionId);
+      if (idx >= 0) birthNodeRef.current(idx);
+    },
+    pulseFrom: (x01: number, y01: number, regionId: string, ignite = true) => {
+      const idx = regions.findIndex((r) => r.id === regionId);
+      const { w, h } = sizeRef.current;
+      if (idx < 0 || !w) return;
+      if (reducedRef.current) {
+        if (ignite) birthNodeRef.current(idx);
+        return;
+      }
+      pulsesRef.current.push({
+        x0: x01 * w,
+        y0: y01 * h,
+        x1: regions[idx].cx * w,
+        y1: regions[idx].cy * h,
+        t: 0,
+        speed: 0.016,
+        color: "#00d4aa",
+        igniteRegion: ignite ? idx : -1,
+      });
+    },
+    flyTo: (regionId: string | null) => {
+      const cam = cameraRef.current;
+      const { w, h } = sizeRef.current;
+      if (!regionId) {
+        cam.ts = 1;
+        cam.tx = 0;
+        cam.ty = 0;
+        return;
+      }
+      const region = regions.find((r) => r.id === regionId);
+      if (!region || !w) return;
+      cam.ts = 1.55;
+      cam.tx = (region.cx - 0.5) * w * 0.8;
+      cam.ty = (region.cy - 0.5) * h * 0.8;
+      if (reducedRef.current) {
+        cam.scale = cam.ts;
+        cam.ox = cam.tx;
+        cam.oy = cam.ty;
+      }
+    },
+  }), [regions]);
 
   return (
     <div ref={wrapRef} className={className}>
@@ -464,4 +634,4 @@ export function SemanticConstellation({
       )}
     </div>
   );
-}
+});

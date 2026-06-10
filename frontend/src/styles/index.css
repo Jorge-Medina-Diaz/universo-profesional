@@ -1281,6 +1281,47 @@
   --cos-hero-scrim-rgb: 7, 8, 10;             /* hero legibility veil (deep space) */
 }
 
+/* Deep-space BAND scope — §5 twin + §7 engine live in space regardless of
+ * data-theme. Same values as the dark landing; in user-dark mode the band
+ * differentiates itself via its denser starfield (.cosmos-deep::after). */
+.cosmos-deep {
+  --cos-bg: #07080a;
+  --cos-bg-2: #0b0d10;
+  --cos-ink: #f4f1ea;
+  --cos-stone: #9c988e;
+  --cos-faint: #6c6962;
+  --cos-hairline: rgba(244, 241, 234, 0.10);
+  --cos-hairline-strong: rgba(244, 241, 234, 0.18);
+  --cos-panel: rgba(255, 255, 255, 0.028);
+  --cos-panel-raised: rgba(255, 255, 255, 0.05);
+  --cos-fill: rgba(255, 255, 255, 0.03);
+  --cos-fill-strong: rgba(255, 255, 255, 0.05);
+  --cos-on-ink: #0a0a0a;
+  --cos-dim-color: rgba(244, 241, 234, 0.34);
+  --cos-label-bg: rgba(8, 9, 11, 0.55);
+  --cos-star: rgba(244, 241, 234, 0.10);
+  --cos-edge: rgba(244, 241, 234, 0.07);
+  --cos-track: rgba(244, 241, 234, 0.10);
+  background-color: var(--cos-bg);
+  color: var(--cos-ink);
+  position: relative;
+}
+.cosmos-deep::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle, var(--cos-star) 1px, transparent 1.4px);
+  background-size: 26px 26px;
+  opacity: 0.5;
+  mask-image: linear-gradient(180deg, transparent 0%, black 12%, black 88%, transparent 100%);
+}
+.cosmos-deep > * {
+  position: relative;
+  z-index: 1;
+}
+
 /* Atmospheric backdrop — drifting nebulae + faint starfield grid.
  * Lives on ::before (gradients) and ::after (star dots) so content sits above. */
 .landing-cosmos::before {

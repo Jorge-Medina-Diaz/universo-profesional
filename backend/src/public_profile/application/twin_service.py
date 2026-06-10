@@ -145,14 +145,21 @@ def visitor_hash(ip: str, user_agent: str) -> str:
 
 async def consume_daily_budget(slug: str) -> bool:
     """Per-slug daily turn budget via Redis INCR. True = budget available."""
+    from src.shared.config import get_settings
     from src.shared.redis import get_redis
 
+    settings = get_settings()
+    cap = (
+        settings.demo_twin_daily_turns
+        if slug == settings.demo_twin_slug
+        else DAILY_TURNS_PER_SLUG
+    )
     key = f"twin:budget:{slug}:{utc_now():%Y-%m-%d}"
     redis = get_redis()
     used = await redis.incr(key)
     if used == 1:
         await redis.expire(key, 86400)
-    return int(used) <= DAILY_TURNS_PER_SLUG
+    return int(used) <= cap
 
 
 _PII_RE = re.compile(

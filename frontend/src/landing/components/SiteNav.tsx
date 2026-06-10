@@ -1,14 +1,49 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Menu, X, ArrowRight, Sun, Moon } from "lucide-react";
+import { useTranslation } from "react-i18next";
+
 import { useTheme } from "@/shared/useTheme";
 
+/** i18n keys in the landing namespace; resolved inside SiteNav. */
 const LINKS = [
-  { label: "Producto", href: "#producto" },
-  { label: "Casos de uso", href: "#casos" },
-  { label: "Cómo funciona", href: "#como" },
-  { label: "Precios", href: "#precios" },
+  { key: "nav.product", href: "#producto" },
+  { key: "nav.twin", href: "#twin" },
+  { key: "nav.engine", href: "#engine" },
+  { key: "nav.pricing", href: "#precios" },
 ];
+
+function LanguageSwitch({ className = "" }: { className?: string }) {
+  const { i18n } = useTranslation("landing");
+  const isEn = i18n.language.startsWith("en");
+  const set = (lang: "es" | "en") => {
+    void i18n.changeLanguage(lang);
+    document.documentElement.lang = lang;
+  };
+  return (
+    <div
+      className={`inline-flex items-center rounded-full border border-[var(--cos-hairline)] p-0.5 text-[11px] font-mono ${className}`}
+      role="group"
+      aria-label="Idioma"
+    >
+      {(["es", "en"] as const).map((lang) => (
+        <button
+          key={lang}
+          type="button"
+          aria-pressed={lang === "en" ? isEn : !isEn}
+          onClick={() => set(lang)}
+          className={`px-2.5 py-1 rounded-full uppercase transition-colors ${
+            (lang === "en") === isEn
+              ? "bg-[var(--cos-fill-strong)] text-[var(--cos-ink)]"
+              : "text-[var(--cos-stone)] hover:text-[var(--cos-ink)]"
+          }`}
+        >
+          {lang}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function go(hash: string) {
   window.location.hash = hash;
@@ -55,6 +90,7 @@ function ThemeToggleButton({ className = "" }: { className?: string }) {
 }
 
 export function SiteNav() {
+  const { t } = useTranslation("landing");
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const sheetRef = useRef<HTMLElement>(null);
@@ -171,25 +207,26 @@ export function SiteNav() {
                 onClick={(e) => scrollToSection(e, l.href)}
                 className="rounded-full px-3.5 py-1.5 text-sm text-[var(--cos-stone)] transition-colors hover:bg-[var(--cos-fill-strong)] hover:text-[var(--cos-ink)]"
               >
-                {l.label}
+                {t(l.key)}
               </a>
             ))}
           </nav>
 
           {/* Right actions */}
           <div className="flex items-center gap-2">
+            <LanguageSwitch className="hidden md:inline-flex" />
             <ThemeToggleButton className="hidden sm:grid" />
             <button
               onClick={() => go("#/login")}
               className="hidden rounded-full px-4 py-2 text-sm font-medium text-[var(--cos-stone)] transition-colors hover:text-[var(--cos-ink)] sm:block"
             >
-              Iniciar sesión
+              {t("nav.login")}
             </button>
             <button
               onClick={() => go("#/register")}
               className="group hidden items-center gap-1.5 rounded-full bg-[var(--cos-ink)] px-4 py-2 text-sm font-semibold text-[var(--cos-on-ink)] transition-transform hover:-translate-y-0.5 sm:inline-flex"
             >
-              Crear universo
+              {t("nav.cta")}
               <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
             </button>
             <button
@@ -258,7 +295,7 @@ export function SiteNav() {
                     }}
                     className="rounded-2xl px-3 py-3 text-[15px] text-[var(--cos-ink)] transition-colors hover:bg-[var(--cos-fill-strong)]"
                   >
-                    {l.label}
+                    {t(l.key)}
                   </a>
                 ))}
               </div>
@@ -270,7 +307,7 @@ export function SiteNav() {
                   }}
                   className="cos-btn-primary w-full"
                 >
-                  Crear mi universo gratis
+                  {t("nav.cta")}
                 </button>
                 <button
                   onClick={() => {
@@ -279,8 +316,11 @@ export function SiteNav() {
                   }}
                   className="cos-btn-ghost w-full"
                 >
-                  Iniciar sesión
+                  {t("nav.login")}
                 </button>
+                <div className="flex justify-center pt-1">
+                  <LanguageSwitch />
+                </div>
               </div>
             </motion.nav>
           </motion.div>

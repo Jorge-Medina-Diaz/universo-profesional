@@ -1,13 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Send, Sparkles, MessageCircle } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
+import { TwinChatCard } from "@/landing/components/TwinChatCard";
 import { publicTwin, type PublicTwinProfile } from "@/shared/api";
-
-interface Turn {
-  role: "user" | "assistant";
-  content: string;
-}
 
 /** Public twin surface (#/t/{slug}) — works logged-out, chrome-less.
  *  `?embed=1` strips it to the chat card for portfolio iframes. */
@@ -50,127 +46,14 @@ function TwinSurface({
   profile: PublicTwinProfile;
   embed: boolean;
 }) {
-  const [turns, setTurns] = useState<Turn[]>([]);
-  const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [limitReached, setLimitReached] = useState(false);
   const [showLead, setShowLead] = useState(false);
-  const sessionRef = useRef<string | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [turns, sending]);
-
-  const ask = async (message: string) => {
-    const text = message.trim();
-    if (!text || sending || limitReached) return;
-    setError(null);
-    setSending(true);
-    setInput("");
-    setTurns((t) => [...t, { role: "user", content: text }]);
-    try {
-      const res = await publicTwin.chat(slug, {
-        message: text,
-        history: turns.slice(-12),
-        session_id: sessionRef.current,
-      });
-      sessionRef.current = res.session_id ?? sessionRef.current;
-      setTurns((t) => [...t, { role: "assistant", content: res.answer }]);
-      if (res.limit_reached) {
-        setLimitReached(true);
-        setShowLead(true);
-      }
-    } catch (e) {
-      setError(
-        e instanceof Error && e.message.includes("429")
-          ? "Este perfil ha alcanzado su límite de conversación por hoy."
-          : "No se pudo enviar el mensaje. Inténtalo de nuevo.",
-      );
-      setTurns((t) => t.slice(0, -1));
-      setInput(text);
-    } finally {
-      setSending(false);
-    }
-  };
 
   const chat = (
-    <div className="flex flex-col rounded-2xl border border-hairline bg-surface/60 overflow-hidden">
-      <div
-        ref={scrollRef}
-        className={`overflow-y-auto px-4 py-4 flex flex-col gap-3 ${embed ? "h-[340px]" : "h-[420px]"}`}
-      >
-        {turns.length === 0 && (
-          <div className="m-auto text-center max-w-sm">
-            <MessageCircle size={22} className="mx-auto mb-2 text-stone" aria-hidden />
-            <p className="text-sm text-stone mb-4">
-              Pregúntale lo que quieras sobre su trayectoria profesional.
-            </p>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {profile.suggested_questions.map((q) => (
-                <button
-                  key={q}
-                  type="button"
-                  onClick={() => void ask(q)}
-                  className="text-xs px-3 py-1.5 rounded-full border border-hairline bg-canvas text-ink hover:bg-surface transition-colors"
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {turns.map((t, i) => (
-          <div
-            key={i}
-            className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap ${
-              t.role === "user"
-                ? "self-end bg-nova/15 text-ink"
-                : "self-start bg-canvas border border-hairline text-ink"
-            }`}
-          >
-            {t.content}
-          </div>
-        ))}
-        {sending && (
-          <div className="self-start text-xs text-stone animate-pulse px-2">Pensando…</div>
-        )}
-        {error && (
-          <div
-            role="alert"
-            className="self-center text-xs text-danger bg-danger-soft border border-danger/30 rounded-lg px-3 py-2"
-          >
-            {error}
-          </div>
-        )}
-      </div>
-      <form
-        className="flex items-center gap-2 border-t border-hairline bg-canvas px-3 py-2.5"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void ask(input);
-        }}
-      >
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          maxLength={600}
-          disabled={sending || limitReached}
-          placeholder={limitReached ? "Conversación completada" : "Escribe tu pregunta…"}
-          aria-label="Tu pregunta"
-          className="flex-1 bg-transparent text-sm text-ink placeholder:text-stone outline-none disabled:opacity-50"
-        />
-        <button
-          type="submit"
-          disabled={!input.trim() || sending || limitReached}
-          aria-label="Enviar"
-          className="h-8 w-8 grid place-items-center rounded-full bg-nova text-white disabled:opacity-40 transition-opacity"
-        >
-          <Send size={14} />
-        </button>
-      </form>
-    </div>
+    <TwinChatCard
+      slug={slug}
+      suggested={profile.suggested_questions}
+      height={embed ? "h-[340px]" : "h-[420px]"}
+    />
   );
 
   const leadCard = showLead ? (
