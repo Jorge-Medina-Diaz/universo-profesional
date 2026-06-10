@@ -28,7 +28,6 @@ from src.coherence.infrastructure.change_log_repo import SqlAlchemyChangeLogRepo
 from src.coherence.infrastructure.semantic_matcher import PgVectorSemanticMatcher
 from src.graph.application.esco_linker import LinkState, esco_linker
 from src.graph.application.universe_graph import universe_graph_service
-from src.graph.domain import schema as graph_schema
 from src.shared.config import get_settings
 from src.shared.metrics import discovery_entities_extracted_total
 from src.shared.uow import UnitOfWork
@@ -146,6 +145,23 @@ Output:
 ]
 """
 
+def _norm(name: str) -> str:
+    return " ".join((name or "").lower().split())
+
+
+_KIND_SQL: dict[str, tuple[str, str]] = {
+    "experience": ("experiences", "organization"),
+    "education": ("educations", "institution"),
+    "skill": ("skills", "name"),
+    "project": ("projects", "name"),
+    "certification": ("certifications", "name"),
+    "course": ("courses", "title"),
+    "language": ("languages", "name"),
+    "achievement": ("achievements", "title"),
+    "interest": ("interests", "name"),
+}
+
+
 _RELATION_EXTRACTION_PROMPT = """You are a relation extractor for a professional knowledge graph.
 
 Given the user's text and the entities already extracted, identify typed
@@ -235,16 +251,19 @@ async def _try_link_esco(
                     "score": round(result.score or 0.0, 3),
                 },
             )
+            # The graph repo wraps the fragment in SELECT * FROM cypher(...)
+            # itself — passing a pre-wrapped statement double-wrapped it into
+            # "syntax error at or near SELECT", which ABORTED the tx and
+            # killed every later upsert/relation in the pass.
             await universe_graph_service._execute_cypher(
                 session,
-                f"""
-                SELECT * FROM cypher('{graph_schema.GRAPH_PERSONAL}', $$
-                    MATCH (e {{id: $eid, user_id: $uid}})
-                    SET e.esco_uri = $uri
-                    RETURN e.id
-                $$) AS (id agtype)
+                """
+                MATCH (e {id: $eid, user_id: $uid})
+                SET e.esco_uri = $uri
+                RETURN e.id
                 """,
                 {"eid": str(entity_id), "uid": str(user_id), "uri": result.esco_uri},
+                column_defs="id agtype",
             )
             logger.info(
                 "esco_linked",
@@ -310,8 +329,24 @@ class UniverseEnrichmentEngine:
             try:
                 upserted_id = await self._upsert_entity(ent, source, resolve_duplicates)
                 if upserted_id:
-                    entity_id_map[(ent.kind, self._canonical_name(ent))] = upserted_id
+                    entity_id_map[
+                        (ent.kind, _norm(self._canonical_name(ent)))
+                    ] = upserted_id
                     result.entities_created += 1
+                    # Embed INLINE so the very next turn's semantic dedup can
+                    # see this row. The async refresh lands too late: the
+                    # turn-1 fragment had no embedding when turn-3's rich
+                    # version arrived, so the matcher created a duplicate.
+                    try:
+                        from src.universe.infrastructure.tasks import (  # noqa: PLC0415
+                            refresh_embedding,
+                        )
+
+                        await refresh_embedding(
+                            {}, entity_type=ent.kind, entity_id=str(upserted_id)
+                        )
+                    except Exception as exc:  # embedding lag is tolerable
+                        logger.debug("inline_embedding_failed", error=str(exc))
                     # 3b. Link to ESCO ontology
                     if link_esco:
                         result.esco_linked += await _try_link_esco(
@@ -320,12 +355,26 @@ class UniverseEnrichmentEngine:
             except Exception as exc:
                 result.errors.append(f"{ent.kind} upsert failed: {exc}")
                 logger.warning("enrichment_entity_failed", kind=ent.kind, error=str(exc))
+                # A failed statement ABORTS the tx; without rollback every
+                # later entity/relation in this pass dies with
+                # InFailedSQLTransactionError (one bad apple emptied turns).
+                try:
+                    await self._session.rollback()
+                except Exception:  # pragma: no cover - defensive
+                    pass
 
-        # 4. Materialise relations as graph edges
+        # 4. Materialise relations as graph edges. Endpoints resolve against
+        # this pass's map first, then against the user's EXISTING entities —
+        # otherwise a new skill could never link to the project mentioned
+        # three turns ago (relations_created was permanently 0 for those).
         for rel in relations:
             try:
-                src_id = entity_id_map.get((rel.source_kind, rel.source_name))
-                tgt_id = entity_id_map.get((rel.target_kind, rel.target_name))
+                src_id = entity_id_map.get(
+                    (rel.source_kind, _norm(rel.source_name))
+                ) or await self._resolve_existing(rel.source_kind, rel.source_name)
+                tgt_id = entity_id_map.get(
+                    (rel.target_kind, _norm(rel.target_name))
+                ) or await self._resolve_existing(rel.target_kind, rel.target_name)
                 if src_id and tgt_id:
                     await universe_graph_service.upsert_edge(
                         self._session,
@@ -340,6 +389,10 @@ class UniverseEnrichmentEngine:
             except Exception as exc:
                 result.errors.append(f"relation failed: {exc}")
                 logger.warning("enrichment_relation_failed", error=str(exc))
+                try:
+                    await self._session.rollback()
+                except Exception:  # pragma: no cover - defensive
+                    pass
 
         # 5. Full-graph enrichment (infer RELATED_TO, USES_TECH from tech_stack,
         # etc.). DEBOUNCED off the chat turn (R15 s2): we enqueue a coalesced
@@ -422,7 +475,16 @@ class UniverseEnrichmentEngine:
             ]
         )
         try:
-            parsed = json.loads(response)
+            try:
+                parsed = json.loads(response)
+            except json.JSONDecodeError:
+                # The model wraps the array in ```json fences``` — same
+                # fallback the entity parser has had all along; without it
+                # every extracted relation died here (relations_created: 0).
+                fence = re.search(r"```(?:json)?\s*(\[.*?\])\s*```", response, re.DOTALL)
+                if not fence:
+                    raise
+                parsed = json.loads(fence.group(1))
             if not isinstance(parsed, list):
                 return []
             return [
@@ -469,6 +531,28 @@ class UniverseEnrichmentEngine:
         return None
 
     # Helpers
+
+    async def _resolve_existing(self, kind: str, name: str) -> UUID | None:
+        """Find an existing entity of *kind* whose display name matches *name*
+        (case/whitespace-insensitive). Lets relations connect new facts to
+        entities created in earlier turns or imports."""
+        from sqlalchemy import text as _text  # noqa: PLC0415
+
+        spec = _KIND_SQL.get(kind)
+        if not spec or not name:
+            return None
+        table, field = spec
+        row = (
+            await self._session.execute(
+                _text(
+                    f"SELECT id FROM {table} WHERE user_id = :uid "
+                    f"AND deleted_at IS NULL AND lower(trim({field})) = :name "
+                    "ORDER BY updated_at DESC LIMIT 1"
+                ),
+                {"uid": str(self._user_id), "name": _norm(name)},
+            )
+        ).scalar()
+        return row
 
     def _canonical_name(self, ent: ExtractedEntity) -> str:
         """Return a stable name key for the entity (used in relation mapping)."""

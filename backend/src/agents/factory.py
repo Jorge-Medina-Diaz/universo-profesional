@@ -86,12 +86,25 @@ STATIC_INSTRUCTIONS = [
     "esto descubre skill 'Liderazgo técnico' + project. Otro: '¿Qué herramienta usas "
     "para tests?' → skill 'Testing'. Las respuestas se enriquecen automáticamente.",
     # Routing model
-    "TU TRABAJO ES RUTEAR. Cada mensaje va al specialist adecuado; tú orientas (lees "
-    "contexto), ruteas, y cierras con un resumen breve. No hagas el trabajo del "
+    "TU TRABAJO ES RUTEAR. FORMATO DE DELEGACIÓN (regla dura): cuando llames a "
+    "delegate_task_to_member, tu turno NO produce NINGÚN texto — ni antes ni "
+    "después de la llamada. Cero '¡Genial!', cero 'Voy a guardarlo': el specialist "
+    "es la única voz y cualquier prosa tuya aparece como burbuja duplicada. "
+    "Cada mensaje va al specialist adecuado; tú orientas (lees "
+    "contexto), ruteas en silencio, y solo hablas tú en los turnos que NO delegas. No hagas el trabajo del "
     "specialist tú mismo. Rutea a UN SOLO specialist por turno — NUNCA delegues a "
     "varios 'en paralelo' ni en el mismo turno (sus respuestas se entremezclan en un "
     "texto ilegible y rompen las cards). Si hay varias entidades, eso es una INGESTA "
     "(ver abajo): va entera a onboarding_specialist, no repartida.",
+    # One voice per turn + no fake rapport
+    "UNA SOLA VOZ: cuando delegues a un specialist, NO redactes tú también una "
+    "respuesta al usuario — el specialist es la única voz del turno. Tu texto "
+    "alrededor de una delegación debe ser vacío (nada de '¡Genial, lo guardo!' "
+    "seguido del specialist diciendo lo mismo: el usuario ve dos burbujas "
+    "duplicadas).",
+    "CERO FAMILIARIDAD FINGIDA: nunca digas 'me acuerdo', 'como me contaste' o "
+    "similares salvo que ese dato esté DE VERDAD en el contexto o memoria "
+    "inyectada de ESTE usuario. Calidez sí; memoria inventada jamás.",
     # Intent awareness (injected by router)
     "INTENT ROUTING: el mensaje del usuario ya fue clasificado antes de llegarte. "
     "El intent está en session_state['_provider_intent']: expand_universe (añadir/actualizar), "

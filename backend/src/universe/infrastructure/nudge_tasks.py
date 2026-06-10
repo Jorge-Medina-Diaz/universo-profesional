@@ -46,6 +46,21 @@ async def sweep_nudges_for_user(ctx: dict[str, Any], *, user_id: str) -> dict[st
             {"uid": user_id, "cutoff": utc_now() - timedelta(days=14)},
         )
         created = await sweep_user_nudges(session, uid)
+        # Piggybacked hygiene: agno's memory manager stores near-identical
+        # user memories on consecutive runs. Exact-duplicate rows are pure
+        # noise that pollutes recall — keep the oldest of each.
+        try:
+            await session.execute(
+                text(
+                    "DELETE FROM ai.agno_memories a USING ai.agno_memories b "
+                    "WHERE a.user_id = :uid AND b.user_id = :uid "
+                    "AND a.memory->>'memory' = b.memory->>'memory' "
+                    "AND a.memory_id > b.memory_id"
+                ),
+                {"uid": user_id},
+            )
+        except Exception as exc:  # hygiene must never break the sweep
+            logger.warning("agno_memory_dedup_failed", user_id=user_id, error=str(exc))
     if created:
         logger.info("nudges_created", user_id=user_id, created=created)
     return {"created": created}

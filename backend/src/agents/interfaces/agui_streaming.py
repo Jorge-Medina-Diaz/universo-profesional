@@ -378,6 +378,7 @@ async def _clean_event_stream(
     _PREFIX_GATE = 48
     _TAIL_HOLD = 64
     live_mid: str | None = None  # message currently streaming live
+    pending_ack: dict | None = None
     live_done = False  # only the first text message gets the live path
 
     def _strip_notices(s: str) -> str:
@@ -427,6 +428,33 @@ async def _clean_event_stream(
             produced_output = True
             # fall through → RUN_FINISHED is yielded at the bottom of the loop
         try:
+            # ONE VOICE: a short coordinator ack ("Â¡Genial, lo guardo!")
+            # immediately followed by a delegation duplicates the specialist's
+            # reply as a second bubble. Short pre-delegation messages are HELD
+            # one event: dropped if a delegate tool call follows, flushed
+            # otherwise.
+            if pending_ack is not None:
+                is_delegate = (
+                    etype == EventType.TOOL_CALL_START
+                    and (getattr(event, "tool_call_name", None) or "")
+                    == "delegate_task_to_member"
+                )
+                held = pending_ack
+                pending_ack = None
+                yield encoder.encode(held["start"])
+                if not is_delegate:
+                    produced_output = True
+                    if timer:
+                        timer.mark("ttft")
+                    emitted_concat += held["norm"]
+                    yield encoder.encode(
+                        TextMessageContentEvent(
+                            type=EventType.TEXT_MESSAGE_CONTENT,
+                            message_id=held["start"].message_id,
+                            delta=held["cleaned"],
+                        )
+                    )
+                yield encoder.encode(held["end"])
             if etype == EventType.TEXT_MESSAGE_START:
                 buffers[event.message_id] = {
                     "start": event,
@@ -451,13 +479,19 @@ async def _clean_event_stream(
                             live_mid = event.message_id
                             live_done = True
                     if live_mid == event.message_id:
-                        # Stream everything except the tail holdback window.
-                        flush_upto = max(0, len(buf["text"]) - _TAIL_HOLD)
+                        # Stream from the NOTICE-STRIPPED text: HITL/plumbing
+                        # notices can arrive mid-message, past the tail
+                        # holdback, and leaked verbatim to the user
+                        # ("Member 'x' requires human input…"). A partial
+                        # notice at the end stays inside the holdback window
+                        # until it completes, so stripping is stable.
+                        cleaned_live = _strip_notices(buf["text"])
+                        flush_upto = max(0, len(cleaned_live) - _TAIL_HOLD)
                         if flush_upto > buf["emitted_upto"]:
                             if not buf["started_emitted"]:
                                 buf["started_emitted"] = True
                                 yield encoder.encode(buf["start"])
-                            chunk = buf["text"][buf["emitted_upto"] : flush_upto]
+                            chunk = cleaned_live[buf["emitted_upto"] : flush_upto]
                             buf["emitted_upto"] = flush_upto
                             produced_output = True
                             if timer:
@@ -476,8 +510,10 @@ async def _clean_event_stream(
                 and buffers[event.message_id].get("started_emitted")
             ):
                 # Live-streamed message: clean + flush the held tail, close.
+                # (emitted_upto indexes into the STRIPPED text — slice the
+                # same cleaned string, not the raw buffer.)
                 buf = buffers.pop(event.message_id)
-                tail = _strip_notices(buf["text"][buf["emitted_upto"] :])
+                tail = _strip_notices(buf["text"])[buf["emitted_upto"] :]
                 tail = tail.rstrip() if not tail.strip() else tail
                 if tail.strip():
                     yield encoder.encode(
@@ -501,6 +537,14 @@ async def _clean_event_stream(
                 # Always re-emit START/END so a tool call parented to this
                 # message isn't orphaned; emit CONTENT only when it's real and
                 # not a duplicate (empty/dup → no visible bubble).
+                if cleaned and not is_dup and not produced_output and len(cleaned) < 60:
+                    pending_ack = {
+                        "start": buf["start"],
+                        "end": event,
+                        "cleaned": cleaned,
+                        "norm": norm,
+                    }
+                    continue
                 yield encoder.encode(buf["start"])
                 if cleaned and not is_dup:
                     produced_output = True
@@ -519,6 +563,17 @@ async def _clean_event_stream(
         except Exception:  # never let cleanup break the stream
             pass
         yield encoder.encode(event)
+    if pending_ack is not None:
+        yield encoder.encode(pending_ack["start"])
+        yield encoder.encode(
+            TextMessageContentEvent(
+                type=EventType.TEXT_MESSAGE_CONTENT,
+                message_id=pending_ack["start"].message_id,
+                delta=pending_ack["cleaned"],
+            )
+        )
+        yield encoder.encode(pending_ack["end"])
+        produced_output = True
     # Defensive: flush any unterminated buffers with a proper START + CONTENT +
     # END sequence. Emitting START alone left the message bubble permanently
     # open (CopilotKit shows a never-ending spinner). Live-streamed buffers
@@ -526,7 +581,7 @@ async def _clean_event_stream(
     for buf in buffers.values():
         mid = buf["start"].message_id
         if buf.get("started_emitted"):
-            tail = _strip_notices(buf["text"][buf["emitted_upto"] :]).strip()
+            tail = _strip_notices(buf["text"])[buf["emitted_upto"] :].strip()
             if tail:
                 yield encoder.encode(
                     TextMessageContentEvent(
