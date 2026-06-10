@@ -102,7 +102,7 @@ async def project_embeddings_task(ctx: dict[str, Any]) -> dict[str, Any]:
             await session.execute(
                 text(
                     "SELECT seq, payload->>'entity_type' AS et, "
-                    "payload->>'entity_id_str' AS eid FROM domain_events "
+                    "payload->>'entity_id_str' AS eid, occurred_at FROM domain_events "
                     "WHERE seq > :c AND event_type IN "
                     "('universe.entry_added', 'universe.entry_updated') "
                     "ORDER BY seq LIMIT :lim"
@@ -118,7 +118,7 @@ async def project_embeddings_task(ctx: dict[str, Any]) -> dict[str, Any]:
         # Advance only to the last CONTIGUOUS success. `refresh_embedding` opens
         # its own session per row; the lock above serialises ticks so that is safe.
         advance_to = cursor
-        for raw_seq, et, eid in rows:
+        for raw_seq, et, eid, event_occurred_at in rows:
             seq = int(raw_seq)
             if not et or not eid:
                 # Can never embed — step over it (loud) so it doesn't wedge us.
@@ -130,6 +130,17 @@ async def project_embeddings_task(ctx: dict[str, Any]) -> dict[str, Any]:
                 await refresh_embedding(ctx, entity_type=et, entity_id=eid)
                 projected += 1
                 advance_to = seq
+                # P3.E SLO: write -> retrievable-by-dense-lane lag.
+                try:
+                    from src.shared.metrics import ingestion_to_queryable_seconds
+                    from src.shared.security import utc_now
+
+                    if event_occurred_at is not None:
+                        lag = (utc_now() - event_occurred_at).total_seconds()
+                        if lag >= 0:
+                            ingestion_to_queryable_seconds.observe(lag)
+                except Exception:  # metrics never break the projection
+                    pass
             except Exception as exc:
                 # Likely transient — STOP advancing so this row is retried next
                 # tick (at-least-once). Loud, never silent. A row that fails

@@ -125,5 +125,73 @@ async def list_changes(
         return {"items": items, "next_cursor": None}
     return await repo.list_for_user(user_id=UUID(user_id), limit=limit, cursor=cursor)
 
+class ReviewItem(BaseModel):
+    id: str
+    source: str  # 'suggestion' | 'quarantine'
+    kind: str | None = None
+    title: str
+    detail: str | None = None
+    created_at: str | None = None
 
+
+class ReviewQueue(BaseModel):
+    items: list[ReviewItem]
+    total: int
+
+
+@router.get("/review-queue", response_model=ReviewQueue)
+async def review_queue(
+    user_id: CurrentUserId,
+    session: SessionDep,
+    limit: int = Query(20, ge=1, le=50),
+) -> ReviewQueue:
+    """Everything waiting for the user's judgement, in ONE list (P3.E):
+    pending suggestions + unresolved ESCO/dedup quarantine. Items resolve
+    through their existing flows (chat cards / suggestions surface) — this
+    endpoint only aggregates, so there is exactly one inbox to drain."""
+    from sqlalchemy import text
+
+    sugg = (
+        await session.execute(
+            text(
+                "SELECT id::text AS id, kind, title, body, created_at "
+                "FROM suggestions WHERE status = 'pending' "
+                "ORDER BY priority DESC, created_at DESC LIMIT :lim"
+            ),
+            {"lim": limit},
+        )
+    ).all()
+    quar = (
+        await session.execute(
+            text(
+                "SELECT id::text AS id, kind, reason, notes, created_at "
+                "FROM entity_quarantine WHERE resolved_at IS NULL "
+                "ORDER BY created_at DESC LIMIT :lim"
+            ),
+            {"lim": limit},
+        )
+    ).all()
+    items = [
+        ReviewItem(
+            id=r.id,
+            source="suggestion",
+            kind=r.kind,
+            title=str(r.title or "Sugerencia"),
+            detail=(str(r.body)[:200] if r.body else None),
+            created_at=r.created_at.isoformat() if r.created_at else None,
+        )
+        for r in sugg
+    ] + [
+        ReviewItem(
+            id=r.id,
+            source="quarantine",
+            kind=r.kind,
+            title=str(r.reason or "Revision pendiente"),
+            detail=(str(r.notes)[:200] if r.notes else None),
+            created_at=r.created_at.isoformat() if r.created_at else None,
+        )
+        for r in quar
+    ]
+    items.sort(key=lambda i: i.created_at or "", reverse=True)
+    return ReviewQueue(items=items[:limit], total=len(items))
 

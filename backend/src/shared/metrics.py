@@ -76,6 +76,15 @@ agent_tokens_total = Counter(
 # auth_done → validated → team_resolved → intent_done → run_started →
 # ttft (first visible text/tool frame) → stream_done. The buckets skew low
 # because the optimization target is sub-second TTFT.
+# P3.E — ingestion-to-queryable SLO: from the entity's domain event to its
+# embedding being projected (the moment it becomes retrievable by the dense
+# lane). Target p95 ≤ 60s (the outbox worker runs every minute). The inline
+# fire-and-forget path is usually faster; this measures the guaranteed bound.
+ingestion_to_queryable_seconds = Histogram(
+    "cvs_ingestion_to_queryable_seconds",
+    "Seconds from entity write (domain event) to embedding projected",
+    buckets=(5, 15, 30, 60, 120, 300, 600, 1800, 3600),
+)
 agent_stage_seconds = Histogram(
     "cvs_agent_stage_seconds",
     "Elapsed seconds from chat-request start to each pipeline stage",
