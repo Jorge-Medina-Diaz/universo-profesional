@@ -43,22 +43,24 @@ class UniverseContextProvider(BaseContextProvider):
     async def get_memory_context(self) -> str:
         """Inject profile counts + base semantic/procedural memory."""
         base = await super().get_memory_context()
-        from src.graph.application.universe_graph import universe_graph_service
+        # Counts come from the igraph snapshot. Raw `SELECT FROM
+        # universe_personal.<Label>` is the documented landmine: label tables
+        # don't exist until the first vertex (fresh users 500'd) and a plain
+        # SELECT through the cypher wrapper is a syntax error — this silently
+        # degraded the intent provider context on every new-user turn.
+        from collections import Counter
+
+        from src.graph.application.retrieval import _load_snapshot
         from src.graph.domain import schema as graph_schema
 
-        counts: list[str] = []
-        for kind, label in graph_schema.KIND_TO_LABEL.items():
-            result = await universe_graph_service._execute_cypher(
-                self._session,
-                f"""
-                SELECT count(*)::int AS n
-                FROM {graph_schema.GRAPH_PERSONAL}.{label}
-                WHERE v.user_id = $uid
-                """,
-                {"uid": str(self._user_id)},
-            )
-            n = result[0]["n"] if result else 0
-            counts.append(f"  {kind}: {n}")
+        snapshot = await _load_snapshot(self._session, self._user_id)
+        kind_counter = Counter(
+            meta[1] for meta in snapshot.idx_to_meta.values() if meta[1]
+        )
+        counts = [
+            f"  {kind}: {kind_counter.get(kind, 0)}"
+            for kind in graph_schema.KIND_TO_LABEL
+        ]
 
         profile_block = "## Perfil actual del usuario\n" + "\n".join(counts)
         parts = [profile_block]
