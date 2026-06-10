@@ -76,6 +76,16 @@ agent_tokens_total = Counter(
 # auth_done → validated → team_resolved → intent_done → run_started →
 # ttft (first visible text/tool frame) → stream_done. The buckets skew low
 # because the optimization target is sub-second TTFT.
+# P5 — business loop counters
+nudge_acted_total = Counter(
+    "cvs_nudge_acted_total",
+    "Proactive nudges acted on / dismissed by users",
+    ["kind", "action"],
+)
+onboarding_completed_total = Counter(
+    "cvs_onboarding_completed_total", "Users that completed onboarding"
+)
+
 # P3.E — ingestion-to-queryable SLO: from the entity's domain event to its
 # embedding being projected (the moment it becomes retrievable by the dense
 # lane). Target p95 ≤ 60s (the outbox worker runs every minute). The inline

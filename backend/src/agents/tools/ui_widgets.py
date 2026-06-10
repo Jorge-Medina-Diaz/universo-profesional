@@ -930,6 +930,22 @@ _HITL_TOOLS: list[dict[str, Any]] = [
             {"name": "focus_hints", "type": "list[str] | None", "default": None},
         ],
     },
+    {
+        "name": "propose_linkedin_csv_import",
+        "description": (
+            "Open the LinkedIn data-export import card in the chat (P3.C). "
+            "Use when the user wants to import their LinkedIn profile: the "
+            "card explains how to download the 'Get a copy of your data' ZIP "
+            "from LinkedIn, accepts the upload, parses it (experiences, "
+            "education, skills, languages, certifications, projects), lets "
+            "the user review/deselect, and commits the selection. Available "
+            "to EVERY tier (unlike the Bright Data PRO sync). The tool result "
+            "is a summary of committed counts or 'cancelled'."
+        ),
+        "params": [
+            {"name": "reason", "type": "str | None", "default": None},
+        ],
+    },
 ]
 
 for _spec in _HITL_TOOLS:

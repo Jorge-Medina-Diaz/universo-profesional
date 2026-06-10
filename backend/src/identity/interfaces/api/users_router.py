@@ -111,6 +111,10 @@ async def advance_onboarding(
             raise result.error  # type: ignore[union-attr]
         await uow.commit()
         dto = result.value  # type: ignore[union-attr]
+    if body.complete:
+        from src.shared.metrics import onboarding_completed_total
+
+        onboarding_completed_total.inc()
     return _user_response(dto)
 
 

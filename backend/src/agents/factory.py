@@ -177,8 +177,8 @@ STATIC_INSTRUCTIONS = [
     "descubrimiento conversacional, abre el generador y también da coaching de "
     "impacto sobre documentos existentes. "
     "Para importar el perfil: CV en PDF → propose_pdf_import; GitHub → propose_github_sync; "
-    "LinkedIn (Bright Data, PRO — verifica get_tier/is_pro antes y solo ofrécelo si aplica) "
-    "→ propose_brightdata_sync. Inícialo siempre desde una card en el chat, nunca pidas al "
+    "LinkedIn → propose_linkedin_csv_import (export ZIP oficial, cualquier tier; "
+    "Bright Data PRO → propose_brightdata_sync solo si get_tier/is_pro). Inícialo siempre desde una card en el chat, nunca pidas al "
     "usuario que vaya a otra página.",
     # Ingesta confiable (CV/LinkedIn/dictado en bloque) — RUTEA al specialist
     "INGESTA (CONFIABLE, EN LOTE) — REGLA DURA: si el mensaje trae 2+ entidades "
@@ -427,6 +427,7 @@ def _build_universe_team(coordinator_tier: ModelTier = "coordinator"):  # type: 
         propose_edge_deletion,
         propose_esco_disambiguation,
         propose_github_sync,
+        propose_linkedin_csv_import,
         propose_pdf_import,
         propose_preferences_update,
         set_chat_focus,
@@ -504,6 +505,7 @@ def _build_universe_team(coordinator_tier: ModelTier = "coordinator"):  # type: 
             present_questionnaire,
             propose_github_sync,
             propose_brightdata_sync,
+            propose_linkedin_csv_import,
             propose_pdf_import,
             propose_cover_letter,
             present_job_match,

@@ -80,4 +80,12 @@ async def ack_nudge(
     if not result.rowcount:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
     await session.commit()
+    kind = (
+        await session.execute(
+            text("SELECT kind FROM nudges WHERE id = :id"), {"id": str(nudge_id)}
+        )
+    ).scalar()
+    from src.shared.metrics import nudge_acted_total
+
+    nudge_acted_total.labels(kind=kind or "unknown", action=body.action).inc()
     return {"status": body.action}

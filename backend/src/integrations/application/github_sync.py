@@ -36,6 +36,52 @@ from src.universe.application.ports import (
 logger = structlog.get_logger(__name__)
 
 
+async def _deep_extract(readme: str, repo_name: str, topics: list[str]) -> dict[str, Any] | None:
+    """P3.C deep-extract: one bounded Haiku pass per README → highlights +
+    extra stack. Returns None when no real LLM is configured or on any
+    failure — the sync must never depend on it."""
+    import asyncio
+
+    from pydantic import BaseModel
+
+    from src.shared.config import get_settings
+    from src.shared.llm_client import get_llm_client
+
+    settings = get_settings()
+    if settings.llm_provider_resolved not in ("anthropic", "openai"):
+        return None
+
+    class _RepoInsights(BaseModel):
+        highlights: list[str] = []
+        extra_tech: list[str] = []
+
+    system = (
+        "Extraes datos de READMEs para un perfil profesional. SOLO hechos "
+        "presentes en el texto: nunca inventes métricas ni tecnologías."
+    )
+    prompt = (
+        f"Repo: {repo_name}. Topics: {', '.join(topics) or '-'}. "
+        f"README (recortado): {readme[:4000]} "
+        "--- Devuelve hasta 3 highlights (frases cortas, en espanol, con lo mas "
+        "destacable del proyecto) y hasta 5 extra_tech (tecnologias concretas "
+        "mencionadas que no esten ya en los topics)."
+    )
+    try:
+        result = await asyncio.wait_for(
+            get_llm_client().structured(
+                system=system, prompt=prompt, schema=_RepoInsights, max_tokens=512
+            ),
+            timeout=8.0,
+        )
+        return {
+            "highlights": [h.strip() for h in result.highlights if h.strip()][:3],
+            "extra_tech": [t.strip() for t in result.extra_tech if t.strip()][:5],
+        }
+    except Exception as exc:
+        logger.warning("github_deep_extract_failed", repo=repo_name, error=str(exc))
+        return None
+
+
 # How big a language slice needs to be to count as a real skill
 LANGUAGE_BYTE_FLOOR = 50_000
 # Recency weight: pushes a repo from a year ago to ~0.5
@@ -168,16 +214,22 @@ class SyncGithub:
                     errors.append(f"langs_{r['name']}: {exc}")
 
             await _bail_if_cancelled("before_projects_upsert")
-            for r in top_repos:
+            for repo_idx, r in enumerate(top_repos):
                 description = r.get("description") or ""
-                # Optional README enrichment (skip if too big)
-                if not description and r.get("size", 0) < 5000:
+                readme: str | None = None
+                if r.get("size", 0) < 5000:
                     try:
                         readme = await gh.get_repo_readme(r["owner"]["login"], r["name"])
-                        if readme:
-                            description = _first_paragraph(readme)
                     except Exception:
-                        pass
+                        readme = None
+                if not description and readme:
+                    description = _first_paragraph(readme)
+                # P3.C deep-extract — top 5 repos only (bounded LLM cost).
+                insights = (
+                    await _deep_extract(readme, r["name"], list(r.get("topics") or []))
+                    if readme and repo_idx < 5
+                    else None
+                )
 
                 existing = None
                 # Dedup by URL
@@ -186,12 +238,18 @@ class SyncGithub:
                         existing = p
                         break
 
+                tech_stack = list(r.get("topics") or [])
+                if insights:
+                    tech_stack += [
+                        t for t in insights["extra_tech"]
+                        if t.lower() not in {x.lower() for x in tech_stack}
+                    ]
                 payload = {
                     "name": r["name"],
                     "description": description or None,
                     "url": r["html_url"],
-                    "tech_stack": list(r.get("topics") or []),
-                    "highlights": [],
+                    "tech_stack": tech_stack,
+                    "highlights": (insights or {}).get("highlights", []),
                     "project_type": "oss" if r.get("license") else "side",
                     "role": "creator",
                     "status": "active" if not r.get("archived") else "archived",

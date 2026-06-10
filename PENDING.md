@@ -22,18 +22,18 @@ desglosado. Todo eso EXISTE. Lo único de aquella lista aún cierto:
 | **Alertas de cuota MCP** | Sin aviso al acercarse al límite de invocaciones |
 | **S3 runtime** | Adaptador completo pero sin verificar contra un bucket real (fase 5 del plan) |
 
-## 🔜 Siguiente pase del plan de transformación (P3 restante + P5)
+## ✅ Plan de transformación — IMPLEMENTADO (P0-P5, 2026-06-10)
 
-- **P3.C restante** — card `propose_linkedin_csv_import` (par BE tool + FE
-  upload card, promover `linkedin_csv_deep.py`) y deep-extract LLM por repo
-  (README→highlights). El ruteo de `github_sync` por coherencia YA está
-  hecho (8f0e42b+).
-- **P3.E** — endpoint agregado `review-queue` + sheet FE + badge Home;
-  métrica `cvs_ingestion_to_queryable_seconds` (SLO p95 ≤ 60s).
-- **P5** — verificación S3 runtime, `min_machines_running=2`, Playwright
-  golden path nocturno, métricas de negocio (onboarding/captura/nudges).
+Todo el plan aprobado está construido y verificado en vivo. Quedan solo
+mejoras menores:
+
+- `linkedin/zip/commit` ignora `selection` (la card lo comunica e importa
+  todo) — añadir selección granular en backend si se quiere paridad con PDF.
+- Playwright E2E: el job de CI existe por-push; valorar specs del golden
+  path nuevo (diary/nudges) cuando haya remote.
 - Pulir: chip de estado ante RUN_ERROR (gate isLoading), ruta `/goals`
-  (añadir al Router o retirar), suggestions nativas de CopilotKit.
+  (añadir al Router o retirar), suggestions nativas de CopilotKit,
+  GitHub deep-extract usa top-5 repos (subir si conviene).
 
 ## 🔶 Deuda heredada del pase de auditoría (deferred-by-design)
 

@@ -614,6 +614,23 @@ def create_app() -> FastAPI:
             # our pod readiness on a third-party API.
             results["llm_connectivity"] = f"advisory: {exc}"
 
+        # P5 — S3 advisory: when prod points STORAGE_PROVIDER=s3, verify the
+        # bucket actually answers (the adapter exists but had never been
+        # exercised against a real bucket). Advisory only.
+        if getattr(settings, "storage_provider", "filesystem") == "s3":
+            try:
+                from src.shared.storage import get_storage
+
+                storage = get_storage()
+                probe = getattr(storage, "healthcheck", None)
+                if probe is not None:
+                    await asyncio.wait_for(probe(), timeout=4.0)
+                    results["s3"] = "ok"
+                else:
+                    results["s3"] = "advisory: adapter exposes no healthcheck"
+            except Exception as exc:
+                results["s3"] = f"advisory: {exc}"
+
         status_code = 200 if overall_ok else 503
         return JSONResponse(
             status_code=status_code,
