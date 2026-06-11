@@ -67,8 +67,19 @@ async def public_profile(request: Request, slug: str) -> dict[str, Any]:
 async def public_chat(request: Request, slug: str, body: ChatBody) -> dict[str, Any]:
     resolved = await _profile_or_404(slug)
     owner_id: UUID = resolved["user_id"]
+    visitor = twin_service.visitor_hash(
+        request.client.host if request.client else "?",
+        request.headers.get("user-agent", "?"),
+    )
 
-    if len(body.history) >= twin_service.MAX_SESSION_TURNS:
+    # Authoritative cap: trust the server-side turn counter when we have a
+    # session, falling back to the client-carried history length for the first
+    # turn (no session yet). Either tripping the limit ends the conversation.
+    server_turns = await twin_service.session_turns(owner_id, body.session_id)
+    if (
+        server_turns >= twin_service.MAX_SESSION_TURNS
+        or len(body.history) >= twin_service.MAX_SESSION_TURNS
+    ):
         return {
             "answer": (
                 "Hemos llegado al límite de esta conversación. Si quieres "
@@ -77,17 +88,13 @@ async def public_chat(request: Request, slug: str, body: ChatBody) -> dict[str, 
             "limit_reached": True,
             "session_id": str(body.session_id) if body.session_id else None,
         }
-    if not await twin_service.consume_daily_budget(slug):
+    if not await twin_service.consume_daily_budget(slug, visitor):
         raise HTTPException(
             status_code=429,
             detail="Este perfil ha alcanzado su límite diario de conversación.",
         )
 
     profile = await twin_service.build_profile_payload(owner_id, resolved["curation"])
-    visitor = twin_service.visitor_hash(
-        request.client.host if request.client else "?",
-        request.headers.get("user-agent", "?"),
-    )
     answered = True
     try:
         answer = await run_twin_turn(

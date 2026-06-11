@@ -121,10 +121,13 @@ def build_twin_tools(owner_id: UUID, curation: dict[str, Any]) -> list[Any]:
 
     async def pilares_carrera() -> dict[str, Any]:
         """Resumen temático de la trayectoria (pilares/comunidades)."""
-        from src.graph.application.communities import get_communities
+        from src.graph.application.communities import get_public_pillars
 
+        # get_public_pillars derives labels/summaries/members ONLY from public +
+        # visible-kind entities — the raw get_communities() leaks private nodes
+        # (hobbies, private projects) into pillar names and summaries.
         async with with_user_session(owner_id) as session:
-            items = await get_communities(session, owner_id)
+            items = await get_public_pillars(session, owner_id, kinds)
         return {"pillars": items[:6]}
 
     return [buscar_universo, pilares_carrera]

@@ -296,8 +296,17 @@ def _finish_setup(locale: str, ctx: dict[str, Any]) -> dict[str, str]:
 
 
 def _twin_lead(locale: str, ctx: dict[str, Any]) -> dict[str, str]:
+    import html as _html
+
+    # contact + message are VISITOR-controlled (anonymous public twin lead form).
+    # They are interpolated into the owner's notification email body_html below,
+    # so they MUST be HTML-escaped there or a visitor can inject arbitrary
+    # markup/links into the owner's inbox (stored HTML/phishing injection). The
+    # plain-text part uses the raw values (no injection surface).
     contact = _safe_get(ctx, "contact", "")
     message = _safe_get(ctx, "message", "")
+    contact_html = _html.escape(contact)
+    message_html = _html.escape(message)
     base = _safe_get(ctx, "frontend_base_url")
     twin_url = f"{base}/#/twin"
     if locale == "en":
@@ -310,8 +319,8 @@ def _twin_lead(locale: str, ctx: dict[str, Any]) -> dict[str, str]:
         cta = "Abrir panel del twin"
     text = "\n\n".join([intro, f"{contact}\n{message}", twin_url])
     body_html = (
-        f"<p>{intro}</p><p><strong>{contact}</strong></p>"
-        f"<p>{message}</p><p><a href=\"{twin_url}\">{cta}</a></p>"
+        f"<p>{intro}</p><p><strong>{contact_html}</strong></p>"
+        f"<p>{message_html}</p><p><a href=\"{twin_url}\">{cta}</a></p>"
     )
     return {"subject": subject, "text": text, "body_html": body_html}
 

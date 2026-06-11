@@ -252,3 +252,91 @@ def _s(value: object) -> str:
     if value is None:
         return ""
     return str(value).strip('"')
+
+
+async def get_public_pillars(
+    session: AsyncSession, user_id: UUID, kinds: list[str]
+) -> list[dict]:
+    """Career pillars for the PUBLIC twin — derived ONLY from public + visible
+    entities.
+
+    The persisted communities (and their member_names / LLM label+summary) are
+    computed over the FULL graph regardless of `visibility` or kind. Returning
+    them raw on the public surface leaked private entities (hobbies, private
+    projects, architecture decisions) into pillar names and summaries. Here we:
+      1. read each community's members (id + kind) via the MEMBER_OF edges,
+      2. keep only members whose kind is visitor-visible AND whose row is
+         `visibility = 'public'`,
+      3. re-summarise each pillar over THOSE members only, so no private name or
+         theme can reach the visitor. Pillars with < 2 public members are dropped.
+    """
+    from src.graph.application.ports.age import parse_agtype
+    from src.graph.domain.registry import GRAPH_REGISTRY
+
+    visible = {k for k in kinds if k in {c for c in GRAPH_REGISTRY}}
+    if not visible:
+        return []
+    uid = str(user_id)
+    # 1. community → members (id, kind). `[m:MEMBER_OF]` (named) — a bare
+    # `[:MEMBER_OF]` is a parse error in AGE Cypher.
+    rows = await cypher(
+        session,
+        schema.GRAPH_PERSONAL,
+        f"""
+        MATCH (c:{schema.COMMUNITY} {{user_id: $uid}})<-[m:{schema.MEMBER_OF}]-(e {{user_id: $uid}})
+        RETURN c.id, c.label, e.id, e.kind
+        """,
+        params={"uid": uid},
+        column_defs="cid agtype, label agtype, eid agtype, kind agtype",
+    )
+    by_comm: dict[str, dict[str, list]] = {}
+    ids_by_kind: dict[str, set[str]] = {}
+    for r in rows:
+        cid = _s(parse_agtype(r.get("cid")))
+        kind = _s(parse_agtype(r.get("kind")))
+        eid = _s(parse_agtype(r.get("eid")))
+        if not cid or kind not in visible or not eid:
+            continue
+        comm = by_comm.setdefault(cid, {"members": []})
+        comm["members"].append({"id": eid, "kind": kind})
+        ids_by_kind.setdefault(kind, set()).add(eid)
+
+    # 2. resolve which of those ids are actually public, hydrating names.
+    public_names: dict[str, str] = {}
+    for kind, ids in ids_by_kind.items():
+        cfg = GRAPH_REGISTRY.get(kind)
+        if cfg is None or not ids:
+            continue
+        result = await session.execute(
+            text(
+                f"SELECT id::text AS id, {cfg.name_field} AS name FROM {cfg.sql_table} "  # noqa: S608
+                "WHERE id = ANY(CAST(:ids AS uuid[])) AND deleted_at IS NULL "
+                "AND visibility = 'public'"
+            ),
+            {"ids": list(ids)},
+        )
+        for rec in result.all():
+            public_names[rec.id] = str(rec.name or "")
+
+    # 3. re-summarise each pillar over public members only.
+    out: list[dict] = []
+    for cid, comm in by_comm.items():
+        pub = [
+            {"name": public_names[m["id"]], "kind": m["kind"]}
+            for m in comm["members"]
+            if m["id"] in public_names and public_names[m["id"]]
+        ]
+        if len(pub) < 2:
+            continue
+        label, summary = await _summarize(pub)
+        out.append(
+            {
+                "id": cid,
+                "label": label,
+                "summary": summary,
+                "size": len(pub),
+                "members": [m["name"] for m in pub],
+            }
+        )
+    out.sort(key=lambda c: c["size"], reverse=True)
+    return out

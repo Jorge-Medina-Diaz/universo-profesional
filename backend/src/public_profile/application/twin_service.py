@@ -62,10 +62,20 @@ def validate_vanity_slug(slug: str) -> bool:
 
 
 def visible_kinds(curation: dict[str, Any]) -> list[str]:
-    """Curation ∩ ALLOWED — server-side, regardless of what the row says."""
+    """Curation ∩ ALLOWED — server-side, regardless of what the row says.
+
+    CRITICAL distinction: an ABSENT `visible_kinds` key means "owner never
+    curated" → default to all allowed kinds. An EXPLICIT empty list means the
+    owner deselected everything ("expose nothing") and MUST be honoured as
+    empty. Collapsing the two (the old `or not wanted` check) inverted the
+    safest possible choice into the least safe one — hide-all silently exposed
+    everything.
+    """
+    if "visible_kinds" not in curation:
+        return list(ALLOWED_PUBLIC_KINDS)
     wanted = curation.get("visible_kinds")
-    if not isinstance(wanted, list) or not wanted:
-        wanted = list(ALLOWED_PUBLIC_KINDS)
+    if not isinstance(wanted, list):
+        return list(ALLOWED_PUBLIC_KINDS)
     return [k for k in wanted if k in ALLOWED_PUBLIC_KINDS]
 
 
@@ -86,13 +96,47 @@ async def resolve_enabled_profile(slug: str) -> dict[str, Any] | None:
     return {"user_id": row.user_id, "curation": row.curation or {}}
 
 
+# Public kind → (table) for visibility-aware header counts. Every table carries
+# a `visibility` column (per-entity hiding rides it) — see twin_agent._KIND_DETAILS.
+_KIND_TABLE: dict[str, str] = {
+    "experience": "experiences",
+    "education": "educations",
+    "skill": "skills",
+    "project": "projects",
+    "certification": "certifications",
+    "language": "languages",
+    "achievement": "achievements",
+}
+
+
+async def _public_kind_counts(
+    session: Any, owner_id: UUID, kinds: list[str]
+) -> dict[str, int]:
+    """Count ONLY public rows per visible kind (never private rows)."""
+    counts: dict[str, int] = {}
+    for kind in kinds:
+        table = _KIND_TABLE.get(kind)
+        if table is None:
+            continue
+        n = (
+            await session.execute(
+                text(
+                    f"SELECT count(*) FROM {table} "  # noqa: S608
+                    "WHERE user_id = :uid AND deleted_at IS NULL "
+                    "AND visibility = 'public'"
+                ),
+                {"uid": str(owner_id)},
+            )
+        ).scalar() or 0
+        if n:
+            counts[kind] = int(n)
+    return counts
+
+
 async def build_profile_payload(owner_id: UUID, curation: dict[str, Any]) -> dict[str, Any]:
     """The public profile header: name, headline, visible-kind counts, chips."""
-    from collections import Counter
-
-    from src.graph.application.retrieval import _load_snapshot
-
     kinds = visible_kinds(curation)
+    kinds_set = set(kinds)
     async with with_user_session(owner_id) as session:
         display_name = (
             await session.execute(
@@ -100,22 +144,28 @@ async def build_profile_payload(owner_id: UUID, curation: dict[str, Any]) -> dic
                 {"uid": str(owner_id)},
             )
         ).scalar()
-        headline_row = (
-            await session.execute(
-                text(
-                    "SELECT role, organization FROM experiences "
-                    "WHERE user_id = :uid AND deleted_at IS NULL AND is_current "
-                    "ORDER BY start_date DESC NULLS LAST LIMIT 1"
-                ),
-                {"uid": str(owner_id)},
-            )
-        ).first()
-        snapshot = await _load_snapshot(session, owner_id)
+        # Headline = current role, but ONLY if the owner exposes experience AND
+        # the row is public. Without these gates the public header (and the twin
+        # system prompt, which bakes in `headline`) broadcast the current job
+        # even when the owner marked it private or hid the experience kind.
+        headline_row = None
+        if "experience" in kinds_set:
+            headline_row = (
+                await session.execute(
+                    text(
+                        "SELECT role, organization FROM experiences "
+                        "WHERE user_id = :uid AND deleted_at IS NULL AND is_current "
+                        "AND visibility = 'public' "
+                        "ORDER BY start_date DESC NULLS LAST LIMIT 1"
+                    ),
+                    {"uid": str(owner_id)},
+                )
+            ).first()
+        # Public kind counts: count ONLY public, visible-kind entities. The
+        # igraph snapshot carries every vertex regardless of `visibility`, so
+        # counting from it disclosed how many hidden rows exist per kind.
+        counts = await _public_kind_counts(session, owner_id, kinds)
 
-    kind_counter = Counter(
-        meta[1] for meta in snapshot.idx_to_meta.values() if meta[1]
-    )
-    counts = {k: kind_counter.get(k, 0) for k in kinds if kind_counter.get(k, 0)}
     headline = (
         f"{headline_row.role} · {headline_row.organization}" if headline_row else None
     )
@@ -143,23 +193,74 @@ def visitor_hash(ip: str, user_agent: str) -> str:
     return hashlib.sha256(f"{ip}|{user_agent}".encode()).hexdigest()[:32]
 
 
-async def consume_daily_budget(slug: str) -> bool:
-    """Per-slug daily turn budget via Redis INCR. True = budget available."""
+async def session_turns(owner_id: UUID, session_id: UUID | None) -> int:
+    """Authoritative server-side turn count for a twin session.
+
+    The client carries `history` and re-sends it each turn, so the
+    `len(history)` gate is client-honesty only — a visitor sends an empty
+    history to reset it. This reads the server-incremented counter so the
+    per-conversation cap can't be bypassed."""
+    if session_id is None:
+        return 0
+    async with with_user_session(owner_id) as session:
+        return int(
+            (
+                await session.execute(
+                    text(
+                        "SELECT turns FROM twin_sessions "
+                        "WHERE id = :sid AND user_id = :uid"
+                    ),
+                    {"sid": str(session_id), "uid": str(owner_id)},
+                )
+            ).scalar()
+            or 0
+        )
+
+
+# A single visitor may not drain the whole per-slug budget. Without this, one
+# actor rotating IPs past the 10/min per-IP limit could burn the entire daily
+# allowance and 429 every other visitor (economic/availability denial). The
+# slug budget remains the absolute ceiling; this is the per-actor sub-budget.
+DAILY_TURNS_PER_VISITOR = 40
+
+
+async def consume_daily_budget(slug: str, visitor: str | None = None) -> bool:
+    """Per-slug AND per-visitor daily turn budgets via Redis INCR.
+
+    True = budget available. Returns False (caller → 429) if EITHER the shared
+    per-slug cap or this visitor's per-actor sub-cap is exhausted. When the slug
+    cap is hit we log loudly so the exhaustion is observable (a twin silently
+    refusing every visitor for the rest of the day is a failure the owner should
+    be able to see in logs/metrics, per the no-silent-errors doctrine).
+    """
     from src.shared.config import get_settings
     from src.shared.redis import get_redis
 
     settings = get_settings()
-    cap = (
-        settings.demo_twin_daily_turns
-        if slug == settings.demo_twin_slug
-        else DAILY_TURNS_PER_SLUG
-    )
-    key = f"twin:budget:{slug}:{utc_now():%Y-%m-%d}"
+    is_demo = slug == settings.demo_twin_slug
+    cap = settings.demo_twin_daily_turns if is_demo else DAILY_TURNS_PER_SLUG
     redis = get_redis()
+    day = f"{utc_now():%Y-%m-%d}"
+
+    # Per-visitor sub-budget first (cheap brake on a single actor). The demo
+    # slug is exempt — it's meant to be hammered for the landing demo.
+    if visitor and not is_demo:
+        vkey = f"twin:vbudget:{slug}:{visitor}:{day}"
+        vused = await redis.incr(vkey)
+        if vused == 1:
+            await redis.expire(vkey, 86400)
+        if int(vused) > DAILY_TURNS_PER_VISITOR:
+            logger.info("twin_visitor_budget_exhausted", slug=slug, visitor=visitor)
+            return False
+
+    key = f"twin:budget:{slug}:{day}"
     used = await redis.incr(key)
     if used == 1:
         await redis.expire(key, 86400)
-    return int(used) <= cap
+    if int(used) > cap:
+        logger.warning("twin_slug_budget_exhausted", slug=slug, cap=cap)
+        return False
+    return True
 
 
 _PII_RE = re.compile(
