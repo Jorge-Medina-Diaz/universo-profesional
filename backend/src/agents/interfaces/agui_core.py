@@ -155,7 +155,9 @@ def _last_user_text(messages: list[Any]) -> str | None:
     return None
 
 
-def _conversation_window(messages: list[Any], *, max_turns: int = 8, max_chars: int = 4500) -> str | None:
+def _conversation_window(
+    messages: list[Any], *, max_turns: int = 8, max_chars: int = 7000, focus_chars: int = 6000
+) -> str | None:
     """Transcript of the recent conversation for the enrichment engine.
 
     A single user sentence ("el catálogo lo genera una IA") extracts poorly in
@@ -163,22 +165,38 @@ def _conversation_window(messages: list[Any], *, max_turns: int = 8, max_chars: 
     to the SAME ecommerce project mentioned three turns earlier and harvest the
     full corpus (stack, highlights, learnings). The last user message is marked
     as the FOCUS; agent turns are included as context only.
+
+    Budgeting: the FOCO (the message being processed) gets the lion's share
+    (`focus_chars`) — a long career dump is exactly what we want to harvest in
+    full, so it must NOT be capped down to a context-line size. OLDER turns are
+    capped small (they're only there for cross-turn linking), and whole leading
+    turns are dropped to fit `max_chars`. The FOCO line is never head-sliced
+    (that used to shear off the FOCO marker on long inputs). For genuinely huge
+    pastes (a full multi-page CV) the import pipeline is the right path; chat
+    enrichment handles a long paragraph/dump fully.
     """
     def _cap(s: str, n: int) -> str:
         s = s.strip()
         return s if len(s) <= n else s[:n] + " […]"
 
+    # Index of the last user message = the FOCO (gets the generous budget).
+    last_user_idx = -1
+    for i, msg in enumerate(messages):
+        if getattr(msg, "role", None) == "user" and isinstance(
+            getattr(msg, "content", None), str
+        ) and msg.content.strip():
+            last_user_idx = i
+
     turns: list[str] = []
-    for msg in reversed(messages):
+    for i in range(len(messages) - 1, -1, -1):
+        msg = messages[i]
         role = getattr(msg, "role", None)
         content = getattr(msg, "content", None)
         if not isinstance(content, str) or not content.strip():
             continue
         if role == "user":
-            # Cap user lines too: a pasted CV/README (>max_chars) used to evict
-            # every other turn AND, via the old tail-slice, shear the FOCO
-            # marker off — leaving headless text the engine couldn't attribute.
-            turns.append(f"Usuario: {_cap(content, 2000)}")
+            cap = focus_chars if i == last_user_idx else 800
+            turns.append(f"Usuario: {_cap(content, cap)}")
         elif role == "assistant":
             turns.append(f"Agente: {_cap(content, 400)}")
         if len(turns) >= max_turns:

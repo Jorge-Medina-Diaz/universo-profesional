@@ -703,7 +703,7 @@ class UniverseEnrichmentEngine:
         user_msgs = [m for m in messages[1:] if m["role"] == "user"]
         response = await client.messages.create(
             model=self._settings.agents_specialist_model or "claude-haiku-4-5-20251001",
-            max_tokens=4096,
+            max_tokens=8192,
             system=system,
             messages=[{"role": "user", "content": m["content"]} for m in user_msgs],
         )
@@ -721,7 +721,7 @@ class UniverseEnrichmentEngine:
         response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
-            max_tokens=4096,
+            max_tokens=8192,
             temperature=0.1,
         )
         return str(response.choices[0].message.content)
