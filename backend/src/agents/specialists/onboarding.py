@@ -18,6 +18,7 @@ def build_onboarding_specialist(*, db):  # type: ignore[no-untyped-def]
         present_import_review,
         present_questionnaire,
         propose_github_sync,
+        propose_linkedin_csv_import,
         propose_pdf_import,
         propose_skill_batch,
     )
@@ -37,6 +38,12 @@ def build_onboarding_specialist(*, db):  # type: ignore[no-untyped-def]
             propose_skill_batch,
             propose_github_sync,
             propose_pdf_import,
+            # The instructions offer "GitHub / PDF / LinkedIn" as import routes,
+            # but this tool was missing — so if the user picked LinkedIn the
+            # specialist could only describe it (or push the user "to another
+            # page", which the coordinator forbids). LinkedIn CSV import is
+            # available to every tier.
+            propose_linkedin_csv_import,
         ],
         instructions=[
             "Eres el especialista de CAPTURA INICIAL: onboarding del primer arranque Y "

@@ -310,6 +310,11 @@ async def commit_parsed(
         "projects": 0,
         "courses": 0,
     }
+    # Rows that failed to commit (exception OR a validation err result). These
+    # used to vanish into a log line, so the import card reported only the
+    # successes and the user never knew rows were dropped (no-silent-errors).
+    # Surfaced in the summary as `failed` so the caller can tell the user.
+    failed = 0
     session = getattr(uow, "_session", None) or getattr(uow, "session", None)
     for item, uc, key in [
         ("experiences", exp_uc, "experiences"),
@@ -331,12 +336,18 @@ async def commit_parsed(
                 if session is not None:
                     async with session.begin_nested():
                         r = await uc.add(user_id=user_id, payload=clean, uow=uow)
-                        if r.is_success:
-                            summary[key] += 1
                 else:
                     r = await uc.add(user_id=user_id, payload=clean, uow=uow)
-                    if r.is_success:
-                        summary[key] += 1
+                if r.is_success:
+                    summary[key] += 1
+                else:
+                    failed += 1
+                    logger.warning(
+                        "li_csv_commit_rejected", item=item, error=str(r.error)
+                    )
             except Exception as exc:
+                failed += 1
                 logger.warning("li_csv_commit_failed", item=item, error=str(exc))
+    if failed:
+        summary["failed"] = failed
     return summary

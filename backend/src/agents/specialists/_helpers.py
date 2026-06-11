@@ -137,7 +137,13 @@ def build_specialist(
         # specialist's specific guidance still wins on specifics.
         instructions=[*CONVERSATION_DOCTRINE, *instructions],
         add_history_to_context=True,
-        update_memory_on_run=True,
+        # The Team coordinator already runs ONE memory-consolidation pass per
+        # turn (factory.py update_memory_on_run=True). A delegated specialist
+        # runs as a full Agent on the SAME user_id, so leaving this True fired a
+        # SECOND consolidation over the same message — racing the Team's and
+        # fabricating near-duplicate memories the exact-match dedup can't catch.
+        # Memory is the Team's job; the specialist just answers.
+        update_memory_on_run=False,
         markdown=False,
         tool_call_limit=tool_call_limit,
     )

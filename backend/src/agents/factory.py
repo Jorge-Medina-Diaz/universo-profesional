@@ -258,9 +258,10 @@ STATIC_INSTRUCTIONS = [
     "pre-rellenado, en vez de interrogar campo a campo; con el resultado, llama el "
     "propose_* correspondiente.",
     # Self-learning feedback
-    "APRENDIZAJE: si un usuario rechaza una propuesta (propose_*), llama record_feedback "
+    "APRENDIZAJE: si un usuario rechaza una propuesta (propose_*), llama record_agent_feedback "
     "con el contexto para que el sistema aprenda. Ejemplo: rechazó 'Docker' como skill → "
-    "feedback negativo con trigger='propuso Docker' para no repetir el error.",
+    "sentiment='negative', trigger_message=lo que dijo el usuario, agent_action='proposed_skill: Docker', "
+    "user_expectation='no es un skill suyo' para no repetir el error.",
     # Rubrics (internal)
     "RÚBRICAS (interno): los specialists consultan criterios profesionales por sector vía "
     "search_rubrics. NO menciones 'rúbrica' al usuario.",
@@ -322,12 +323,18 @@ def _build_model(tier: ModelTier = "coordinator") -> Model:
         # input-token cost ~70% on busy chats. `cache_system_prompt` covers
         # the team-level instructions; `cache_tools` covers the tool schema.
         #
-        # Verified (R14): the cached prefix is genuinely stable, so this IS a real
-        # breakpoint. STATIC_INSTRUCTIONS is fully static and per-turn dynamic state
-        # never enters the cached system block — Agno Team `add_session_state_to_context`
-        # defaults False and we don't enable it, so `_provider_intent` lives in the
-        # messages, not the prefix. Migrating to `system_prompt_blocks` only pays off
-        # once a per-turn dynamic *suffix* is introduced; not needed today.
+        # CACHING CAVEAT (corrects the earlier "R14 verified-stable" claim,
+        # which was wrong): STATIC_INSTRUCTIONS itself is stable, BUT with
+        # enable_user_memories + enable_session_summaries, agno concatenates the
+        # user's memories and the rolling session summary INTO the same system
+        # message that `cache_system_prompt=True` caches. Those change every
+        # turn, so the cached prefix is invalidated on most turns — we still pay
+        # the cache WRITE without the READ savings. Caching stays ON because the
+        # large static instructions + tool schema DO benefit on the turns where
+        # memory/summary didn't change, and the write penalty is modest. A true
+        # fix needs agno to emit memories AFTER the cache breakpoint
+        # (system_prompt_blocks); tracked, not yet supported here. Do NOT trust
+        # the cache to be warm turn-to-turn for memory-active users.
         return Claude(
             id=model_id,
             api_key=byok_key or settings.anthropic_api_key,
@@ -403,11 +410,16 @@ def _build_universe_team(coordinator_tier: ModelTier = "coordinator"):  # type: 
         list_pending_curation,
     )
     from src.agents.tools.curiosity_tools import get_domain_template
+    from src.agents.tools.discovery_tools import (
+        get_profile_completeness,
+        suggest_discovery_questions,
+    )
     from src.agents.tools.insights_tools import (
         compute_profile_health,
         detect_software_area,
     )
     from src.agents.tools.knowledge_tools import search_knowledge
+    from src.agents.tools.learning_tools import record_agent_feedback
     from src.agents.tools.notes_tools import list_notes
 
     # Sprint O — hybrid graph retrieval (BM25 + dense + PPR + RRF).
@@ -513,6 +525,16 @@ def _build_universe_team(coordinator_tier: ModelTier = "coordinator"):  # type: 
             # and the proactive specialists own them, so the coordinator
             # doesn't need the extra tool schemas.
             get_universe_summary,
+            # Conversational discovery + self-learning feedback. These were
+            # NAMED in STATIC_INSTRUCTIONS but never registered on the
+            # coordinator, so the instructions to "usa get_profile_completeness"
+            # and "llama record_agent_feedback" were dead no-ops (the tools only
+            # existed on specialists / a detached provider). Registering them
+            # makes those instructions executable when the coordinator answers
+            # directly rather than delegating.
+            get_profile_completeness,
+            suggest_discovery_questions,
+            record_agent_feedback,
             find_gaps,
             find_incomplete_entities,
             find_existing,

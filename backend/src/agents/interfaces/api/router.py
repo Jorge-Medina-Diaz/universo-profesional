@@ -113,6 +113,59 @@ async def resolve_proposal(
     if body.action == "modify" and body.modified_data:
         entity_data.update(body.modified_data)
 
+    # The proposal carries the OPERATION (create / update / delete). The old
+    # code ALWAYS upserted on confirm, so a confirmed DELETE (entity_data =
+    # {"id": ...}) ran as an upsert with an id-only payload → a NOOP that left
+    # the entity in place: the user clicked "delete", the agent reported success,
+    # and nothing was deleted. Dispatch on the stored action.
+    op = str(proposal.get("action") or "create")
+
+    if op in ("delete", "update"):
+        # Local imports: pulling CrudRegistry / the scheduler at module top
+        # creates a circular import (registry → use_cases → … ) that left
+        # coherence's _DISPATCH repo classes None at startup.
+        from src.universe.application.registry import CrudRegistry  # noqa: PLC0415
+        from src.universe.infrastructure.scheduler import (  # noqa: PLC0415
+            ArqEmbeddingScheduler,
+        )
+
+        entity_id_raw = entity_data.get("id")
+        if not entity_id_raw:
+            raise HTTPException(
+                status_code=400, detail=f"{op} proposal missing entity id"
+            )
+        if entity_type not in CrudRegistry.kinds():
+            raise HTTPException(
+                status_code=400, detail=f"{op} unsupported for {entity_type}"
+            )
+        crud_cls = CrudRegistry.get_crud_class(entity_type)
+        repo_cls = CrudRegistry.get_repo_class(entity_type)
+        crud = crud_cls(repo_cls(session), ArqEmbeddingScheduler())
+        async with unit_of_work(session) as uow:
+            if op == "delete":
+                res = await crud.delete(
+                    user_id=user_id, entity_id=str(entity_id_raw), uow=uow
+                )
+            else:
+                patch = {k: v for k, v in entity_data.items() if k != "id"}
+                res = await crud.update(
+                    user_id=user_id,
+                    entity_id=str(entity_id_raw),
+                    patch=patch,
+                    uow=uow,
+                )
+            if res.is_failure:
+                # Surface the failure (e.g. entity not found) instead of
+                # silently reporting success.
+                raise HTTPException(status_code=404, detail=str(res.error))
+            await uow.commit()
+        await delete_proposal(str(user_id), proposal_id)
+        agent_proposals_confirmed_total.labels(entity_type=entity_type).inc()
+        return ResolveProposalResponse(
+            status="deleted" if op == "delete" else "updated",
+            entity_id=str(entity_id_raw),
+        )
+
     change_log = SqlAlchemyChangeLogRepository(session)
     matcher = PgVectorSemanticMatcher(session)
     uc = UpsertUniverseEntity(
