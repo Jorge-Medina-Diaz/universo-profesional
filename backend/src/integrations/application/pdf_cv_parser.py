@@ -247,6 +247,9 @@ async def commit_selection(
         ("achievements", achievement_uc),
     ]
     session = getattr(uow, "_session", None) or getattr(uow, "session", None)
+    # Failed rows surface as `failed` in the summary (the FE gets it) instead of
+    # vanishing into a log line — same no-silent-errors fix as the LinkedIn path.
+    failed = 0
     for name, uc in sections:
         items = parsed.get(name, []) or []
         selected = set(selection.get(name, []) or list(range(len(items))))
@@ -260,12 +263,16 @@ async def commit_selection(
                 if session is not None:
                     async with session.begin_nested():
                         r = await uc.add(user_id=user_id, payload=clean, uow=uow)
-                        if r.is_success:
-                            summary[name] += 1
                 else:
                     r = await uc.add(user_id=user_id, payload=clean, uow=uow)
-                    if r.is_success:
-                        summary[name] += 1
+                if r.is_success:
+                    summary[name] += 1
+                else:
+                    failed += 1
+                    logger.warning("pdf_commit_rejected", section=name, error=str(r.error))
             except Exception as exc:
+                failed += 1
                 logger.warning("pdf_commit_failed", section=name, error=str(exc))
+    if failed:
+        summary["failed"] = failed
     return summary
