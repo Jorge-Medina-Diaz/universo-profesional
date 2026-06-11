@@ -13,10 +13,12 @@ import pytest
 from sqlalchemy import text
 
 from src.identity.infrastructure.exporter import (
+    AI_ERASE_ACKNOWLEDGED,
     INTERNAL_NO_EXPORT,
     MANUAL_ERASE,
     SECRET_BEARING,
     _REDACT_COLUMNS,
+    discover_ai_scoped_tables,
     discover_user_scoped_tables,
 )
 from src.shared.db import get_session_factory
@@ -121,4 +123,24 @@ async def test_every_user_scoped_table_is_erased_on_account_delete() -> None:
     assert not not_erased, (
         "user-scoped tables that would survive a hard-delete (no CASCADE FK to "
         f"users, not in MANUAL_ERASE): {sorted(not_erased)}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_every_ai_schema_user_table_is_erased() -> None:
+    """The agno `ai` schema holds narrative memories + transcripts keyed by a
+    user_id with NO FK to users, so the public-schema cascade never reaches it.
+
+    The previous coverage guard only scanned `table_schema = 'public'`, so it
+    was structurally blind to the `ai` schema — a permanent false green that let
+    a deleted user's PII survive Art.17 erasure. The hard-delete now sweeps the
+    ai schema dynamically; this asserts no ai user-table is unacknowledged.
+    """
+    factory = get_session_factory()
+    async with factory() as s:
+        ai_tables = await discover_ai_scoped_tables(s)
+    unacknowledged = ai_tables - AI_ERASE_ACKNOWLEDGED
+    assert not unacknowledged, (
+        "ai-schema user-scoped tables not acknowledged for GDPR erase (add to "
+        f"AI_ERASE_ACKNOWLEDGED after confirming the sweep covers them): {sorted(unacknowledged)}"
     )

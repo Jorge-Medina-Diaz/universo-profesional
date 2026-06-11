@@ -24,7 +24,10 @@ from src.identity.infrastructure.repositories import (
     SqlAlchemyRefreshTokenRepository,
     SqlAlchemyUserRepository,
 )
-from src.identity.interfaces.api.deps import SessionDep, get_request_meta
+from src.identity.interfaces.api.deps import (
+    PreAuthSessionDep,
+    get_request_meta,
+)
 from src.identity.interfaces.api.schemas import TokenResponse
 from src.integrations.application.linkedin_oidc import (
     LinkedInOidcSignIn,
@@ -75,7 +78,7 @@ async def linkedin_authorize(
 @router.get("/callback")
 async def linkedin_callback(
     request: Request,
-    session: SessionDep,
+    session: PreAuthSessionDep,
     code: str | None = None,
     state: str | None = None,
     error: str | None = None,
@@ -161,7 +164,7 @@ async def linkedin_callback(
 @router.post("/exchange", response_model=TokenResponse)
 async def linkedin_exchange(
     request: Request,
-    session: SessionDep,
+    session: PreAuthSessionDep,
     body: dict[str, Any],
 ) -> TokenResponse:
     """Server-side code exchange — for clients that don't want a redirect.

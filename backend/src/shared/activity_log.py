@@ -13,7 +13,9 @@ from typing import Any
 import structlog
 from sqlalchemy import text
 
-from src.shared.db import get_session_factory
+from uuid import UUID
+
+from src.shared.db import get_session_factory, set_rls_user
 from src.shared.events import DomainEvent, EventBus
 
 logger = structlog.get_logger(__name__)
@@ -31,6 +33,13 @@ async def persist_event_handler(event: DomainEvent) -> None:
     try:
         factory = get_session_factory()
         async with factory() as session:
+            # Runs as an after-commit subscriber on a FRESH session — the
+            # original request's GUC does NOT carry over. domain_events is
+            # FORCE RLS, so without arming the scope here the INSERT violates
+            # WITH CHECK and the whole activity feed silently fails to persist.
+            await set_rls_user(
+                session, UUID(str(event.user_id)) if event.user_id else None
+            )
             await session.execute(
                 text(
                     """

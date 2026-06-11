@@ -26,7 +26,7 @@ from src.mcp_server.interfaces.mcp_router import mcp_endpoint
 from src.mcp_server.interfaces.mcp_router import router as legacy_router
 from src.mcp_server.tools import _TOOL_SCOPES, TOOL_DEFINITIONS, TOOL_HANDLERS
 from src.shared.config import get_settings
-from src.shared.db import get_session_factory
+from src.shared.db import get_session_factory, set_rls_user
 from src.shared.metrics import mcp_invocations_total, mcp_latency_seconds
 from src.shared.security import decode_jwt, utc_now
 
@@ -49,6 +49,11 @@ async def _authenticate_token(
 
     factory = get_session_factory()
     async with factory() as session:
+        # `oauth_tokens` is FORCE RLS (migration 0001/0039). The bearer token IS
+        # the capability here (pre-auth), so resolve it in the service scope —
+        # a GUC-less session sees zero rows and EVERY authenticated MCP call
+        # would fail auth under the cvs_app role.
+        await set_rls_user(session, None)
         store = OAuthStore(session)
         row = await store.get_token(token)
         if (
@@ -144,6 +149,9 @@ def _create_sdk_server() -> Server:
                 try:
                     factory = get_session_factory()
                     async with factory() as session:
+                        # mcp_invocations is FORCE RLS — arm the per-user scope
+                        # or the audit-log INSERT violates WITH CHECK and is lost.
+                        await set_rls_user(session, user_id)
                         store = OAuthStore(session)
                         await store.log_invocation(
                             user_id=user_id,

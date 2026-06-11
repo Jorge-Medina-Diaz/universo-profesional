@@ -7,7 +7,7 @@ from uuid import UUID
 import structlog
 
 from src.documents.infrastructure.renderer import WeasyPrintRenderer
-from src.shared.db import get_session_factory
+from src.shared.db import with_user_session
 
 logger = structlog.get_logger(__name__)
 
@@ -22,8 +22,11 @@ async def render_document(
     from src.documents.infrastructure.orm import DocumentOrm
 
     renderer = WeasyPrintRenderer()
-    factory = get_session_factory()
-    async with factory() as session:
+    # MUST run in the owner's RLS scope: `documents` is FORCE RLS (0039). A raw
+    # get_session_factory() session is GUC-less, so the SELECT below returned 0
+    # rows and the task silently produced {"pdf": None} for every user — the
+    # exact no-op class fixed earlier in universe/infrastructure/tasks.py.
+    async with with_user_session(UUID(user_id)) as session:
         row = (
             await session.execute(
                 select(DocumentOrm).where(DocumentOrm.id == UUID(document_id))

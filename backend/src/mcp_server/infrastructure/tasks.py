@@ -15,7 +15,7 @@ import structlog
 from sqlalchemy import delete
 
 from src.mcp_server.infrastructure.orm import OAuthTokenOrm
-from src.shared.db import get_session_factory
+from src.shared.db import get_session_factory, set_rls_user
 
 logger = structlog.get_logger(__name__)
 
@@ -30,6 +30,9 @@ async def purge_expired_oauth_tokens(ctx: dict[str, Any]) -> dict[str, int]:
     factory = get_session_factory()
     now = datetime.now(UTC)
     async with factory() as session:
+        # Cross-user cron sweep — oauth_tokens is FORCE RLS, so a GUC-less
+        # session would DELETE zero rows (silent no-op) under cvs_app.
+        await set_rls_user(session, None)
         stmt = delete(OAuthTokenOrm).where(OAuthTokenOrm.expires_at < now)
         result = await session.execute(stmt)
         await session.commit()

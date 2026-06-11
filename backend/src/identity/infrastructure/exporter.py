@@ -80,6 +80,15 @@ SECRET_BEARING: frozenset[str] = frozenset(
 # hard-erase must delete these explicitly (the cascade won't reach them).
 MANUAL_ERASE: frozenset[str] = frozenset({"domain_events"})
 
+# agno-managed `ai`-schema tables we have consciously confirmed are erased by
+# the dynamic ai-schema sweep in hard_delete_expired_accounts. The GDPR
+# coverage test fails if the live `ai` schema grows a user-scoped table not
+# listed here, forcing a human to confirm it's covered (fail-until-classified,
+# the same contract the public-schema erase guard uses).
+AI_ERASE_ACKNOWLEDGED: frozenset[str] = frozenset(
+    {"agno_memories", "agno_sessions"}
+)
+
 # Per-table secret columns stripped from an exported row (the table is user
 # content we keep, but these specific columns are secrets).
 _REDACT_COLUMNS: dict[str, frozenset[str]] = {
@@ -101,6 +110,30 @@ async def discover_user_scoped_tables(session: AsyncSession) -> set[str]:
                 "JOIN information_schema.tables t "
                 "  ON t.table_name = c.table_name AND t.table_schema = c.table_schema "
                 "WHERE c.table_schema = 'public' AND c.column_name = 'user_id' "
+                "  AND t.table_type = 'BASE TABLE'"
+            )
+        )
+    ).all()
+    return {r[0] for r in rows}
+
+
+async def discover_ai_scoped_tables(session: AsyncSession) -> set[str]:
+    """agno-managed tables in the `ai` schema that carry a `user_id` column
+    (agno_memories = narrative PII facts, agno_sessions = full chat transcripts).
+
+    These are created by the agno framework, NOT our migrations: `user_id` is a
+    plain string with NO foreign key to `public.users`, so the GDPR cascade from
+    `DELETE FROM users` never reaches them. They must be erased explicitly. The
+    GDPR coverage test asserts every one of these is in AI_ERASE so a future
+    agno table can never silently survive a right-to-erasure.
+    """
+    rows = (
+        await session.execute(
+            text(
+                "SELECT c.table_name FROM information_schema.columns c "
+                "JOIN information_schema.tables t "
+                "  ON t.table_name = c.table_name AND t.table_schema = c.table_schema "
+                "WHERE c.table_schema = 'ai' AND c.column_name = 'user_id' "
                 "  AND t.table_type = 'BASE TABLE'"
             )
         )

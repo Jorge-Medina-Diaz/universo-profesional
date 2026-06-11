@@ -24,7 +24,12 @@ from src.documents.infrastructure.repositories import (
     SqlAlchemyDocumentRepository,
     SqlAlchemyJobRepository,
 )
-from src.identity.interfaces.api.deps import CurrentUserId, SessionDep, current_user_id
+from src.identity.interfaces.api.deps import (
+    CurrentUserId,
+    ServiceSessionDep,
+    SessionDep,
+    current_user_id,
+)
 from src.shared.embeddings import get_embeddings_service
 from src.shared.metrics import cv_generated_total
 from src.shared.rate_limit import limiter
@@ -315,7 +320,7 @@ def _shared_doc_or_error(doc: Any) -> Any:
 @public_router.get("/{token}")
 @limiter.limit(_SHARE_RATE)
 async def resolve_share_token(
-    request: Request, token: str, session: SessionDep, response: Response
+    request: Request, token: str, session: ServiceSessionDep, response: Response
 ) -> dict[str, Any]:
     repo = SqlAlchemyDocumentRepository(session)
     doc = _shared_doc_or_error(await repo.get_by_share_token(token))
@@ -334,7 +339,9 @@ async def resolve_share_token(
 
 @public_router.get("/{token}/pdf")
 @limiter.limit(_SHARE_RATE)
-async def get_share_pdf(request: Request, token: str, session: SessionDep) -> Response:
+async def get_share_pdf(
+    request: Request, token: str, session: ServiceSessionDep
+) -> Response:
     repo = SqlAlchemyDocumentRepository(session)
     doc = _shared_doc_or_error(await repo.get_by_share_token(token))
     data = await _read_blob_or_404(doc.pdf_path, not_found="not_found")

@@ -23,7 +23,11 @@ from src.billing.infrastructure.repositories import (
     SqlAlchemyQuotaRepository,
     SqlAlchemySubscriptionRepository,
 )
-from src.identity.interfaces.api.deps import CurrentUserId, SessionDep
+from src.identity.interfaces.api.deps import (
+    CurrentUserId,
+    ServiceSessionDep,
+    SessionDep,
+)
 from src.shared.config import get_settings
 from src.shared.metrics import stripe_conversion_total
 from src.shared.uow import unit_of_work
@@ -195,7 +199,7 @@ def _plan_from_subscription_object(data_object: dict[str, Any], settings: Any) -
 @router.post("/webhook")
 async def stripe_webhook(
     request: Request,
-    session: SessionDep,
+    session: ServiceSessionDep,
 ) -> dict[str, Any]:
     """Real Stripe webhook receiver.
 

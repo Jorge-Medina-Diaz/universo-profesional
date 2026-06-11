@@ -64,6 +64,23 @@ async def pre_auth_session_dep() -> AsyncSession:
 PreAuthSessionDep = Annotated[AsyncSession, Depends(pre_auth_session_dep)]
 
 
+async def service_session_dep() -> AsyncSession:
+    """Session for TRUSTED anonymous endpoints that legitimately operate across
+    users without a JWT: Stripe webhooks (HMAC-verified) and capability-token
+    resolvers (CV share links). The signature / unguessable token IS the
+    authorization, so these run in the service scope (RLS bypass) exactly like
+    background workers. Without arming RLS, FORCE RLS (migration 0039) denies
+    every row: the webhook 500-loops and a paid plan never activates, and share
+    links 404 on every valid token. This is the same fix already applied to
+    pre-auth identity flows and the worker tasks."""
+    async for s in get_session():
+        await set_rls_user(s, None)
+        yield s
+
+
+ServiceSessionDep = Annotated[AsyncSession, Depends(service_session_dep)]
+
+
 def register_user_dep(session: PreAuthSessionDep) -> RegisterUser:
     return RegisterUser(
         SqlAlchemyUserRepository(session),

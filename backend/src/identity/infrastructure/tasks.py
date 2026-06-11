@@ -15,7 +15,7 @@ from tenacity import (
 )
 
 from src.identity.infrastructure.orm import UserOrm
-from src.shared.db import get_session_factory, set_rls_user
+from src.shared.db import get_session_factory, set_rls_user, with_user_session
 from src.shared.security import utc_now
 
 logger = structlog.get_logger(__name__)
@@ -74,8 +74,11 @@ async def enqueue_transactional_email(
     from src.identity.infrastructure.email_templates import render_template
     from src.identity.infrastructure.repositories import SqlAlchemyUserRepository
 
-    factory = get_session_factory()
-    async with factory() as session:
+    # `users` is FORCE RLS (0039): a GUC-less session sees zero rows, so
+    # get_by_id returned None and EVERY transactional email (welcome, payment
+    # receipt, password reset) was silently dropped under the cvs_app role.
+    # Arm the per-user scope — the recipient is known here.
+    async with with_user_session(user_id) as session:
         repo = SqlAlchemyUserRepository(session)
         user = await repo.get_by_id(user_id)
         if user is None:
@@ -140,13 +143,57 @@ async def hard_delete_expired_accounts(ctx: dict[str, Any]) -> int:
         # (the event store etc.) — the cascade above won't reach them, so a
         # right-to-erasure would otherwise leave their PII behind.
         if ids:
-            from src.identity.infrastructure.exporter import MANUAL_ERASE
+            from src.identity.infrastructure.exporter import (
+                MANUAL_ERASE,
+                discover_ai_scoped_tables,
+            )
 
             for tbl in MANUAL_ERASE:
                 await session.execute(
                     text(f"DELETE FROM {tbl} WHERE user_id::text = ANY(:ids)"),  # noqa: S608
                     {"ids": ids},
                 )
+            # The agno framework stores narrative memories (PII facts) + full
+            # chat transcripts in the `ai` schema with user_id as a plain
+            # string and NO FK to users — the cascade can't reach them. GDPR
+            # Art.17 requires they go too. Discovered dynamically so a future
+            # agno table is erased automatically.
+            for tbl in await discover_ai_scoped_tables(session):
+                await session.execute(
+                    text(f'DELETE FROM ai."{tbl}" WHERE user_id = ANY(:ids)'),  # noqa: S608
+                    {"ids": ids},
+                )
+            # The user's personal knowledge graph (AGE vertices + edges) is
+            # keyed by a user_id property, not an FK — erase it explicitly too.
+            await _erase_user_graph(session, ids)
         await session.commit()
     logger.info("hard_deleted_accounts", count=len(ids), ids=ids)
     return len(ids)
+
+
+async def _erase_user_graph(session: Any, ids: list[str]) -> None:
+    """DETACH DELETE every AGE vertex (and its edges) owned by these users.
+
+    Best-effort per user so one malformed id can't abort the whole erase
+    transaction; failures are logged loudly (a residual graph after erasure is
+    a compliance gap, never a silent pass)."""
+    from src.graph.domain import schema as graph_schema
+    from src.graph.infrastructure.age_client import cypher, ensure_age_loaded
+
+    try:
+        await ensure_age_loaded(session)
+    except Exception as exc:  # pragma: no cover - AGE always present in prod
+        logger.error("gdpr_graph_erase_age_unavailable", error=str(exc))
+        return
+    for uid in ids:
+        try:
+            res = await cypher(
+                session,
+                graph_schema.GRAPH_PERSONAL,
+                "MATCH (n {user_id: $uid}) DETACH DELETE n RETURN count(n) AS deleted",
+                params={"uid": uid},
+                column_defs="deleted agtype",
+            )
+            logger.info("gdpr_graph_erased", user_id=uid, vertices=res)
+        except Exception as exc:
+            logger.error("gdpr_graph_erase_failed", user_id=uid, error=str(exc))
