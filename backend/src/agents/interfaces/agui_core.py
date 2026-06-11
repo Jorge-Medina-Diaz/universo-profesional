@@ -164,6 +164,10 @@ def _conversation_window(messages: list[Any], *, max_turns: int = 8, max_chars: 
     full corpus (stack, highlights, learnings). The last user message is marked
     as the FOCUS; agent turns are included as context only.
     """
+    def _cap(s: str, n: int) -> str:
+        s = s.strip()
+        return s if len(s) <= n else s[:n] + " […]"
+
     turns: list[str] = []
     for msg in reversed(messages):
         role = getattr(msg, "role", None)
@@ -171,9 +175,12 @@ def _conversation_window(messages: list[Any], *, max_turns: int = 8, max_chars: 
         if not isinstance(content, str) or not content.strip():
             continue
         if role == "user":
-            turns.append(f"Usuario: {content.strip()}")
+            # Cap user lines too: a pasted CV/README (>max_chars) used to evict
+            # every other turn AND, via the old tail-slice, shear the FOCO
+            # marker off — leaving headless text the engine couldn't attribute.
+            turns.append(f"Usuario: {_cap(content, 2000)}")
         elif role == "assistant":
-            turns.append(f"Agente: {content.strip()[:400]}")
+            turns.append(f"Agente: {_cap(content, 400)}")
         if len(turns) >= max_turns:
             break
     if not turns:
@@ -184,8 +191,19 @@ def _conversation_window(messages: list[Any], *, max_turns: int = 8, max_chars: 
         if turns[i].startswith("Usuario: "):
             turns[i] = "Usuario (FOCO — extrae lo nuevo de aquí): " + turns[i][len("Usuario: "):]
             break
-    transcript = "\n".join(turns)
-    return transcript[-max_chars:]
+    # Assemble from the most-recent end backward, dropping WHOLE leading turns
+    # until under max_chars — NEVER head-slice the joined string (that cut the
+    # FOCO marker off the last user line on long inputs). The most-recent turn
+    # is always kept even if it alone exceeds the budget.
+    out: list[str] = []
+    total = 0
+    for line in reversed(turns):
+        if out and total + len(line) + 1 > max_chars:
+            break
+        out.append(line)
+        total += len(line) + 1
+    out.reverse()
+    return "\n".join(out)
 
 
 def _ts_to_iso(ts: Any) -> str | None:

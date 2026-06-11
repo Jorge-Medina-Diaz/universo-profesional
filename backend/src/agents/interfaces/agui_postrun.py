@@ -1,6 +1,7 @@
 """Post-run fire-and-forget tasks for AG-UI endpoints."""
 from __future__ import annotations
 
+import asyncio
 from uuid import UUID
 
 import structlog
@@ -13,6 +14,23 @@ from src.llm_tracking.infrastructure.repository import SqlalchemyLlmUsageLogRepo
 from src.shared.db import with_user_session
 
 logger = structlog.get_logger(__name__)
+
+# Per-user serialization of fire-and-forget enrichment. Each SSE turn spawns a
+# task, and the conversation window OVERLAPS the previous turn — so without a
+# lock, turn N+1 re-extracts turn N's content while N is still mid-run and the
+# semantic dedup (which only sees committed rows) lets BOTH create the same
+# entity. Serializing per user makes N+1 wait for N to commit, so the dedup
+# sees it. (Single-process deployment; a multi-replica setup would add a
+# Postgres advisory lock for cross-process serialization.)
+_enrich_locks: dict[str, asyncio.Lock] = {}
+
+
+def _user_enrich_lock(user_id: str) -> asyncio.Lock:
+    lock = _enrich_locks.get(user_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _enrich_locks[user_id] = lock
+    return lock
 
 
 async def _enrich_universe_from_chat(
@@ -27,9 +45,10 @@ async def _enrich_universe_from_chat(
     """
     try:
         uid = UUID(user_id)
-        async with with_user_session(uid) as session:
-            engine = UniverseEnrichmentEngine(session, uid)
-            result = await engine.process(text, source=SOURCE_AGENT_CHAT)
+        async with _user_enrich_lock(user_id):
+            async with with_user_session(uid) as session:
+                engine = UniverseEnrichmentEngine(session, uid)
+                result = await engine.process(text, source=SOURCE_AGENT_CHAT)
             logger.info(
                 "chat_universe_enriched",
                 user_id=user_id,

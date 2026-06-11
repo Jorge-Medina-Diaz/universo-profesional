@@ -72,6 +72,29 @@ _HITL_NOTICE_RE = re.compile(
     r"\s*Member '[^']+' requires human input before continuing\.?\s*"
 )
 
+# Tool calls the agent runs to *think* (mirrors the frontend's isSilentTool):
+# they draw no card and are not a user-visible answer. A turn whose ONLY output
+# is one of these (or the internal delegate_task_to_member plumbing) is a silent
+# failure from the user's POV — it must NOT satisfy the empty-run guard.
+_SILENT_TOOL_RE = re.compile(
+    r"^(get_|find_|list_|search_|match_|recompute_|explain_|count_|retrieve|universe_retrieve)"
+)
+
+
+def _is_user_visible_tool(name: str) -> bool:
+    """A tool call that the user actually sees (a rendered card or answer).
+
+    delegate_task_to_member is internal routing plumbing; get_/search_/… are the
+    agent's own reasoning reads. Everything else (propose_*, present_widget,
+    present_graph_view, control_graph, …) renders something, so it counts.
+    Unknown/empty name → treated as visible (fail safe: never fabricate an empty
+    run when we're unsure)."""
+    if not name:
+        return True
+    if name == "delegate_task_to_member":
+        return False
+    return not _SILENT_TOOL_RE.match(name)
+
 # agno also leaks an English status line when a run pauses for an
 # external-execution tool (our HITL cards). Internal plumbing — strip it.
 _EXTERNAL_EXEC_NOTICE_RE = re.compile(
@@ -93,18 +116,22 @@ _AGENT_UNAVAILABLE_MSG = (
 # where entity_type = name.replace("propose_", "") must be a valid universe
 # kind. (propose_skill_batch is deliberately excluded — it commits per-skill
 # client-side via its own renderAndWaitForResponse card, not this path.)
+# Tools resolved via POST /proposals/{id}/resolve → they need a server-minted
+# proposal_id + cache entry. propose_goal and propose_artifact are DELIBERATELY
+# absent: the frontend commits those through their own endpoints (GoalProposalCard
+# → POST /api/v1/goals, ArtifactProposalCard → coherenceUpsert('artifact')), so
+# minting a proposal_id for them only created an orphan cache entry, inflated
+# agent_proposals_total, and risked a NOOP on a /resolve that never comes.
 _PROPOSAL_TOOLS = {
     "propose_experience",
     "propose_skill",
     "propose_project",
     "propose_education",
     "propose_certification",
-    "propose_goal",
     "propose_course",
     "propose_language",
     "propose_achievement",
     "propose_interest",
-    "propose_artifact",
     "propose_architecture_decision",
     # R13 generic single-entity proposal — entity_type comes from the args,
     # not the tool name (special-cased in _inject_proposal_metadata).
@@ -380,24 +407,98 @@ async def _clean_event_stream(
     live_mid: str | None = None  # message currently streaming live
     pending_ack: dict | None = None
     live_done = False  # only the first text message gets the live path
+    # tool_call_ids whose call is NOT user-visible (silent reads + delegation
+    # plumbing) — tracked so their later ARGS/END/RESULT events (which carry no
+    # tool name) also don't flip produced_output.
+    nonvisible_call_ids: set[str] = set()
 
     def _strip_notices(s: str) -> str:
         s = _HITL_NOTICE_RE.sub(" ", s)
         return _EXTERNAL_EXEC_NOTICE_RE.sub(" ", s)
 
+    def _close_open_buffers() -> list[bytes]:
+        """Encode a proper close sequence for every still-open buffer.
+
+        Used BOTH when a terminal lifecycle event arrives mid-message (the
+        upstream threw, so the converter never sent END) and as the post-loop
+        backstop. Emitting these BEFORE RUN_FINISHED keeps us protocol-correct:
+        we never send CONTENT/END after the run has been declared finished
+        (which the client treats as a closed message), while still closing the
+        bubble so CopilotKit doesn't spin forever."""
+        out: list[bytes] = []
+        for buf in buffers.values():
+            mid = buf["start"].message_id
+            if buf.get("started_emitted"):
+                tail = _strip_notices(buf["text"])[buf["emitted_upto"] :].strip()
+                if tail:
+                    out.append(
+                        encoder.encode(
+                            TextMessageContentEvent(
+                                type=EventType.TEXT_MESSAGE_CONTENT,
+                                message_id=mid,
+                                delta=tail,
+                            )
+                        )
+                    )
+            else:
+                out.append(encoder.encode(buf["start"]))
+                cleaned = _strip_notices(buf["text"]).strip()
+                if cleaned:
+                    out.append(
+                        encoder.encode(
+                            TextMessageContentEvent(
+                                type=EventType.TEXT_MESSAGE_CONTENT,
+                                message_id=mid,
+                                delta=cleaned,
+                            )
+                        )
+                    )
+            out.append(
+                encoder.encode(
+                    TextMessageEndEvent(
+                        type=EventType.TEXT_MESSAGE_END, message_id=mid
+                    )
+                )
+            )
+        buffers.clear()
+        return out
+
     async for event in events:
         etype = getattr(event, "type", None)
-        # A tool call (HITL card, present_widget, present_graph_view, …) counts
-        # as real output even when there's no assistant text.
+        # A tool call counts as user-visible output (HITL card, present_widget,
+        # present_graph_view, …) UNLESS it's a silent reasoning read or the
+        # internal delegate_task_to_member plumbing. Without this exclusion the
+        # delegation event marked produced_output=True, so a specialist that
+        # then failed silently left the empty-run guard disarmed → the user saw
+        # a delegation chip and then nothing.
         if etype is not None and "TOOL_CALL" in str(etype):
-            produced_output = True
-            if timer:
-                timer.mark("ttft")
+            tcid = getattr(event, "tool_call_id", None) or getattr(
+                event, "message_id", None
+            )
+            if etype == EventType.TOOL_CALL_START:
+                visible = _is_user_visible_tool(
+                    getattr(event, "tool_call_name", None) or ""
+                )
+                if not visible and tcid:
+                    nonvisible_call_ids.add(tcid)
+            else:
+                visible = not (tcid is not None and tcid in nonvisible_call_ids)
+            if visible:
+                produced_output = True
+                if timer:
+                    timer.mark("ttft")
         # Text deltas are buffered until END (dedup), so the user-visible TTFT
         # for text is the END that flushes the first non-empty message —
         # marked below where CONTENT is emitted.
         if etype == EventType.RUN_ERROR:
             error_seen = True
+        # A terminal lifecycle event closes the run: drain any still-open
+        # message buffers (e.g. the upstream threw mid-live-message and never
+        # sent END) BEFORE the terminal frame, so we never emit CONTENT/END
+        # after RUN_FINISHED/RUN_ERROR. (#15)
+        if etype in (EventType.RUN_FINISHED, EventType.RUN_ERROR) and buffers:
+            for frame in _close_open_buffers():
+                yield frame
         # Intercept a real run that finished without producing anything: surface
         # a visible assistant message IN-THREAD (so the user's turn persists),
         # then fall through to let RUN_FINISHED close the run normally. We do NOT
@@ -407,6 +508,8 @@ async def _clean_event_stream(
             and etype == EventType.RUN_FINISHED
             and not produced_output
             and not error_seen
+            and pending_ack is None  # a held short reply IS output — don't
+            # fabricate a false "no pude responder" before flushing it below.
         ):
             logger.error("agui_empty_run", reason="run finished with no output")
             mid = f"err-{uuid.uuid4().hex}"
@@ -574,36 +677,11 @@ async def _clean_event_stream(
         )
         yield encoder.encode(pending_ack["end"])
         produced_output = True
-    # Defensive: flush any unterminated buffers with a proper START + CONTENT +
-    # END sequence. Emitting START alone left the message bubble permanently
-    # open (CopilotKit shows a never-ending spinner). Live-streamed buffers
-    # already emitted START + a prefix — only their held tail is flushed.
-    for buf in buffers.values():
-        mid = buf["start"].message_id
-        if buf.get("started_emitted"):
-            tail = _strip_notices(buf["text"])[buf["emitted_upto"] :].strip()
-            if tail:
-                yield encoder.encode(
-                    TextMessageContentEvent(
-                        type=EventType.TEXT_MESSAGE_CONTENT,
-                        message_id=mid,
-                        delta=tail,
-                    )
-                )
-        else:
-            yield encoder.encode(buf["start"])
-            cleaned = _strip_notices(buf["text"]).strip()
-            if cleaned:
-                yield encoder.encode(
-                    TextMessageContentEvent(
-                        type=EventType.TEXT_MESSAGE_CONTENT,
-                        message_id=mid,
-                        delta=cleaned,
-                    )
-                )
-        yield encoder.encode(
-            TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=mid)
-        )
+    # Backstop: if the stream ended WITHOUT a terminal lifecycle event, the
+    # per-event drain above never ran — close any buffers still open so a
+    # message bubble never hangs (CopilotKit would spin forever).
+    for frame in _close_open_buffers():
+        yield frame
 
 
 async def _stream_chat(

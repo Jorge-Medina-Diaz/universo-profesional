@@ -109,6 +109,14 @@ class _UserSnapshot:
 
 
 _SNAPSHOT_LRU_MAX = 200
+# Max age of an in-memory snapshot before we re-validate against Redis. Another
+# worker's write invalidates Redis + ITS OWN process LRU, but cannot reach this
+# process's in-memory copy — which had no age check, so a stale snapshot could
+# shadow Redis indefinitely (built_at was stored but never read). With a short
+# TTL the in-memory copy self-heals: on expiry we fall through to Redis (which
+# the writer DID bust) and rebuild. invalidate_snapshot still gives immediate
+# same-process freshness; this only bounds the cross-process staleness window.
+_SNAPSHOT_MAX_AGE_S = 30.0
 _snapshots: OrderedDict[UUID, _UserSnapshot] = OrderedDict()
 # The LRU is mutated from many concurrent asyncio tasks (coherence
 # writes invalidate, PPR queries load). Guard with a single lock — the
@@ -131,12 +139,19 @@ async def _load_snapshot(
     async with _snapshots_lock:
         cached = _snapshots.get(user_id)
         if cached is not None:
-            _snapshots.move_to_end(user_id)
-            return cached
+            if (time.time() - cached.built_at) <= _SNAPSHOT_MAX_AGE_S:
+                _snapshots.move_to_end(user_id)
+                return cached
+            # Too old — evict and re-validate against Redis below.
+            _snapshots.pop(user_id, None)
 
-    # 1. Try Redis (cross-worker consistency).
+    # 1. Try Redis (cross-worker consistency). A Redis hit means the snapshot is
+    # still valid here (a writer would have DELETED the key), so stamp it fresh
+    # for this process — otherwise an old-but-valid snapshot would re-validate
+    # against Redis on every call and never stay cached in memory.
     redis_snapshot = await _load_snapshot_redis(user_id)
     if redis_snapshot is not None:
+        redis_snapshot.built_at = time.time()
         async with _snapshots_lock:
             _snapshots[user_id] = redis_snapshot
             _snapshots.move_to_end(user_id)

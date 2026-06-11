@@ -149,6 +149,78 @@ def _norm(name: str) -> str:
     return " ".join((name or "").lower().split())
 
 
+def _load_json_array(response: str) -> list:
+    """Best-effort parse of an LLM response that SHOULD be a JSON array.
+
+    Handles every shape the extraction has hit in the wild, none of which the
+    naive json.loads covered:
+      1. a bare JSON array (the happy path);
+      2. an array wrapped in ```json fences``` (Anthropic's usual habit);
+      3. a top-level OBJECT like {"entities": [...]} — OpenAI's json_object
+         response_format forces this, and the old code dropped it as "not a
+         list" with NO log, so extraction was permanently empty on OpenAI;
+      4. a TRUNCATED array (hit max_tokens mid-element) — recovered by scanning
+         to the last COMPLETE top-level object and closing the bracket, so a
+         long turn keeps the entities it did finish instead of losing them all.
+    Returns [] only when nothing salvageable is found.
+    """
+    if not response:
+        return []
+    s = response.strip()
+    # 2. strip a leading/closing fence if present (closing optional).
+    if s.startswith("```"):
+        s = re.sub(r"^```(?:json)?\s*", "", s)
+        s = re.sub(r"\s*```$", "", s)
+        s = s.strip()
+    # 1. direct parse.
+    try:
+        parsed = json.loads(s)
+    except json.JSONDecodeError:
+        parsed = None
+    # 3. object-wrapped array → first list value.
+    if isinstance(parsed, dict):
+        for v in parsed.values():
+            if isinstance(v, list):
+                return v
+        return []
+    if isinstance(parsed, list):
+        return parsed
+    # 4. truncation salvage: take from the first '[' and append closing
+    # brackets after the last balanced '}'.
+    start = s.find("[")
+    if start == -1:
+        return []
+    depth = 0
+    last_complete = -1
+    in_str = False
+    esc = False
+    for i in range(start, len(s)):
+        ch = s[i]
+        if esc:
+            esc = False
+            continue
+        if ch == "\\":
+            esc = True
+            continue
+        if ch == '"':
+            in_str = not in_str
+            continue
+        if in_str:
+            continue
+        if ch in "[{":
+            depth += 1
+        elif ch in "]}":
+            depth -= 1
+            if depth == 1 and ch == "}":
+                last_complete = i
+    if last_complete > start:
+        try:
+            return json.loads(s[start : last_complete + 1] + "]")
+        except json.JSONDecodeError:
+            return []
+    return []
+
+
 _KIND_SQL: dict[str, tuple[str, str]] = {
     "experience": ("experiences", "organization"),
     "education": ("educations", "institution"),
@@ -177,7 +249,10 @@ relationships between them.  Supported edge types:
   RELATED_TO     — generic relation with a custom label in properties.label
 
 Rules:
-  1. Extract EVERY relation explicitly stated or strongly implied.
+  1. Extract EVERY relation explicitly stated or strongly implied BY THE USER.
+     The transcript may contain "Agente:" lines — those are context only. NEVER
+     create a relation from something only the agent said or proposed; the user
+     must have asserted or confirmed it.
   2. If a skill is mentioned in the context of an experience/project, create USES_TECH.
   3. If an achievement/impact is described in the context of a project/experience, create EVIDENCES_SIGNAL.
   4. If a skill replaced another (migración, cambio de stack), create SUPERSEDES.
@@ -234,37 +309,42 @@ async def _try_link_esco(
         )
         if result.state == LinkState.LINKED and result.esco_uri:
             target_label = "EscoSkill" if esco_kind == "skill" else "Occupation"
-            await session.execute(
-                text("""
-                    INSERT INTO graph_esco_links
-                        (user_id, entity_id, esco_uri, target_label, score)
-                    VALUES (:uid, :eid, :uri, :tgt, :score)
-                    ON CONFLICT (user_id, entity_id, esco_uri) DO UPDATE
-                      SET score = EXCLUDED.score,
-                          target_label = EXCLUDED.target_label
-                """),
-                {
-                    "uid": str(user_id),
-                    "eid": str(entity_id),
-                    "uri": result.esco_uri,
-                    "tgt": target_label,
-                    "score": round(result.score or 0.0, 3),
-                },
-            )
-            # The graph repo wraps the fragment in SELECT * FROM cypher(...)
-            # itself — passing a pre-wrapped statement double-wrapped it into
-            # "syntax error at or near SELECT", which ABORTED the tx and
-            # killed every later upsert/relation in the pass.
-            await universe_graph_service._execute_cypher(
-                session,
-                """
-                MATCH (e {id: $eid, user_id: $uid})
-                SET e.esco_uri = $uri
-                RETURN e.id
-                """,
-                {"eid": str(entity_id), "uid": str(user_id), "uri": result.esco_uri},
-                column_defs="id agtype",
-            )
+            # SAVEPOINT: a failure in either write (INSERT or the AGE cypher SET)
+            # must roll back ONLY this ESCO link, not the whole pass. Without
+            # the savepoint a failure left the asyncpg tx aborted, so the NEXT
+            # entity's first query died with InFailedSQLTransactionError and its
+            # data was lost (#19/#22/#40).
+            async with session.begin_nested():
+                await session.execute(
+                    text("""
+                        INSERT INTO graph_esco_links
+                            (user_id, entity_id, esco_uri, target_label, score)
+                        VALUES (:uid, :eid, :uri, :tgt, :score)
+                        ON CONFLICT (user_id, entity_id, esco_uri) DO UPDATE
+                          SET score = EXCLUDED.score,
+                              target_label = EXCLUDED.target_label
+                    """),
+                    {
+                        "uid": str(user_id),
+                        "eid": str(entity_id),
+                        "uri": result.esco_uri,
+                        "tgt": target_label,
+                        "score": round(result.score or 0.0, 3),
+                    },
+                )
+                # The graph repo wraps the fragment in SELECT * FROM cypher(...)
+                # itself — passing a pre-wrapped statement double-wrapped it into
+                # "syntax error at or near SELECT".
+                await universe_graph_service._execute_cypher(
+                    session,
+                    """
+                    MATCH (e {id: $eid, user_id: $uid})
+                    SET e.esco_uri = $uri
+                    RETURN e.id
+                    """,
+                    {"eid": str(entity_id), "uid": str(user_id), "uri": result.esco_uri},
+                    column_defs="id agtype",
+                )
             logger.info(
                 "esco_linked",
                 user_id=str(user_id),
@@ -327,16 +407,25 @@ class UniverseEnrichmentEngine:
         entity_id_map: dict[tuple[str, str], UUID] = {}
         for ent in entities:
             try:
-                upserted_id = await self._upsert_entity(ent, source, resolve_duplicates)
+                upserted_id, status = await self._upsert_entity(
+                    ent, source, resolve_duplicates
+                )
                 if upserted_id:
                     entity_id_map[
                         (ent.kind, _norm(self._canonical_name(ent)))
                     ] = upserted_id
-                    result.entities_created += 1
+                    # Honest accounting: CREATED vs MERGED were both counted as
+                    # "created" before, so entities_merged was always 0.
+                    if status == UpsertStatus.MERGED:
+                        result.entities_merged += 1
+                    else:
+                        result.entities_created += 1
                     # Embed INLINE so the very next turn's semantic dedup can
                     # see this row. The async refresh lands too late: the
                     # turn-1 fragment had no embedding when turn-3's rich
-                    # version arrived, so the matcher created a duplicate.
+                    # version arrived, so the matcher created a duplicate. Uses
+                    # its own session — the entity is already committed by
+                    # _upsert_entity, so the embed read sees it.
                     try:
                         from src.universe.infrastructure.tasks import (  # noqa: PLC0415
                             refresh_embedding,
@@ -347,17 +436,21 @@ class UniverseEnrichmentEngine:
                         )
                     except Exception as exc:  # embedding lag is tolerable
                         logger.debug("inline_embedding_failed", error=str(exc))
-                    # 3b. Link to ESCO ontology
+                    # 3b. Link to ESCO ontology (savepoint-isolated), then COMMIT
+                    # so the link is durable and a later failure can't roll it
+                    # back (#6/#8: each unit of work commits independently).
                     if link_esco:
-                        result.esco_linked += await _try_link_esco(
+                        linked = await _try_link_esco(
                             self._session, ent, upserted_id, self._user_id
                         )
+                        result.esco_linked += linked
+                        if linked:
+                            await self._session.commit()
             except Exception as exc:
                 result.errors.append(f"{ent.kind} upsert failed: {exc}")
                 logger.warning("enrichment_entity_failed", kind=ent.kind, error=str(exc))
-                # A failed statement ABORTS the tx; without rollback every
-                # later entity/relation in this pass dies with
-                # InFailedSQLTransactionError (one bad apple emptied turns).
+                # Recover the session for the next entity. Prior entities are
+                # already committed, so this only discards the failed one.
                 try:
                     await self._session.rollback()
                 except Exception:  # pragma: no cover - defensive
@@ -375,7 +468,24 @@ class UniverseEnrichmentEngine:
                 tgt_id = entity_id_map.get(
                     (rel.target_kind, _norm(rel.target_name))
                 ) or await self._resolve_existing(rel.target_kind, rel.target_name)
-                if src_id and tgt_id:
+                if not (src_id and tgt_id):
+                    # Endpoint(s) unresolved — log it instead of dropping the
+                    # relation in total silence (it used to vanish with no
+                    # record at all, so a missing edge looked like "nothing to
+                    # connect" when it was really an unresolved name).
+                    logger.info(
+                        "enrichment_relation_unresolved",
+                        edge=rel.edge_type,
+                        src=f"{rel.source_kind}:{rel.source_name}"[:60],
+                        tgt=f"{rel.target_kind}:{rel.target_name}"[:60],
+                        src_ok=bool(src_id),
+                        tgt_ok=bool(tgt_id),
+                    )
+                    continue
+                # SAVEPOINT + COMMIT per edge: a failing edge rolls back only
+                # itself and the successful ones are already durable, so one bad
+                # edge can no longer silently destroy the edges before it.
+                async with self._session.begin_nested():
                     await universe_graph_service.upsert_edge(
                         self._session,
                         edge_type=rel.edge_type,
@@ -385,7 +495,8 @@ class UniverseEnrichmentEngine:
                         properties=rel.properties,
                         source=source,
                     )
-                    result.relations_created += 1
+                await self._session.commit()
+                result.relations_created += 1
             except Exception as exc:
                 result.errors.append(f"relation failed: {exc}")
                 logger.warning("enrichment_relation_failed", error=str(exc))
@@ -417,12 +528,18 @@ class UniverseEnrichmentEngine:
         except Exception as exc:
             logger.warning("enrichment_graph_enrich_failed", error=str(exc))
 
-        logger.info(
+        # Lost user data (an entity/relation that failed to persist) is a real
+        # failure — log it at ERROR with the messages so it's visible in
+        # monitoring/Sentry, not buried in an info line that says "errors=2".
+        log = logger.error if result.errors else logger.info
+        log(
             "universe_enriched",
             user_id=str(self._user_id),
             entities_created=result.entities_created,
+            entities_merged=result.entities_merged,
             relations_created=result.relations_created,
             errors=len(result.errors),
+            error_detail=result.errors[:5] if result.errors else None,
         )
         return result
 
@@ -436,29 +553,22 @@ class UniverseEnrichmentEngine:
                 {"role": "user", "content": text},
             ]
         )
-        try:
-            parsed = json.loads(response)
-            if not isinstance(parsed, list):
-                return []
-            return [
-                ExtractedEntity(kind=e["kind"], payload=e.get("payload", {}), confidence=e.get("confidence", 0.9))
-                for e in parsed
-                if "kind" in e and "payload" in e
-            ]
-        except json.JSONDecodeError:
-            fence = re.search(r"```(?:json)?\s*(\[.*?\])\s*```", response, re.DOTALL)
-            if fence:
-                try:
-                    parsed = json.loads(fence.group(1))
-                    return [
-                        ExtractedEntity(kind=e["kind"], payload=e.get("payload", {}))
-                        for e in parsed
-                        if "kind" in e
-                    ]
-                except json.JSONDecodeError:
-                    pass
+        parsed = _load_json_array(response)
+        if not parsed:
             logger.warning("entity_extraction_parse_failed", response=response[:200])
             return []
+        # ONE consistent filter+confidence path (the old fenced fallback dropped
+        # confidence — inflating a 0.6 to 0.9 — and accepted payload-less
+        # entities that became empty CREATE noops).
+        return [
+            ExtractedEntity(
+                kind=e["kind"],
+                payload=e.get("payload", {}),
+                confidence=e.get("confidence", 0.9),
+            )
+            for e in parsed
+            if isinstance(e, dict) and e.get("kind") and e.get("payload")
+        ]
 
     async def _extract_relations(
         self, text: str, entities: list[ExtractedEntity]
@@ -474,41 +584,39 @@ class UniverseEnrichmentEngine:
                 {"role": "user", "content": f"TEXT:\n{text}\n\nENTITIES:\n{entity_summary}"},
             ]
         )
-        try:
-            try:
-                parsed = json.loads(response)
-            except json.JSONDecodeError:
-                # The model wraps the array in ```json fences``` — same
-                # fallback the entity parser has had all along; without it
-                # every extracted relation died here (relations_created: 0).
-                fence = re.search(r"```(?:json)?\s*(\[.*?\])\s*```", response, re.DOTALL)
-                if not fence:
-                    raise
-                parsed = json.loads(fence.group(1))
-            if not isinstance(parsed, list):
-                return []
-            return [
-                ExtractedRelation(
-                    source_kind=r["source_kind"],
-                    source_name=r["source_name"],
-                    edge_type=r["edge_type"],
-                    target_kind=r["target_kind"],
-                    target_name=r["target_name"],
-                    properties=r.get("properties", {}),
-                )
-                for r in parsed
-                if all(k in r for k in ("source_kind", "source_name", "edge_type", "target_kind", "target_name"))
-            ]
-        except json.JSONDecodeError:
+        parsed = _load_json_array(response)
+        if not parsed:
             logger.warning("relation_extraction_parse_failed", response=response[:200])
             return []
+        return [
+            ExtractedRelation(
+                source_kind=r["source_kind"],
+                source_name=r["source_name"],
+                edge_type=r["edge_type"],
+                target_kind=r["target_kind"],
+                target_name=r["target_name"],
+                properties=r.get("properties", {}),
+            )
+            for r in parsed
+            if isinstance(r, dict)
+            and all(
+                k in r
+                for k in (
+                    "source_kind",
+                    "source_name",
+                    "edge_type",
+                    "target_kind",
+                    "target_name",
+                )
+            )
+        ]
 
     # Upsert
 
     async def _upsert_entity(
         self, ent: ExtractedEntity, source: str, resolve: bool
-    ) -> UUID | None:
-        """Upsert through the coherence engine."""
+    ) -> tuple[UUID | None, UpsertStatus | None]:
+        """Upsert through the coherence engine. Returns (entity_id, status)."""
         matcher = PgVectorSemanticMatcher(self._session)
         change_log = SqlAlchemyChangeLogRepository(self._session)
         uc = UpsertUniverseEntity(self._session, change_log=change_log, semantic_matcher=matcher)
@@ -523,12 +631,13 @@ class UniverseEnrichmentEngine:
         )
         await uow.commit()
 
-        if outcome.status in (UpsertStatus.CREATED, UpsertStatus.MERGED):
-            return outcome.entity_id
-        if outcome.status == UpsertStatus.SUGGESTED:
-            # We still return the suggested entity_id if available
-            return outcome.entity_id
-        return None
+        if outcome.status in (
+            UpsertStatus.CREATED,
+            UpsertStatus.MERGED,
+            UpsertStatus.SUGGESTED,
+        ):
+            return outcome.entity_id, outcome.status
+        return None, outcome.status
 
     # Helpers
 
@@ -542,11 +651,16 @@ class UniverseEnrichmentEngine:
         if not spec or not name:
             return None
         table, field = spec
+        # Match _norm exactly: lower + collapse ALL internal whitespace runs to
+        # one space. Plain trim() only strips the ENDS, so a stored "Search  v2"
+        # (double space — common in LLM/CV payloads) never equalled _norm's
+        # "search v2" and its relations were silently dropped (#37/#41).
         row = (
             await self._session.execute(
                 _text(
-                    f"SELECT id FROM {table} WHERE user_id = :uid "
-                    f"AND deleted_at IS NULL AND lower(trim({field})) = :name "
+                    f"SELECT id FROM {table} WHERE user_id = :uid "  # noqa: S608
+                    f"AND deleted_at IS NULL "
+                    f"AND lower(regexp_replace(trim({field}), '\\s+', ' ', 'g')) = :name "
                     "ORDER BY updated_at DESC LIMIT 1"
                 ),
                 {"uid": str(self._user_id), "name": _norm(name)},
@@ -599,11 +713,15 @@ class UniverseEnrichmentEngine:
         from openai import AsyncOpenAI  # noqa: PLC0415
 
         client = AsyncOpenAI(api_key=self._settings.openai_api_key)
+        # NOTE: response_format json_object would force a top-level OBJECT, but
+        # both extraction prompts demand a JSON ARRAY — the mismatch made every
+        # OpenAI extraction parse to [] silently. We leave the format free and
+        # let _load_json_array handle whatever shape comes back (incl. an
+        # accidentally object-wrapped array).
         response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
             max_tokens=4096,
             temperature=0.1,
-            response_format={"type": "json_object"},
         )
         return str(response.choices[0].message.content)
