@@ -68,10 +68,16 @@ def _coerce(v: Any) -> Any:
 class _EntityCrud:
     """Composable CRUD used by every entity endpoint and MCP tool.
 
-    Each subclass binds: entity class + repository + entity_type literal.
+    Each subclass binds an entity class (``entity_cls``) + ``entity_type``
+    literal. ``add``/``update`` are generic; subclasses override only for
+    per-entity logic (uniqueness checks, non-``**payload`` constructors).
+    ``enqueue_on_update = False`` skips the embedding refresh on edit for kinds
+    that don't re-embed (language/achievement/interest/artifact).
     """
 
     entity_type: str = ""
+    entity_cls: type[Any] = object
+    enqueue_on_update: bool = True
 
     def __init__(
         self,
@@ -119,146 +125,97 @@ class _EntityCrud:
         )
         return ok(True)
 
+    async def add(
+        self, *, user_id: str, payload: dict[str, Any], uow: UnitOfWork
+    ) -> Result[dict[str, Any], ValidationError]:
+        try:
+            entity = self.entity_cls.create(user_id=UUID(user_id), **payload)
+        except ValidationError as e:
+            return err(e)
+        await self._repo.add(entity)
+        await self._scheduler.enqueue(entity_type=self.entity_type, entity_id=entity.id)
+        uow.add_event(
+            EntryAdded(
+                user_id=UUID(user_id),
+                entity_type=self.entity_type,
+                entity_id_str=str(entity.id),
+            )
+        )
+        return ok(_serialize(entity))
 
-# --- Educations ------------------------------------------------------------
+    async def update(
+        self, *, user_id: str, entity_id: str, patch: dict[str, Any], uow: UnitOfWork
+    ) -> Result[dict[str, Any], NotFoundError | ValidationError]:
+        item = await self._repo.get(UUID(user_id), UUID(entity_id))
+        if item is None:
+            return err(NotFoundError(f"{self.entity_cls.__name__} not found"))
+        self._apply_patch(item, patch)
+        await self._repo.update(item)
+        if self.enqueue_on_update:
+            await self._scheduler.enqueue(entity_type=self.entity_type, entity_id=item.id)
+        uow.add_event(
+            EntryUpdated(
+                user_id=UUID(user_id),
+                entity_type=self.entity_type,
+                entity_id_str=str(item.id),
+            )
+        )
+        return ok(_serialize(item))
+
+
+# --- Generic-add/update entities -------------------------------------------
 
 
 class EducationCrud(_EntityCrud):
     entity_type = "education"
-
-    async def add(
-        self, *, user_id: str, payload: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], ValidationError]:
-        try:
-            entity = Education.create(user_id=UUID(user_id), **payload)
-        except ValidationError as e:
-            return err(e)
-        await self._repo.add(entity)
-        await self._scheduler.enqueue(entity_type="education", entity_id=entity.id)
-        uow.add_event(
-            EntryAdded(
-                user_id=UUID(user_id),
-                entity_type="education",
-                entity_id_str=str(entity.id),
-            )
-        )
-        return ok(_serialize(entity))
-
-    async def update(
-        self,
-        *,
-        user_id: str,
-        entity_id: str,
-        patch: dict[str, Any],
-        uow: UnitOfWork,
-    ) -> Result[dict[str, Any], NotFoundError | ValidationError]:
-        item = await self._repo.get(UUID(user_id), UUID(entity_id))
-        if item is None:
-            return err(NotFoundError("Education not found"))
-        self._apply_patch(item, patch)
-        await self._repo.update(item)
-        await self._scheduler.enqueue(entity_type="education", entity_id=item.id)
-        uow.add_event(
-            EntryUpdated(
-                user_id=UUID(user_id),
-                entity_type="education",
-                entity_id_str=str(item.id),
-            )
-        )
-        return ok(_serialize(item))
-
-
-# --- Experiences -----------------------------------------------------------
+    entity_cls = Education
 
 
 class ExperienceCrud(_EntityCrud):
     entity_type = "experience"
-
-    async def add(
-        self, *, user_id: str, payload: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], ValidationError]:
-        try:
-            entity = Experience.create(user_id=UUID(user_id), **payload)
-        except ValidationError as e:
-            return err(e)
-        await self._repo.add(entity)
-        await self._scheduler.enqueue(entity_type="experience", entity_id=entity.id)
-        uow.add_event(
-            EntryAdded(
-                user_id=UUID(user_id),
-                entity_type="experience",
-                entity_id_str=str(entity.id),
-            )
-        )
-        return ok(_serialize(entity))
-
-    async def update(
-        self, *, user_id: str, entity_id: str, patch: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], NotFoundError | ValidationError]:
-        item = await self._repo.get(UUID(user_id), UUID(entity_id))
-        if item is None:
-            return err(NotFoundError("Experience not found"))
-        self._apply_patch(item, patch)
-        await self._repo.update(item)
-        await self._scheduler.enqueue(entity_type="experience", entity_id=item.id)
-        uow.add_event(
-            EntryUpdated(
-                user_id=UUID(user_id),
-                entity_type="experience",
-                entity_id_str=str(item.id),
-            )
-        )
-        return ok(_serialize(item))
-
-
-# --- Projects --------------------------------------------------------------
+    entity_cls = Experience
 
 
 class ProjectCrud(_EntityCrud):
     entity_type = "project"
-
-    async def add(
-        self, *, user_id: str, payload: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], ValidationError]:
-        try:
-            entity = Project.create(user_id=UUID(user_id), **payload)
-        except ValidationError as e:
-            return err(e)
-        await self._repo.add(entity)
-        await self._scheduler.enqueue(entity_type="project", entity_id=entity.id)
-        uow.add_event(
-            EntryAdded(
-                user_id=UUID(user_id),
-                entity_type="project",
-                entity_id_str=str(entity.id),
-            )
-        )
-        return ok(_serialize(entity))
-
-    async def update(
-        self, *, user_id: str, entity_id: str, patch: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], NotFoundError | ValidationError]:
-        item = await self._repo.get(UUID(user_id), UUID(entity_id))
-        if item is None:
-            return err(NotFoundError("Project not found"))
-        self._apply_patch(item, patch)
-        await self._repo.update(item)
-        await self._scheduler.enqueue(entity_type="project", entity_id=item.id)
-        uow.add_event(
-            EntryUpdated(
-                user_id=UUID(user_id),
-                entity_type="project",
-                entity_id_str=str(item.id),
-            )
-        )
-        return ok(_serialize(item))
+    entity_cls = Project
 
 
-# --- Skills ----------------------------------------------------------------
+class CertificationCrud(_EntityCrud):
+    entity_type = "certification"
+    entity_cls = Certification
+
+
+class CourseCrud(_EntityCrud):
+    entity_type = "course"
+    entity_cls = Course
+
+
+# These kinds don't re-embed on edit → skip the embedding-refresh enqueue.
+class LanguageCrud(_EntityCrud):
+    entity_type = "language"
+    entity_cls = Language
+    enqueue_on_update = False
+
+
+class AchievementCrud(_EntityCrud):
+    entity_type = "achievement"
+    entity_cls = Achievement
+    enqueue_on_update = False
+
+
+class InterestCrud(_EntityCrud):
+    entity_type = "interest"
+    entity_cls = Interest
+    enqueue_on_update = False
+
+
+# --- Skills (uniqueness check on add) --------------------------------------
 
 
 class SkillCrud(_EntityCrud):
     entity_type = "skill"
+    entity_cls = Skill
 
     async def add(
         self, *, user_id: str, payload: dict[str, Any], uow: UnitOfWork
@@ -281,238 +238,17 @@ class SkillCrud(_EntityCrud):
         )
         return ok(_serialize(entity))
 
-    async def update(
-        self, *, user_id: str, entity_id: str, patch: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], NotFoundError | ValidationError]:
-        item = await self._repo.get(UUID(user_id), UUID(entity_id))
-        if item is None:
-            return err(NotFoundError("Skill not found"))
-        self._apply_patch(item, patch)
-        await self._repo.update(item)
-        await self._scheduler.enqueue(entity_type="skill", entity_id=item.id)
-        uow.add_event(
-            EntryUpdated(
-                user_id=UUID(user_id),
-                entity_type="skill",
-                entity_id_str=str(item.id),
-            )
-        )
-        return ok(_serialize(item))
 
-
-# --- Cert / Course / Language / Achievement / Interest ---------------------
-
-
-class CertificationCrud(_EntityCrud):
-    entity_type = "certification"
-
-    async def add(
-        self, *, user_id: str, payload: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], ValidationError]:
-        try:
-            entity = Certification.create(user_id=UUID(user_id), **payload)
-        except ValidationError as e:
-            return err(e)
-        await self._repo.add(entity)
-        await self._scheduler.enqueue(entity_type="certification", entity_id=entity.id)
-        uow.add_event(
-            EntryAdded(
-                user_id=UUID(user_id),
-                entity_type="certification",
-                entity_id_str=str(entity.id),
-            )
-        )
-        return ok(_serialize(entity))
-
-    async def update(
-        self, *, user_id: str, entity_id: str, patch: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], NotFoundError | ValidationError]:
-        item = await self._repo.get(UUID(user_id), UUID(entity_id))
-        if item is None:
-            return err(NotFoundError("Certification not found"))
-        self._apply_patch(item, patch)
-        await self._repo.update(item)
-        await self._scheduler.enqueue(entity_type="certification", entity_id=item.id)
-        uow.add_event(
-            EntryUpdated(
-                user_id=UUID(user_id),
-                entity_type="certification",
-                entity_id_str=str(item.id),
-            )
-        )
-        return ok(_serialize(item))
-
-
-class CourseCrud(_EntityCrud):
-    entity_type = "course"
-
-    async def add(
-        self, *, user_id: str, payload: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], ValidationError]:
-        try:
-            entity = Course.create(user_id=UUID(user_id), **payload)
-        except ValidationError as e:
-            return err(e)
-        await self._repo.add(entity)
-        await self._scheduler.enqueue(entity_type="course", entity_id=entity.id)
-        uow.add_event(
-            EntryAdded(
-                user_id=UUID(user_id),
-                entity_type="course",
-                entity_id_str=str(entity.id),
-            )
-        )
-        return ok(_serialize(entity))
-
-    async def update(
-        self, *, user_id: str, entity_id: str, patch: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], NotFoundError | ValidationError]:
-        item = await self._repo.get(UUID(user_id), UUID(entity_id))
-        if item is None:
-            return err(NotFoundError("Course not found"))
-        self._apply_patch(item, patch)
-        await self._repo.update(item)
-        # Refresh the embedding so semantic dedup / dense retrieval don't keep
-        # using a stale vector after a title/platform edit (every other
-        # Crud.update does this; CourseCrud.update was the only one missing it).
-        await self._scheduler.enqueue(entity_type="course", entity_id=item.id)
-        uow.add_event(
-            EntryUpdated(
-                user_id=UUID(user_id),
-                entity_type="course",
-                entity_id_str=str(item.id),
-            )
-        )
-        return ok(_serialize(item))
-
-
-class LanguageCrud(_EntityCrud):
-    entity_type = "language"
-
-    async def add(
-        self, *, user_id: str, payload: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], ValidationError]:
-        try:
-            entity = Language.create(user_id=UUID(user_id), **payload)
-        except ValidationError as e:
-            return err(e)
-        await self._repo.add(entity)
-        await self._scheduler.enqueue(entity_type="language", entity_id=entity.id)
-        uow.add_event(
-            EntryAdded(
-                user_id=UUID(user_id),
-                entity_type="language",
-                entity_id_str=str(entity.id),
-            )
-        )
-        return ok(_serialize(entity))
-
-    async def update(
-        self, *, user_id: str, entity_id: str, patch: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], NotFoundError | ValidationError]:
-        item = await self._repo.get(UUID(user_id), UUID(entity_id))
-        if item is None:
-            return err(NotFoundError("Language not found"))
-        self._apply_patch(item, patch)
-        await self._repo.update(item)
-        uow.add_event(
-            EntryUpdated(
-                user_id=UUID(user_id),
-                entity_type="language",
-                entity_id_str=str(item.id),
-            )
-        )
-        return ok(_serialize(item))
-
-
-class AchievementCrud(_EntityCrud):
-    entity_type = "achievement"
-
-    async def add(
-        self, *, user_id: str, payload: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], ValidationError]:
-        try:
-            entity = Achievement.create(user_id=UUID(user_id), **payload)
-        except ValidationError as e:
-            return err(e)
-        await self._repo.add(entity)
-        await self._scheduler.enqueue(entity_type="achievement", entity_id=entity.id)
-        uow.add_event(
-            EntryAdded(
-                user_id=UUID(user_id),
-                entity_type="achievement",
-                entity_id_str=str(entity.id),
-            )
-        )
-        return ok(_serialize(entity))
-
-    async def update(
-        self, *, user_id: str, entity_id: str, patch: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], NotFoundError | ValidationError]:
-        item = await self._repo.get(UUID(user_id), UUID(entity_id))
-        if item is None:
-            return err(NotFoundError("Achievement not found"))
-        self._apply_patch(item, patch)
-        await self._repo.update(item)
-        uow.add_event(
-            EntryUpdated(
-                user_id=UUID(user_id),
-                entity_type="achievement",
-                entity_id_str=str(item.id),
-            )
-        )
-        return ok(_serialize(item))
-
-
-class InterestCrud(_EntityCrud):
-    entity_type = "interest"
-
-    async def add(
-        self, *, user_id: str, payload: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], ValidationError]:
-        try:
-            entity = Interest.create(user_id=UUID(user_id), **payload)
-        except ValidationError as e:
-            return err(e)
-        await self._repo.add(entity)
-        await self._scheduler.enqueue(entity_type="interest", entity_id=entity.id)
-        uow.add_event(
-            EntryAdded(
-                user_id=UUID(user_id),
-                entity_type="interest",
-                entity_id_str=str(entity.id),
-            )
-        )
-        return ok(_serialize(entity))
-
-    async def update(
-        self, *, user_id: str, entity_id: str, patch: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], NotFoundError | ValidationError]:
-        item = await self._repo.get(UUID(user_id), UUID(entity_id))
-        if item is None:
-            return err(NotFoundError("Interest not found"))
-        self._apply_patch(item, patch)
-        await self._repo.update(item)
-        uow.add_event(
-            EntryUpdated(
-                user_id=UUID(user_id),
-                entity_type="interest",
-                entity_id_str=str(item.id),
-            )
-        )
-        return ok(_serialize(item))
-
-
-# --- ArchitectureDecision (ADR) -----------------------------------------
+# --- ArchitectureDecision (ADR) — non-**payload constructor ----------------
 
 
 class ArchitectureDecisionCrud(_EntityCrud):
     entity_type = "architecture_decision"
+    entity_cls = ArchitectureDecision
 
     async def add(
         self, *, user_id: str, payload: dict[str, Any], uow: UnitOfWork
     ) -> Result[dict[str, Any], ValidationError]:
-
         # related_project_id / superseded_by are no longer ADR columns
         # (migration 0017) — they flow to the graph as edges via the
         # coherence engine, so we don't pass them to the entity here.
@@ -542,32 +278,14 @@ class ArchitectureDecisionCrud(_EntityCrud):
         )
         return ok(_serialize(entity))
 
-    async def update(
-        self, *, user_id: str, entity_id: str, patch: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], NotFoundError | ValidationError]:
-        item = await self._repo.get(UUID(user_id), UUID(entity_id))
-        if item is None:
-            return err(NotFoundError("ArchitectureDecision not found"))
-        self._apply_patch(item, patch)
-        await self._repo.update(item)
-        await self._scheduler.enqueue(
-            entity_type="architecture_decision", entity_id=item.id
-        )
-        uow.add_event(
-            EntryUpdated(
-                user_id=UUID(user_id),
-                entity_type="architecture_decision",
-                entity_id_str=str(item.id),
-            )
-        )
-        return ok(_serialize(item))
 
-
-# --- Artifacts (portfolio first-class citizens) --------------------------
+# --- Artifacts (non-**payload constructor; no embedding refresh) -----------
 
 
 class ArtifactCrud(_EntityCrud):
     entity_type = "artifact"
+    entity_cls = Artifact
+    enqueue_on_update = False
 
     async def add(
         self, *, user_id: str, payload: dict[str, Any], uow: UnitOfWork
@@ -598,20 +316,3 @@ class ArtifactCrud(_EntityCrud):
             )
         )
         return ok(_serialize(entity))
-
-    async def update(
-        self, *, user_id: str, entity_id: str, patch: dict[str, Any], uow: UnitOfWork
-    ) -> Result[dict[str, Any], NotFoundError | ValidationError]:
-        item = await self._repo.get(UUID(user_id), UUID(entity_id))
-        if item is None:
-            return err(NotFoundError("Artifact not found"))
-        self._apply_patch(item, patch)
-        await self._repo.update(item)
-        uow.add_event(
-            EntryUpdated(
-                user_id=UUID(user_id),
-                entity_type="artifact",
-                entity_id_str=str(item.id),
-            )
-        )
-        return ok(_serialize(item))
