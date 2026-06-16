@@ -17,11 +17,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
 from uuid import UUID
 
 import structlog
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
@@ -84,97 +82,3 @@ class SelfLearningEngine:
             scope=feedback.scope,
             sentiment=feedback.sentiment,
         )
-
-    async def consolidate(self, user_id: UUID, min_examples: int = 3) -> int:
-        """Aggregate similar feedback rows into refined rules.
-
-        Returns the number of consolidated rules created.
-        """
-        # Fetch recent feedback rows for this user
-        rows = (
-            await self._session.execute(
-                text(
-                    """
-                    SELECT scope, trigger_pattern, action_rule, success_rate
-                    FROM user_procedural_memory
-                    WHERE user_id = :uid
-                      AND hit_count = 1
-                      AND created_at > now() - interval '7 days'
-                    ORDER BY scope, trigger_pattern
-                    """
-                ),
-                {"uid": str(user_id)},
-            )
-        ).mappings().all()
-
-        if len(rows) < min_examples:
-            return 0
-
-        # Simple consolidation: group by exact scope + trigger_pattern
-        # and average success_rate.  In Sprint S we can upgrade this to
-        # semantic clustering over trigger_pattern embeddings.
-        groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
-        for r in rows:
-            key = (r["scope"], r["trigger_pattern"])
-            groups.setdefault(key, []).append(dict(r))
-
-        consolidated = 0
-        for (scope, trigger), examples in groups.items():
-            if len(examples) < min_examples:
-                continue
-            avg_success = sum(e["success_rate"] for e in examples) / len(examples)
-            best_action = max(examples, key=lambda e: e["success_rate"])["action_rule"]
-
-            # Deactivate the raw examples
-            await self._session.execute(
-                text(
-                    """
-                    UPDATE user_procedural_memory
-                    SET active = false
-                    WHERE user_id = :uid
-                      AND scope = :scope
-                      AND trigger_pattern = :trigger
-                      AND hit_count = 1
-                    """
-                ),
-                {"uid": str(user_id), "scope": scope, "trigger": trigger},
-            )
-
-            # Insert the consolidated rule
-            from src.agents.memory.structured_memory import UserProceduralMemoryOrm
-
-            rule = UserProceduralMemoryOrm(
-                user_id=user_id,
-                scope=scope,
-                trigger_pattern=trigger,
-                action_rule=best_action,
-                hit_count=len(examples),
-                success_rate=round(avg_success, 2),
-                active=True,
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
-            )
-            self._session.add(rule)
-            consolidated += 1
-
-        await self._session.flush()
-        logger.info("memory_consolidated", user_id=str(user_id), rules_created=consolidated)
-        return consolidated
-
-    async def get_active_rules(self, user_id: UUID, scope: str, limit: int = 10) -> list[dict[str, Any]]:
-        """Return the best rules for a given scope."""
-        rows = (
-            await self._session.execute(
-                text(
-                    """
-                    SELECT trigger_pattern, action_rule, success_rate, hit_count
-                    FROM user_procedural_memory
-                    WHERE user_id = :uid AND scope = :scope AND active = true
-                    ORDER BY success_rate DESC, hit_count DESC
-                    LIMIT :lim
-                    """
-                ),
-                {"uid": str(user_id), "scope": scope, "lim": limit},
-            )
-        ).mappings().all()
-        return [dict(r) for r in rows]

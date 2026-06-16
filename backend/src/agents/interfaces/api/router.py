@@ -1,8 +1,8 @@
-"""Agent management API — intent routing, context provider inspection.
+"""Agent management API — HITL proposal resolution, feedback, BYOK keys, discovery.
 
 These endpoints are NOT part of the AG-UI chat stream; they serve the
-frontend's auxiliary UI (showing which agent mode is active, letting the
-user inspect learned rules, etc.).
+frontend's auxiliary UI (resolving proposal cards, recording feedback,
+managing the BYOK key, and discovery-progress polling/SSE).
 """
 from __future__ import annotations
 
@@ -18,8 +18,6 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from jose import JWTError
 from pydantic import BaseModel
 from sqlalchemy import text
-from src.agents.context_providers import IntentRouter
-from src.agents.domain.intents import INTENT_GENERAL_CHAT
 from src.agents.domain.sources import SOURCE_AGENT_CHAT
 from src.agents.infrastructure.proposal_store import delete_proposal, get_proposal
 from src.agents.memory.self_learning import SelfLearningEngine, UserFeedback
@@ -195,81 +193,6 @@ async def resolve_proposal(
         ],
         reason=outcome.reason,
     )
-
-
-@router.post("/route")
-async def classify_intent(
-    user_id: CurrentUserId,
-    session: SessionDep,
-    body: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Classify a user message and return the selected provider + memory context.
-
-    This is a synchronous (non-streaming) endpoint used by the frontend to
-    show the user which "mode" the agent is in before the chat stream starts.
-    """
-    if body is None:
-        body = {}
-    message = body.get("message", "")
-    if not message:
-        return {"intent": INTENT_GENERAL_CHAT, "provider": "universe_curator", "confidence": 0.0}
-
-    router = IntentRouter(session, UUID(user_id))
-    intent = await router.classify(message)
-    provider = await router.get_provider(intent)
-    memory_ctx = await provider.get_memory_context()
-
-    return {
-        "intent": intent.name,
-        "provider": intent.provider_name,
-        "confidence": intent.confidence,
-        "memory_context": memory_ctx,
-        "tools_available": [getattr(t, "__name__", str(t)) for t in provider.get_tools()],
-    }
-
-
-@router.get("/memory/rules")
-async def list_learned_rules(
-    user_id: CurrentUserId,
-    session: SessionDep,
-    scope: str | None = None,
-) -> list[dict[str, Any]]:
-    """Return the user's active procedural memory rules."""
-    sql = """
-        SELECT scope, trigger_pattern, action_rule, success_rate, hit_count, updated_at
-        FROM user_procedural_memory
-        WHERE user_id = :uid AND active = true
-    """
-    params: dict[str, Any] = {"uid": str(user_id)}
-    if scope:
-        sql += " AND scope = :scope"
-        params["scope"] = scope
-    sql += " ORDER BY success_rate DESC, hit_count DESC LIMIT 50"
-
-    rows = (await session.execute(text(sql), params)).mappings().all()
-    return [dict(r) for r in rows]
-
-
-@router.get("/memory/facts")
-async def list_semantic_facts(
-    user_id: CurrentUserId,
-    session: SessionDep,
-    category: str | None = None,
-) -> list[dict[str, Any]]:
-    """Return the user's semantic memory (facts)."""
-    sql = """
-        SELECT category, key, value, confidence, source, updated_at
-        FROM user_semantic_memory
-        WHERE user_id = :uid
-    """
-    params: dict[str, Any] = {"uid": str(user_id)}
-    if category:
-        sql += " AND category = :cat"
-        params["cat"] = category
-    sql += " ORDER BY confidence DESC, updated_at DESC LIMIT 50"
-
-    rows = (await session.execute(text(sql), params)).mappings().all()
-    return [dict(r) for r in rows]
 
 
 @router.post("/feedback")
