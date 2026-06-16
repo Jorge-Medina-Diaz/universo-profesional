@@ -8,11 +8,8 @@
  *   tour.start("first-run")  // or auto-start on first visit
  */
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
-  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -42,18 +39,6 @@ interface TourState {
   stepIndex: number;
 }
 
-interface TourCtx {
-  state: TourState;
-  start: (tour: TourDefinition) => void;
-  next: () => void;
-  prev: () => void;
-  skip: () => void;
-  complete: () => void;
-  isCompleted: (tourId: string) => boolean;
-}
-
-const Ctx = createContext<TourCtx | null>(null);
-
 const STORAGE_KEY = "cvs-saas-tours-completed";
 
 function loadCompleted(): Set<string> {
@@ -82,12 +67,6 @@ export const tour = {
   start: (def: TourDefinition) => externalStart?.(def),
   isCompleted: (id: string) => externalIsCompleted?.(id) ?? false,
 };
-
-export function useTour(): TourCtx {
-  const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("useTour must be used within TourProvider");
-  return ctx;
-}
 
 export function TourProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<TourState>({ active: null, stepIndex: 0 });
@@ -135,21 +114,9 @@ export function TourProvider({ children }: { children: ReactNode }) {
     });
   }, [close]);
 
-  const complete = useCallback(() => {
-    setState((s) => {
-      if (s.active) close(s.active.id);
-      return { active: null, stepIndex: 0 };
-    });
-  }, [close]);
-
   const isCompleted = useCallback(
     (id: string) => completed.has(id),
     [completed],
-  );
-
-  const value = useMemo<TourCtx>(
-    () => ({ state, start, next, prev, skip, complete, isCompleted }),
-    [state, start, next, prev, skip, complete, isCompleted],
   );
 
   useEffect(() => {
@@ -162,10 +129,10 @@ export function TourProvider({ children }: { children: ReactNode }) {
   }, [start, isCompleted]);
 
   return (
-    <Ctx.Provider value={value}>
+    <>
       {children}
       <TourOverlay state={state} onNext={next} onPrev={prev} onSkip={skip} />
-    </Ctx.Provider>
+    </>
   );
 }
 
