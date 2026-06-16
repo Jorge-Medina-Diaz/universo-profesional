@@ -44,14 +44,6 @@ export interface GraphSnapshot {
   edge_count: number;
 }
 
-export interface RetrievedItem {
-  entity_id: string;
-  kind: string;
-  name: string;
-  fused_score: number;
-  contributions: Record<string, { rank: number; score: number }>;
-}
-
 export interface DiscoveryStreamEvent {
   type: "entity_discovered";
   entity_type: string;
@@ -66,17 +58,6 @@ export const graphApi = {
     ),
 
   discoveryStreamURL: "/api/v1/agents/discovery/stream" as const,
-
-  retrieve: async (
-    q: string,
-    opts: { topK?: number; kinds?: string[] } = {},
-  ): Promise<{ items: RetrievedItem[]; count: number; query: string }> => {
-    const params = new URLSearchParams({ q });
-    if (opts.topK) params.set("top_k", String(opts.topK));
-    if (opts.kinds && opts.kinds.length > 0)
-      params.set("kinds", opts.kinds.join(","));
-    return api(`/api/v1/graph/retrieve?${params}`);
-  },
 
   neighbors: async (
     entityId: string,
@@ -93,9 +74,4 @@ export const graphApi = {
 
   communities: async (): Promise<{ items: CareerPillar[]; count: number }> =>
     api("/api/v1/graph/communities"),
-
-  escoLinks: async (): Promise<{
-    items: Array<{ entity_id: string; esco_uri: string; target_label: string; score: number }>;
-    count: number;
-  }> => api("/api/v1/graph/esco-links"),
 };

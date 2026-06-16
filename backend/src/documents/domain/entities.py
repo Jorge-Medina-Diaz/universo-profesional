@@ -93,10 +93,6 @@ class Document:
         self.docx_path = docx_path
         self.render_status = self.derive_render_status(pdf_path)
 
-    def make_share_token(self, *, token: str, expires_at: datetime | None) -> None:
-        self.share_token = token
-        self.share_expires_at = expires_at
-
     def pop_events(self) -> list[DomainEvent]:
         out = list(self._events)
         self._events.clear()

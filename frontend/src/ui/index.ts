@@ -7,7 +7,6 @@ export { Badge, type BadgeProps } from "./Badge";
 export { ChipInput, type ChipInputProps } from "./ChipInput";
 export { Surface, type SurfaceProps } from "./Surface";
 export { PageHeader, type PageHeaderProps } from "./PageHeader";
-export { SectionLabel, type SectionLabelProps } from "./SectionLabel";
 export {
   ProgressSteps,
   type ProgressStep,

@@ -94,8 +94,6 @@ class Settings(BaseSettings):
     stripe_price_pro_monthly: str | None = None
     stripe_success_url: str | None = None
     stripe_cancel_url: str | None = None
-    pdf_parser_provider: Literal["mock", "affinda"] = "mock"
-    scraper_enabled: bool = False
 
     # --- Quotas (Free plan) ---
     free_cv_per_month: int = 3

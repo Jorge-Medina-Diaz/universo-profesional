@@ -4,7 +4,6 @@ from __future__ import annotations
 import time
 
 from src.agents.infrastructure.proposal_store import (
-    cleanup_expired,
     delete_proposal,
     get_proposal,
     set_proposal,
@@ -33,14 +32,3 @@ class TestProposalStore:
         from src.agents.infrastructure import proposal_store as ps
         ps._store[ps._key("u1", "p3")]["created_at"] = time.time() - 400
         assert get_proposal("u1", "p3") is None
-
-    def test_cleanup_expired(self):
-        from src.agents.infrastructure import proposal_store as ps
-        set_proposal("u1", "p4", entity_type="skill", entity_data={})
-        set_proposal("u1", "p5", entity_type="skill", entity_data={})
-        ps._store[ps._key("u1", "p4")]["created_at"] = time.time() - 400
-        ps._store[ps._key("u1", "p5")]["created_at"] = time.time() - 10
-        removed = cleanup_expired()
-        assert removed == 1
-        assert get_proposal("u1", "p4") is None
-        assert get_proposal("u1", "p5") is not None

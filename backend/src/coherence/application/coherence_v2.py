@@ -25,7 +25,6 @@ overlay during the Sprint N→Q migration window.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable
 from typing import Any
 from uuid import UUID
 
@@ -466,46 +465,3 @@ async def resolve_quarantine(
     )
 
 
-# ---------------------------------------------------------------------------
-# Cross-type dedup helper — call before creating a personal node.
-# ---------------------------------------------------------------------------
-
-
-async def find_by_esco_uri(
-    session: AsyncSession,
-    *,
-    user_id: UUID,
-    esco_uri: str,
-    kinds: Iterable[str] | None = None,
-) -> UUID | None:
-    """Return an existing personal entity id for this user that already
-    links to the given ESCO concept. Used by coherence_v2's "prefer
-    ontology over per-table dedup" rule, which is what eliminates
-    duplicates like "AWS Lambda" / "Lambda (AWS)" — both link to the
-    same `esco_uri`, so the second upsert merges into the first.
-    """
-    kinds_filter = ""
-    params: dict[str, Any] = {"uid": str(user_id), "uri": esco_uri}
-    if kinds:
-        # Comma-separated list of validated identifiers; safe to interpolate.
-        joined = ",".join(f"'{k}'" for k in kinds if k.isidentifier())
-        if joined:
-            kinds_filter = f" AND kind IN ({joined})"
-
-    row = (
-        await session.execute(
-            text(
-                f"""
-                SELECT entity_id::text AS entity_id
-                FROM graph_esco_links gel
-                WHERE gel.user_id = :uid
-                  AND gel.esco_uri = :uri
-                {kinds_filter}
-                ORDER BY score DESC
-                LIMIT 1
-                """
-            ),
-            params,
-        )
-    ).first()
-    return UUID(row.entity_id) if row else None

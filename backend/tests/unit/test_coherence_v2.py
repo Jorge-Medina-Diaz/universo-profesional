@@ -26,7 +26,6 @@ def test_public_surface_is_stable() -> None:
     for name in (
         "post_upsert",
         "resolve_quarantine",
-        "find_by_esco_uri",
         "flag_outliers_for_user",
     ):
         assert hasattr(coherence_v2, name), f"missing coherence_v2.{name}"

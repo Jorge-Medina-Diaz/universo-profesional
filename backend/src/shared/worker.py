@@ -59,7 +59,6 @@ def _build_redis_settings() -> RedisSettings:
 def _collect_functions() -> list[Any]:
     # Import lazily; tasks are wired here so the worker's task registry is complete.
     from src.agents.workflows.curator import curator_task
-    from src.documents.infrastructure.tasks import render_document
     from src.identity.infrastructure.tasks import (
         hard_delete_expired_accounts,
         send_email,
@@ -85,7 +84,6 @@ def _collect_functions() -> list[Any]:
         refresh_embedding,
         enrich_universe_task,
         sweep_nudges_task,
-        render_document,
         send_email,
         hard_delete_expired_accounts,
         curator_task,

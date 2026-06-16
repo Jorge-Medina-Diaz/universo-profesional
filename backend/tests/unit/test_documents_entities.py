@@ -45,23 +45,6 @@ class TestDocument:
         assert doc.pdf_path == "/tmp/x.pdf"
         assert doc.docx_path == "/tmp/x.docx"
 
-    def test_make_share_token(self):
-        now = datetime.now(UTC)
-        doc = Document.create(
-            user_id=uuid4(),
-            kind="cv",
-            template="modern",
-            language="es",
-            tone="professional",
-            length="1-page",
-            job_id=None,
-            generated_from={},
-            content_json={},
-            now=now,
-        )
-        doc.make_share_token(token="abc", expires_at=now)
-        assert doc.share_token == "abc"
-
 
 class TestJob:
     def test_create(self):

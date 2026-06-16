@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from src.universe.infrastructure.repositories.base import (
     _BaseRepo,
-    _build_repo_methods,
     _entity_to_orm_kwargs,
     _make_repo,
     _orm_to_entity,
@@ -58,7 +57,6 @@ _repo_port.update_universe_areas = update_universe_areas
 
 __all__ = [
     "_BaseRepo",
-    "_build_repo_methods",
     "_entity_to_orm_kwargs",
     "_make_repo",
     "_orm_to_entity",

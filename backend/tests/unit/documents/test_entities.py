@@ -64,22 +64,6 @@ class TestDocument:
         assert d.pdf_path == "/a.pdf"
         assert d.docx_path == "/a.docx"
 
-    def test_make_share_token(self):
-        d = Document.create(
-            user_id=uuid4(),
-            kind="cv",
-            template="t",
-            language="es",
-            tone=None,
-            length=None,
-            job_id=None,
-            generated_from={},
-            content_json={},
-            now=datetime.now(UTC),
-        )
-        d.make_share_token(token="tok123", expires_at=datetime.now(UTC))
-        assert d.share_token == "tok123"
-
     def test_pop_events_clears(self):
         d = Document.create(
             user_id=uuid4(),

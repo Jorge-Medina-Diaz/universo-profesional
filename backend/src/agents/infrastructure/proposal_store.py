@@ -66,12 +66,3 @@ async def get_proposal(user_id: str, proposal_id: str) -> dict[str, Any] | None:
 
 async def delete_proposal(user_id: str, proposal_id: str) -> None:
     await get_redis().delete(_key(user_id, proposal_id))
-
-
-async def cleanup_expired() -> int:
-    """No-op: Redis expires keys natively via the per-key TTL.
-
-    Kept for backwards compatibility with any caller that scheduled a periodic
-    sweep; always returns 0 because there is nothing to clean.
-    """
-    return 0

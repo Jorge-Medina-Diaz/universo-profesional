@@ -219,21 +219,6 @@ export const liveProfile = {
       method: "POST",
       body: JSON.stringify({ entity_type, entity_id }),
     }),
-  linkEvidence: (body: {
-    skill_id: string;
-    evidence_entity_type: string;
-    evidence_entity_id: string;
-    weight?: number;
-    notes?: string;
-  }) =>
-    api("/api/v1/universe/evidence", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
-  listEvidence: (skill_id?: string) =>
-    api<Array<Record<string, unknown>>>(
-      `/api/v1/universe/evidence${skill_id ? `?skill_id=${skill_id}` : ""}`,
-    ),
 };
 
 // --- Photo ---
