@@ -561,16 +561,21 @@ def create_app() -> FastAPI:
         # too slow + the provider has its own SLAs we shouldn't gate on).
         results["llm_provider"] = settings.agents_provider_resolved
 
-        # MCP server health
+        # MCP server health — POST a JSON-RPC `initialize` to the canonical
+        # endpoint. It requires auth, so an unauthenticated probe returns 401,
+        # which still proves the MCP sub-app is mounted and serving.
         try:
-            from mcp import ClientSession
-            from mcp.client.sse import sse_client
+            import httpx
 
             async def _ping_mcp() -> None:
-                mcp_url = f"{settings.canonical_base_url.rstrip('/')}/mcp/sse"
-                async with sse_client(mcp_url) as (read, write):
-                    async with ClientSession(read, write) as session:
-                        await session.initialize()
+                mcp_url = f"{settings.canonical_base_url.rstrip('/')}/mcp"
+                async with httpx.AsyncClient(timeout=3.0) as client:
+                    resp = await client.post(
+                        mcp_url,
+                        json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+                    )
+                if resp.status_code not in (200, 401):
+                    raise RuntimeError(f"unexpected status {resp.status_code}")
 
             await asyncio.wait_for(_ping_mcp(), timeout=3.0)
             results["mcp_server"] = "ok"
