@@ -8,6 +8,7 @@
  */
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useEscapeKey } from "@/shared/useEscapeKey";
+import { useFocusTrap } from "@/shared/useFocusTrap";
 import { Check, X, Pencil } from "lucide-react";
 
 
@@ -52,6 +53,12 @@ export function InlineEntityEditor({ children, onEdit }: Props) {
     });
   }, []);
 
+  // Trap Tab focus within the popover while open (shared with Dialog/CommandPalette).
+  // lockScroll: false — this is an inline editor, not a full-screen modal.
+  useFocusTrap(popoverRef, !!edit, { lockScroll: false });
+
+  // Focus the textarea with the cursor at the end (runs after the focus trap's
+  // focus-in, so the caret lands at the end of the draft).
   useEffect(() => {
     if (edit) {
       const el = textareaRef.current;
@@ -82,31 +89,6 @@ export function InlineEntityEditor({ children, onEdit }: Props) {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [edit, save]);
-
-  // Focus trap: keep Tab cycling within the editor popover while it is open, so
-  // keyboard users can't tab out of the modal editor into the page behind it.
-  useEffect(() => {
-    const node = popoverRef.current;
-    if (!edit || !node) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
-      const focusables = node.querySelectorAll<HTMLElement>(
-        'textarea, button, [href], [tabindex]:not([tabindex="-1"])',
-      );
-      if (focusables.length === 0) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-    node.addEventListener("keydown", handler);
-    return () => node.removeEventListener("keydown", handler);
-  }, [edit]);
 
   return (
     <div ref={wrapperRef} className="inline-editor-wrapper" onDoubleClick={handleDoubleClick}>

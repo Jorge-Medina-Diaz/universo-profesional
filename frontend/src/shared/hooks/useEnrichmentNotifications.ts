@@ -27,7 +27,6 @@ const SUMMARY_POLL_INTERVAL = 10_000; // 10s
  */
 export function useEnrichmentNotifications() {
   const lastCountsRef = useRef<Record<string, number> | null>(null);
-  const toastShownRef = useRef<Set<string>>(new Set());
   const isAuthed = !!useAuthStore((s) => s.accessToken);
 
   const { data: summary } = useQuery<UniverseSummary>({
@@ -67,16 +66,6 @@ export function useEnrichmentNotifications() {
     });
 
     if (deltas.length === 0) return;
-
-    const toastKey = deltas.join(",");
-    if (toastShownRef.current.has(toastKey)) return;
-    toastShownRef.current.add(toastKey);
-
-    // Keep only last 20 keys to avoid unbounded growth
-    if (toastShownRef.current.size > 20) {
-      const iter = toastShownRef.current.values();
-      toastShownRef.current.delete(iter.next().value!);
-    }
 
     toast.success(
       "Perfil actualizado",
