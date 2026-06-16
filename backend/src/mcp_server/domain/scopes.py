@@ -25,8 +25,6 @@ SCOPES: dict[str, Scope] = {
     "documents:generate": Scope(
         "documents:generate", "Generar CVs y cartas adaptadas a una oferta"
     ),
-    "applications:read": Scope("applications:read", "Ver tu tracker de candidaturas"),
-    "applications:write": Scope("applications:write", "Crear y actualizar candidaturas"),
     "preferences:read": Scope("preferences:read", "Leer tus preferencias de carrera"),
     "preferences:write": Scope("preferences:write", "Modificar tus preferencias de carrera"),
     "evidence:write": Scope("evidence:write", "Vincular skills con evidencias (experiencias, proyectos…)"),
