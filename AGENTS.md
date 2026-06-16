@@ -30,7 +30,7 @@
 - **Similitud textual:** `jellyfish` (Jaro-Winkler, phonetic) para entity resolution y ESCO cross-encoder
 - **Observabilidad:** structlog, Prometheus client, OpenTelemetry (FastAPI + SQLAlchemy), Sentry
 - **Rate limiting:** slowapi + limits[redis]
-- **Email:** aiosmtplib (mock/MailHog en dev; Brevo/Postmark en prod)
+- **Email:** aiosmtplib (mock/MailHog en dev; Brevo en prod)
 - **MCP:** SDK oficial Python `mcp>=1.1.0` (transporte HTTP streamable)
 - **Gestor de dependencias:** `uv` (usado en Docker; build system Hatchling)
 
@@ -307,7 +307,7 @@ Copiar `.env.example` a `.env` en la raíz del repo. Docker Compose lo lee autom
 |----------|------------------|---------------------|
 | LLM | `MockLlmClient` | `AGENTS_PROVIDER=anthropic\|openai` + API key |
 | Embeddings | `sha256(text) → 1536 floats` | `EMBEDDINGS_PROVIDER=openai\|mistral` |
-| Email | MailHog local | `EMAIL_PROVIDER=brevo\|postmark` |
+| Email | MailHog local | `EMAIL_PROVIDER=brevo` |
 | Almacenamiento | Filesystem (`./backend/var/documents/`) | `STORAGE_PROVIDER=s3` |
 | Stripe | `MockStripeClient` | `STRIPE_PROVIDER=real` + keys |
 | PDF parse | `MockPdfParser` | `AFFINDA_API_KEY` |

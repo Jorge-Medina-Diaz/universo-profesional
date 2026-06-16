@@ -32,7 +32,7 @@ async def send_email(
 ) -> dict[str, Any]:
     """Background email send — used to decouple SMTP/HTTP from request path.
 
-    Provider is selected from settings (mock vs brevo vs postmark). On
+    Provider is selected from settings (mock vs brevo). On
     transient failures we retry up to 3 times with exponential backoff so
     the worker recovers from short SMTP/API outages without losing the
     message.

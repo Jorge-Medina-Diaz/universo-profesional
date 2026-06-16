@@ -173,7 +173,7 @@ Este MVP **no requiere ninguna credencial externa**. Todas las integraciones tie
 |---|---|---|
 | LLM | `MockLlmClient` (ensambla bullets reales del universo) | `LLM_PROVIDER=anthropic|openai|mistral` |
 | Embeddings | `sha256(text) → 1536 floats normalizados` | `EMBEDDINGS_PROVIDER=openai|mistral` |
-| Email | Mailhog SMTP local (UI en :8025) | `EMAIL_PROVIDER=postmark|brevo` |
+| Email | Mailhog SMTP local (UI en :8025) | `EMAIL_PROVIDER=brevo` |
 | Storage | Filesystem local (`./backend/var/documents/`) | `STORAGE_PROVIDER=s3` |
 | Stripe | `MockStripeClient` con endpoint `/billing/webhook/test` | `STRIPE_API_KEY=sk_test_…` |
 | Affinda (PDF parse) | `MockPdfParser` canned response | `AFFINDA_API_KEY=…` |
