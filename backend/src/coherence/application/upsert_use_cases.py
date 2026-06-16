@@ -132,53 +132,6 @@ AUTO_MERGE_THRESHOLD = 0.92
 AMBIGUOUS_LOW = 0.80
 
 
-async def _adaptive_ambiguous_low(session: AsyncSession, user_id: str) -> float:
-    """Lower AMBIGUOUS_LOW for users who historically accept many merges
-    in the 0.82-0.90 score band (read from universe_change_log).
-
-    This is a lightweight, privacy-preserving heuristic: we only look at
-    the *ratio* of recent merges whose reason contains a semantic score in
-    the band, not at the actual entity contents.
-    """
-    rows = await session.execute(
-        text(
-            """
-            SELECT reason FROM universe_change_log
-            WHERE user_id = :uid
-              AND change_type IN ('merge', 'create')
-              AND changed_at > now() - interval '30 days'
-            ORDER BY changed_at DESC
-            LIMIT 100
-            """
-        ),
-        {"uid": user_id},
-    )
-    scores: list[float] = []
-    for row in rows.all():
-        reason = row.reason or ""
-        if "[semantic " in reason:
-            try:
-                score_str = reason.split("[semantic ")[1].split("]")[0]
-                scores.append(float(score_str))
-            except (ValueError, IndexError):
-                continue
-
-    if not scores:
-        return AMBIGUOUS_LOW
-
-    band_scores = [s for s in scores if 0.82 <= s <= 0.90]
-    if not band_scores:
-        return AMBIGUOUS_LOW
-
-    # If >90 % of recent actions involve scores in the ambiguous-like band,
-    # the user is highly accepting — lower the floor so more candidates surface.
-    band_ratio = len(band_scores) / len(scores)
-    if band_ratio > 0.90:
-        return max(0.70, AMBIGUOUS_LOW - 0.05)
-
-    return AMBIGUOUS_LOW
-
-
 class UpsertUniverseEntity:
     """Single entry point. Pass `entity_type` + payload + source; get an outcome."""
 
@@ -361,7 +314,7 @@ class UpsertUniverseEntity:
         emb_text = config["embedding_text"](payload).strip()
         if not emb_text:
             return MatchResult(kind=MatchKind.NONE)
-        ambiguous_low = await _adaptive_ambiguous_low(self._session, user_id)
+        ambiguous_low = AMBIGUOUS_LOW
         # Best-effort: the matcher does an embedding call (network/timeout can
         # fail). A matcher failure must NOT 500 the write — degrade to "no
         # semantic match" (the entity is created instead of merged), which is

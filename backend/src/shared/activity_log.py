@@ -8,6 +8,7 @@ write amplification is bounded and downstream replay can use this table.
 """
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import structlog
@@ -17,6 +18,7 @@ from uuid import UUID
 
 from src.shared.db import get_session_factory, set_rls_user
 from src.shared.events import DomainEvent, EventBus
+from src.shared.serialization import jsonify
 
 logger = structlog.get_logger(__name__)
 
@@ -28,7 +30,7 @@ async def persist_event_handler(event: DomainEvent) -> None:
     for k, v in event.__dict__.items():
         if k in {"event_id", "occurred_at", "user_id", "_events"}:
             continue
-        payload[k] = _coerce(v)
+        payload[k] = jsonify(v)
 
     try:
         factory = get_session_factory()
@@ -50,7 +52,7 @@ async def persist_event_handler(event: DomainEvent) -> None:
                     eid=str(event.event_id),
                     uid=str(event.user_id) if event.user_id else None,
                     etype=event.event_type,
-                    payload=_json_encode(payload),
+                    payload=json.dumps(payload, default=str, separators=(",", ":")),
                     occurred_at=event.occurred_at,
                 )
             )
@@ -61,29 +63,6 @@ async def persist_event_handler(event: DomainEvent) -> None:
             event_type=event.event_type,
             error=str(exc),
         )
-
-
-def _coerce(v: Any) -> Any:
-    from datetime import date, datetime
-    from uuid import UUID
-
-    if isinstance(v, datetime):
-        return v.isoformat()
-    if isinstance(v, date):
-        return v.isoformat()
-    if isinstance(v, UUID):
-        return str(v)
-    if isinstance(v, dict):
-        return {k: _coerce(val) for k, val in v.items()}
-    if isinstance(v, list):
-        return [_coerce(x) for x in v]
-    return v
-
-
-def _json_encode(d: dict[str, Any]) -> str:
-    import json
-
-    return json.dumps(d, default=str, separators=(",", ":"))
 
 
 def register(bus: EventBus) -> None:
