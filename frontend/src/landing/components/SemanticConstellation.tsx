@@ -89,13 +89,9 @@ interface FreePulse {
 }
 
 export interface ConstellationHandle {
-  /** Birth a node in a region (sunbeam flash, settles into the field). */
-  igniteNode(regionId: string): void;
   /** Send a nova pulse from a normalised (0..1) point toward a region;
    *  ignites a node there on arrival when `ignite` is true. */
   pulseFrom(x01: number, y01: number, regionId: string, ignite?: boolean): void;
-  /** Ease the camera onto a region (null resets to the full field). */
-  flyTo(regionId: string | null): void;
 }
 
 /** tiny seeded RNG so layout is stable between renders/resizes */
@@ -136,7 +132,6 @@ export const SemanticConstellation = forwardRef<ConstellationHandle, {
   const edgesRef = useRef<Edge[]>([]);
   const signalsRef = useRef<Signal[]>([]);
   const pulsesRef = useRef<FreePulse[]>([]);
-  const cameraRef = useRef({ scale: 1, ox: 0, oy: 0, ts: 1, tx: 0, ty: 0 });
   const onStatsRef = useRef(onStats);
   onStatsRef.current = onStats;
   const reducedRef = useRef(false);
@@ -315,16 +310,6 @@ export const SemanticConstellation = forwardRef<ConstellationHandle, {
       const p = pointerRef.current;
       ctx!.clearRect(0, 0, w, h);
 
-      // camera easing (flyTo) — zoom toward a region without rebuilding
-      const cam = cameraRef.current;
-      cam.scale += (cam.ts - cam.scale) * 0.06;
-      cam.ox += (cam.tx - cam.ox) * 0.06;
-      cam.oy += (cam.ty - cam.oy) * 0.06;
-      ctx!.save();
-      ctx!.translate(w / 2, h / 2);
-      ctx!.scale(cam.scale, cam.scale);
-      ctx!.translate(-w / 2 - cam.ox, -h / 2 - cam.oy);
-
       // ease the global parallax offset toward the pointer target
       p.cx += (p.tx * 14 - p.cx) * 0.06;
       p.cy += (p.ty * 14 - p.cy) * 0.06;
@@ -471,8 +456,6 @@ export const SemanticConstellation = forwardRef<ConstellationHandle, {
         ctx!.fill();
       }
 
-      ctx!.restore();
-
       // Under prefers-reduced-motion, paint a single static frame and STOP —
       // re-queuing would keep the edges oscillating (Math.sin(frame*…)) and the
       // nodes drifting, which is exactly what reduced-motion users opt out of.
@@ -552,10 +535,6 @@ export const SemanticConstellation = forwardRef<ConstellationHandle, {
   }, [regions, interactive, intensity]);
 
   useImperativeHandle(handleRef, () => ({
-    igniteNode: (regionId: string) => {
-      const idx = regions.findIndex((r) => r.id === regionId);
-      if (idx >= 0) birthNodeRef.current(idx);
-    },
     pulseFrom: (x01: number, y01: number, regionId: string, ignite = true) => {
       const idx = regions.findIndex((r) => r.id === regionId);
       const { w, h } = sizeRef.current;
@@ -574,26 +553,6 @@ export const SemanticConstellation = forwardRef<ConstellationHandle, {
         color: "#00d4aa",
         igniteRegion: ignite ? idx : -1,
       });
-    },
-    flyTo: (regionId: string | null) => {
-      const cam = cameraRef.current;
-      const { w, h } = sizeRef.current;
-      if (!regionId) {
-        cam.ts = 1;
-        cam.tx = 0;
-        cam.ty = 0;
-        return;
-      }
-      const region = regions.find((r) => r.id === regionId);
-      if (!region || !w) return;
-      cam.ts = 1.55;
-      cam.tx = (region.cx - 0.5) * w * 0.8;
-      cam.ty = (region.cy - 0.5) * h * 0.8;
-      if (reducedRef.current) {
-        cam.scale = cam.ts;
-        cam.ox = cam.tx;
-        cam.oy = cam.ty;
-      }
     },
   }), [regions]);
 
