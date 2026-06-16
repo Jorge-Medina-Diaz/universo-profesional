@@ -10,12 +10,14 @@ import {
 } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Crop, RotateCw, ZoomIn, ZoomOut, Trash2, Upload, User, X } from "lucide-react";
+import { useAuthStore } from "@/shared/api";
 import { photo } from "@/shared/api-extra";
 import { Button, cn, DropZone, toast } from "@/ui";
 import { queryKeys } from "@/shared/queryKeys";
 
 export function PhotoUpload() {
   const qc = useQueryClient();
+  const isAuthed = !!useAuthStore((s) => s.accessToken);
   const [preview, setPreview] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [cropping, setCropping] = useState<File | null>(null);
@@ -24,6 +26,7 @@ export function PhotoUpload() {
   const photoQuery = useQuery({
     queryKey: queryKeys.me.photo(refreshKey),
     queryFn: () => photo.load(),
+    enabled: isAuthed,
     staleTime: 60_000,
     retry: false,
   });

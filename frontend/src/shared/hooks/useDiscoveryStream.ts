@@ -27,12 +27,12 @@ export function useDiscoveryStream(enabled = true) {
   useEffect(() => {
     if (!enabled) return;
 
-    const token = useAuthStore.getState().accessToken;
-    if (!token) return;
-
     let alive = true;
 
     const connect = async () => {
+      const token = useAuthStore.getState().accessToken;
+      if (!token) return;
+
       try {
         const resp = await fetch(graphApi.discoveryStreamURL, {
           headers: { Authorization: `Bearer ${token}` },
@@ -90,7 +90,7 @@ export function useDiscoveryStream(enabled = true) {
           );
         }
       } finally {
-        if (alive) {
+        if (alive && useAuthStore.getState().accessToken) {
           reconnectTimer.current = setTimeout(
             connect,
             reconnectDelay.current,

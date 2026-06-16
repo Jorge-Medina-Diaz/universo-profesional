@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import { api } from "@/shared/api";
+import { api, useAuthStore } from "@/shared/api";
 import { queryKeys } from "@/shared/queryKeys";
 
 export interface DiscoveryProgress {
@@ -50,6 +50,7 @@ function dispatchCelebration(score: number, delta: number) {
  */
 export function useDiscoveryProgress(enabled = true) {
   const prevDataRef = useRef<DiscoveryProgress | null>(null);
+  const isAuthed = !!useAuthStore((s) => s.accessToken);
 
   const query = useQuery<DiscoveryProgress>({
     queryKey: queryKeys.agents.discovery.progress,
@@ -58,7 +59,8 @@ export function useDiscoveryProgress(enabled = true) {
     },
     refetchInterval: POLL_INTERVAL,
     staleTime: 4_000,
-    enabled,
+    enabled: enabled && isAuthed,
+    retry: 1,
   });
 
   const data = query.data;

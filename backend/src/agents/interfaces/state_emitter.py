@@ -123,7 +123,10 @@ async def emit_agent_state(events: Any, intent_state: dict[str, Any] | None) -> 
                 status = "answering"
                 yield _delta(("/agent_status", status))
             elif etype == EventType.RUN_FINISHED:
-                yield _delta(("/agent_status", "idle"), ("/current_tool", None))
+                # Do NOT emit STATE_DELTA after RUN_FINISHED — CopilotKit v1.57
+                # rejects it ("run has already finished"). The frontend already
+                # transitions to idle via isLoading=false.
+                pass
         except Exception:  # narration must never break the stream
             logger.warning("state_emitter_failed", exc_info=True)
 

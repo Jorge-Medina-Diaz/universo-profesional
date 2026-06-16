@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "@/ui";
-import { api } from "@/shared/api";
+import { api, useAuthStore } from "@/shared/api";
 import { queryKeys } from "@/shared/queryKeys";
 
 interface UniverseSummary {
@@ -28,14 +28,17 @@ const SUMMARY_POLL_INTERVAL = 10_000; // 10s
 export function useEnrichmentNotifications() {
   const lastCountsRef = useRef<Record<string, number> | null>(null);
   const toastShownRef = useRef<Set<string>>(new Set());
+  const isAuthed = !!useAuthStore((s) => s.accessToken);
 
   const { data: summary } = useQuery<UniverseSummary>({
     queryKey: queryKeys.universe.summary,
     queryFn: async () => {
       return api<UniverseSummary>("/api/v1/universe/summary");
     },
+    enabled: isAuthed,
     refetchInterval: SUMMARY_POLL_INTERVAL,
     staleTime: 5_000,
+    retry: 1,
   });
 
   useEffect(() => {

@@ -23,7 +23,7 @@ import {
   Heart,
   ChevronDown,
 } from "lucide-react";
-import { universe } from "@/shared/api";
+import { universe, useAuthStore } from "@/shared/api";
 import { queryKeys } from "@/shared/queryKeys";
 import { useDiscoveryProgress } from "@/shared/hooks/useDiscoveryProgress";
 import { KIND_LABELS } from "@/shared/kindColors";
@@ -46,9 +46,11 @@ const SOURCE_LABELS: Record<string, string> = {
 
 export function UniverseProgress() {
   const [open, setOpen] = useState(false);
+  const isAuthed = !!useAuthStore((s) => s.accessToken);
   const summary = useQuery({
     queryKey: queryKeys.universe.summary,
     queryFn: () => universe.summary(),
+    enabled: isAuthed,
   });
   const prefs = useQuery({
     queryKey: queryKeys.preferences.all,

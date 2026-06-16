@@ -25,7 +25,7 @@ import {
   Briefcase,
   X,
 } from "lucide-react";
-import { universe, jobs, type ReminderRow, type JobRow } from "@/shared/api";
+import { universe, jobs, useAuthStore, type ReminderRow, type JobRow } from "@/shared/api";
 import { liveProfile, type Suggestion } from "@/shared/api-extra";
 import { Badge, BellQuietIllustration, Button, cn } from "@/ui";
 import { queryKeys } from "@/shared/queryKeys";
@@ -89,22 +89,26 @@ export function NotificationCenter() {
   const [section, setSection] = useState<SectionKey>("reminders");
   const wrapperRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const isAuthed = !!useAuthStore((s) => s.accessToken);
 
   const reminders = useQuery({
     queryKey: queryKeys.reminders.all,
     queryFn: () => universe.reminders.list(),
+    enabled: isAuthed,
     refetchOnWindowFocus: false,
     staleTime: 60_000,
   });
   const suggestions = useQuery({
     queryKey: queryKeys.suggestions.pending,
     queryFn: () => liveProfile.suggestions.list("pending"),
+    enabled: isAuthed,
     refetchOnWindowFocus: false,
     staleTime: 60_000,
   });
   const jobsQ = useQuery({
     queryKey: queryKeys.jobs.all,
     queryFn: () => jobs.list(),
+    enabled: isAuthed,
     refetchOnWindowFocus: false,
     staleTime: 60_000,
   });

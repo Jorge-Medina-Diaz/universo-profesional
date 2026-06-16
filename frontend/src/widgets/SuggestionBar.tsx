@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, X, RefreshCw, Lightbulb, ChevronDown } from "lucide-react";
 import { useState } from "react";
+import { useAuthStore } from "@/shared/api";
 import { liveProfile } from "@/shared/api-extra";
 import { queryKeys } from "@/shared/queryKeys";
 import { Badge, Button, Card, cn } from "@/ui";
@@ -26,9 +27,11 @@ const KIND_LABEL: Record<string, string> = {
 
 export function SuggestionBar() {
   const qc = useQueryClient();
+  const isAuthed = !!useAuthStore((s) => s.accessToken);
   const list = useQuery({
     queryKey: queryKeys.suggestions.all,
     queryFn: () => liveProfile.suggestions.list("pending"),
+    enabled: isAuthed,
   });
   const regen = useMutation({
     mutationFn: () => liveProfile.suggestions.regenerate(),
