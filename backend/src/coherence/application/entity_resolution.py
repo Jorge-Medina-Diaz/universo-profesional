@@ -493,12 +493,6 @@ def _resolve_union(values: list[Any], _ranking: dict[str, int] | None) -> Any:
     return out
 
 
-def _resolve_esco_preferred(values: list[Any], _ranking: dict[str, int] | None) -> Any:
-    # Prefer the value from the row that has an esco_uri (more canonical).
-    # Fallback to longest string.
-    return max(values, key=lambda x: len(str(x)))
-
-
 def _resolve_concatenate_unique(values: list[Any], _ranking: dict[str, int] | None) -> Any:
     texts: list[str] = []
     seen_texts: set[str] = set()
@@ -521,7 +515,8 @@ _strategies: dict[str, Callable[..., Any]] = {
     "max": _resolve_max,
     "max_ranked": _resolve_max_ranked,
     "union": _resolve_union,
-    "esco_preferred": _resolve_esco_preferred,
+    # esco_preferred has no row-level esco_uri signal here; longest-value wins.
+    "esco_preferred": _resolve_longest_non_null,
     "concatenate_unique": _resolve_concatenate_unique,
     "preserve_existing": _resolve_preserve_existing,
 }
@@ -733,19 +728,7 @@ class EntityResolutionPipeline:
 
 
 def _extract_date(row: dict[str, Any], field: str) -> date | None:
-    val = row.get(field)
-    if val is None:
-        return None
-    if isinstance(val, datetime):
-        return val.date()
-    if isinstance(val, date):
-        return val
-    if isinstance(val, str):
-        try:
-            return date.fromisoformat(val)
-        except ValueError:
-            return None
-    return None
+    return _to_date(row.get(field))
 
 
 def _to_date(val: Any) -> date | None:
