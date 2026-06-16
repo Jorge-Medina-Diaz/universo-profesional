@@ -126,13 +126,11 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-}
-      # Email (real provider when EMAIL_PROVIDER=brevo|postmark)
+      # Email (real provider when EMAIL_PROVIDER=brevo)
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-mock}
       EMAIL_FROM: ${EMAIL_FROM:-no-reply@cvs-saas.local}
       EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Universo Profesional}
       BREVO_API_KEY: ${BREVO_API_KEY:-}
-      POSTMARK_SERVER_TOKEN: ${POSTMARK_SERVER_TOKEN:-}
-      RESEND_API_KEY: ${RESEND_API_KEY:-}
       # Stripe (real when STRIPE_PROVIDER=real)
       STRIPE_PROVIDER: ${STRIPE_PROVIDER:-mock}
       STRIPE_API_KEY: ${STRIPE_API_KEY:-}
@@ -196,8 +194,6 @@ services:
       EMAIL_FROM: ${EMAIL_FROM:-no-reply@cvs-saas.local}
       EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Universo Profesional}
       BREVO_API_KEY: ${BREVO_API_KEY:-}
-      POSTMARK_SERVER_TOKEN: ${POSTMARK_SERVER_TOKEN:-}
-      RESEND_API_KEY: ${RESEND_API_KEY:-}
       BRIGHTDATA_API_KEY: ${BRIGHTDATA_API_KEY:-}
       BRIGHTDATA_DATASET_ID: ${BRIGHTDATA_DATASET_ID:-gd_l1viktl72bvl7bjuj0}
       LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}

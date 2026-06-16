@@ -53,10 +53,8 @@ class Settings(BaseSettings):
     email_port: int = 1025
     email_from: str = "no-reply@cvs-saas.local"
     email_from_name: str = "Universo Profesional"
-    email_provider: Literal["mock", "postmark", "brevo", "resend"] = "mock"
+    email_provider: Literal["mock", "brevo"] = "mock"
     brevo_api_key: str | None = None
-    postmark_server_token: str | None = None
-    resend_api_key: str | None = None
 
     # --- Storage ---
     storage_root: Path = Path("/app/var/documents")
@@ -344,13 +342,9 @@ class Settings(BaseSettings):
 
         # Email — must be a real provider, not mock.
         if self.email_provider == "mock":
-            errors.append("EMAIL_PROVIDER must be 'brevo' or 'postmark' in production")
+            errors.append("EMAIL_PROVIDER must be 'brevo' in production")
         if self.email_provider == "brevo" and not self.brevo_api_key:
             errors.append("BREVO_API_KEY is required when EMAIL_PROVIDER=brevo")
-        if self.email_provider == "postmark" and not self.postmark_server_token:
-            errors.append(
-                "POSTMARK_SERVER_TOKEN is required when EMAIL_PROVIDER=postmark"
-            )
         if self.email_from.endswith(".local"):
             errors.append("EMAIL_FROM still points to a .local domain")
 
