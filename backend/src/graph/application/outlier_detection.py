@@ -34,31 +34,9 @@ from sklearn.neighbors import LocalOutlierFactor
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.graph.application.retrieval._helpers import _table_has_column
+
 logger = structlog.get_logger(__name__)
-
-
-# Process-lifetime cache of table → has-embedding-column. Schema only changes
-# via migrations (which restart workers), so caching is safe.
-_EMBEDDING_TABLE_CACHE: dict[str, bool] = {}
-
-
-async def _table_has_embedding(session: AsyncSession, table: str) -> bool:
-    cached = _EMBEDDING_TABLE_CACHE.get(table)
-    if cached is not None:
-        return cached
-    row = (
-        await session.execute(
-            text(
-                "SELECT 1 FROM information_schema.columns "
-                "WHERE table_schema = 'public' "
-                "  AND table_name = :t AND column_name = 'embedding'"
-            ),
-            {"t": table},
-        )
-    ).first()
-    exists = row is not None
-    _EMBEDDING_TABLE_CACHE[table] = exists
-    return exists
 
 
 # Entity kinds whose embeddings we feed into the detector. These have
@@ -203,7 +181,7 @@ async def _load_user_embeddings(
         # Some detectable kinds (e.g. artifacts) have no embedding column —
         # they can't contribute to embedding-space outlier detection, so skip
         # them cleanly rather than emitting SQL that references a missing column.
-        if not await _table_has_embedding(session, cfg.sql_table):
+        if not await _table_has_column(session, cfg.sql_table, "embedding"):
             continue
         result = await session.execute(
             text(

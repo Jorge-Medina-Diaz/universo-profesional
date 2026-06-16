@@ -1,4 +1,4 @@
-"""Semantic search over universe entities using pgvector cosine + RRF rerank."""
+"""Semantic search over universe entities using pgvector cosine similarity."""
 from __future__ import annotations
 
 from typing import Any
@@ -66,8 +66,7 @@ class PgVectorSemanticSearch(SemanticSearchPort):
     ) -> list[dict[str, Any]]:
         chosen = entity_types or list(ENTITY_TABLES.keys())
         results: list[dict[str, Any]] = []
-        # We query each table independently and then merge by score.
-        # For MVP scope this is simpler than a UNION ALL with parameter rewriting.
+        # Query each entity table independently, then merge by cosine score.
         for et in chosen:
             if et not in ENTITY_TABLES:
                 continue
@@ -106,8 +105,6 @@ class PgVectorSemanticSearch(SemanticSearchPort):
                         "fields": fields_dict,
                     }
                 )
-        # Reciprocal Rank Fusion across entity types
-        # For MVP we just sort by raw cosine score; RRF kicks in when we have
-        # multiple ranked lists (BM25 + semantic) — wire BM25 in v1.
+        # Merge all entity types by cosine similarity.
         results.sort(key=lambda x: x["score"], reverse=True)
         return results[:top_k]
