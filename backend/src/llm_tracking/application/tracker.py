@@ -5,12 +5,12 @@ we update the dict here and redeploy — no DB migration needed.
 """
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 from uuid import UUID
 
 import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.llm_tracking.application.ports import LlmUsageLogRepository
 from src.llm_tracking.domain.entities import LlmUsageLog
@@ -101,7 +101,6 @@ def compute_cost_eur(
 
 
 async def log_agno_run(
-    session: AsyncSession,
     repo: LlmUsageLogRepository,
     *,
     user_id: UUID,
@@ -141,28 +140,13 @@ async def log_agno_run(
         cache_read_tokens=log.cache_read_tokens,
         cache_write_tokens=log.cache_write_tokens,
     )
-    # Rebuild with cost (dataclass is frozen, so create new instance)
-    log = LlmUsageLog(
-        user_id=log.user_id,
-        provider=log.provider,
-        model=log.model,
-        input_tokens=log.input_tokens,
-        output_tokens=log.output_tokens,
-        cache_read_tokens=log.cache_read_tokens,
-        cache_write_tokens=log.cache_write_tokens,
-        total_tokens=log.total_tokens,
-        duration_ms=log.duration_ms,
-        cost_eur=cost,
-        run_id=log.run_id,
-        session_id=log.session_id,
-        agent=log.agent,
-    )
+    # Frozen dataclass — copy with the computed cost.
+    log = replace(log, cost_eur=cost)
     await repo.create(log)
     return log
 
 
 async def log_document_llm_call(
-    session: AsyncSession,
     repo: LlmUsageLogRepository,
     *,
     user_id: UUID,

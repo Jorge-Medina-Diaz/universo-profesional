@@ -95,7 +95,6 @@ async def _persist_agno_usage(session_id: str, user_id: str) -> None:
             metrics = last_run.get("metrics") or {}
             run_id = last_run.get("run_id")
             await log_agno_run(
-                session,
                 SqlalchemyLlmUsageLogRepository(session),
                 user_id=uid,
                 run_id=run_id,

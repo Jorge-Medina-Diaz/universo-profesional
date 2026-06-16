@@ -378,7 +378,6 @@ class AiLlmClient(LlmClient):
         from src.llm_tracking.infrastructure.repository import SqlalchemyLlmUsageLogRepository
 
         await log_document_llm_call(
-            self._session,
             SqlalchemyLlmUsageLogRepository(self._session),
             user_id=self._user_id,
             provider=provider,
