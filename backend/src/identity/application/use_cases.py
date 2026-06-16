@@ -601,8 +601,6 @@ class DeleteAccount:
     async def execute(
         self, *, user_id: str, uow: UnitOfWork
     ) -> Result[bool, NotFoundError]:
-        from uuid import UUID
-
         user = await self._users.get_by_id(UUID(user_id))
         if user is None:
             return err(NotFoundError("User not found"))
@@ -621,8 +619,6 @@ class ExportUserData:
         self._exporter = exporter
 
     async def execute(self, *, user_id: str) -> Result[dict[str, Any], NotFoundError]:
-        from uuid import UUID
-
         data = await self._exporter.export_all(UUID(user_id))
         if not data:
             return err(NotFoundError("User not found"))
@@ -674,8 +670,6 @@ class GetCurrentUser:
         self._users = users
 
     async def execute(self, *, user_id: str) -> Result[CurrentUserDto, NotFoundError]:
-        from uuid import UUID
-
         user = await self._users.get_by_id(UUID(user_id))
         if user is None or user.is_deleted:
             return err(NotFoundError("User not found"))
@@ -692,8 +686,6 @@ class SetUserTier:
     async def execute(
         self, *, user_id: str, tier: str, uow: UnitOfWork
     ) -> Result[CurrentUserDto, NotFoundError | ValidationError]:
-        from uuid import UUID
-
         from src.identity.domain.user import VALID_TIERS
 
         if tier not in VALID_TIERS:

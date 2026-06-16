@@ -6,7 +6,6 @@ Every request acquires a session via `get_session()`. Sessions set
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import Any
 from uuid import UUID
 
 from sqlalchemy import event, text
@@ -153,12 +152,6 @@ async def with_user_session(user_id: UUID | None):
             raise
         else:
             await session.commit()
-
-
-@event.listens_for(Base.metadata, "after_create")
-def _after_create(target: Any, connection: Any, **_kw: Any) -> None:  # pragma: no cover
-    """Best-effort: in tests using `metadata.create_all` (rare; Alembic is canonical)."""
-    return
 
 
 async def dispose_engine() -> None:

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from src.shared.errors import DomainError, ValidationError
 from src.shared.result import Failure, Success, ok, err
-from src.shared.value_objects import Email, Url
+from src.shared.value_objects import Email
 
 
 class TestErrors:
@@ -54,7 +54,3 @@ class TestValueObjectsStr:
     def test_email_str(self):
         e = Email.parse("test@example.com")
         assert str(e) == "test@example.com"
-
-    def test_url_str(self):
-        u = Url.parse("https://example.com")
-        assert str(u) == "https://example.com"

@@ -3,14 +3,11 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date
 from typing import Self
 
 from .errors import ValidationError
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-URL_RE = re.compile(r"^https?://[^\s]+$", re.IGNORECASE)
-CURRENCY_RE = re.compile(r"^[A-Z]{3}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,68 +23,6 @@ class Email:
 
     def __str__(self) -> str:
         return self.value
-
-
-@dataclass(frozen=True, slots=True)
-class Url:
-    value: str
-
-    @classmethod
-    def parse(cls, raw: str) -> Self:
-        if not URL_RE.match(raw.strip()):
-            raise ValidationError("Invalid URL (must be http or https)", details={"value": raw})
-        return cls(raw.strip())
-
-    def __str__(self) -> str:
-        return self.value
-
-
-@dataclass(frozen=True, slots=True)
-class DateRange:
-    start: date
-    end: date | None  # None == ongoing
-
-    def __post_init__(self) -> None:
-        if self.end is not None and self.end < self.start:
-            raise ValidationError(
-                "DateRange.end must be >= start",
-                details={"start": self.start.isoformat(), "end": self.end.isoformat()},
-            )
-
-    @property
-    def is_ongoing(self) -> bool:
-        return self.end is None
-
-
-@dataclass(frozen=True, slots=True)
-class Money:
-    amount: int  # cents to avoid float drift
-    currency: str
-
-    def __post_init__(self) -> None:
-        if not CURRENCY_RE.match(self.currency):
-            raise ValidationError(
-                "Currency must be ISO 4217 (3 uppercase letters)",
-                details={"currency": self.currency},
-            )
-        if self.amount < 0:
-            raise ValidationError("Amount cannot be negative", details={"amount": self.amount})
-
-
-@dataclass(frozen=True, slots=True)
-class Location:
-    city: str | None = None
-    region: str | None = None
-    country_code: str | None = None  # ISO 3166-1 alpha-2
-
-    def __post_init__(self) -> None:
-        if self.country_code is not None and (
-            len(self.country_code) != 2 or not self.country_code.isalpha()
-        ):
-            raise ValidationError(
-                "country_code must be ISO 3166-1 alpha-2",
-                details={"country_code": self.country_code},
-            )
 
 
 SKILL_LEVELS = ("basic", "intermediate", "high", "expert")

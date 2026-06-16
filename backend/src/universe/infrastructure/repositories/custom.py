@@ -445,15 +445,6 @@ class SqlAlchemySkillStackRepository(_BaseRepo):
         row = (await self._session.execute(stmt)).scalar_one_or_none()
         return self._to_entity(row) if row else None
 
-    async def find_by_slug(self, user_id: UUID, slug: str) -> SkillStack | None:
-        stmt = (
-            select(SkillStackOrm)
-            .where(SkillStackOrm.user_id == user_id)
-            .where(SkillStackOrm.slug == slug)
-        )
-        row = (await self._session.execute(stmt)).scalar_one_or_none()
-        return self._to_entity(row) if row else None
-
     async def add(self, stack: SkillStack) -> None:
         self._session.add(
             SkillStackOrm(
@@ -588,17 +579,6 @@ class SqlAlchemyUserRubricSignalRepository(_BaseRepo):
         await self._session.flush()
         signal.id = existing.id
         return (signal, False)
-
-    async def mark_stale(self, user_id: UUID, entity_id: UUID) -> bool:
-        stmt = (
-            update(UserRubricSignalOrm)
-            .where(UserRubricSignalOrm.id == entity_id)
-            .where(UserRubricSignalOrm.user_id == user_id)
-            .values(deleted_at=utc_now(), updated_at=utc_now())
-            .returning(UserRubricSignalOrm.id)
-        )
-        result = await self._session.execute(stmt)
-        return result.first() is not None
 
     async def delete_for_chunks(
         self, user_id: UUID, rubric_chunk_ids: list[UUID]

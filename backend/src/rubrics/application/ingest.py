@@ -31,15 +31,6 @@ class IngestSummary:
     def add_error(self, path: Path, msg: str) -> None:
         self.errors.append(f"{path}: {msg}")
 
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "created": self.created,
-            "updated": self.updated,
-            "skipped": self.skipped,
-            "errors": self.errors,
-            "files": self.files,
-        }
-
 
 async def ingest_rubrics(
     root: Path,

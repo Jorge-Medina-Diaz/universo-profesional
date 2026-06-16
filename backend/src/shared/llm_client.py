@@ -61,7 +61,6 @@ class MockLlmClient:
     async def complete_text(
         self, *, system: str, prompt: str, max_tokens: int = 1024, temperature: float = 0.4
     ) -> str:
-        self.last_usage = None
         return (
             "[mock-llm] " + prompt[:200] + ("…" if len(prompt) > 200 else "")
         )
@@ -75,7 +74,6 @@ class MockLlmClient:
         max_tokens: int = 4096,
         temperature: float = 0.0,
     ) -> T:
-        self.last_usage = None
         # Build the laziest possible instance — useful only to verify wiring
         return schema.model_construct()
 

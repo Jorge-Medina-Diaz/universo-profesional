@@ -65,14 +65,13 @@ def build_dma_authorize_url(
     client_id: str,
     redirect_uri: str,
     state: str,
-    extra_scopes: list[str] | None = None,
 ) -> str:
     """LinkedIn OAuth authorize URL for the DMA scope.
 
     Often called *after* the OIDC sign-in, so the user is already logged into
     LinkedIn. The page will prompt for consent on the data-portability scope.
     """
-    scopes = [DMA_SCOPE] + list(extra_scopes or [])
+    scopes = [DMA_SCOPE]
     params = {
         "response_type": "code",
         "client_id": client_id,

@@ -6,14 +6,11 @@ first call and can be disposed cleanly during application shutdown.
 """
 from __future__ import annotations
 
-import asyncio
-
 from redis.asyncio import Redis
 
 from src.shared.config import get_settings
 
 _redis_client: Redis | None = None
-_redis_lock = asyncio.Lock()
 
 
 def get_redis() -> Redis:

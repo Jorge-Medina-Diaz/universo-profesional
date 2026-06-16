@@ -12,14 +12,11 @@ Each tool delegates to the same use cases used by REST routes — no duplicate l
 """
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
-
-ToolHandler = Callable[..., Awaitable[Any]]
 
 
 @dataclass(frozen=True)
