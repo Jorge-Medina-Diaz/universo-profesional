@@ -205,7 +205,7 @@ docker compose down -v && docker compose up -d --build
   - `E501` (línea larga) — gestionado por el formateador.
 - **Tests:** se relajan `PLR2004`, `S101`, `ARG`, `N806`.
 - **Alembic:** se relajan `E501`, `I001`.
-- **Type-checking:** mypy en modo `strict` con plugin de Pydantic. Algunas librerías de terceros se ignoran (`weasyprint`, `docx`, `pgvector`, `arq`, `authlib`, `jose`, `mcp`).
+- **Type-checking:** mypy en modo `strict` con plugin de Pydantic. Algunas librerías de terceros se ignoran (`weasyprint`, `docx`, `pgvector`, `arq`, `jose`, `mcp`).
 
 ### TypeScript / React
 - **ESLint:** configuración flat en `frontend/eslint.config.js`.
