@@ -26,7 +26,6 @@ Pipeline stages:
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from typing import Any, Literal
@@ -37,7 +36,7 @@ from jellyfish import jaro_winkler_similarity
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.coherence.domain.er_rules import FieldRule, FieldStrategy, config_for
+from src.coherence.domain.er_rules import config_for
 from src.graph.application.universe_graph import universe_graph_service
 from src.graph.domain import schema as graph_schema
 from src.graph.infrastructure.age_client import cypher
@@ -433,105 +432,7 @@ def _cluster_matches(
     return clusters
 
 
-# 4. Merge
-
-
-def _apply_field_rules(
-    field_rules: tuple[FieldRule, ...],
-    rows: list[dict[str, Any]],
-) -> dict[str, Any]:
-    """Apply field-resolution rules to a cluster of entity dicts."""
-    merged: dict[str, Any] = {}
-    for rule in field_rules:
-        values = [r.get(rule.field) for r in rows if r.get(rule.field) is not None]
-        if not values:
-            continue
-        merged[rule.field] = _resolve_field(rule.strategy, values, rule.ranking)
-    return merged
-
-
-def _resolve_longest_non_null(values: list[Any], _ranking: dict[str, int] | None) -> Any:
-    return max(values, key=lambda x: len(str(x)))
-
-
-def _resolve_earliest(values: list[Any], _ranking: dict[str, int] | None) -> Any:
-    dates: list[date] = [d for d in (_to_date(v) for v in values) if d is not None]
-    return min(dates) if dates else values[0]
-
-
-def _resolve_latest(values: list[Any], _ranking: dict[str, int] | None) -> Any:
-    dates: list[date] = [d for d in (_to_date(v) for v in values) if d is not None]
-    return max(dates) if dates else values[0]
-
-
-def _resolve_max(values: list[Any], _ranking: dict[str, int] | None) -> Any:
-    nums: list[float] = [n for n in (_to_number(v) for v in values) if n is not None]
-    return max(nums) if nums else values[0]
-
-
-def _resolve_max_ranked(values: list[Any], ranking: dict[str, int] | None) -> Any:
-    if ranking is None:
-        raise ValueError("max_ranked requires a ranking dict")
-    return max(values, key=lambda x: ranking.get(str(x), 0))
-
-
-def _resolve_union(values: list[Any], _ranking: dict[str, int] | None) -> Any:
-    out: list[Any] = []
-    seen: set[str] = set()
-    for v in values:
-        if isinstance(v, list):
-            for item in v:
-                key = str(item).strip().lower()
-                if key and key not in seen:
-                    out.append(item)
-                    seen.add(key)
-        else:
-            key = str(v).strip().lower()
-            if key and key not in seen:
-                out.append(v)
-                seen.add(key)
-    return out
-
-
-def _resolve_concatenate_unique(values: list[Any], _ranking: dict[str, int] | None) -> Any:
-    texts: list[str] = []
-    seen_texts: set[str] = set()
-    for v in values:
-        s = str(v).strip()
-        if s and s.lower() not in seen_texts:
-            texts.append(s)
-            seen_texts.add(s.lower())
-    return "\n\n".join(texts) if texts else None
-
-
-def _resolve_preserve_existing(values: list[Any], _ranking: dict[str, int] | None) -> Any:
-    return values[0]
-
-
-_strategies: dict[str, Callable[..., Any]] = {
-    "longest_non_null": _resolve_longest_non_null,
-    "earliest": _resolve_earliest,
-    "latest": _resolve_latest,
-    "max": _resolve_max,
-    "max_ranked": _resolve_max_ranked,
-    "union": _resolve_union,
-    # esco_preferred has no row-level esco_uri signal here; longest-value wins.
-    "esco_preferred": _resolve_longest_non_null,
-    "concatenate_unique": _resolve_concatenate_unique,
-    "preserve_existing": _resolve_preserve_existing,
-}
-
-
-def _resolve_field(
-    strategy: FieldStrategy, values: list[Any], ranking: dict[str, int] | None
-) -> Any:
-    resolver = _strategies.get(strategy)
-    if resolver is None:
-        raise ValueError(f"Unknown strategy: {strategy}")
-    return resolver(values, ranking)
-
-
-# 5. Provenance
+# 4. Provenance
 
 
 async def _record_provenance(
@@ -541,7 +442,6 @@ async def _record_provenance(
     kind: str,
     representative_id: UUID,
     merged_ids: list[UUID],
-    merged_payload: dict[str, Any],
 ) -> UUID:
     """Write a :MergeEvent vertex and :MERGED_INTO edges to the graph."""
     event_id = uuid4()
@@ -673,13 +573,9 @@ class EntityResolutionPipeline:
         cluster = max(clusters, key=lambda c: len(c.entity_ids))
         rep_id = cluster.representative_id
 
-        # 4. Merge
-        cluster_rows = [rows[eid] for eid in cluster.entity_ids if eid in rows]
-        merged_payload = _apply_field_rules(er_cfg.field_rules, cluster_rows)
-        # Ensure the representative id survives
-        merged_payload["id"] = str(rep_id)
-
-        # 5. Provenance
+        # 4. Provenance — record the merge event. The representative entity's
+        # fields are resolved + persisted by the caller via merge_rules.merge_for
+        # → crud.update (RLS/events/embeddings); ER only decides the merge target.
         merged_ids = [eid for eid in cluster.entity_ids if eid != rep_id]
         event_id: UUID | None = None
         if merged_ids:
@@ -690,7 +586,6 @@ class EntityResolutionPipeline:
                     kind=kind,
                     representative_id=rep_id,
                     merged_ids=merged_ids,
-                    merged_payload=merged_payload,
                 )
             except Exception as exc:
                 logger.warning("provenance_graph_write_failed", error=str(exc))

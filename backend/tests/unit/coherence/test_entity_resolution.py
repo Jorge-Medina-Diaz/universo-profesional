@@ -2,28 +2,14 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from uuid import UUID, uuid4
-
-import pytest
+from uuid import uuid4
 
 from src.coherence.application.entity_resolution import (
-    Cluster,
     MatchCandidate,
     PairwiseScore,
     ResolutionResult,
-    _apply_field_rules,
     _cluster_matches,
     _extract_date,
-    _resolve_concatenate_unique,
-    _resolve_earliest,
-    _resolve_esco_preferred,
-    _resolve_field,
-    _resolve_latest,
-    _resolve_longest_non_null,
-    _resolve_max,
-    _resolve_max_ranked,
-    _resolve_preserve_existing,
-    _resolve_union,
     _to_date,
     _to_number,
 )
@@ -49,70 +35,6 @@ class TestClusterMatches:
         clusters = _cluster_matches([(a, b, 0.9), (b, c, 0.9)], 0.5)
         assert len(clusters) == 1
         assert clusters[0].entity_ids == {a, b, c}
-
-
-class TestApplyFieldRules:
-    def test_empty_rows(self):
-        from src.coherence.domain.er_rules import FieldRule
-
-        result = _apply_field_rules((FieldRule(field="name", strategy="longest_non_null"),), [])
-        assert result == {}
-
-    def test_longest_non_null(self):
-        from src.coherence.domain.er_rules import FieldRule
-
-        rules = (FieldRule(field="name", strategy="longest_non_null"),)
-        rows = [{"name": "Py"}, {"name": "Python"}]
-        result = _apply_field_rules(rules, rows)
-        assert result["name"] == "Python"
-
-
-class TestResolveStrategies:
-    def test_longest_non_null(self):
-        assert _resolve_longest_non_null(["aa", "bbb", "c"], None) == "bbb"
-
-    def test_earliest(self):
-        assert _resolve_earliest([date(2024, 1, 1), date(2023, 6, 1)], None) == date(2023, 6, 1)
-
-    def test_earliest_fallback_to_first(self):
-        assert _resolve_earliest(["not-a-date"], None) == "not-a-date"
-
-    def test_latest(self):
-        assert _resolve_latest([date(2024, 1, 1), date(2023, 6, 1)], None) == date(2024, 1, 1)
-
-    def test_max(self):
-        assert _resolve_max([3, 7, 2], None) == 7.0
-
-    def test_max_ranked(self):
-        assert _resolve_max_ranked(["basic", "expert"], {"basic": 1, "expert": 4}) == "expert"
-
-    def test_max_ranked_raises_without_ranking(self):
-        with pytest.raises(ValueError):
-            _resolve_max_ranked(["a", "b"], None)
-
-    def test_union(self):
-        assert _resolve_union([["a", "b"], ["b", "c"]], None) == ["a", "b", "c"]
-
-    def test_union_scalar(self):
-        assert _resolve_union(["a", "b"], None) == ["a", "b"]
-
-    def test_esco_preferred(self):
-        assert _resolve_esco_preferred(["short", "much longer text"], None) == "much longer text"
-
-    def test_concatenate_unique(self):
-        assert _resolve_concatenate_unique(["hello", "world"], None) == "hello\n\nworld"
-
-    def test_concatenate_unique_dedupes(self):
-        assert _resolve_concatenate_unique(["hello", "hello"], None) == "hello"
-
-    def test_preserve_existing(self):
-        assert _resolve_preserve_existing(["first", "second"], None) == "first"
-
-
-class TestResolveField:
-    def test_unknown_strategy_raises(self):
-        with pytest.raises(ValueError):
-            _resolve_field("no_such_strategy", ["a"], None)
 
 
 class TestExtractDate:
