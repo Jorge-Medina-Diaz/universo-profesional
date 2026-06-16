@@ -1,5 +1,0 @@
-INTENT_EXPAND_UNIVERSE = "expand_universe"
-INTENT_DISCOVER_PROFILE = "discover_profile"
-INTENT_EXPLORE_GRAPH = "explore_graph"
-INTENT_GENERATE_DOCUMENT = "generate_document"
-INTENT_GENERAL_CHAT = "general_chat"

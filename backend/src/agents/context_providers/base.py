@@ -12,7 +12,6 @@ scaling).
 """
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Any
 from uuid import UUID
 
@@ -38,19 +37,6 @@ class BaseContextProvider:
         self._user_id = user_id
 
     # ------------------------------------------------------------------
-    # Tool surface — overridden by each provider
-    # ------------------------------------------------------------------
-
-    def get_tools(self) -> list[Callable[..., Any]]:
-        """Return the list of Agno tools this provider exposes.
-
-        The Intent Router uses this to decide which provider can handle a
-        user intent.  Each tool is a callable decorated with @tool or a
-        plain async function that Agno will wrap.
-        """
-        return []
-
-    # ------------------------------------------------------------------
     # Memory context — injected into the agent system prompt
     # ------------------------------------------------------------------
 
@@ -72,64 +58,6 @@ class BaseContextProvider:
             for r in rules:
                 parts.append(f"- Si '{r['trigger_pattern']}' → {r['action_rule']} (éxito {r['success_rate']:.0%})")
         return "\n".join(parts) if parts else ""
-
-    # ------------------------------------------------------------------
-    # Self-learning hooks
-    # ------------------------------------------------------------------
-
-    async def record_feedback(
-        self,
-        *,
-        trigger: str,
-        expected_action: str,
-        actual_action: str,
-        was_correct: bool,
-    ) -> None:
-        """Store a correction so the agent improves next time.
-
-        Called by the HITL layer or by explicit user feedback (thumbs up/down).
-        """
-        from datetime import UTC, datetime
-
-        from src.agents.memory.structured_memory import UserProceduralMemoryOrm
-
-        if was_correct:
-            # Reinforce existing rule or create a positive one
-            rule = UserProceduralMemoryOrm(
-                user_id=self._user_id,
-                scope=self.memory_scope,
-                trigger_pattern=trigger,
-                action_rule=expected_action,
-                hit_count=1,
-                success_rate=1.0,
-                active=True,
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
-            )
-            self._session.add(rule)
-            await self._session.flush()
-            logger.info(
-                "procedural_memory_recorded",
-                user_id=str(self._user_id),
-                scope=self.memory_scope,
-                trigger=trigger,
-            )
-        else:
-            # Negative example: either create a "do NOT" rule or deactivate
-            # a conflicting positive rule.
-            rule = UserProceduralMemoryOrm(
-                user_id=self._user_id,
-                scope=self.memory_scope,
-                trigger_pattern=trigger,
-                action_rule=f"NO HACER: {actual_action}. En su lugar: {expected_action}",
-                hit_count=1,
-                success_rate=0.0,
-                active=True,
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
-            )
-            self._session.add(rule)
-            await self._session.flush()
 
     # ------------------------------------------------------------------
     # Internal helpers
