@@ -1,38 +1,41 @@
-"""Unit tests for activity_log pure helpers."""
+"""Unit tests for the serialization activity_log uses (jsonify + compact JSON)."""
 from __future__ import annotations
 
+import json
 from datetime import date, datetime
 from uuid import uuid4
 
-from src.shared.activity_log import _coerce, _json_encode
+from src.shared.serialization import jsonify
 
 
-class TestActivityLogCoerce:
+class TestJsonify:
     def test_datetime(self):
         dt = datetime(2024, 1, 1, 12, 0)
-        assert _coerce(dt) == "2024-01-01T12:00:00"
+        assert jsonify(dt) == "2024-01-01T12:00:00"
 
     def test_date(self):
         d = date(2024, 1, 1)
-        assert _coerce(d) == "2024-01-01"
+        assert jsonify(d) == "2024-01-01"
 
     def test_uuid(self):
         u = uuid4()
-        assert _coerce(u) == str(u)
+        assert jsonify(u) == str(u)
 
     def test_dict(self):
         u = uuid4()
-        assert _coerce({"a": u}) == {"a": str(u)}
+        assert jsonify({"a": u}) == {"a": str(u)}
 
     def test_primitive(self):
-        assert _coerce(42) == 42
+        assert jsonify(42) == 42
 
 
-class TestJsonEncode:
+class TestCompactJson:
+    """activity_log persists payloads as json.dumps(..., separators=(',', ':'))."""
+
     def test_encodes_dict(self):
-        assert _json_encode({"a": 1}) == '{"a":1}'
+        assert json.dumps({"a": 1}, default=str, separators=(",", ":")) == '{"a":1}'
 
     def test_encodes_with_uuid(self):
         u = uuid4()
-        result = _json_encode({"id": u})
+        result = json.dumps(jsonify({"id": u}), default=str, separators=(",", ":"))
         assert str(u) in result
