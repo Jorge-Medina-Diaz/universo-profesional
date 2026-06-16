@@ -1,5 +1,35 @@
 name: cvs-saas
 
+# Env shared by the backend API and the arq worker — the worker runs the same
+# LLM/embedding/OAuth-sync/email tasks, so it needs the same providers + secrets.
+x-shared-env: &shared-env
+  # Runtime connects as the RLS-subject role (NOSUPERUSER NOBYPASSRLS).
+  DATABASE_URL: postgresql+asyncpg://cvs_app:cvs_app_dev_password@postgres:5432/cvs
+  REDIS_URL: redis://redis:6379/0
+  STORAGE_ROOT: /app/var/documents
+  CANONICAL_BASE_URL: http://localhost:8000
+  PYTHONUNBUFFERED: "1"
+  ENV: ${ENV:-development}
+  LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+  EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER:-deterministic}
+  AGENTS_PROVIDER: ${AGENTS_PROVIDER:-mock}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-}
+  EMAIL_HOST: mailhog
+  EMAIL_PORT: 1025
+  EMAIL_PROVIDER: ${EMAIL_PROVIDER:-mock}
+  EMAIL_FROM: ${EMAIL_FROM:-no-reply@cvs-saas.local}
+  EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Universo Profesional}
+  BREVO_API_KEY: ${BREVO_API_KEY:-}
+  BRIGHTDATA_API_KEY: ${BRIGHTDATA_API_KEY:-}
+  BRIGHTDATA_DATASET_ID: ${BRIGHTDATA_DATASET_ID:-gd_l1viktl72bvl7bjuj0}
+  LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
+  LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
+  LINKEDIN_DMA_ENABLED: ${LINKEDIN_DMA_ENABLED:-false}
+  GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+  GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+
 services:
   postgres:
     image: ${POSTGRES_IMAGE:-ghcr.io/jorge/cvs-postgres:latest}
@@ -93,44 +123,19 @@ services:
     restart: unless-stopped
     container_name: cvs-backend
     environment:
-      # Runtime connects as the RLS-subject role (NOSUPERUSER NOBYPASSRLS);
+      <<: *shared-env
       # alembic keeps the owner role via DATABASE_URL_SYNC (DDL rights).
-      DATABASE_URL: postgresql+asyncpg://cvs_app:cvs_app_dev_password@postgres:5432/cvs
       DATABASE_URL_SYNC: postgresql://cvs:cvs_dev_password@postgres:5432/cvs
-      # AgentOS ops substrate mounted at /os (P1.B). Dev-on to exercise it.
+      # AgentOS ops substrate (P1.B) + tier-routed coordinator (P1.E) — dev-on.
       AGENTOS_ENABLED: ${AGENTOS_ENABLED:-true}
-      # Tier-routed coordinator (P1.E). Dev-on to exercise it.
       AGENTS_TIER_ROUTING_ENABLED: ${AGENTS_TIER_ROUTING_ENABLED:-true}
-      REDIS_URL: redis://redis:6379/0
-      EMAIL_HOST: mailhog
-      EMAIL_PORT: 1025
       JWT_PRIVATE_KEY_PATH: /app/var/keys/jwt_private.pem
       JWT_PUBLIC_KEY_PATH: /app/var/keys/jwt_public.pem
-      STORAGE_ROOT: /app/var/documents
-      CANONICAL_BASE_URL: http://localhost:8000
       FRONTEND_BASE_URL: http://localhost:5173
-      PYTHONUNBUFFERED: "1"
       PYTHONDONTWRITEBYTECODE: "1"
-      # Providers — overridable from .env. Defaults keep dev offline. With the
-      # unified resolution, a bare ANTHROPIC_API_KEY/OPENAI_API_KEY already
-      # upgrades agents+llm+embeddings even if these stay at their defaults.
-      ENV: ${ENV:-development}
-      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
-      EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER:-deterministic}
-      AGENTS_PROVIDER: ${AGENTS_PROVIDER:-mock}
       AGENTS_COORDINATOR_MODEL: ${AGENTS_COORDINATOR_MODEL:-claude-sonnet-4-6}
       AGENTS_SPECIALIST_MODEL: ${AGENTS_SPECIALIST_MODEL:-claude-haiku-4-5-20251001}
       AUTO_VERIFY_EMAILS_IN_DEV: ${AUTO_VERIFY_EMAILS_IN_DEV:-false}
-      # Secrets pulled from .env (raíz del repo, gitignored). Empty string when
-      # not set, which keeps the *_configured flags `false` in the status probe.
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-}
-      # Email (real provider when EMAIL_PROVIDER=brevo)
-      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-mock}
-      EMAIL_FROM: ${EMAIL_FROM:-no-reply@cvs-saas.local}
-      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Universo Profesional}
-      BREVO_API_KEY: ${BREVO_API_KEY:-}
       # Stripe (real when STRIPE_PROVIDER=real)
       STRIPE_PROVIDER: ${STRIPE_PROVIDER:-mock}
       STRIPE_API_KEY: ${STRIPE_API_KEY:-}
@@ -139,14 +144,6 @@ services:
       STRIPE_PRICE_PRO_MONTHLY: ${STRIPE_PRICE_PRO_MONTHLY:-}
       STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-}
       STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:-}
-      # Integrations (OAuth + scraping)
-      BRIGHTDATA_API_KEY: ${BRIGHTDATA_API_KEY:-}
-      BRIGHTDATA_DATASET_ID: ${BRIGHTDATA_DATASET_ID:-gd_l1viktl72bvl7bjuj0}
-      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
-      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
-      LINKEDIN_DMA_ENABLED: ${LINKEDIN_DMA_ENABLED:-false}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
     ports:
       - "8000:8000"
     volumes:
@@ -171,36 +168,10 @@ services:
     restart: unless-stopped
     container_name: cvs-worker
     environment:
-      # Same RLS-subject role as the backend; service-scope tasks bypass via
-      # the app.bypass_rls policy flag, not via role privileges.
-      DATABASE_URL: postgresql+asyncpg://cvs_app:cvs_app_dev_password@postgres:5432/cvs
-      REDIS_URL: redis://redis:6379/0
-      STORAGE_ROOT: /app/var/documents
-      CANONICAL_BASE_URL: http://localhost:8000
-      PYTHONUNBUFFERED: "1"
-      ENV: ${ENV:-development}
-      # The worker runs LLM extraction, embedding refresh, OAuth-token-
-      # decrypting syncs and email sends — so it needs the SAME secrets as
-      # the backend (it had none before, silently no-op'ing those tasks).
-      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
-      EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER:-deterministic}
-      AGENTS_PROVIDER: ${AGENTS_PROVIDER:-mock}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-}
-      EMAIL_HOST: mailhog
-      EMAIL_PORT: 1025
-      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-mock}
-      EMAIL_FROM: ${EMAIL_FROM:-no-reply@cvs-saas.local}
-      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Universo Profesional}
-      BREVO_API_KEY: ${BREVO_API_KEY:-}
-      BRIGHTDATA_API_KEY: ${BRIGHTDATA_API_KEY:-}
-      BRIGHTDATA_DATASET_ID: ${BRIGHTDATA_DATASET_ID:-gd_l1viktl72bvl7bjuj0}
-      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
-      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
-      LINKEDIN_DMA_ENABLED: ${LINKEDIN_DMA_ENABLED:-false}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      # Same providers + secrets as the backend — the worker runs LLM extraction,
+      # embedding refresh, OAuth-token-decrypting syncs and email sends. (It had
+      # none before, silently no-op'ing those tasks.) See x-shared-env.
+      <<: *shared-env
     volumes:
       - ./backend:/app
       - backend_var:/app/var
