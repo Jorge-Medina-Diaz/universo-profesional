@@ -18,6 +18,7 @@ exploited as job-tailored CVs and a twin that answers recruiters when you're not
 ![mypy](https://img.shields.io/badge/mypy-strict-2A6DB2?style=flat-square)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-A42E2B?style=flat-square)
 ![status](https://img.shields.io/badge/status-portfolio_build_not_deployed-64748B?style=flat-square)
+[![CI](https://github.com/Jorge-Medina-Diaz/universo-profesional/actions/workflows/ci.yml/badge.svg)](https://github.com/Jorge-Medina-Diaz/universo-profesional/actions/workflows/ci.yml)
 
 [Feed it](#layer-1--feeding-it-costs-one-conversation) ·
 [Exploit it](#layer-2--what-the-memory-does-for-you) ·
@@ -410,9 +411,15 @@ is unfinished — the difference matters, so here it is straight.
   property filter inside Cypher plus label and edge allowlists enforced at the text2cypher
   validator and the edge-write chokepoint. Defense in depth — but not the database enforcing it.
 - **Two CI gates run as ratchets, not pass/fail.** The pipeline had never executed once — no
-  remote meant no CI — so the first run was also the first measurement, and it found real bugs
-  (see below). Fully green now: `ruff` (**0**, from 393), `import-linter`, and the entire
-  frontend job. Still ratcheting: **`mypy` at 180 errors** (from 541) and **`pytest` at 52
+  remote meant no CI — so its first run was also its first measurement. It found twelve real
+  defects, none of them flaky: a GHCR reference that rendered with a capital letter and so
+  could never be pulled, 28 vulnerable lockfile pins and 37 more in the frontend image, an e2e
+  job that started a backend which never served and then waited on it forever, CI resolving
+  Python 3.14 while every image ships 3.13 — and several tests that had been *passing for the
+  wrong reason*, including one asserting against a navigation link instead of the page it
+  claimed to test. All four jobs pass now. Hard gates: `ruff` (**0**, from 393),
+  `import-linter`, Trivy (filesystem + both images), the frontend job, and the full Playwright
+  suite. Still ratcheting: **`mypy` at 180 errors** (from 541) and **`pytest` at 52
   failures out of 918** (866 pass). Those two steps fail the build if the number goes *up*, so
   it can only decrease — the standard way to adopt a gate on a codebase that predates it. The
   ceilings live in `ci.yml` and lowering them is the ongoing work. Nothing was suppressed to
