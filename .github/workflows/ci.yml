@@ -151,11 +151,19 @@ jobs:
           mkdir -p /tmp/cvs-docs
           set +e
           OUT=$(uv run pytest -m requires_age --collect-only -q 2>&1)
+          RC=$?
           set -e
-          echo "$OUT" | tail -25
-          COUNT=$(echo "$OUT" | grep -c "::")
+          echo "$OUT"
+          # `grep -c` exits 1 on zero matches, so it needs `|| true` even though
+          # we only want the number — without it this line aborts the step under
+          # `set -e` before anything gets reported.
+          COUNT=$(echo "$OUT" | grep -c "::" || true)
+          if [ "$COUNT" -lt 3 ]; then
+            # Surface the reason as an annotation, not just in the log body.
+            echo "::error::requires_age collection failed (pytest rc=$RC, matches=$COUNT) :: $(echo "$OUT" | grep -vE '^\s*$' | tail -6 | tr '\n' ' ~ ')"
+            exit 1
+          fi
           echo "::notice::requires_age tests collected: $COUNT"
-          test "$COUNT" -ge 3
       # Test suite — RATCHET, same rationale as mypy above. 867 pass, 51 fail
       # (the suite had literally never been executed: no remote, so no CI). The
       # build fails if the failure count goes UP. Lower the ceiling as they are
