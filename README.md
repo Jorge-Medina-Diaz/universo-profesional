@@ -390,8 +390,11 @@ is unfinished — the difference matters, so here it is straight.
   The one exception is the agent chat: the mock LLM refuses rather than fabricating a career for
   you, so that single feature needs a real key. Set `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` and the
   providers auto-resolve — no other config change.
-- ESCO ships as a ~266-occupation sample; the full corpus (~3k occupations, ~14k skills) is
-  seeded separately.
+- The bundled ESCO corpus is a **synthetic stand-in**, not real ESCO data. It seeds 200
+  placeholder occupations, 300 skills and 40 ISCO groups (`Occupation 1`, `Skill 2`, …) so the
+  linking pipeline has something to run against offline. The real corpus (~3k occupations,
+  ~14k skills) is downloaded and seeded separately; entity linking only produces meaningful
+  labels with it.
 
 **Unfinished**
 
