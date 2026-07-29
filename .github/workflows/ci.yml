@@ -333,6 +333,10 @@ jobs:
           # when is_dev or is_test, and validate_production_ready() rejects it
           # outright under ENV=production.
           AUTO_VERIFY_EMAILS_IN_DEV: "true"
+          # Auth endpoints allow 10 requests / 15 min. One e2e run spends ~7 of
+          # them (global-setup register+login, plus auth.spec), so a single
+          # Playwright retry tips it into 429s that look like auth bugs.
+          RATE_LIMIT_ENABLED: "false"
           STORAGE_ROOT: /tmp/cvs-docs
           JWT_PRIVATE_KEY_PATH: /tmp/cvs-keys/jwt_priv.pem
           JWT_PUBLIC_KEY_PATH: /tmp/cvs-keys/jwt_pub.pem

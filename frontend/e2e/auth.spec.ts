@@ -12,7 +12,10 @@ async function dismissCookies(page: import("@playwright/test").Page) {
 
 test.describe.serial("Auth flow", () => {
   // Auth tests start from a clean browser state (no pre-seeded session).
-  test.use({ storageState: undefined });
+  // Must be an explicit empty state: `storageState: undefined` means "use the
+  // default" in Playwright, so it inherited the signed-in state from the config
+  // and these tests ran authenticated.
+  test.use({ storageState: { cookies: [], origins: [] } });
 
   test("register a new account", async ({ page }) => {
     await page.goto("/#/register");

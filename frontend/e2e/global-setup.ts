@@ -36,8 +36,9 @@ export default async function globalSetup() {
   if (!loginRes.ok() || !body.access_token) {
     throw new Error(
       `global-setup: login failed (HTTP ${loginRes.status()}): ${JSON.stringify(body)}. ` +
-        `The backend must accept the freshly registered account — set ` +
-        `AUTO_VERIFY_EMAILS_IN_DEV=true, or verify the account before logging in.`,
+        `The backend must accept the freshly registered account. Common causes: ` +
+        `401 "Email not verified" (set AUTO_VERIFY_EMAILS_IN_DEV=true), or ` +
+        `429 (auth is rate-limited to 10 requests / 15 min — set RATE_LIMIT_ENABLED=false).`,
     );
   }
 
