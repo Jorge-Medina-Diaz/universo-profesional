@@ -322,8 +322,24 @@ jobs:
           OPENAI_API_KEY: ""
         run: |
           mkdir -p /tmp/cvs-docs
-          uv run python -m src.main &
-          until curl -sf http://localhost:8000/healthz; do sleep 1; done
+          # `python -m src.main` imported the module and exited: main.py only
+          # does `app = create_app()`, with no __main__ block and no
+          # uvicorn.run. Nothing ever listened on :8000, and the wait below was
+          # an unbounded `until curl`, so this step spun until the job's 30 min
+          # timeout — the e2e job could never pass. Use the same command
+          # docker-compose uses, and bound the wait so a dead backend fails
+          # fast and prints its log instead of hanging.
+          uv run uvicorn src.main:app --host 0.0.0.0 --port 8000 > /tmp/backend.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8000/healthz >/dev/null && break
+            sleep 2
+          done
+          if ! curl -sf http://localhost:8000/healthz; then
+            echo "::error::backend did not become healthy within 120s"
+            cat /tmp/backend.log
+            exit 1
+          fi
+          echo "backend healthy"
       - name: Install frontend deps
         working-directory: frontend
         run: npm install --include=dev
