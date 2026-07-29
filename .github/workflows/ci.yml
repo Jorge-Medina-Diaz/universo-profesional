@@ -30,11 +30,13 @@ jobs:
         # foundation migration runs `CREATE EXTENSION age` unguarded, so against
         # the vanilla pgvector image `alembic upgrade head` would fail and no
         # AGE-dependent code path would ever run in CI (the divergence the audit
-        # flagged). credentials let the service pull the package via GITHUB_TOKEN.
-        image: ghcr.io/${{ github.repository_owner }}/cvs-postgres:pg16
-        credentials:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+        # flagged). The package is public, so no pull credentials are needed.
+        # Owner is hardcoded lowercase on purpose: `github.repository_owner`
+        # renders as `Jorge-Medina-Diaz`, and Docker rejects any uppercase in a
+        # repository name ("must be lowercase"), so the service container failed
+        # to initialize before a single step could run. The publish workflow gets
+        # away with the expression because metadata-action lowercases for you.
+        image: ghcr.io/jorge-medina-diaz/cvs-postgres:pg16
         env:
           POSTGRES_USER: cvs
           POSTGRES_PASSWORD: cvs_dev_password
@@ -220,11 +222,13 @@ jobs:
         # foundation migration runs `CREATE EXTENSION age` unguarded, so against
         # the vanilla pgvector image `alembic upgrade head` would fail and no
         # AGE-dependent code path would ever run in CI (the divergence the audit
-        # flagged). credentials let the service pull the package via GITHUB_TOKEN.
-        image: ghcr.io/${{ github.repository_owner }}/cvs-postgres:pg16
-        credentials:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+        # flagged). The package is public, so no pull credentials are needed.
+        # Owner is hardcoded lowercase on purpose: `github.repository_owner`
+        # renders as `Jorge-Medina-Diaz`, and Docker rejects any uppercase in a
+        # repository name ("must be lowercase"), so the service container failed
+        # to initialize before a single step could run. The publish workflow gets
+        # away with the expression because metadata-action lowercases for you.
+        image: ghcr.io/jorge-medina-diaz/cvs-postgres:pg16
         env:
           POSTGRES_USER: cvs
           POSTGRES_PASSWORD: cvs_dev_password
