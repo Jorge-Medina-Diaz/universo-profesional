@@ -205,22 +205,25 @@ class UniverseGraphService:
         # Best-effort idempotency: find an active edge, otherwise create.
         # The edge_type is interpolated (it's a Cypher relationship type,
         # not a value), validated against the ontology allowlist above.
-        # AGE 1.5.0 doesn't support MERGE … ON CREATE SET — use COALESCE.
-        query = f"""
+        #
+        # TWO statements, deliberately. AGE 1.5 silently DROPS a `SET` that
+        # follows a `MERGE` which *creates* a relationship: the edge lands with
+        # `properties: {}` and no error. Node MERGE is unaffected, which is why
+        # this hid for so long — vertices always looked right. An edge born
+        # without `source`/`valid_from` is invisible to every maintenance pass
+        # that filters on them (notably the enrichment expiry, which matches
+        # `r.source = 'inferred'`), so stale inferred edges could never expire.
+        # Splitting it means the second statement MATCHes an edge that already
+        # exists, where SET does persist.
+        # AGE 1.5.0 also lacks MERGE … ON CREATE SET — hence the COALESCEs.
+        merge_query = f"""
         MATCH (a {{id: $src, user_id: $user_id}}),
               (b {{id: $dst, user_id: $user_id}})
         MERGE (a)-[r:{edge_type}]->(b)
-        SET r.created_at = COALESCE(r.created_at, $now),
-            r.valid_from = COALESCE(r.valid_from, $now),
-            r.updated_at = $now,
-            r.valid_to = NULL,
-            r.confidence = $confidence,
-            r.source = $source,
-            r.properties = $properties
         RETURN r
         """
         rows = await self._graph_repo.execute(
-            session, schema.GRAPH_PERSONAL, query, params=params, column_defs="r agtype"
+            session, schema.GRAPH_PERSONAL, merge_query, params=params, column_defs="r agtype"
         )
         if not rows:
             logger.warning(
@@ -230,6 +233,22 @@ class UniverseGraphService:
                 target_id=str(target_id),
             )
             return False
+
+        set_query = f"""
+        MATCH (a {{id: $src, user_id: $user_id}})-[r:{edge_type}]->
+              (b {{id: $dst, user_id: $user_id}})
+        SET r.created_at = COALESCE(r.created_at, $now),
+            r.valid_from = COALESCE(r.valid_from, $now),
+            r.updated_at = $now,
+            r.valid_to = NULL,
+            r.confidence = $confidence,
+            r.source = $source,
+            r.properties = $properties
+        RETURN r
+        """
+        await self._graph_repo.execute(
+            session, schema.GRAPH_PERSONAL, set_query, params=params, column_defs="r agtype"
+        )
         return True
 
     async def expire_edge(

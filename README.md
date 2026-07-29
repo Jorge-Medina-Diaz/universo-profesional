@@ -329,7 +329,7 @@ The decisions that matter more than the lane list:
 | **Retrieval** | 5 lanes · RRF k=60 · pool 40 → top_k |
 | **MCP** | 33 tools · 21 OAuth scopes · spec 2025-11-25 |
 | **Background** | 13 arq jobs · nightly curator sweep · transactional outbox |
-| **Tests** | 115 test files across unit / integration / e2e |
+| **Tests** | 104 test files · 855 test functions across unit / integration / e2e |
 | **CI** | ruff (17 rule families incl. bandit) · mypy strict · import-linter · pytest · vitest · Playwright · Trivy fs + image — see [Honest status](#honest-status) |
 
 **The hard parts**
@@ -344,6 +344,13 @@ The decisions that matter more than the lane list:
   silent `ROLLBACK`, discarding hundreds of inferred edges while the endpoint still returned
   `{"status": "ok"}`. It now runs inside a savepoint. A `try/except` around DB work is not
   error handling.
+- **A graph engine that dropped writes without erroring.** Apache AGE 1.5 silently discards a
+  `SET` that follows a `MERGE` which *creates* a relationship — the edge lands with
+  `properties: {}`. Node `MERGE` is unaffected, so vertices always looked right and this hid
+  behind them. Every edge was therefore born with no `source`, `confidence` or `valid_from`,
+  making it invisible to the maintenance passes that filter on those — the bi-temporal model was
+  decorative for any edge that had only been written once. Fixed by splitting the statement, with
+  an integration test that runs against real AGE, because no mock can reproduce an engine quirk.
 - **Transactional outbox for embeddings.** `FOR UPDATE SKIP LOCKED`, first-run fast-forward,
   contiguous-only cursor advance, and an `ingestion_to_queryable_seconds` SLO histogram.
 - **A self-hosted OAuth 2.1 Authorization Server.** PKCE + Dynamic Client Registration,
@@ -397,8 +404,6 @@ is unfinished — the difference matters, so here it is straight.
 - **RLS does not cover the Apache AGE label tables.** Tenant isolation there is a `user_id`
   property filter inside Cypher plus label and edge allowlists enforced at the text2cypher
   validator and the edge-write chokepoint. Defense in depth — but not the database enforcing it.
-- Inferred `RELATED_TO` edges written before `source` was recorded can never expire, because the
-  expiry pass filters on `source = 'inferred'`. Known, not yet fixed.
 - **The CI pipeline has never actually executed.** This repo had no remote until it was
   published, so `.github/workflows/ci.yml` describes what *will* run — it is not a green
   history. Measured right now: the frontend's `tsc --noEmit` is clean, but `ruff check src tests`
