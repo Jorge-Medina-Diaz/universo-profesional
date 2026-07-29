@@ -282,7 +282,7 @@ también.  Se puede ampliar añadiendo entradas a `_CUSTOM_SKILLS`.
 
 ### Ingestar ESCO
 
-El seeding es automático al levantar Docker Compose (`cvs-esco-seed`).
+El seeding es automático al levantar Docker Compose (servicio `seed`, contenedor `cvs-seed`, que carga ESCO y las rúbricas).
 Para forzar una re-ingesta manual:
 
 ```bash

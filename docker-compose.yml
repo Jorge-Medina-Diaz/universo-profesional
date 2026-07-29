@@ -96,9 +96,9 @@ services:
   # --- One-shot bootstrap: schema, then the runtime role, then seed data -----
   # Order is load-bearing and mirrors scripts/deploy_local_prod.sh:
   #   migrate (owner, creates tables) -> db-bootstrap (grants on those tables)
-  #   -> esco-seed (writes into them) -> backend/worker (connect as cvs_app).
-  # Without this chain a fresh clone deadlocks: esco-seed queries a table that
-  # does not exist yet, so it fails; backend waits on esco-seed completing, so
+  #   -> seed (ESCO + rubrics) -> backend/worker (connect as cvs_app).
+  # Without this chain a fresh clone deadlocks: the seed queries a table that
+  # does not exist yet, so it fails; backend waits on the seed completing, so
   # it never starts; and `docker compose exec backend alembic upgrade head`
   # cannot run because there is no backend container to exec into.
   migrate:
@@ -139,12 +139,12 @@ services:
              psql -h postgres -U cvs -d cvs -q -c \"ALTER ROLE cvs_app PASSWORD 'cvs_app_dev_password'\""
     restart: on-failure
 
-  esco-seed:
+  seed:
     build:
       context: ./backend
       dockerfile: ../docker/backend.Dockerfile
       target: runtime
-    container_name: cvs-esco-seed
+    container_name: cvs-seed
     environment:
       DATABASE_URL: postgresql+asyncpg://cvs:cvs_dev_password@postgres:5432/cvs
       DATABASE_URL_SYNC: postgresql://cvs:cvs_dev_password@postgres:5432/cvs
@@ -162,8 +162,13 @@ services:
     depends_on:
       db-bootstrap:
         condition: service_completed_successfully
+    # Both corpora. The rubric ingest existed in full — parser, ORM, repository,
+    # orchestrator, and the agent's search_rubrics tool — but nothing ever called
+    # it, so backend/rubrics/ (44 documents) never loaded and the tool queried an
+    # empty table. Both seeds are idempotent: they skip unchanged content.
     command: >
-      sh -c "python -m scripts.seed_esco --sample-only"
+      sh -c "python -m scripts.seed_esco --sample-only &&
+             python -m scripts.seed_rubrics"
     restart: on-failure
 
   backend:
@@ -211,7 +216,7 @@ services:
         condition: service_healthy
       mailhog:
         condition: service_started
-      esco-seed:
+      seed:
         condition: service_completed_successfully
     command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/src
 
@@ -238,7 +243,7 @@ services:
       # does — otherwise it crash-loops until the role exists.
       redis:
         condition: service_healthy
-      esco-seed:
+      seed:
         condition: service_completed_successfully
     command: arq src.shared.worker.WorkerSettings
 

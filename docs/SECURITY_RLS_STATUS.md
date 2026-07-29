@@ -66,7 +66,7 @@ Keep **migrations** on the owner (`cvs`, DDL rights); point only the
 **app + worker runtime** at `cvs_app`:
 
 - dev: done in `docker-compose.yml` (backend + worker `DATABASE_URL` →
-  `cvs_app`; `DATABASE_URL_SYNC` stays on `cvs`; `esco-seed` stays on `cvs`).
+  `cvs_app`; `DATABASE_URL_SYNC` stays on `cvs`; `seed` stays on `cvs`).
 - prod (Fly): provision the role + grants on the prod DB, then
   `fly secrets set DATABASE_URL=postgresql+asyncpg://cvs_app:...` on the
   API and worker apps. `DATABASE_URL_SYNC` (alembic release step) stays on

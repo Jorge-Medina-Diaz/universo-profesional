@@ -35,10 +35,10 @@ tag (see [`.github/workflows/publish-postgres.yml`](../.github/workflows/publish
 fixed order, and the app only starts once each step has finished:
 
 ```
-postgres  →  migrate  →  db-bootstrap  →  esco-seed  →  backend + worker + frontend
- (health)    (alembic     (creates the     (ESCO
-             upgrade      cvs_app RLS      ontology
-             head)        role + grants)   sample)
+postgres  →  migrate  →  db-bootstrap  →  seed  →  backend + worker + frontend
+ (health)    (alembic     (creates the     (ESCO sample
+             upgrade      cvs_app RLS      + 44 rubric
+             head)        role + grants)   documents)
 ```
 
 Watch it settle:
@@ -99,7 +99,7 @@ That creates ~29 entities and publishes a public twin at
 | LinkedIn ZIP import, PDF CV import | ✅ | Parsed locally |
 | Billing | ✅ | Mock — Upgrade simulates the webhook |
 | Reminders, suggestions, notifications | ✅ | No LLM needed |
-| ESCO ontology | ✅ | ~266-occupation sample seeded automatically |
+| ESCO ontology + rubrics | ✅ | 200-occupation synthetic sample + 44 rubric documents, seeded automatically |
 | Rate limiting, security headers, GDPR export/delete | ✅ | |
 | **Agent chat** | ⚠️ | Needs a real LLM key — see below |
 
