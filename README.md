@@ -412,8 +412,8 @@ is unfinished — the difference matters, so here it is straight.
 - **Two CI gates run as ratchets, not pass/fail.** The pipeline had never executed once — no
   remote meant no CI — so the first run was also the first measurement, and it found real bugs
   (see below). Fully green now: `ruff` (**0**, from 393), `import-linter`, and the entire
-  frontend job. Still ratcheting: **`mypy` at 180 errors** (from 541) and **`pytest` at 51
-  failures out of 918** (867 pass). Those two steps fail the build if the number goes *up*, so
+  frontend job. Still ratcheting: **`mypy` at 180 errors** (from 541) and **`pytest` at 52
+  failures out of 918** (866 pass). Those two steps fail the build if the number goes *up*, so
   it can only decrease — the standard way to adopt a gate on a codebase that predates it. The
   ceilings live in `ci.yml` and lowering them is the ongoing work. Nothing was suppressed to
   get there: every reduction was a structural fix, and what remains is stated rather than
