@@ -43,6 +43,18 @@ class UniverseGraphService:
     holding. The service does not own transactions; the caller commits.
     """
 
+    @property
+    def _repo(self) -> Any:
+        """The wired repository, or a clear error naming what is missing.
+
+        `_graph_repo` is Optional because it is injected after construction;
+        without this guard every call site was a union-attr error and a latent
+        `AttributeError: 'NoneType' has no attribute 'execute'`.
+        """
+        if self._graph_repo is None:
+            raise RuntimeError("UniverseGraphService has no graph repository wired")
+        return self._graph_repo
+
     def __init__(self, graph_repo: GraphRepository | None = None) -> None:
         """Inject a ``GraphRepository`` adapter.
 
@@ -70,7 +82,7 @@ class UniverseGraphService:
         column_defs: str = "result agtype",
     ) -> list[dict[str, Any]]:
         """Run a raw Cypher query through the graph repository."""
-        return await self._graph_repo.execute(session, graph, query, params=params, column_defs=column_defs)
+        return await self._repo.execute(session, graph, query, params=params, column_defs=column_defs)
 
     # ------------------------------------------------------------------
     # Entity nodes
@@ -126,7 +138,7 @@ class UniverseGraphService:
             e.valid_to = NULL
         RETURN e
         """
-        await self._graph_repo.execute(session, schema.GRAPH_PERSONAL, query, params=params)
+        await self._repo.execute(session, schema.GRAPH_PERSONAL, query, params=params)
 
     async def soft_delete_entity(
         self,
@@ -140,7 +152,7 @@ class UniverseGraphService:
         params = {"id": str(entity_id), "user_id": str(user_id), "now": now_iso}
         # Expire the vertex — we don't know the label, so use the generic
         # :Entity fallback (still present for legacy nodes).
-        await self._graph_repo.execute(
+        await self._repo.execute(
             session,
             schema.GRAPH_PERSONAL,
             """
@@ -150,7 +162,7 @@ class UniverseGraphService:
             params=params,
         )
         # Expire incident edges
-        await self._graph_repo.execute(
+        await self._repo.execute(
             session,
             schema.GRAPH_PERSONAL,
             """
@@ -222,7 +234,7 @@ class UniverseGraphService:
         MERGE (a)-[r:{edge_type}]->(b)
         RETURN r
         """
-        rows = await self._graph_repo.execute(
+        rows = await self._repo.execute(
             session, schema.GRAPH_PERSONAL, merge_query, params=params, column_defs="r agtype"
         )
         if not rows:
@@ -246,7 +258,7 @@ class UniverseGraphService:
             r.properties = $properties
         RETURN r
         """
-        await self._graph_repo.execute(
+        await self._repo.execute(
             session, schema.GRAPH_PERSONAL, set_query, params=params, column_defs="r agtype"
         )
         return True
@@ -276,7 +288,7 @@ class UniverseGraphService:
         WHERE r.valid_to IS NULL
         SET r.valid_to = $now
         """
-        await self._graph_repo.execute(session, schema.GRAPH_PERSONAL, query, params=params)
+        await self._repo.execute(session, schema.GRAPH_PERSONAL, query, params=params)
 
     async def invalidate_contradicting_edges(
         self,
@@ -311,7 +323,7 @@ class UniverseGraphService:
         WHERE r.valid_to IS NULL AND b.id <> $keep
         SET r.valid_to = $now
         """
-        await self._graph_repo.execute(session, schema.GRAPH_PERSONAL, query, params=params)
+        await self._repo.execute(session, schema.GRAPH_PERSONAL, query, params=params)
 
     # ------------------------------------------------------------------
     # Read helpers
@@ -325,7 +337,7 @@ class UniverseGraphService:
         user_id: UUID,
     ) -> dict[str, Any] | None:
         """Read a vertex by id, matching any label (typed or legacy :Entity)."""
-        rows = await self._graph_repo.execute(
+        rows = await self._repo.execute(
             session,
             schema.GRAPH_PERSONAL,
             "MATCH (e {id: $id, user_id: $user_id}) RETURN e",
@@ -394,7 +406,7 @@ class UniverseGraphService:
             RETURN DISTINCT n
             LIMIT {limit}
             """
-        rows = await self._graph_repo.execute(
+        rows = await self._repo.execute(
             session,
             schema.GRAPH_PERSONAL,
             query,
