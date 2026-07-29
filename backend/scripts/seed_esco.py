@@ -250,10 +250,16 @@ def main() -> int:
     parser.add_argument("--sample-only", action="store_true", help="Use bundled sample only")
     args = parser.parse_args()
 
-    try:
-        asyncio.run(_run(force=args.force, sample_only=args.sample_only))
-    finally:
-        asyncio.run(dispose_engine())
+    # Dispose INSIDE the same loop. A second asyncio.run() gets a fresh loop and
+    # the engine's asyncpg connections still belong to the first one, which then
+    # dumps a "Event loop is closed" traceback over an otherwise successful seed.
+    async def _main() -> None:
+        try:
+            await _run(force=args.force, sample_only=args.sample_only)
+        finally:
+            await dispose_engine()
+
+    asyncio.run(_main())
     return 0
 
 

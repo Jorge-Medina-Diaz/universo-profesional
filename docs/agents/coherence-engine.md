@@ -22,17 +22,19 @@ blind append.
 backend/src/coherence/
 ├── domain/
 │   ├── upsert_decision.py   # MatchResult, MergePlan, UpsertOutcome
-│   └── merge_rules.py        # one pure function per entity
+│   ├── merge_rules.py       # one pure function per entity
+│   └── er_rules.py          # ErConfig: blocking + thresholds per kind
 ├── application/
-│   ├── upsert_use_cases.py   # UpsertUniverseEntity orchestrator
-│   ├── change_log.py         # append-only writer helpers
-│   ├── evidence_linker.py    # skill ← derived_from_* auto-link
-│   └── ports.py              # ChangeLogRepository, SemanticMatcher, EvidenceLinker
+│   ├── upsert_use_cases.py  # UpsertUniverseEntity orchestrator
+│   ├── change_log.py        # append-only writer helpers
+│   ├── coherence_v2.py      # ESCO linking + edge materialisation post-upsert
+│   ├── entity_resolution.py # EntityResolutionPipeline (blocking → pairwise → clusters)
+│   └── ports.py             # ChangeLogRepository, SemanticMatcher
 ├── infrastructure/
 │   ├── orm.py                # UniverseChangeLogOrm
 │   ├── change_log_repo.py
 │   └── semantic_matcher.py   # PgVectorSemanticMatcher
-└── interfaces/api/router.py  # /api/v1/coherence/{upsert,changes}
+└── interfaces/api/router.py  # /api/v1/coherence/{upsert,changes,review-queue}
 ```
 
 ## The orchestrator
@@ -74,15 +76,17 @@ no DB, easy unit tests (see `tests/unit/test_merge_rules.py`).
 
 ## Auto-evidence
 
-When the agent calls `upsert_skill(..., derived_from_project_id=<id>)` —
-or any `derived_from_<other_entity>_id` / `mentioned_in_note_id` — the
-`SqlAlchemyEvidenceLinker` materializes an `evidences` row pointing the
-skill at that source. Idempotent: the unique constraint
-`(skill_id, evidence_entity_type, evidence_entity_id)` prevents duplicates.
+When a skill upsert payload carries `derived_from_project_id=<id>` —
+or any other `derived_from_<entity>_id` — `coherence_v2._materialise_edges`
+writes a typed `DERIVED_FROM` edge from the skill to that source in the
+`universe_personal` graph. Idempotent: edge writes go through
+`UniverseGraphService.upsert_edge`, which uses Cypher `MERGE`, so restating
+the same relation never duplicates it. (The legacy `evidences` table was
+dropped in migration 0017 — evidence lives in the graph now.)
 
 Result: the user's Python skill ends up linked to `project-ml-demo`,
 `experience-anthropic`, and `course-rag-101`. The CV generator can rank
-skills by evidence count = real depth.
+skills by evidence-edge count = real depth.
 
 ## Change log (trajectory)
 
@@ -111,7 +115,6 @@ See [data-evolution.md](../architecture/data-evolution.md) for queries.
 
 ## Agent tools that exercise the engine
 
-- `upsert_*` (9 entities) — direct writes through the engine.
 - `find_existing(entity_type, query)` — for the agent to check before
   proposing.
 - `propose_merge_suggestion(entity_type, candidate_ids)` — open a suggestion

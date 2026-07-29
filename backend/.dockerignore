@@ -1,0 +1,34 @@
+# The backend image builds with `context: ./backend`, so the repo-root
+# .dockerignore does NOT apply here — this file is what keeps the build context
+# small. Without it the context is ~813 MB, almost all of it the local virtualenv
+# and type-checker caches, and `COPY . /app` bakes them into the image.
+
+# Local virtualenv (dependencies are installed from uv.lock inside the builder)
+.venv/
+venv/
+env/
+
+# Tool caches
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Runtime state (JWT keys, generated documents) — belongs in a volume
+var/
+
+# Local env files: never bake secrets into an image
+.env
+.env.*
+!.env.example
+
+# Repo/editor noise
+.git/
+.gitignore
+.vscode/
+.idea/
+*.log

@@ -53,6 +53,11 @@ logs/
 var/
 data/
 .local/
+# ...but the bundled ESCO sample is source, not local data. It has to be a
+# negation on the DIRECTORY: git cannot re-include a file whose parent dir is
+# excluded, so `!backend/data/esco_sample/` alone would not work. Without this
+# the seed step finds no CSVs, ingests zero rows and reports success.
+!backend/data/
 
 # Docker volumes (when bind-mounted)
 docker-data/

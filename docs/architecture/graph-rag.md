@@ -113,9 +113,6 @@ entidades enumeradas. Sprints M → R del plan v2.
 - **`domain/registry.py`** — `GRAPH_REGISTRY` único, reemplaza al flat
   `ENTITY_REGISTRY` de Sprint G. Cada entrada describe SQL table, name
   field, embedding text, `onto_link_kind`.
-- **`domain/nodes.py`** — dataclasses para EntityNode, EvidenceNode,
-  SignalNode, EpisodeNode, etc.
-- **`domain/edges.py`** — `GraphEdge` con campos temporales.
 - **`domain/esco_types.py`** — `EscoCandidate`, `EscoLinkResult`, `LinkState`.
 - **`domain/custom_skills_ontology.py`** — ontología fallback para skills de IA
   no presentes en ESCO (MCP, RAG, CrewAI, etc.). Cargada en memoria (<100
@@ -124,10 +121,16 @@ entidades enumeradas. Sprints M → R del plan v2.
 - **`infrastructure/age_client.py`** — wrapper `cypher()` que serializa
   parámetros como JSON y los pasa con `CAST(:p AS agtype)` (porque AGE
   exige que el 3er arg de `cypher()` sea un Param node, no un literal).
+- **`infrastructure/age_repository.py`** — `AgeGraphRepository`, adaptador
+  fino sobre `age_client` que satisface el puerto `application/ports/age.py`.
 - **`infrastructure/ontology_loader.py`** — ingesta CSV de ESCO →
   `universe_ontology` + tabla `ontology_embeddings`. Idempotente vía
   `graph_ingest_meta`.
 
+- **`application/ports/age.py`** — puertos módulo-nivel (`cypher`,
+  `parse_agtype`, `ensure_age_loaded`, `age_graph_repository`) que la
+  infraestructura recablea al importarse. El default es un centinela que
+  lanza si se invoca sin cablear.
 - **`application/universe_graph.py`** — `UniverseGraphService` con
   `upsert_entity / soft_delete_entity / upsert_edge / expire_edge /
   get_entity / neighbors`. La clase usa `MERGE … SET COALESCE(...)` en
@@ -148,10 +151,23 @@ entidades enumeradas. Sprints M → R del plan v2.
 - **`application/outlier_detection.py`** — IsoForest + LOF agreement
   sobre embeddings reducidos a 64-d con PCA. Flag se persiste en
   `entity_quarantine` con razón `outlier`.
-- **`application/retrieval.py`** — `BM25Retriever`, `DenseRetriever`,
-  `PPRRetriever`, `reciprocal_rank_fusion`, `hybrid_retrieve`.
-  Snapshot igraph LRU (max 200 usuarios). Lanes corren secuencialmente
+- **`application/retrieval/`** — paquete con un módulo por carril:
+  `bm25.py` (`BM25Retriever`), `dense.py` (`DenseRetriever`), `ppr.py`
+  (`PPRRetriever`), `communities.py` (`CommunityRetriever`), `knowledge.py`
+  (`KnowledgeRetriever`), más `fusion.py` (`reciprocal_rank_fusion`,
+  `hybrid_retrieve`, `_rerank`), `snapshot.py` (snapshot igraph LRU) y
+  `_base.py` / `_helpers.py` (`Retriever`, `ScoredItem`, `HybridResult`).
+  El `__init__.py` reexporta todo lo público. Lanes corren secuencialmente
   por la restricción de asyncpg (1 op por conexión).
+- **`application/reranker.py`** — puerto `Reranker` + implementaciones
+  `NoopReranker` / `LLMListwiseReranker` / `HostedReranker`, seleccionadas
+  por `get_reranker()`.
+- **`application/communities.py`** — `compute_communities` (Leiden sobre el
+  snapshot) + resúmenes LLM persistidos; `get_communities` /
+  `get_public_pillars` los sirven como `CareerPillar`.
+- **`application/text2cypher.py`** — `Text2CypherEngine`: genera openCypher
+  desde lenguaje natural, lo valida (scope personal, columnas de RETURN) y
+  lo ejecuta sobre AGE.
 - **`application/episodes.py`** — `ensure_episode / record_touch /
   close_episode`. Episode id derivado vía SHA-256 del chat_session_id.
 

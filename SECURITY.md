@@ -30,5 +30,5 @@ considered undisclosed vulnerabilities:
 - Postgres RLS with `FORCE`, app running as a non-superuser role, GUCs re-armed
   on every transaction — see [docs/SECURITY_RLS_STATUS.md](docs/SECURITY_RLS_STATUS.md).
 - RS256 JWTs, TOTP MFA, Fernet-encrypted OAuth tokens / MFA secrets / BYOK keys.
-- OAuth 2.1 + PKCE + Dynamic Client Registration for the MCP server, 21 scopes.
+- OAuth 2.1 + PKCE + Dynamic Client Registration for the MCP server, 20 scopes.
 - CI gates on `ruff` (including bandit rules) and Trivy filesystem and image scans.

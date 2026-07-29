@@ -29,8 +29,8 @@ dependencies = [
     "argon2-cffi>=23.1.0",
     "python-jose[cryptography]>=3.3.0",
     "cryptography>=43.0.0",
-    # MCP
-    "mcp>=1.1.0,<2.0.0",
+    # NOTE: no `mcp` SDK dependency on purpose — the MCP server here is a
+    # hand-written ASGI transport (src/mcp_server/), not the reference SDK.
     # Agents (Agno + LLM providers)
     "agno>=2.6.7,<3.0.0",
     "anthropic>=0.40.0",
@@ -58,7 +58,6 @@ dependencies = [
     "opentelemetry-api>=1.28.0",
     "opentelemetry-sdk>=1.28.0",
     "opentelemetry-instrumentation-fastapi>=0.49b0",
-    "opentelemetry-instrumentation-sqlalchemy>=0.49b0",
     "opentelemetry-exporter-otlp>=1.28.0",
     # Mail (mock via SMTP to mailhog)
     "aiosmtplib>=3.0.2",
@@ -87,7 +86,6 @@ dev = [
     # (0.15 added PLC0415 alone → +644 findings against this codebase).
     "ruff>=0.7.4,<0.8",
     "mypy>=1.13.0",
-    "types-jsonschema>=4.23.0",
     "types-PyYAML>=6.0.12",
     "import-linter>=2.1",
     "locust>=2.32.0",

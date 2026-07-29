@@ -108,7 +108,7 @@ jobs:
       - name: Mypy (ratchet)
         working-directory: backend
         env:
-          MYPY_MAX: "181"
+          MYPY_MAX: "180"
         run: |
           set +e
           OUT=$(uv run mypy src 2>&1)
@@ -337,7 +337,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Build backend image
-        run: docker build -f docker/backend.Dockerfile -t cvs-saas-backend:latest .
+        # Context is ./backend, matching docker-compose.yml — the Dockerfile does
+        # `COPY pyproject.toml`, which does not exist at the repo root. (The
+        # frontend image below is the opposite: it COPYs frontend/ and docker/,
+        # so its context really is the repo root.)
+        run: docker build -f docker/backend.Dockerfile -t cvs-saas-backend:latest ./backend
       - name: Trivy backend image scan
         uses: aquasecurity/trivy-action@master
         with:

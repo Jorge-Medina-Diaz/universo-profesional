@@ -13,6 +13,17 @@ CREATE EXTENSION IF NOT EXISTS age;
 -- database level means we don't have to repeat `SET search_path` everywhere.
 ALTER DATABASE cvs SET search_path = "$user", public, ag_catalog;
 
+-- ...but ALTER DATABASE only applies to connections opened AFTER it, and this
+-- script is already inside one. Without the session-local SET below, the
+-- unqualified create_graph() calls that follow fail with
+--   ERROR: function create_graph(unknown) does not exist
+-- which aborts initdb and exits the container with code 3 — i.e. `docker
+-- compose up` dies on its first service for anyone starting from an empty
+-- volume. We also LOAD 'age' explicitly: the entrypoint's temporary init
+-- server does not get the shared_preload_libraries flag from the CMD.
+SET search_path = "$user", public, ag_catalog;
+LOAD 'age';
+
 -- The two AGE graphs the application uses:
 --   • universe_personal  — one logical graph holding every user's nodes
 --     (multi-tenant via the user_id property on every vertex/edge).
@@ -21,7 +32,7 @@ ALTER DATABASE cvs SET search_path = "$user", public, ag_catalog;
 -- swallow the duplicate error.
 DO $$
 BEGIN
-    PERFORM create_graph('universe_personal');
+    PERFORM ag_catalog.create_graph('universe_personal');
 EXCEPTION
     WHEN SQLSTATE 'XX000' THEN NULL;  -- already exists
     WHEN duplicate_schema THEN NULL;
@@ -30,7 +41,7 @@ $$;
 
 DO $$
 BEGIN
-    PERFORM create_graph('universe_ontology');
+    PERFORM ag_catalog.create_graph('universe_ontology');
 EXCEPTION
     WHEN SQLSTATE 'XX000' THEN NULL;
     WHEN duplicate_schema THEN NULL;

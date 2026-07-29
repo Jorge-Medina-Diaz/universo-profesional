@@ -24,7 +24,7 @@
 - **Migraciones:** Alembic
 - **Cola:** arq sobre Redis 7
 - **Agentes/IA:** Agno ≥2.6.7 + AG-UI protocol + Anthropic/OpenAI SDKs
-- **Auth:** JWT RS256 (python-jose), Argon2, Authlib, pyOTP (2FA), OAuth 2.1 AS propio
+- **Auth:** JWT RS256 (python-jose), Argon2 (argon2-cffi), TOTP propio sin dependencias (`src/shared/totp.py`), OAuth 2.1 AS propio
 - **Documentos:** WeasyPrint (PDF), python-docx, Jinja2
 - **Grafo/Recuperación:** python-igraph (PageRank), scikit-learn (PCA, outlier detection)
 - **Similitud textual:** `jellyfish` (Jaro-Winkler, phonetic) para entity resolution y ESCO cross-encoder
@@ -150,7 +150,9 @@ arq src.shared.worker.WorkerSettings
 # Seed manual de ESCO (la imagen Docker ya lo hace en startup)
 python scripts/seed_esco.py
 
-# Reset completo de ESCO (trunca + re-seed)
+# Reset completo de ESCO (trunca + re-seed).
+# Ojo: este script vive en `scripts/` de la RAÍZ del repo (no en `backend/scripts/`)
+# y usa `docker compose exec backend`, así que se lanza desde la raíz.
 ./scripts/reset-esco.sh
 ```
 
@@ -311,8 +313,6 @@ Copiar `.env.example` a `.env` en la raíz del repo. Docker Compose lo lee autom
 | Email | MailHog local | `EMAIL_PROVIDER=brevo` |
 | Almacenamiento | Filesystem (`./backend/var/documents/`) | `STORAGE_PROVIDER=s3` |
 | Stripe | `MockStripeClient` | `STRIPE_PROVIDER=real` + keys |
-| PDF parse | `MockPdfParser` | `AFFINDA_API_KEY` |
-| Scraping | `MockJobScraper` | `SCRAPING_ENABLED=true` |
 | ESCO seed | Automático en Docker | `AUTO_SEED_ESCO=true` |
 
 **Variables de ESCO:**
@@ -340,13 +340,13 @@ El backend valida en startup (`validate_production_ready()`) que no haya valores
 
 - **Auth:** JWT RS256 con TTL de acceso 15 min y refresh 30 días. Claves RSA generadas automáticamente en primer arranque; deben persistir en volumen.
 - **Contraseñas:** hasheadas con Argon2.
-- **2FA:** no implementada en MVP (pyOTP disponible como dependencia para futura activación).
-- **OAuth 2.1 AS propio:** implementa RFC 8414 (metadata), 9728 (DPoP), 8707 (PKCE), 7591 (DCR). Consent automático en dev; explícito en prod.
+- **2FA (MFA TOTP):** implementada. TOTP RFC 6238 / HOTP RFC 4226 escrito en casa en `src/shared/totp.py` (sin `pyotp` ni ninguna otra dependencia). Alta/confirmación/baja en `POST /api/v1/users/me/mfa/{setup,confirm,disable}`; el login devuelve `mfa_required` + `mfa_token` y se completa con `POST /api/v1/auth/mfa`.
+- **OAuth 2.1 AS propio:** implementa RFC 8414 (Authorization Server Metadata), RFC 9728 (Protected Resource Metadata), RFC 8707 (Resource Indicators) y RFC 7591 (Dynamic Client Registration), con PKCE S256 obligatorio (RFC 7636). Consent automático en dev; explícito en prod.
 - **Rate limiting:** slowapi + limits con backend Redis. Límites específicos para MCP (`MCP_RATE_LIMIT_PER_MINUTE/HOUR/DAY`).
 - **CORS:** restringido explícitamente; en prod nunca debe incluir localhost.
 - **RLS:** PostgreSQL Row-Level Security por `user_id` (`app.current_user_id`) en todas las tablas de usuario.
 - **Emails de verificación:** obligatorios en producción (`AUTO_VERIFY_EMAILS_IN_DEV=false` en prod).
-- **Escaneo de seguridad:** Trivy en CI (actualmente `continue-on-error`, se endurecerá).
+- **Escaneo de seguridad:** Trivy en CI y es bloqueante — tres escaneos (filesystem, imagen de backend, imagen de frontend), todos con `severity: CRITICAL,HIGH`, `ignore-unfixed: true` y `exit-code: "1"`, sin `continue-on-error`.
 - **Secretos:** rotación documentada en `docs/OPERATIONS/SECRETS_ROTATION.md`.
 
 ---
@@ -369,8 +369,8 @@ El backend valida en startup (`validate_production_ready()`) que no haya valores
   3. **Threshold:** ≥0.86 → auto-link (`LINKED`); ≥0.70 → quarantine (`SUGGESTED`, HITL); <0.70 → fallback a ontología custom (`ORPHAN`).
 - **Self-learning feedback loop:** cuando un usuario rechaza o edita una propuesta, `record_agent_feedback` (vía `learning_tools.py`) guarda el evento en `user_procedural_memory`. Un workflow periódico (`consolidate`) agrega ejemplos similares en reglas activas que los `Context Providers` inyectan en las instrucciones del agente. Sin fine-tuning, solo *context engineering*.
 - **Discovery progress REST + SSE:**
-  - `GET /api/v1/discovery/progress` — score 0-100, coverage por dimensión, descubrimientos recientes, estadísticas ESCO.
-  - `GET /api/v1/discovery/stream` — SSE que emite un evento JSON cada vez que se inserta una fila en `universe_change_log` para el usuario autenticado (heartbeat cada 15 s).
+  - `GET /api/v1/agents/discovery/progress` — score 0-100, coverage por dimensión, descubrimientos recientes, estadísticas ESCO.
+  - `GET /api/v1/agents/discovery/stream` — SSE que emite un evento JSON cada vez que se inserta una fila en `universe_change_log` para el usuario autenticado (heartbeat cada 15 s).
 - **Single chat por usuario:** `thread_id = main-<user_id>`, con ventana deslizante de 40 mensajes + digest que pliega mensajes antiguos.
 - **Mock-first:** toda integración externa tiene implementación mock que se activa por defecto. Cambiar el `*_PROVIDER` correspondiente y añadir la API key para usar la real.
 
@@ -389,10 +389,10 @@ El backend valida en startup (`validate_production_ready()`) que no haya valores
 |------|-----------|
 | `README.md` | Quickstart, arquitectura de alto nivel, golden paths |
 | `DESIGN.md` | Referencia de estilo Pirsch (tokens, tipografía, componentes) |
-| `docs/PLAN.md` | Especificación técnica completa + análisis de mercado |
 | `docs/LOCAL_DEPLOY.md` | Guía detallada de despliegue local y troubleshooting |
-| `docs/agents/` | Arquitectura de agentes, catálogo de tools, motor de coherencia, chat único |
-| `docs/architecture/` | Flujo de agentes, Graph-RAG, capas de memoria, migración Agno |
+| `docs/agents/` | Catálogo de tools (`tools.md`), motor de coherencia (`coherence-engine.md`), chat único (`single-chat.md`) |
+| `docs/architecture/` | Graph-RAG (`graph-rag.md`), capas de memoria (`memory-layers.md`), evolución de datos (`data-evolution.md`) |
+| `docs/archive/` | Documentos históricos, deliberadamente desactualizados: `PLAN.md` (especificación técnica + análisis de mercado), `agent-flow.md`, `agno-migration.md`, `architecture.md`, auditorías y roadmaps antiguos |
 | `docs/OPERATIONS/` | Despliegue, monitorización, backups, migraciones, rotación de secretos, costes, runbooks de incidencias |
 
 ---
@@ -451,7 +451,7 @@ El backend valida en startup (`validate_production_ready()`) que no haya valores
 - **Graph auto-enrichment** — `enrich_user_graph` se ejecuta tras cada upsert para inferir edges adicionales (e.g., tech_stack → USES_TECH).
 - **ESCO anchor** — Todos los skills se enlazan a ESCO donde sea posible. Cross-type dedup vía `esco_uri`.
 - **Self-learning context** — 4-tier memory (semantic + procedural + episodic + working) con `SelfLearningEngine`. El modelo subyacente no cambia; el contexto alrededor evoluciona.
-- **Discovery progress endpoint + SSE** — `GET /api/v1/discovery/progress` devuelve score 0-100; `GET /api/v1/discovery/stream` notifica en tiempo real vía Server-Sent Events.
+- **Discovery progress endpoint + SSE** — `GET /api/v1/agents/discovery/progress` devuelve score 0-100; `GET /api/v1/agents/discovery/stream` notifica en tiempo real vía Server-Sent Events.
 - **Document specialist** — Especialista dedicado a generación de documentos con descubrimiento conversacional previo (kind → template → tone → language → JD opcional).
 
 ### 13.7 Sprint 4 — Clean Architecture enforcement + test refactor + code flattening

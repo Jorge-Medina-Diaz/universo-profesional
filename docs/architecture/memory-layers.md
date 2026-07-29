@@ -22,12 +22,12 @@ merge rules keep it clean.
 |---|---|
 | **What** | Free-form markdown + tags. Not tied to an entity (but can be evidence-linked). |
 | **Storage** | `notes` table with embedding |
-| **Mutability** | `CreateNote` / `UpdateNote` use cases via `note_specialist` or REST |
+| **Mutability** | `CreateNote` / `UpdateNote` use cases, reached from the agent via the `add_note` / `update_note` tools (owned by `entity_curator`; `job_strategist` also carries `add_note`) or via REST `/api/v1/notes` |
 | **Read primary** | `ListNotes(tags=...)` |
 | **Used by** | CV generation ("currently learning" section), curator ("you wrote a note about X in May; still relevant?"), the user via `/notes` page |
 
-When the user says "estas semanas he estado investigando RAG", the
-`note_specialist` writes a note tagged `rag, learning, reading-thread-2026-05`.
+When the user says "estas semanas he estado investigando RAG", `entity_curator`
+calls `add_note` and writes a note tagged `rag, learning, reading-thread-2026-05`.
 A month later, a follow-up note on the same topic is appended (or merged via
 `update_note`). The agent can `list_notes(tag='rag')` to surface the thread.
 
@@ -37,7 +37,7 @@ A month later, a follow-up note on the same topic is appended (or merged via
 |---|---|
 | **What** | Single-sentence facts about the user that don't fit any entity. |
 | **Storage** | `agno_memories` (managed by Agno's `MemoryManager`) |
-| **Mutability** | Automatic when `enable_agentic_memory=True` on the team. |
+| **Mutability** | Automatic: the team runs with `enable_user_memories=True` + `update_memory_on_run=True` (one consolidation pass after each turn). `enable_agentic_memory` is deliberately `False` — it fires a nested LLM call on *every* memory op. |
 | **Read primary** | Agno injects relevant memories into every run's context automatically. |
 | **Used by** | The agent itself ("the user is vegetarian", "prefers async") |
 
@@ -70,10 +70,11 @@ user utterance arrives
 │           pass derived_from_*_id so the engine auto-links L1↔L1 evidence
 │
 ├─ narrative biography? (learning thread, opinion, ongoing context)
-│    yes → note_specialist → add_note (L2)
+│    yes → entity_curator → add_note (L2)
 │
 ├─ atomic preference or context? ("prefiero remoto", "vegetariano")
-│    yes → Agno's enable_agentic_memory captures automatically (L3)
+│    yes → Agno's enable_user_memories + update_memory_on_run captures
+│          it in one pass after the turn (L3)
 │
 └─ user uploaded a long document?
      yes → ingest_document → chunk + index in Knowledge (L4, planned)

@@ -77,11 +77,14 @@ skills does this project demonstrate?".
 
 ### Auto-linking
 
-`SqlAlchemyEvidenceLinker.link(...)` is idempotent and is called by
-`UpsertUniverseEntity._create` / `._merge` whenever a skill upsert payload
-contains any `derived_from_<entity>_id` or `mentioned_in_note_id` field.
-The agent passes these on `upsert_skill` tool calls so the graph forms
-automatically as the user mentions things.
+`coherence_v2._materialise_edges(...)` writes a typed `DERIVED_FROM` graph edge
+whenever a skill upsert payload carries a `derived_from_<entity>_id` key
+(project, experience, course or certification — see `_DERIVED_FROM_EDGES`). It is
+idempotent because the write is a Cypher `MERGE`. (`mentioned_in_note_id` is
+accepted in the payload but deliberately not materialised as an edge.)
+The enrichment engine and the import/sync paths put these keys in the payload
+they send to the coherence engine, so the graph forms automatically as the
+user mentions things.
 
 ### Manual links
 

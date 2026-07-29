@@ -9,9 +9,9 @@
 | 5 | **Tests backend** | Unit: identity password policy + JWT encode/decode | ✅ | `tests/unit/identity/` |
 | 6 | **Tests backend** | Unit: billing quota enforcement + plan upgrades | ✅ | `tests/unit/billing/` |
 | 7 | **Tests backend** | Unit: documents template rendering (PDF/DOCX) | ✅ | `tests/unit/documents/` |
-| 8 | **Tests backend** | Coverage threshold ≥ 50% en CI | ✅ | Configurado en `.github/workflows/ci.yml` |
+| 8 | **Tests backend** | Sin umbral de coverage | — | `ci.yml` sube `coverage.xml` como artefacto pero no hay `--cov-fail-under`; la puerta real es el ratchet `PYTEST_MAX_FAILURES` |
 | 9 | **Tests frontend** | Componentes críticos: LoginPage, RegisterPage | ✅ | `frontend/src/__tests__/LoginPage.test.tsx` |
-| 10 | **Tests frontend** | Wizard de onboarding | ✅ | `frontend/src/__tests__/OnboardingPage.test.tsx` |
+| 10 | **Tests frontend** | Wizard de onboarding | — | Obsoleto: el wizard se eliminó en favor de un onboarding chat-native (`frontend/src/pages/OnboardingChatPage.tsx`). No existe test unitario que lo cubra |
 | 11 | **Tests frontend** | Chat/AG-UI wrapper (mock CopilotKit provider) | ✅ | `frontend/src/__tests__/CopilotProvider.test.tsx` |
 | 12 | **Tests frontend** | MSW para interceptar llamadas API | ✅ | `frontend/src/__tests__/mocks/handlers.ts` + setup |
 | 13 | **Seguridad** | Bandit ("S") en Ruff select | ✅ | `backend/pyproject.toml` |
@@ -59,7 +59,6 @@
 - `frontend/src/__tests__/test-utils.tsx` (nuevo)
 - `frontend/src/__tests__/LoginPage.test.tsx` (nuevo)
 - `frontend/src/__tests__/RegisterPage.test.tsx` (nuevo)
-- `frontend/src/__tests__/OnboardingPage.test.tsx` (nuevo)
 - `frontend/src/__tests__/CopilotProvider.test.tsx` (nuevo)
 
 ### Infra / CI
@@ -77,4 +76,5 @@
 
 - Los tests de integración y e2e requieren Postgres + Redis. En GitHub Actions ya están configurados como services.
 - Algunos tests asíncronos pueden fallar en **Windows local** por `RuntimeError: Event loop is closed` (limitación de `pytest-asyncio` + `ProactorEventLoop`). Esto **no afecta CI (Ubuntu)** ni producción.
-- El coverage exacto en CI será la suma de unit + integration + e2e. Con los nuevos tests, se espera superar el 50%.
+- El coverage exacto en CI es la suma de unit + integration + e2e, pero no se
+  impone ningún umbral: `coverage.xml` se publica como artefacto para consulta.

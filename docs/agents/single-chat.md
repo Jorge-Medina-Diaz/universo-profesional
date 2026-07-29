@@ -1,8 +1,8 @@
 # Single chat — pattern and limitations
 
 Sprint 4 collapses the multi-session ChatGPT-like model into ONE persistent
-chat per user. Long context is kept manageable by a sliding window + a
-periodically-refreshed structured digest.
+chat per user. Long context is kept manageable by a hard-capped history
+window plus Agno's native rolling session summary.
 
 ## Why
 
@@ -29,58 +29,73 @@ The frontend can send whatever `thread_id` it wants — server overrides.
 Agno's `team.arun(session_id=enforced_thread_id, ...)` is what actually
 persists state, so a single Agno session per user is the canonical store.
 
-### Sliding window
+### Bounded history window
 
-`backend/src/agents/memory/sliding_window.py`:
+`backend/src/agents/factory.py`, on the Team coordinator:
 
-- `WINDOW_SIZE = 40` — most recent N messages kept verbatim in the LLM
-  context.
-- `DIGEST_THRESHOLD = 60` — once `count(messages) ≥ 60`, the older N-40
-  messages get folded into the digest.
+```python
+add_history_to_context=True,
+num_history_runs=6,
+max_tool_calls_from_history=3,
+```
 
-### Session digest
+That is the whole context bound. Agno replays the last 6 runs of the session
+verbatim and keeps at most 3 historical tool calls — old tool traffic is the
+real token hog, and readables re-inject current state every turn anyway.
+Specialists also get `add_history_to_context=True`
+(`backend/src/agents/specialists/_helpers.py`) and inherit Agno's default run
+count. There is no custom windowing code: no `WINDOW_SIZE`, no message-count
+threshold, no folding step.
 
-`backend/src/agents/workflows/session_digest.py` runs as an arq task. For
-each user with messages beyond the threshold:
+### Session digest (Agno-native)
 
-1. Pull the older-than-window messages.
-2. Call the LLM with structured-output instructions:
-   ```
-   {open_questions, decisions, mentioned_entities, mentioned_topics}
-   ```
-3. Persist into `chat_session_meta.metadata.digest` (JSONB).
+Everything older than the window is covered by Agno's own session summary,
+enabled in `factory.py`:
 
-Mock mode (no LLM key) uses a deterministic fallback that extracts uppercase
-tokens as "entities" and `?`-containing messages as "open questions". Lossy
-but keeps dev flows interactive.
+```python
+enable_session_summaries=True,
+```
+
+Agno maintains it as part of every run and persists it to
+`ai.agno_sessions.summary` as `{"summary": str, "topics": [...]}`.
+`GET /api/v1/chat/state`
+(`backend/src/agents/interfaces/chat_sessions_router.py`) reads that column
+and serves it as `digest`.
+
+The earlier custom implementation — `agents/memory/sliding_window.py` and
+`agents/workflows/session_digest.py`, with their `WINDOW_SIZE` /
+`DIGEST_THRESHOLD` constants, the arq task and the mock-mode fallback — was
+deleted in P1.C. Nothing replaced it beyond the framework feature above, and
+there is no longer a `chat_session_meta.metadata.digest` write path.
 
 ### Reading the digest in chat
 
 Frontend reads `/api/v1/chat/state` on mount and injects the digest into
 `useCopilotReadable`. The agent sees:
 
-- The full sliding window (~40 latest messages) — via Agno's
-  `add_history_to_context=True, num_history_runs=8`.
+- The recent history — via Agno's `add_history_to_context=True,
+  num_history_runs=6, max_tool_calls_from_history=3`.
 - The digest as a readable: "the long-tail of our conversation".
 - All Agno memories (atomic facts) injected automatically.
 
 ## Trigger policy
 
-When does the digest workflow run?
+When does the digest refresh?
 
-- **Daily cron**: not implemented in Sprint 4 (added in Sprint 5).
-- **On demand**: any handler can call `run_session_digest(user_id=...)`.
-  For now it's queued via arq when a chat session exceeds `DIGEST_THRESHOLD`
-  — wiring is in the worker but the chat hook is a follow-up.
+- **On every run.** Agno updates the session summary as part of the turn, so
+  there is nothing to schedule and nothing to invoke by hand.
+- **No cron.** The old 03:30 session-digest job went away with the custom
+  digest; `backend/src/shared/worker.py` no longer registers one.
 
 ## Limitations
 
 - **Single context per user**. If the user wants to keep an "engineering"
   thread separate from "personal" they can't (yet). Tag-based filtering of
   notes covers some of this.
-- **Digest fidelity**. Even with Sonnet, summarizing into 800 tokens loses
-  detail. Recovery path: search `agno_messages` directly via tools when the
-  agent needs specifics.
+- **Digest fidelity**. Any rolling summary loses detail, and only the last 6
+  runs survive verbatim. Older turns stay in `agno_messages`, but no agent
+  tool queries that table today — there is no recovery path beyond asking the
+  user again.
 - **Resetting**: there's no "start over" button. Deletion would have to be
   explicit and atomic across `agno_sessions`, `agno_messages`, and
   `chat_session_meta`. Sprint 5 will add a `DELETE /api/v1/chat/state` for

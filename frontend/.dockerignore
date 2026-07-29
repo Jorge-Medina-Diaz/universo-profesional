@@ -1,0 +1,24 @@
+# The dev frontend image builds with `context: ./frontend`, so the repo-root
+# .dockerignore does not apply — without this file the build context is ~841 MB,
+# 777 MB of which is node_modules that the image installs itself anyway.
+# (The prod image, docker/frontend.prod.Dockerfile, builds from the repo root
+# and is covered by the root .dockerignore instead.)
+
+node_modules/
+dist/
+.vite/
+coverage/
+playwright-report/
+test-results/
+playwright/.cache/
+
+.env
+.env.*
+!.env.example
+
+.git/
+.gitignore
+.vscode/
+.idea/
+*.log
+*.tsbuildinfo

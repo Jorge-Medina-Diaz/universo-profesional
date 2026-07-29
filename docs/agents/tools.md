@@ -58,25 +58,24 @@ user-facing chat interactions.
 3. (Optional) Compose a specialist that owns it via
    `src/agents/specialists/<entity>.py`.
 
-## `universe_writes.py` — server-side persistence
+## Server-side persistence — there is no write *tool*
 
-Wrap existing `*Crud` use cases. Each opens a fresh `AsyncSession`, sets the
-RLS user from `RunContext.user_id`, calls `crud.add(...)`, commits the UoW.
-These tools are the persistence fallback path — the primary path remains the
-universe REST API invoked from the confirmation card. They're useful when an
-agent runs unattended (e.g., scheduled jobs) and has no UI.
+The agent has no tool that writes to the universe. Every write goes through
+the **Coherence Engine** (`UpsertUniverseEntity` in
+`backend/src/coherence/application/upsert_use_cases.py`), reached from three
+callers:
 
-Pattern (~10 lines per new entity):
-```python
-@tool(name="add_<entity>", description="...")
-async def add_<entity>(run_context: RunContext, ...):
-    return await _run_crud_add(
-        user_id=run_context.user_id,
-        payload=_strip_none(...),
-        crud_class_name="<Entity>Crud",
-        repo_class_name="SqlAlchemy<Entity>Repository",
-    )
-```
+| Caller | Path |
+|---|---|
+| HITL card confirm | `POST /api/v1/agents/proposals/{proposal_id}/resolve` |
+| Direct upsert (edited payload) | `POST /api/v1/coherence/upsert` |
+| Unattended (post-turn, syncs, imports) | `UniverseEnrichmentEngine`, `github_sync`, knowledge extraction |
+
+All of them open a fresh `AsyncSession` scoped to the user's RLS, call
+`UpsertUniverseEntity.execute(...)` — which finds existing entries, merges by
+declarative rules and records a `universe_change_log` row per field change —
+and commit the UoW. Adding a new entity means adding its merge rule, not a
+new tool.
 
 ## `universe_reads.py` — what the agent can inspect
 
@@ -107,7 +106,7 @@ through the `UniverseEnrichmentEngine` and materialises in the graph.
 | `get_document_template` | Single template detail | User asks about a specific template |
 | `get_document` | Document metadata + content summary (experience_count, skill_count, etc.) | Referring to an existing CV or cover letter |
 
-These tools let the `document_specialist` discover what the user already has
+These tools let the `document_coach` discover what the user already has
 before proposing new generation.  They prevent the agent from exhausting the
 LLM context window with full document contents.
 
@@ -155,17 +154,19 @@ skill"; they just describe their work and the system materialises the knowledge.
 ## `memory.py` (planned)
 
 Thin helpers for `agent.add_user_memory(...)` and `agent.get_user_memories(...)`.
-Most of the time `enable_agentic_memory=True` covers it — these helpers are
+Most of the time the team's `enable_user_memories=True` +
+`update_memory_on_run=True` covers it (`enable_agentic_memory` is off by
+design — it would fire a nested LLM call per memory op) — these helpers are
 for cases where you want a specialist to be explicit about what to remember
 (e.g., "store_user_preference('avoid public speaking')").
 
 ## How specialists pick their tools
 
 `build_specialist(...)` accepts a `tools=[...]` list. Each specialist gets:
-- Its own `propose_*` (the only writer in HITL paths).
-- Its matching `add_*` (server-side fallback).
+- Its own `propose_*` (the only path to a write; the write itself happens
+  server-side when the user confirms the card).
 - Optionally `present_questionnaire` for batch capture (used by
-  `skill_specialist`).
+  `entity_curator`, `discovery_coach` and `onboarding_specialist`).
 
 The coordinator additionally owns the **reads** and the **import proposals**
 (github/brightdata/pdf), so any specialist can defer to "let's import that

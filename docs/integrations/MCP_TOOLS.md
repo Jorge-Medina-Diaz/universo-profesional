@@ -1,200 +1,182 @@
 # MCP Server — Tools Reference
 
-The Universo Profesional MCP server exposes **33 tools** through the official MCP Python SDK (`mcp>=1.1.0`).  Transport is HTTP streamable (SSE endpoint) with OAuth 2.1 authentication.
+The Universo Profesional MCP server exposes **60 tools**.  The MCP Streamable HTTP transport (JSON-RPC 2.0 over HTTP, protocol version `2025-11-25`) is implemented directly in [`backend/src/mcp_server/interfaces/mcp_router.py`](../../backend/src/mcp_server/interfaces/mcp_router.py) — there is no MCP SDK dependency.  Authentication is OAuth 2.1 Bearer.
 
-> **This page documents a representative subset**, not all 33. The registry in
+> **This page documents a representative subset**, not all 60. The registry in
 > [`backend/src/mcp_server/application/tools.py`](../../backend/src/mcp_server/application/tools.py)
-> is the source of truth — several tools (per-kind add/update/delete, the LinkedIn
-> and GitHub syncs, import commit) are generated per entity kind. A live client can
+> is the source of truth — 27 of the 60 are generated per entity kind
+> (`add_*` / `update_*` / `delete_*` for achievement, certification, course,
+> education, experience, interest, language, project and skill). A live client can
 > also just call `tools/list`, or read `/.well-known/mcp/server-card.json`.
 
-> **Scope**: all tools are user-scoped.  Every request carries a JWT access token obtained via our OAuth 2.1 Authorization Server (RFC 8414 metadata, PKCE, DPoP).  Write operations never mutate data directly — they create **proposals** that the user confirms through the HITL flow.
+> **Scope**: all tools are user-scoped.  Every request carries a JWT access token obtained via our OAuth 2.1 Authorization Server (RFC 8414 metadata, PKCE `S256`).  The **required scope** rows below are the `required_scope` declared on each `ToolSpec`; a call without it is rejected with JSON-RPC error `-32002`.  `ToolSpec` declares no *output* schema, so none is documented here — `tools/call` returns the handler's result JSON-serialised into a single `content` text block.
 
 ---
 
 ## Tool catalogue
 
-### `read_universe_summary`
+### `get_universe_summary`
 
 Returns the user's professional summary.
 
 | | |
 |---|---|
-| **Description** | Headline, entity counts, top skills, recent experiences, languages, preferences |
+| **Description** | Compact summary: headline, counts, top skills, recent experiences, languages |
 | **Input schema** | `{}` (no arguments) |
-| **Output schema** | `{ "headline": "...", "counts": {...}, "top_skills": [...], "recent_experiences": [...], "languages": [...] }` |
 | **Required scope** | `universe:read` |
 
 **Example call**
 ```json
-{ "name": "read_universe_summary", "arguments": {} }
+{ "name": "get_universe_summary", "arguments": {} }
 ```
 
 ---
 
-### `read_entity`
+### `get_profile`
 
-Read a specific entity by type and ID or name.
+Read one section (or all) of the user's universe.
 
 | | |
 |---|---|
-| **Description** | Fetch one entity from the user's universe |
-| **Input schema** | `{ "entity_type": "skill", "id?": "uuid", "name?": "string" }` |
-| **Output schema** | `{ "entity": { ... } }` or `{ "entities": [...] }` when querying by name |
+| **Description** | Get a section (or all) of the user's professional universe |
+| **Input schema** | `{ "section?": "all" \| "education" \| "experience" \| "skill" }` (default `"all"`) |
 | **Required scope** | `universe:read` |
 
 **Example call**
 ```json
-{ "name": "read_entity", "arguments": { "entity_type": "skill", "name": "Python" } }
+{ "name": "get_profile", "arguments": { "section": "experience" } }
 ```
 
 ---
 
-### `search_entities`
+### `search_universe`
 
 Semantic search across the user's universe.
 
 | | |
 |---|---|
-| **Description** | Keyword/phrase search with pgvector semantic ranking |
+| **Description** | Semantic search across the user's universe |
 | **Input schema** | `{ "query": "string", "top_k?": 10, "entity_types?": ["skill", "experience"] }` |
-| **Output schema** | `[{ "id": "...", "kind": "...", "name": "...", "score": 0.92 }]` |
 | **Required scope** | `universe:read` |
 
 **Example call**
 ```json
-{ "name": "search_entities", "arguments": { "query": "machine learning", "top_k": 5 } }
+{ "name": "search_universe", "arguments": { "query": "machine learning", "top_k": 5 } }
 ```
 
 ---
 
-### `list_entities`
+### `list_skills`
 
-List all entities of a given type.
+List skills with optional filters.
 
 | | |
 |---|---|
-| **Description** | Enumerate every entity of a kind (e.g. all skills) |
-| **Input schema** | `{ "entity_type": "skill" }` |
-| **Output schema** | `[{ ...entity fields... }]` |
+| **Description** | List skills filtered by category / min level / min years |
+| **Input schema** | `{ "category?": "hard" \| "soft" \| "tool" \| "methodology", "min_level?": "basic" \| "intermediate" \| "high" \| "expert", "min_years?": 3 }` |
 | **Required scope** | `universe:read` |
 
 **Example call**
 ```json
-{ "name": "list_entities", "arguments": { "entity_type": "project" } }
+{ "name": "list_skills", "arguments": { "category": "hard", "min_level": "high" } }
 ```
 
 ---
 
-### `create_entity`
+### `add_skill` (one of nine `add_*` tools)
 
-Propose the creation of a new entity (HITL).
+Add a new entry to the universe.
 
 | | |
 |---|---|
-| **Description** | Creates a proposal stored in `proposal_store.py`. The user must confirm via the HITL UI before persistence. |
-| **Input schema** | `{ "entity_type": "string", "data": {...}, "confidence?": 0.85, "reason?": "string" }` |
-| **Output schema** | `{ "proposal_id": "uuid", "action": "create", "entity_type": "...", "entity_data": {...}, "message": "..." }` |
+| **Description** | Adds an entry directly — there is no proposal step on the MCP path.  One `add_*` tool exists per entity kind, each with its own argument schema. |
+| **Input schema** (skill) | `{ "name": "string", "category?": "hard" \| "soft" \| "tool" \| "methodology", "level?": "basic" \| "intermediate" \| "high" \| "expert", "years?": 5, "last_used_year?": 2025 }` |
 | **Required scope** | `universe:write` |
 
 **Example call**
 ```json
 {
-  "name": "create_entity",
-  "arguments": {
-    "entity_type": "experience",
-    "data": { "org": "Acme", "role": "Senior Dev", "start_date": "2024-01" },
-    "confidence": 0.9,
-    "reason": "User mentioned this role in chat"
-  }
+  "name": "add_experience",
+  "arguments": { "org": "Acme", "role": "Senior Dev", "start_date": "2024-01" }
 }
 ```
 
 ---
 
-### `update_entity`
+### `update_skill` (one of nine `update_*` tools)
 
-Propose an update to an existing entity (HITL).
+Patch an existing entry.
 
 | | |
 |---|---|
-| **Description** | Creates an update proposal.  The user reviews a diff card before committing. |
-| **Input schema** | `{ "entity_type": "string", "entity_id": "uuid", "data": {...}, "confidence?": 0.85, "reason?": "string" }` |
-| **Output schema** | `{ "proposal_id": "uuid", "action": "update", "entity_type": "...", "entity_id": "...", "patch": {...} }` |
+| **Description** | Patch an existing entity by id.  The schema accepts the same fields as the matching `add_*` tool, all optional, plus `additionalProperties`. |
+| **Input schema** (skill) | `{ "id": "uuid", "name?": "string", "category?": "...", "level?": "...", "years?": 5, "last_used_year?": 2025 }` |
 | **Required scope** | `universe:write` |
 
 **Example call**
 ```json
 {
-  "name": "update_entity",
-  "arguments": {
-    "entity_type": "skill",
-    "entity_id": "a1b2c3d4-...",
-    "data": { "level": "expert", "years": 5 },
-    "reason": "User confirmed 5 years of experience"
-  }
+  "name": "update_skill",
+  "arguments": { "id": "a1b2c3d4-...", "level": "expert", "years": 5 }
 }
 ```
 
 ---
 
-### `delete_entity`
+### `delete_skill` (one of nine `delete_*` tools)
 
-Propose deletion of an existing entity (HITL).
+Remove an entry from the universe.
 
 | | |
 |---|---|
-| **Description** | Creates a delete proposal.  Requires explicit user confirmation. |
-| **Input schema** | `{ "entity_type": "string", "entity_id": "uuid", "reason?": "string" }` |
-| **Output schema** | `{ "proposal_id": "uuid", "action": "delete", "entity_type": "...", "entity_id": "..." }` |
+| **Description** | Removes the entity by id.  Gated behind its own scope, which is **not** granted by default. |
+| **Input schema** | `{ "id": "uuid" }` |
 | **Required scope** | `universe:delete` |
 
 **Example call**
 ```json
+{ "name": "delete_project", "arguments": { "id": "a1b2c3d4-..." } }
+```
+
+---
+
+### `link_evidence`
+
+Attach a skill to the entity that evidences it.
+
+| | |
+|---|---|
+| **Description** | Link a skill to an evidence entity (experience/project/etc) |
+| **Input schema** | `{ "skill_id": "uuid", "evidence_entity_type": "string", "evidence_entity_id": "uuid", "weight?": 1.0, "notes?": "string" }` |
+| **Required scope** | `evidence:write` |
+
+**Example call**
+```json
 {
-  "name": "delete_entity",
+  "name": "link_evidence",
   "arguments": {
-    "entity_type": "project",
-    "entity_id": "a1b2c3d4-...",
-    "reason": "User said the project was cancelled"
+    "skill_id": "a1b2c3d4-...",
+    "evidence_entity_type": "project",
+    "evidence_entity_id": "e5f6a7b8-..."
   }
 }
 ```
 
 ---
 
-### `link_esco`
+### `get_activity`
 
-Link free-text to the ESCO ontology.
-
-| | |
-|---|---|
-| **Description** | Runs the ESCO linker pipeline (embed → pgvector → `FeatureReranker` → threshold). Returns `LINKED`, `SUGGESTED`, `ORPHAN` or `ERROR`. |
-| **Input schema** | `{ "text": "string", "kind?": "skill" | "occupation" }` |
-| **Output schema** | `{ "state": "LINKED", "esco_uri": "...", "score": 0.91, "reason": "...", "candidates": [...] }` |
-| **Required scope** | `universe:write` |
-
-**Example call**
-```json
-{ "name": "link_esco", "arguments": { "text": "Docker", "kind": "skill" } }
-```
-
----
-
-### `get_discovery_progress`
-
-Return discovery score and profile growth metrics.
+Return recent universe activity.
 
 | | |
 |---|---|
-| **Description** | Score 0-100, entity counts, coverage per dimension, recent activity, ESCO link stats |
-| **Input schema** | `{}` (no arguments) |
-| **Output schema** | `{ "discovery_score": 72, "counts": {...}, "coverage": {...}, "sparse_dimensions": [...], "recent_discoveries": [...], "esco_links": {...} }` |
+| **Description** | Return recent universe activity |
+| **Input schema** | `{ "limit?": 50, "since?": "2026-01-01T00:00:00Z", "event_types?": ["..."] }` |
 | **Required scope** | `universe:read` |
 
 **Example call**
 ```json
-{ "name": "get_discovery_progress", "arguments": {} }
+{ "name": "get_activity", "arguments": { "limit": 20 } }
 ```
 
 ---
@@ -205,9 +187,8 @@ Generate a CV from universe data.
 
 | | |
 |---|---|
-| **Description** | Produces PDF, DOCX and JSON Resume from the user's profile.  Optionally tailors to a job description. |
-| **Input schema** | `{ "job_url?": "...", "job_description?": "...", "template?": "ats-classic", "language?": "es" | "en", "tone?": "string", "length?": "1-page" | "2-page" }` |
-| **Output schema** | `{ "document_id": "uuid", "pdf_url": "...", "docx_url": "...", "json_resume": {...} }` |
+| **Description** | Generate an ATS-adapted CV (PDF + DOCX + JSON Resume).  Optionally tailors to a job description. |
+| **Input schema** | `{ "job_url?": "...", "job_description?": "...", "template?": "ats-classic", "language?": "es" \| "en", "tone?": "string", "length?": "1-page" \| "2-page" }` |
 | **Required scope** | `documents:generate` |
 
 **Example call**
@@ -227,33 +208,34 @@ Generate a CV from universe data.
 
 ## OAuth 2.1 flow (brief)
 
-1. **Metadata discovery** — `GET /.well-known/oauth-authorization-server` (RFC 8414).
-2. **Dynamic Client Registration** — `POST /oauth/register` (RFC 7591) → `client_id`.
-3. **Authorization request** — `response_type=code` + PKCE `code_challenge` (RFC 7636) + DPoP proof (RFC 9449).
-4. **Token exchange** — `POST /oauth/token` → `access_token` (JWT) + `refresh_token`.
-5. **MCP calls** — include `Authorization: Bearer <access_token>` + DPoP proof header.
+1. **Metadata discovery** — `GET /.well-known/oauth-authorization-server` (RFC 8414) and `GET /.well-known/oauth-protected-resource` (RFC 9728).
+2. **Dynamic Client Registration** — `POST /auth/oauth/register` (RFC 7591) → `client_id`.  Only public clients are supported (`token_endpoint_auth_method: "none"`, PKCE-only).
+3. **Authorization request** — `GET /auth/oauth/authorize` renders the consent screen, `POST /auth/oauth/authorize` records the decision.  `response_type=code` + PKCE `code_challenge` with `S256` (RFC 7636).
+4. **Token exchange** — `POST /auth/oauth/token` → `access_token` (JWT, `aud` = the MCP canonical URI) + `refresh_token`.  Supported grants: `authorization_code`, `refresh_token`.  Revoke with `POST /auth/oauth/revoke`.
+5. **MCP calls** — include `Authorization: Bearer <access_token>`.  Signing keys are published at `GET /.well-known/jwks.json`.
 
-Scopes required depend on the tool (see table above).  The access token carries the `user_id` claim; the MCP server never asks for a user identifier in the tool arguments.
+There is no DPoP / sender-constrained-token support; bearer tokens are used as-is.
+
+[`backend/src/mcp_server/domain/scopes.py`](../../backend/src/mcp_server/domain/scopes.py) declares **20 scopes**, 18 of which are granted by default (`universe:delete` and `account:write` must be requested explicitly).  Which one a tool needs is per-tool (see the tables above).  The access token carries the user id in its `sub` claim; the MCP server never asks for a user identifier in the tool arguments.
 
 ---
 
-## SSE transport endpoint
+## Transport endpoint
 
 ```
-GET /mcp/sse
+POST /mcp
 Authorization: Bearer <jwt>
+Content-Type: application/json
 ```
 
-The server opens a text/event-stream connection and emits JSON-RPC messages wrapped in SSE `data:` lines.  Keep-alive comments (`:heartbeat`) are sent every 15 seconds to prevent proxy timeouts.  The client reconnects automatically with `Last-Event-ID` on disconnect.
+A single JSON-RPC 2.0 endpoint (also reachable as `/mcp/`).  Supported methods: `initialize`, `notifications/initialized`, `tools/list`, `tools/call`, `resources/list`, `resources/read`.  Responses are plain `application/json` — there is no SSE stream, no heartbeat and no `Last-Event-ID` resumption.  An unauthenticated call returns `401` with `WWW-Authenticate: Bearer … resource_metadata="…/.well-known/oauth-protected-resource"`, pointing the client at the metadata document.
 
 ---
 
-## HITL proposal flow
+## Write path
 
-All write tools (`create_entity`, `update_entity`, `delete_entity`) return a `proposal_id`.  The client must:
+MCP write tools mutate directly: the handler runs the same use case the REST API uses, inside the request's unit of work, with RLS pinned to the token's `sub`, and the transaction is committed when the handler returns.  No proposal is created and nothing else has to confirm the change.
 
-1. Present the proposal to the user (React card).
-2. On confirm → `POST /api/v1/coherence/upsert` with the proposal payload.
-3. On reject/edit → `POST /api/v1/agents/feedback` to feed the self-learning loop.
+Every successful `tools/call` consumes one `mcp_call` from the user's daily quota (the free tier has no MCP access at all); failed calls do not burn the allowance.
 
-No data is mutated until step 2.
+The HITL proposal flow (`backend/src/agents/infrastructure/proposal_store.py` → `POST /api/v1/coherence/upsert`) belongs to the in-app agent, **not** to MCP.

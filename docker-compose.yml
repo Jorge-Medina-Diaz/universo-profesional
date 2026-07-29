@@ -5,6 +5,9 @@ name: cvs-saas
 x-shared-env: &shared-env
   # Runtime connects as the RLS-subject role (NOSUPERUSER NOBYPASSRLS).
   DATABASE_URL: postgresql+asyncpg://cvs_app:cvs_app_dev_password@postgres:5432/cvs
+  # Owner role — DDL only (alembic). Pinned here so a stale localhost value in
+  # someone's .env cannot leak in through env_file below.
+  DATABASE_URL_SYNC: postgresql://cvs:cvs_dev_password@postgres:5432/cvs
   REDIS_URL: redis://redis:6379/0
   STORAGE_ROOT: /app/var/documents
   CANONICAL_BASE_URL: http://localhost:8000
@@ -90,6 +93,52 @@ services:
       timeout: 5s
       retries: 5
 
+  # --- One-shot bootstrap: schema, then the runtime role, then seed data -----
+  # Order is load-bearing and mirrors scripts/deploy_local_prod.sh:
+  #   migrate (owner, creates tables) -> db-bootstrap (grants on those tables)
+  #   -> esco-seed (writes into them) -> backend/worker (connect as cvs_app).
+  # Without this chain a fresh clone deadlocks: esco-seed queries a table that
+  # does not exist yet, so it fails; backend waits on esco-seed completing, so
+  # it never starts; and `docker compose exec backend alembic upgrade head`
+  # cannot run because there is no backend container to exec into.
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: ../docker/backend.Dockerfile
+      target: runtime
+    container_name: cvs-migrate
+    environment:
+      # alembic needs DDL rights, so it connects as the owner role, not cvs_app.
+      DATABASE_URL: postgresql+asyncpg://cvs:cvs_dev_password@postgres:5432/cvs
+      DATABASE_URL_SYNC: postgresql://cvs:cvs_dev_password@postgres:5432/cvs
+      ENV: ${ENV:-development}
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./backend:/app
+      - backend_var:/app/var
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: alembic upgrade head
+    restart: on-failure
+
+  db-bootstrap:
+    # Uses the postgres image because it is the only one here that ships psql,
+    # and because provision_app_role.sql is the same file CI and prod run.
+    image: ${POSTGRES_IMAGE:-cvs-postgres:local}
+    container_name: cvs-db-bootstrap
+    environment:
+      PGPASSWORD: cvs_dev_password
+    volumes:
+      - ./backend/scripts:/scripts:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: >
+      sh -c "psql -h postgres -U cvs -d cvs -v ON_ERROR_STOP=1 -q -f /scripts/provision_app_role.sql &&
+             psql -h postgres -U cvs -d cvs -q -c \"ALTER ROLE cvs_app PASSWORD 'cvs_app_dev_password'\""
+    restart: on-failure
+
   esco-seed:
     build:
       context: ./backend
@@ -111,8 +160,8 @@ services:
       - ./backend:/app
       - backend_var:/app/var
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-bootstrap:
+        condition: service_completed_successfully
     command: >
       sh -c "python -m scripts.seed_esco --sample-only"
     restart: on-failure
@@ -124,10 +173,14 @@ services:
       target: runtime
     restart: unless-stopped
     container_name: cvs-backend
+    # Anything you put in .env reaches the container. The explicit `environment:`
+    # block below still wins, so container-network values (DATABASE_URL, EMAIL_HOST)
+    # survive the localhost defaults .env.example ships for non-Docker runs.
+    env_file:
+      - path: .env
+        required: false
     environment:
       <<: *shared-env
-      # alembic keeps the owner role via DATABASE_URL_SYNC (DDL rights).
-      DATABASE_URL_SYNC: postgresql://cvs:cvs_dev_password@postgres:5432/cvs
       # AgentOS ops substrate (P1.B) + tier-routed coordinator (P1.E) — dev-on.
       AGENTOS_ENABLED: ${AGENTOS_ENABLED:-true}
       AGENTS_TIER_ROUTING_ENABLED: ${AGENTS_TIER_ROUTING_ENABLED:-true}
@@ -169,6 +222,9 @@ services:
       target: runtime
     restart: unless-stopped
     container_name: cvs-worker
+    env_file:
+      - path: .env
+        required: false
     environment:
       # Same providers + secrets as the backend — the worker runs LLM extraction,
       # embedding refresh, OAuth-token-decrypting syncs and email sends. (It had
@@ -178,10 +234,12 @@ services:
       - ./backend:/app
       - backend_var:/app/var
     depends_on:
-      postgres:
-        condition: service_healthy
+      # Also connects as cvs_app, so it must wait for db-bootstrap like the API
+      # does — otherwise it crash-loops until the role exists.
       redis:
         condition: service_healthy
+      esco-seed:
+        condition: service_completed_successfully
     command: arq src.shared.worker.WorkerSettings
 
   frontend:
@@ -190,6 +248,11 @@ services:
       dockerfile: ../docker/frontend.Dockerfile
     restart: unless-stopped
     container_name: cvs-frontend
+    # Picks up VITE_* keys (e.g. VITE_SENTRY_DSN) from .env; Vite exposes any
+    # VITE_-prefixed process env to the browser bundle.
+    env_file:
+      - path: .env
+        required: false
     environment:
       VITE_API_BASE_URL: http://localhost:8000
       NODE_ENV: development

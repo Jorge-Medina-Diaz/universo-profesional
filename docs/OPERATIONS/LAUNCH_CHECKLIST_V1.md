@@ -4,7 +4,10 @@ Use this checklist before every production deploy. Items are ordered by risk: in
 
 ## Pre-flight (1–2 days before)
 
-- [ ] **Secrets audit** — run `scripts/audit-secrets.sh` (or manual grep) to ensure no dev defaults in `.env.production`:
+- [ ] **Secrets audit** — there is no audit script; grep `.env.production` by hand
+  (`grep -nE 'cvs_dev_password|localhost|_IN_DEV=true|_ECHO=true' .env.production` must print nothing).
+  Most of these are also enforced at boot by `validate_production_ready()` in
+  `backend/src/shared/config.py`, which refuses to start the app when `ENV=production`:
   - [ ] `DATABASE_URL` does NOT contain `cvs_dev_password`
   - [ ] `CORS_ORIGINS` does NOT contain `localhost`
   - [ ] `CANONICAL_BASE_URL` and `FRONTEND_BASE_URL` are HTTPS public URLs
@@ -16,7 +19,7 @@ Use this checklist before every production deploy. Items are ordered by risk: in
   - [ ] `STRIPE_API_KEY` starts with `sk_live_`
   - [ ] `STRIPE_WEBHOOK_SECRET` is set
   - [ ] Price IDs match the live Stripe dashboard
-- [ ] **Email provider** — confirm `EMAIL_PROVIDER=brevo` or `postmark` (not `mock`)
+- [ ] **Email provider** — confirm `EMAIL_PROVIDER=brevo` (the only real provider; `mock` is rejected in prod)
 - [ ] **LLM provider** — confirm `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is set
 - [ ] **Domain + DNS** — verify TLS certificates and `AAAA`/`A` records
 - [ ] **Sentry DSN** — optional but recommended for error tracking

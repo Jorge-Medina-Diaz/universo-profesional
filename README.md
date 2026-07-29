@@ -85,7 +85,7 @@ flowchart LR
         GENUI["Generative UI<br/>55 external-execution tools<br/>rendered as React cards"]
         DOCS["Tailored CV + cover letter<br/>PDF · DOCX · JSON Resume · Europass"]
         TWIN["Public twin<br/>your URL + embeddable iframe"]
-        MCPS["MCP server · 33 tools<br/>OAuth 2.1 AS · PKCE · DCR"]
+        MCPS["MCP server · 60 tools<br/>OAuth 2.1 AS · PKCE · DCR"]
     end
 
     WORKER["arq worker · 13 jobs<br/>transactional outbox<br/>nightly curator sweep"]
@@ -139,7 +139,7 @@ bring, and pulls the thread with open questions so you keep talking.
 | Path | You do | It does |
 |---|---|---|
 | **Proactive chat** | "I got the Terraform Associate cert in March" | Routes to `entity_curator`, proposes a card you confirm |
-| **MCP** | `claude mcp add --transport http …` | 33 tools inside Claude Code / Cursor, OAuth 2.1 |
+| **MCP** | `claude mcp add --transport http …` | 60 tools inside Claude Code / Cursor, OAuth 2.1 |
 | **PDF CV import** | Drop your old CV | Parses it, returns every entry for review |
 | **LinkedIn** | Upload the export ZIP | Batch import review card |
 | **GitHub** | Connect once | Weekly cron resync |
@@ -321,16 +321,16 @@ The decisions that matter more than the lane list:
 
 | | |
 |---|---|
-| **Backend** | 362 Python files · ~51k LOC · 15 bounded contexts · 42 migrations |
+| **Backend** | 361 Python files · ~51k LOC · 15 bounded contexts · 42 migrations |
 | **Frontend** | 237 TS/TSX files · ~40k LOC · zero-dependency hash router |
 | **Agents** | 1 coordinator Team in route mode + 7 specialists · Sonnet routes, Haiku executes |
 | **Generative UI** | 55 external-execution tools · ~25 cards · 13 summonable widgets |
 | **Graph** | 2 AGE graphs · 18 vertex labels · 13 edge types · bi-temporal on every vertex *and* edge |
 | **Retrieval** | 5 lanes · RRF k=60 · pool 40 → top_k |
-| **MCP** | 33 tools · 21 OAuth scopes · spec 2025-11-25 |
+| **MCP** | 60 tools · 20 OAuth scopes · spec 2025-11-25 |
 | **Background** | 13 arq jobs · nightly curator sweep · transactional outbox |
 | **Tests** | 104 test files · 855 test functions across unit / integration / e2e |
-| **CI** | ruff (17 rule families incl. bandit) · mypy strict · import-linter · pytest · vitest · Playwright · Trivy fs + image — see [Honest status](#honest-status) |
+| **CI** | ruff (16 rule families incl. bandit) · mypy strict · import-linter · pytest · vitest · Playwright · Trivy fs + image — see [Honest status](#honest-status) |
 
 **The hard parts**
 
@@ -354,7 +354,7 @@ The decisions that matter more than the lane list:
 - **Transactional outbox for embeddings.** `FOR UPDATE SKIP LOCKED`, first-run fast-forward,
   contiguous-only cursor advance, and an `ingestion_to_queryable_seconds` SLO histogram.
 - **A self-hosted OAuth 2.1 Authorization Server.** PKCE + Dynamic Client Registration,
-  RFC 8414 / 9728 / 8707 / 7591, 21 scopes — so any MCP client connects with one command.
+  RFC 8414 / 9728 / 8707 / 7591, 20 scopes — so any MCP client connects with one command.
 - **Postgres 16 with pgvector *and* Apache AGE compiled into one image**, so dev, CI and prod run
   the same build and no AGE-dependent path goes untested.
 - **Architecture enforced by CI, not by review.** import-linter holds a 4-layer contract
@@ -386,8 +386,10 @@ is unfinished — the difference matters, so here it is straight.
 **Deliberate**
 
 - Default providers are mocks (LLM, embeddings, email, storage, payments), so `docker compose up`
-  works offline with zero credentials. Set `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` and the
-  providers auto-resolve to the real ones — no other config change.
+  works offline with zero credentials — every screen loads, CVs render, the graph and search work.
+  The one exception is the agent chat: the mock LLM refuses rather than fabricating a career for
+  you, so that single feature needs a real key. Set `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` and the
+  providers auto-resolve — no other config change.
 - ESCO ships as a ~266-occupation sample; the full corpus (~3k occupations, ~14k skills) is
   seeded separately.
 
@@ -407,7 +409,7 @@ is unfinished — the difference matters, so here it is straight.
 - **Two CI gates run as ratchets, not pass/fail.** The pipeline had never executed once — no
   remote meant no CI — so the first run was also the first measurement, and it found real bugs
   (see below). Fully green now: `ruff` (**0**, from 393), `import-linter`, and the entire
-  frontend job. Still ratcheting: **`mypy` at 181 errors** (from 541) and **`pytest` at 51
+  frontend job. Still ratcheting: **`mypy` at 180 errors** (from 541) and **`pytest` at 51
   failures out of 918** (867 pass). Those two steps fail the build if the number goes *up*, so
   it can only decrease — the standard way to adopt a gate on a codebase that predates it. The
   ceilings live in `ci.yml` and lowering them is the ongoing work. Nothing was suppressed to
@@ -422,10 +424,12 @@ true. Same rule applied to this README.
 ## Run it
 
 ```bash
-cp .env.example .env          # defaults work fully offline
-docker compose up -d --build  # first run builds Postgres+AGE, ~5 min
-docker compose exec backend alembic upgrade head
+cp .env.example .env          # defaults work fully offline, no API keys
+docker compose up -d --build  # first run builds Postgres+AGE, ~5-10 min
 ```
+
+Migrations, the RLS runtime role and the ESCO sample are applied by ordered
+one-shot services before the API starts — there is no manual bootstrap step.
 
 | | |
 |---|---|
@@ -437,7 +441,9 @@ Register, click the verify link in MailHog, and the onboarding agent takes it fr
 populated graph to look at? `docker compose exec backend python -m scripts.seed_demo_twin` creates
 a clearly-labelled fictional profile and publishes its twin at `/#/t/demo`.
 
-Full setup, troubleshooting and the mock→real provider matrix: [docs/LOCAL_DEPLOY.md](docs/LOCAL_DEPLOY.md).
+The chat is the one feature a mock can't fake — set `ANTHROPIC_API_KEY` in `.env` and the providers
+auto-resolve. Full setup, provider matrix and troubleshooting:
+[docs/LOCAL_DEPLOY.md](docs/LOCAL_DEPLOY.md).
 
 ## Deeper reading
 
@@ -452,5 +458,5 @@ Full setup, troubleshooting and the mock→real provider matrix: [docs/LOCAL_DEP
 ---
 
 <div align="center">
-<sub>Solo project · 214 commits · May–Jun 2026 · <a href="LICENSE">AGPL-3.0-only</a></sub>
+<sub>Solo project · 221 commits · May–Jul 2026 · <a href="LICENSE">AGPL-3.0-only</a></sub>
 </div>

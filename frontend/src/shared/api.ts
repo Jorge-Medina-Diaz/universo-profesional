@@ -368,32 +368,6 @@ export interface LlmKeyStatus {
   provider: string | null;
 }
 
-export interface ChatSession {
-  session_id: string;
-  title: string | null;
-  pinned: boolean;
-  archived: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export const chatSessions = {
-  list: () => api<ChatSession[]>("/api/v1/chat/sessions"),
-  create: (title?: string) =>
-    api<ChatSession>("/api/v1/chat/sessions", {
-      method: "POST",
-      body: JSON.stringify({ title: title ?? null }),
-    }),
-  get: (id: string) => api<ChatSession>(`/api/v1/chat/sessions/${id}`),
-  update: (id: string, body: Partial<Pick<ChatSession, "title" | "pinned" | "archived">>) =>
-    api<ChatSession>(`/api/v1/chat/sessions/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify(body),
-    }),
-  remove: (id: string) =>
-    api<void>(`/api/v1/chat/sessions/${id}`, { method: "DELETE" }),
-};
-
 export interface ChatStateResponse {
   session_id: string;
   digest: Record<string, unknown> | null;

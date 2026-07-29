@@ -1,0 +1,376 @@
+conceptUri,preferredLabel,altLabels,description,skillType
+http://data.europa.eu/esco/skill/00000001,Skill 1 (ES),,Description for skill 1. Ability to perform task 1. [ES],knowledge
+http://data.europa.eu/esco/skill/00000002,Skill 2 (ES),,Description for skill 2. Ability to perform task 2. [ES],attitude
+http://data.europa.eu/esco/skill/00000003,Skill 3 (ES),,Description for skill 3. Ability to perform task 3. [ES],attitude
+http://data.europa.eu/esco/skill/00000004,Skill 4 (ES),"Alt skill 4
+Synonym 4",Description for skill 4. Ability to perform task 4. [ES],knowledge
+http://data.europa.eu/esco/skill/00000005,Skill 5 (ES),,Description for skill 5. Ability to perform task 5. [ES],knowledge
+http://data.europa.eu/esco/skill/00000006,Skill 6 (ES),,Description for skill 6. Ability to perform task 6. [ES],knowledge
+http://data.europa.eu/esco/skill/00000007,Skill 7 (ES),,Description for skill 7. Ability to perform task 7. [ES],knowledge
+http://data.europa.eu/esco/skill/00000008,Skill 8 (ES),"Alt skill 8
+Synonym 8",Description for skill 8. Ability to perform task 8. [ES],skill
+http://data.europa.eu/esco/skill/00000009,Skill 9 (ES),,Description for skill 9. Ability to perform task 9. [ES],knowledge
+http://data.europa.eu/esco/skill/00000010,Skill 10 (ES),,Description for skill 10. Ability to perform task 10. [ES],attitude
+http://data.europa.eu/esco/skill/00000011,Skill 11 (ES),,Description for skill 11. Ability to perform task 11. [ES],knowledge
+http://data.europa.eu/esco/skill/00000012,Skill 12 (ES),"Alt skill 12
+Synonym 12",Description for skill 12. Ability to perform task 12. [ES],skill
+http://data.europa.eu/esco/skill/00000013,Skill 13 (ES),,Description for skill 13. Ability to perform task 13. [ES],attitude
+http://data.europa.eu/esco/skill/00000014,Skill 14 (ES),,Description for skill 14. Ability to perform task 14. [ES],skill
+http://data.europa.eu/esco/skill/00000015,Skill 15 (ES),,Description for skill 15. Ability to perform task 15. [ES],knowledge
+http://data.europa.eu/esco/skill/00000016,Skill 16 (ES),"Alt skill 16
+Synonym 16",Description for skill 16. Ability to perform task 16. [ES],attitude
+http://data.europa.eu/esco/skill/00000017,Skill 17 (ES),,Description for skill 17. Ability to perform task 17. [ES],knowledge
+http://data.europa.eu/esco/skill/00000018,Skill 18 (ES),,Description for skill 18. Ability to perform task 18. [ES],attitude
+http://data.europa.eu/esco/skill/00000019,Skill 19 (ES),,Description for skill 19. Ability to perform task 19. [ES],attitude
+http://data.europa.eu/esco/skill/00000020,Skill 20 (ES),"Alt skill 20
+Synonym 20",Description for skill 20. Ability to perform task 20. [ES],attitude
+http://data.europa.eu/esco/skill/00000021,Skill 21 (ES),,Description for skill 21. Ability to perform task 21. [ES],skill
+http://data.europa.eu/esco/skill/00000022,Skill 22 (ES),,Description for skill 22. Ability to perform task 22. [ES],knowledge
+http://data.europa.eu/esco/skill/00000023,Skill 23 (ES),,Description for skill 23. Ability to perform task 23. [ES],skill
+http://data.europa.eu/esco/skill/00000024,Skill 24 (ES),"Alt skill 24
+Synonym 24",Description for skill 24. Ability to perform task 24. [ES],skill
+http://data.europa.eu/esco/skill/00000025,Skill 25 (ES),,Description for skill 25. Ability to perform task 25. [ES],knowledge
+http://data.europa.eu/esco/skill/00000026,Skill 26 (ES),,Description for skill 26. Ability to perform task 26. [ES],knowledge
+http://data.europa.eu/esco/skill/00000027,Skill 27 (ES),,Description for skill 27. Ability to perform task 27. [ES],knowledge
+http://data.europa.eu/esco/skill/00000028,Skill 28 (ES),"Alt skill 28
+Synonym 28",Description for skill 28. Ability to perform task 28. [ES],attitude
+http://data.europa.eu/esco/skill/00000029,Skill 29 (ES),,Description for skill 29. Ability to perform task 29. [ES],skill
+http://data.europa.eu/esco/skill/00000030,Skill 30 (ES),,Description for skill 30. Ability to perform task 30. [ES],skill
+http://data.europa.eu/esco/skill/00000031,Skill 31 (ES),,Description for skill 31. Ability to perform task 31. [ES],skill
+http://data.europa.eu/esco/skill/00000032,Skill 32 (ES),"Alt skill 32
+Synonym 32",Description for skill 32. Ability to perform task 32. [ES],skill
+http://data.europa.eu/esco/skill/00000033,Skill 33 (ES),,Description for skill 33. Ability to perform task 33. [ES],skill
+http://data.europa.eu/esco/skill/00000034,Skill 34 (ES),,Description for skill 34. Ability to perform task 34. [ES],attitude
+http://data.europa.eu/esco/skill/00000035,Skill 35 (ES),,Description for skill 35. Ability to perform task 35. [ES],knowledge
+http://data.europa.eu/esco/skill/00000036,Skill 36 (ES),"Alt skill 36
+Synonym 36",Description for skill 36. Ability to perform task 36. [ES],attitude
+http://data.europa.eu/esco/skill/00000037,Skill 37 (ES),,Description for skill 37. Ability to perform task 37. [ES],attitude
+http://data.europa.eu/esco/skill/00000038,Skill 38 (ES),,Description for skill 38. Ability to perform task 38. [ES],attitude
+http://data.europa.eu/esco/skill/00000039,Skill 39 (ES),,Description for skill 39. Ability to perform task 39. [ES],knowledge
+http://data.europa.eu/esco/skill/00000040,Skill 40 (ES),"Alt skill 40
+Synonym 40",Description for skill 40. Ability to perform task 40. [ES],knowledge
+http://data.europa.eu/esco/skill/00000041,Skill 41 (ES),,Description for skill 41. Ability to perform task 41. [ES],skill
+http://data.europa.eu/esco/skill/00000042,Skill 42 (ES),,Description for skill 42. Ability to perform task 42. [ES],attitude
+http://data.europa.eu/esco/skill/00000043,Skill 43 (ES),,Description for skill 43. Ability to perform task 43. [ES],skill
+http://data.europa.eu/esco/skill/00000044,Skill 44 (ES),"Alt skill 44
+Synonym 44",Description for skill 44. Ability to perform task 44. [ES],knowledge
+http://data.europa.eu/esco/skill/00000045,Skill 45 (ES),,Description for skill 45. Ability to perform task 45. [ES],knowledge
+http://data.europa.eu/esco/skill/00000046,Skill 46 (ES),,Description for skill 46. Ability to perform task 46. [ES],knowledge
+http://data.europa.eu/esco/skill/00000047,Skill 47 (ES),,Description for skill 47. Ability to perform task 47. [ES],knowledge
+http://data.europa.eu/esco/skill/00000048,Skill 48 (ES),"Alt skill 48
+Synonym 48",Description for skill 48. Ability to perform task 48. [ES],attitude
+http://data.europa.eu/esco/skill/00000049,Skill 49 (ES),,Description for skill 49. Ability to perform task 49. [ES],skill
+http://data.europa.eu/esco/skill/00000050,Skill 50 (ES),,Description for skill 50. Ability to perform task 50. [ES],knowledge
+http://data.europa.eu/esco/skill/00000051,Skill 51 (ES),,Description for skill 51. Ability to perform task 51. [ES],skill
+http://data.europa.eu/esco/skill/00000052,Skill 52 (ES),"Alt skill 52
+Synonym 52",Description for skill 52. Ability to perform task 52. [ES],knowledge
+http://data.europa.eu/esco/skill/00000053,Skill 53 (ES),,Description for skill 53. Ability to perform task 53. [ES],skill
+http://data.europa.eu/esco/skill/00000054,Skill 54 (ES),,Description for skill 54. Ability to perform task 54. [ES],skill
+http://data.europa.eu/esco/skill/00000055,Skill 55 (ES),,Description for skill 55. Ability to perform task 55. [ES],knowledge
+http://data.europa.eu/esco/skill/00000056,Skill 56 (ES),"Alt skill 56
+Synonym 56",Description for skill 56. Ability to perform task 56. [ES],knowledge
+http://data.europa.eu/esco/skill/00000057,Skill 57 (ES),,Description for skill 57. Ability to perform task 57. [ES],skill
+http://data.europa.eu/esco/skill/00000058,Skill 58 (ES),,Description for skill 58. Ability to perform task 58. [ES],attitude
+http://data.europa.eu/esco/skill/00000059,Skill 59 (ES),,Description for skill 59. Ability to perform task 59. [ES],knowledge
+http://data.europa.eu/esco/skill/00000060,Skill 60 (ES),"Alt skill 60
+Synonym 60",Description for skill 60. Ability to perform task 60. [ES],knowledge
+http://data.europa.eu/esco/skill/00000061,Skill 61 (ES),,Description for skill 61. Ability to perform task 61. [ES],attitude
+http://data.europa.eu/esco/skill/00000062,Skill 62 (ES),,Description for skill 62. Ability to perform task 62. [ES],attitude
+http://data.europa.eu/esco/skill/00000063,Skill 63 (ES),,Description for skill 63. Ability to perform task 63. [ES],knowledge
+http://data.europa.eu/esco/skill/00000064,Skill 64 (ES),"Alt skill 64
+Synonym 64",Description for skill 64. Ability to perform task 64. [ES],knowledge
+http://data.europa.eu/esco/skill/00000065,Skill 65 (ES),,Description for skill 65. Ability to perform task 65. [ES],knowledge
+http://data.europa.eu/esco/skill/00000066,Skill 66 (ES),,Description for skill 66. Ability to perform task 66. [ES],knowledge
+http://data.europa.eu/esco/skill/00000067,Skill 67 (ES),,Description for skill 67. Ability to perform task 67. [ES],skill
+http://data.europa.eu/esco/skill/00000068,Skill 68 (ES),"Alt skill 68
+Synonym 68",Description for skill 68. Ability to perform task 68. [ES],skill
+http://data.europa.eu/esco/skill/00000069,Skill 69 (ES),,Description for skill 69. Ability to perform task 69. [ES],skill
+http://data.europa.eu/esco/skill/00000070,Skill 70 (ES),,Description for skill 70. Ability to perform task 70. [ES],knowledge
+http://data.europa.eu/esco/skill/00000071,Skill 71 (ES),,Description for skill 71. Ability to perform task 71. [ES],skill
+http://data.europa.eu/esco/skill/00000072,Skill 72 (ES),"Alt skill 72
+Synonym 72",Description for skill 72. Ability to perform task 72. [ES],knowledge
+http://data.europa.eu/esco/skill/00000073,Skill 73 (ES),,Description for skill 73. Ability to perform task 73. [ES],knowledge
+http://data.europa.eu/esco/skill/00000074,Skill 74 (ES),,Description for skill 74. Ability to perform task 74. [ES],skill
+http://data.europa.eu/esco/skill/00000075,Skill 75 (ES),,Description for skill 75. Ability to perform task 75. [ES],knowledge
+http://data.europa.eu/esco/skill/00000076,Skill 76 (ES),"Alt skill 76
+Synonym 76",Description for skill 76. Ability to perform task 76. [ES],skill
+http://data.europa.eu/esco/skill/00000077,Skill 77 (ES),,Description for skill 77. Ability to perform task 77. [ES],skill
+http://data.europa.eu/esco/skill/00000078,Skill 78 (ES),,Description for skill 78. Ability to perform task 78. [ES],skill
+http://data.europa.eu/esco/skill/00000079,Skill 79 (ES),,Description for skill 79. Ability to perform task 79. [ES],skill
+http://data.europa.eu/esco/skill/00000080,Skill 80 (ES),"Alt skill 80
+Synonym 80",Description for skill 80. Ability to perform task 80. [ES],skill
+http://data.europa.eu/esco/skill/00000081,Skill 81 (ES),,Description for skill 81. Ability to perform task 81. [ES],attitude
+http://data.europa.eu/esco/skill/00000082,Skill 82 (ES),,Description for skill 82. Ability to perform task 82. [ES],attitude
+http://data.europa.eu/esco/skill/00000083,Skill 83 (ES),,Description for skill 83. Ability to perform task 83. [ES],attitude
+http://data.europa.eu/esco/skill/00000084,Skill 84 (ES),"Alt skill 84
+Synonym 84",Description for skill 84. Ability to perform task 84. [ES],attitude
+http://data.europa.eu/esco/skill/00000085,Skill 85 (ES),,Description for skill 85. Ability to perform task 85. [ES],attitude
+http://data.europa.eu/esco/skill/00000086,Skill 86 (ES),,Description for skill 86. Ability to perform task 86. [ES],skill
+http://data.europa.eu/esco/skill/00000087,Skill 87 (ES),,Description for skill 87. Ability to perform task 87. [ES],knowledge
+http://data.europa.eu/esco/skill/00000088,Skill 88 (ES),"Alt skill 88
+Synonym 88",Description for skill 88. Ability to perform task 88. [ES],knowledge
+http://data.europa.eu/esco/skill/00000089,Skill 89 (ES),,Description for skill 89. Ability to perform task 89. [ES],skill
+http://data.europa.eu/esco/skill/00000090,Skill 90 (ES),,Description for skill 90. Ability to perform task 90. [ES],knowledge
+http://data.europa.eu/esco/skill/00000091,Skill 91 (ES),,Description for skill 91. Ability to perform task 91. [ES],knowledge
+http://data.europa.eu/esco/skill/00000092,Skill 92 (ES),"Alt skill 92
+Synonym 92",Description for skill 92. Ability to perform task 92. [ES],attitude
+http://data.europa.eu/esco/skill/00000093,Skill 93 (ES),,Description for skill 93. Ability to perform task 93. [ES],attitude
+http://data.europa.eu/esco/skill/00000094,Skill 94 (ES),,Description for skill 94. Ability to perform task 94. [ES],attitude
+http://data.europa.eu/esco/skill/00000095,Skill 95 (ES),,Description for skill 95. Ability to perform task 95. [ES],knowledge
+http://data.europa.eu/esco/skill/00000096,Skill 96 (ES),"Alt skill 96
+Synonym 96",Description for skill 96. Ability to perform task 96. [ES],attitude
+http://data.europa.eu/esco/skill/00000097,Skill 97 (ES),,Description for skill 97. Ability to perform task 97. [ES],skill
+http://data.europa.eu/esco/skill/00000098,Skill 98 (ES),,Description for skill 98. Ability to perform task 98. [ES],knowledge
+http://data.europa.eu/esco/skill/00000099,Skill 99 (ES),,Description for skill 99. Ability to perform task 99. [ES],knowledge
+http://data.europa.eu/esco/skill/00000100,Skill 100 (ES),"Alt skill 100
+Synonym 100",Description for skill 100. Ability to perform task 100. [ES],attitude
+http://data.europa.eu/esco/skill/00000101,Skill 101 (ES),,Description for skill 101. Ability to perform task 101. [ES],skill
+http://data.europa.eu/esco/skill/00000102,Skill 102 (ES),,Description for skill 102. Ability to perform task 102. [ES],attitude
+http://data.europa.eu/esco/skill/00000103,Skill 103 (ES),,Description for skill 103. Ability to perform task 103. [ES],attitude
+http://data.europa.eu/esco/skill/00000104,Skill 104 (ES),"Alt skill 104
+Synonym 104",Description for skill 104. Ability to perform task 104. [ES],knowledge
+http://data.europa.eu/esco/skill/00000105,Skill 105 (ES),,Description for skill 105. Ability to perform task 105. [ES],knowledge
+http://data.europa.eu/esco/skill/00000106,Skill 106 (ES),,Description for skill 106. Ability to perform task 106. [ES],attitude
+http://data.europa.eu/esco/skill/00000107,Skill 107 (ES),,Description for skill 107. Ability to perform task 107. [ES],knowledge
+http://data.europa.eu/esco/skill/00000108,Skill 108 (ES),"Alt skill 108
+Synonym 108",Description for skill 108. Ability to perform task 108. [ES],knowledge
+http://data.europa.eu/esco/skill/00000109,Skill 109 (ES),,Description for skill 109. Ability to perform task 109. [ES],knowledge
+http://data.europa.eu/esco/skill/00000110,Skill 110 (ES),,Description for skill 110. Ability to perform task 110. [ES],attitude
+http://data.europa.eu/esco/skill/00000111,Skill 111 (ES),,Description for skill 111. Ability to perform task 111. [ES],knowledge
+http://data.europa.eu/esco/skill/00000112,Skill 112 (ES),"Alt skill 112
+Synonym 112",Description for skill 112. Ability to perform task 112. [ES],attitude
+http://data.europa.eu/esco/skill/00000113,Skill 113 (ES),,Description for skill 113. Ability to perform task 113. [ES],knowledge
+http://data.europa.eu/esco/skill/00000114,Skill 114 (ES),,Description for skill 114. Ability to perform task 114. [ES],skill
+http://data.europa.eu/esco/skill/00000115,Skill 115 (ES),,Description for skill 115. Ability to perform task 115. [ES],knowledge
+http://data.europa.eu/esco/skill/00000116,Skill 116 (ES),"Alt skill 116
+Synonym 116",Description for skill 116. Ability to perform task 116. [ES],attitude
+http://data.europa.eu/esco/skill/00000117,Skill 117 (ES),,Description for skill 117. Ability to perform task 117. [ES],knowledge
+http://data.europa.eu/esco/skill/00000118,Skill 118 (ES),,Description for skill 118. Ability to perform task 118. [ES],attitude
+http://data.europa.eu/esco/skill/00000119,Skill 119 (ES),,Description for skill 119. Ability to perform task 119. [ES],attitude
+http://data.europa.eu/esco/skill/00000120,Skill 120 (ES),"Alt skill 120
+Synonym 120",Description for skill 120. Ability to perform task 120. [ES],knowledge
+http://data.europa.eu/esco/skill/00000121,Skill 121 (ES),,Description for skill 121. Ability to perform task 121. [ES],attitude
+http://data.europa.eu/esco/skill/00000122,Skill 122 (ES),,Description for skill 122. Ability to perform task 122. [ES],knowledge
+http://data.europa.eu/esco/skill/00000123,Skill 123 (ES),,Description for skill 123. Ability to perform task 123. [ES],skill
+http://data.europa.eu/esco/skill/00000124,Skill 124 (ES),"Alt skill 124
+Synonym 124",Description for skill 124. Ability to perform task 124. [ES],attitude
+http://data.europa.eu/esco/skill/00000125,Skill 125 (ES),,Description for skill 125. Ability to perform task 125. [ES],attitude
+http://data.europa.eu/esco/skill/00000126,Skill 126 (ES),,Description for skill 126. Ability to perform task 126. [ES],attitude
+http://data.europa.eu/esco/skill/00000127,Skill 127 (ES),,Description for skill 127. Ability to perform task 127. [ES],attitude
+http://data.europa.eu/esco/skill/00000128,Skill 128 (ES),"Alt skill 128
+Synonym 128",Description for skill 128. Ability to perform task 128. [ES],skill
+http://data.europa.eu/esco/skill/00000129,Skill 129 (ES),,Description for skill 129. Ability to perform task 129. [ES],skill
+http://data.europa.eu/esco/skill/00000130,Skill 130 (ES),,Description for skill 130. Ability to perform task 130. [ES],knowledge
+http://data.europa.eu/esco/skill/00000131,Skill 131 (ES),,Description for skill 131. Ability to perform task 131. [ES],attitude
+http://data.europa.eu/esco/skill/00000132,Skill 132 (ES),"Alt skill 132
+Synonym 132",Description for skill 132. Ability to perform task 132. [ES],attitude
+http://data.europa.eu/esco/skill/00000133,Skill 133 (ES),,Description for skill 133. Ability to perform task 133. [ES],skill
+http://data.europa.eu/esco/skill/00000134,Skill 134 (ES),,Description for skill 134. Ability to perform task 134. [ES],knowledge
+http://data.europa.eu/esco/skill/00000135,Skill 135 (ES),,Description for skill 135. Ability to perform task 135. [ES],skill
+http://data.europa.eu/esco/skill/00000136,Skill 136 (ES),"Alt skill 136
+Synonym 136",Description for skill 136. Ability to perform task 136. [ES],skill
+http://data.europa.eu/esco/skill/00000137,Skill 137 (ES),,Description for skill 137. Ability to perform task 137. [ES],knowledge
+http://data.europa.eu/esco/skill/00000138,Skill 138 (ES),,Description for skill 138. Ability to perform task 138. [ES],attitude
+http://data.europa.eu/esco/skill/00000139,Skill 139 (ES),,Description for skill 139. Ability to perform task 139. [ES],attitude
+http://data.europa.eu/esco/skill/00000140,Skill 140 (ES),"Alt skill 140
+Synonym 140",Description for skill 140. Ability to perform task 140. [ES],skill
+http://data.europa.eu/esco/skill/00000141,Skill 141 (ES),,Description for skill 141. Ability to perform task 141. [ES],skill
+http://data.europa.eu/esco/skill/00000142,Skill 142 (ES),,Description for skill 142. Ability to perform task 142. [ES],skill
+http://data.europa.eu/esco/skill/00000143,Skill 143 (ES),,Description for skill 143. Ability to perform task 143. [ES],knowledge
+http://data.europa.eu/esco/skill/00000144,Skill 144 (ES),"Alt skill 144
+Synonym 144",Description for skill 144. Ability to perform task 144. [ES],knowledge
+http://data.europa.eu/esco/skill/00000145,Skill 145 (ES),,Description for skill 145. Ability to perform task 145. [ES],skill
+http://data.europa.eu/esco/skill/00000146,Skill 146 (ES),,Description for skill 146. Ability to perform task 146. [ES],attitude
+http://data.europa.eu/esco/skill/00000147,Skill 147 (ES),,Description for skill 147. Ability to perform task 147. [ES],attitude
+http://data.europa.eu/esco/skill/00000148,Skill 148 (ES),"Alt skill 148
+Synonym 148",Description for skill 148. Ability to perform task 148. [ES],knowledge
+http://data.europa.eu/esco/skill/00000149,Skill 149 (ES),,Description for skill 149. Ability to perform task 149. [ES],knowledge
+http://data.europa.eu/esco/skill/00000150,Skill 150 (ES),,Description for skill 150. Ability to perform task 150. [ES],attitude
+http://data.europa.eu/esco/skill/00000151,Skill 151 (ES),,Description for skill 151. Ability to perform task 151. [ES],knowledge
+http://data.europa.eu/esco/skill/00000152,Skill 152 (ES),"Alt skill 152
+Synonym 152",Description for skill 152. Ability to perform task 152. [ES],attitude
+http://data.europa.eu/esco/skill/00000153,Skill 153 (ES),,Description for skill 153. Ability to perform task 153. [ES],skill
+http://data.europa.eu/esco/skill/00000154,Skill 154 (ES),,Description for skill 154. Ability to perform task 154. [ES],knowledge
+http://data.europa.eu/esco/skill/00000155,Skill 155 (ES),,Description for skill 155. Ability to perform task 155. [ES],skill
+http://data.europa.eu/esco/skill/00000156,Skill 156 (ES),"Alt skill 156
+Synonym 156",Description for skill 156. Ability to perform task 156. [ES],knowledge
+http://data.europa.eu/esco/skill/00000157,Skill 157 (ES),,Description for skill 157. Ability to perform task 157. [ES],knowledge
+http://data.europa.eu/esco/skill/00000158,Skill 158 (ES),,Description for skill 158. Ability to perform task 158. [ES],skill
+http://data.europa.eu/esco/skill/00000159,Skill 159 (ES),,Description for skill 159. Ability to perform task 159. [ES],skill
+http://data.europa.eu/esco/skill/00000160,Skill 160 (ES),"Alt skill 160
+Synonym 160",Description for skill 160. Ability to perform task 160. [ES],knowledge
+http://data.europa.eu/esco/skill/00000161,Skill 161 (ES),,Description for skill 161. Ability to perform task 161. [ES],skill
+http://data.europa.eu/esco/skill/00000162,Skill 162 (ES),,Description for skill 162. Ability to perform task 162. [ES],attitude
+http://data.europa.eu/esco/skill/00000163,Skill 163 (ES),,Description for skill 163. Ability to perform task 163. [ES],attitude
+http://data.europa.eu/esco/skill/00000164,Skill 164 (ES),"Alt skill 164
+Synonym 164",Description for skill 164. Ability to perform task 164. [ES],skill
+http://data.europa.eu/esco/skill/00000165,Skill 165 (ES),,Description for skill 165. Ability to perform task 165. [ES],attitude
+http://data.europa.eu/esco/skill/00000166,Skill 166 (ES),,Description for skill 166. Ability to perform task 166. [ES],attitude
+http://data.europa.eu/esco/skill/00000167,Skill 167 (ES),,Description for skill 167. Ability to perform task 167. [ES],attitude
+http://data.europa.eu/esco/skill/00000168,Skill 168 (ES),"Alt skill 168
+Synonym 168",Description for skill 168. Ability to perform task 168. [ES],knowledge
+http://data.europa.eu/esco/skill/00000169,Skill 169 (ES),,Description for skill 169. Ability to perform task 169. [ES],attitude
+http://data.europa.eu/esco/skill/00000170,Skill 170 (ES),,Description for skill 170. Ability to perform task 170. [ES],attitude
+http://data.europa.eu/esco/skill/00000171,Skill 171 (ES),,Description for skill 171. Ability to perform task 171. [ES],skill
+http://data.europa.eu/esco/skill/00000172,Skill 172 (ES),"Alt skill 172
+Synonym 172",Description for skill 172. Ability to perform task 172. [ES],attitude
+http://data.europa.eu/esco/skill/00000173,Skill 173 (ES),,Description for skill 173. Ability to perform task 173. [ES],knowledge
+http://data.europa.eu/esco/skill/00000174,Skill 174 (ES),,Description for skill 174. Ability to perform task 174. [ES],knowledge
+http://data.europa.eu/esco/skill/00000175,Skill 175 (ES),,Description for skill 175. Ability to perform task 175. [ES],skill
+http://data.europa.eu/esco/skill/00000176,Skill 176 (ES),"Alt skill 176
+Synonym 176",Description for skill 176. Ability to perform task 176. [ES],knowledge
+http://data.europa.eu/esco/skill/00000177,Skill 177 (ES),,Description for skill 177. Ability to perform task 177. [ES],knowledge
+http://data.europa.eu/esco/skill/00000178,Skill 178 (ES),,Description for skill 178. Ability to perform task 178. [ES],attitude
+http://data.europa.eu/esco/skill/00000179,Skill 179 (ES),,Description for skill 179. Ability to perform task 179. [ES],attitude
+http://data.europa.eu/esco/skill/00000180,Skill 180 (ES),"Alt skill 180
+Synonym 180",Description for skill 180. Ability to perform task 180. [ES],knowledge
+http://data.europa.eu/esco/skill/00000181,Skill 181 (ES),,Description for skill 181. Ability to perform task 181. [ES],skill
+http://data.europa.eu/esco/skill/00000182,Skill 182 (ES),,Description for skill 182. Ability to perform task 182. [ES],skill
+http://data.europa.eu/esco/skill/00000183,Skill 183 (ES),,Description for skill 183. Ability to perform task 183. [ES],attitude
+http://data.europa.eu/esco/skill/00000184,Skill 184 (ES),"Alt skill 184
+Synonym 184",Description for skill 184. Ability to perform task 184. [ES],knowledge
+http://data.europa.eu/esco/skill/00000185,Skill 185 (ES),,Description for skill 185. Ability to perform task 185. [ES],attitude
+http://data.europa.eu/esco/skill/00000186,Skill 186 (ES),,Description for skill 186. Ability to perform task 186. [ES],skill
+http://data.europa.eu/esco/skill/00000187,Skill 187 (ES),,Description for skill 187. Ability to perform task 187. [ES],knowledge
+http://data.europa.eu/esco/skill/00000188,Skill 188 (ES),"Alt skill 188
+Synonym 188",Description for skill 188. Ability to perform task 188. [ES],attitude
+http://data.europa.eu/esco/skill/00000189,Skill 189 (ES),,Description for skill 189. Ability to perform task 189. [ES],attitude
+http://data.europa.eu/esco/skill/00000190,Skill 190 (ES),,Description for skill 190. Ability to perform task 190. [ES],skill
+http://data.europa.eu/esco/skill/00000191,Skill 191 (ES),,Description for skill 191. Ability to perform task 191. [ES],attitude
+http://data.europa.eu/esco/skill/00000192,Skill 192 (ES),"Alt skill 192
+Synonym 192",Description for skill 192. Ability to perform task 192. [ES],skill
+http://data.europa.eu/esco/skill/00000193,Skill 193 (ES),,Description for skill 193. Ability to perform task 193. [ES],skill
+http://data.europa.eu/esco/skill/00000194,Skill 194 (ES),,Description for skill 194. Ability to perform task 194. [ES],knowledge
+http://data.europa.eu/esco/skill/00000195,Skill 195 (ES),,Description for skill 195. Ability to perform task 195. [ES],knowledge
+http://data.europa.eu/esco/skill/00000196,Skill 196 (ES),"Alt skill 196
+Synonym 196",Description for skill 196. Ability to perform task 196. [ES],attitude
+http://data.europa.eu/esco/skill/00000197,Skill 197 (ES),,Description for skill 197. Ability to perform task 197. [ES],skill
+http://data.europa.eu/esco/skill/00000198,Skill 198 (ES),,Description for skill 198. Ability to perform task 198. [ES],skill
+http://data.europa.eu/esco/skill/00000199,Skill 199 (ES),,Description for skill 199. Ability to perform task 199. [ES],knowledge
+http://data.europa.eu/esco/skill/00000200,Skill 200 (ES),"Alt skill 200
+Synonym 200",Description for skill 200. Ability to perform task 200. [ES],knowledge
+http://data.europa.eu/esco/skill/00000201,Skill 201 (ES),,Description for skill 201. Ability to perform task 201. [ES],skill
+http://data.europa.eu/esco/skill/00000202,Skill 202 (ES),,Description for skill 202. Ability to perform task 202. [ES],knowledge
+http://data.europa.eu/esco/skill/00000203,Skill 203 (ES),,Description for skill 203. Ability to perform task 203. [ES],attitude
+http://data.europa.eu/esco/skill/00000204,Skill 204 (ES),"Alt skill 204
+Synonym 204",Description for skill 204. Ability to perform task 204. [ES],skill
+http://data.europa.eu/esco/skill/00000205,Skill 205 (ES),,Description for skill 205. Ability to perform task 205. [ES],knowledge
+http://data.europa.eu/esco/skill/00000206,Skill 206 (ES),,Description for skill 206. Ability to perform task 206. [ES],attitude
+http://data.europa.eu/esco/skill/00000207,Skill 207 (ES),,Description for skill 207. Ability to perform task 207. [ES],skill
+http://data.europa.eu/esco/skill/00000208,Skill 208 (ES),"Alt skill 208
+Synonym 208",Description for skill 208. Ability to perform task 208. [ES],attitude
+http://data.europa.eu/esco/skill/00000209,Skill 209 (ES),,Description for skill 209. Ability to perform task 209. [ES],attitude
+http://data.europa.eu/esco/skill/00000210,Skill 210 (ES),,Description for skill 210. Ability to perform task 210. [ES],skill
+http://data.europa.eu/esco/skill/00000211,Skill 211 (ES),,Description for skill 211. Ability to perform task 211. [ES],attitude
+http://data.europa.eu/esco/skill/00000212,Skill 212 (ES),"Alt skill 212
+Synonym 212",Description for skill 212. Ability to perform task 212. [ES],knowledge
+http://data.europa.eu/esco/skill/00000213,Skill 213 (ES),,Description for skill 213. Ability to perform task 213. [ES],knowledge
+http://data.europa.eu/esco/skill/00000214,Skill 214 (ES),,Description for skill 214. Ability to perform task 214. [ES],knowledge
+http://data.europa.eu/esco/skill/00000215,Skill 215 (ES),,Description for skill 215. Ability to perform task 215. [ES],attitude
+http://data.europa.eu/esco/skill/00000216,Skill 216 (ES),"Alt skill 216
+Synonym 216",Description for skill 216. Ability to perform task 216. [ES],knowledge
+http://data.europa.eu/esco/skill/00000217,Skill 217 (ES),,Description for skill 217. Ability to perform task 217. [ES],attitude
+http://data.europa.eu/esco/skill/00000218,Skill 218 (ES),,Description for skill 218. Ability to perform task 218. [ES],knowledge
+http://data.europa.eu/esco/skill/00000219,Skill 219 (ES),,Description for skill 219. Ability to perform task 219. [ES],skill
+http://data.europa.eu/esco/skill/00000220,Skill 220 (ES),"Alt skill 220
+Synonym 220",Description for skill 220. Ability to perform task 220. [ES],attitude
+http://data.europa.eu/esco/skill/00000221,Skill 221 (ES),,Description for skill 221. Ability to perform task 221. [ES],attitude
+http://data.europa.eu/esco/skill/00000222,Skill 222 (ES),,Description for skill 222. Ability to perform task 222. [ES],knowledge
+http://data.europa.eu/esco/skill/00000223,Skill 223 (ES),,Description for skill 223. Ability to perform task 223. [ES],skill
+http://data.europa.eu/esco/skill/00000224,Skill 224 (ES),"Alt skill 224
+Synonym 224",Description for skill 224. Ability to perform task 224. [ES],knowledge
+http://data.europa.eu/esco/skill/00000225,Skill 225 (ES),,Description for skill 225. Ability to perform task 225. [ES],knowledge
+http://data.europa.eu/esco/skill/00000226,Skill 226 (ES),,Description for skill 226. Ability to perform task 226. [ES],skill
+http://data.europa.eu/esco/skill/00000227,Skill 227 (ES),,Description for skill 227. Ability to perform task 227. [ES],skill
+http://data.europa.eu/esco/skill/00000228,Skill 228 (ES),"Alt skill 228
+Synonym 228",Description for skill 228. Ability to perform task 228. [ES],knowledge
+http://data.europa.eu/esco/skill/00000229,Skill 229 (ES),,Description for skill 229. Ability to perform task 229. [ES],skill
+http://data.europa.eu/esco/skill/00000230,Skill 230 (ES),,Description for skill 230. Ability to perform task 230. [ES],knowledge
+http://data.europa.eu/esco/skill/00000231,Skill 231 (ES),,Description for skill 231. Ability to perform task 231. [ES],attitude
+http://data.europa.eu/esco/skill/00000232,Skill 232 (ES),"Alt skill 232
+Synonym 232",Description for skill 232. Ability to perform task 232. [ES],knowledge
+http://data.europa.eu/esco/skill/00000233,Skill 233 (ES),,Description for skill 233. Ability to perform task 233. [ES],attitude
+http://data.europa.eu/esco/skill/00000234,Skill 234 (ES),,Description for skill 234. Ability to perform task 234. [ES],knowledge
+http://data.europa.eu/esco/skill/00000235,Skill 235 (ES),,Description for skill 235. Ability to perform task 235. [ES],skill
+http://data.europa.eu/esco/skill/00000236,Skill 236 (ES),"Alt skill 236
+Synonym 236",Description for skill 236. Ability to perform task 236. [ES],attitude
+http://data.europa.eu/esco/skill/00000237,Skill 237 (ES),,Description for skill 237. Ability to perform task 237. [ES],skill
+http://data.europa.eu/esco/skill/00000238,Skill 238 (ES),,Description for skill 238. Ability to perform task 238. [ES],attitude
+http://data.europa.eu/esco/skill/00000239,Skill 239 (ES),,Description for skill 239. Ability to perform task 239. [ES],attitude
+http://data.europa.eu/esco/skill/00000240,Skill 240 (ES),"Alt skill 240
+Synonym 240",Description for skill 240. Ability to perform task 240. [ES],knowledge
+http://data.europa.eu/esco/skill/00000241,Skill 241 (ES),,Description for skill 241. Ability to perform task 241. [ES],knowledge
+http://data.europa.eu/esco/skill/00000242,Skill 242 (ES),,Description for skill 242. Ability to perform task 242. [ES],knowledge
+http://data.europa.eu/esco/skill/00000243,Skill 243 (ES),,Description for skill 243. Ability to perform task 243. [ES],knowledge
+http://data.europa.eu/esco/skill/00000244,Skill 244 (ES),"Alt skill 244
+Synonym 244",Description for skill 244. Ability to perform task 244. [ES],skill
+http://data.europa.eu/esco/skill/00000245,Skill 245 (ES),,Description for skill 245. Ability to perform task 245. [ES],knowledge
+http://data.europa.eu/esco/skill/00000246,Skill 246 (ES),,Description for skill 246. Ability to perform task 246. [ES],knowledge
+http://data.europa.eu/esco/skill/00000247,Skill 247 (ES),,Description for skill 247. Ability to perform task 247. [ES],attitude
+http://data.europa.eu/esco/skill/00000248,Skill 248 (ES),"Alt skill 248
+Synonym 248",Description for skill 248. Ability to perform task 248. [ES],skill
+http://data.europa.eu/esco/skill/00000249,Skill 249 (ES),,Description for skill 249. Ability to perform task 249. [ES],skill
+http://data.europa.eu/esco/skill/00000250,Skill 250 (ES),,Description for skill 250. Ability to perform task 250. [ES],attitude
+http://data.europa.eu/esco/skill/00000251,Skill 251 (ES),,Description for skill 251. Ability to perform task 251. [ES],attitude
+http://data.europa.eu/esco/skill/00000252,Skill 252 (ES),"Alt skill 252
+Synonym 252",Description for skill 252. Ability to perform task 252. [ES],knowledge
+http://data.europa.eu/esco/skill/00000253,Skill 253 (ES),,Description for skill 253. Ability to perform task 253. [ES],skill
+http://data.europa.eu/esco/skill/00000254,Skill 254 (ES),,Description for skill 254. Ability to perform task 254. [ES],knowledge
+http://data.europa.eu/esco/skill/00000255,Skill 255 (ES),,Description for skill 255. Ability to perform task 255. [ES],attitude
+http://data.europa.eu/esco/skill/00000256,Skill 256 (ES),"Alt skill 256
+Synonym 256",Description for skill 256. Ability to perform task 256. [ES],knowledge
+http://data.europa.eu/esco/skill/00000257,Skill 257 (ES),,Description for skill 257. Ability to perform task 257. [ES],skill
+http://data.europa.eu/esco/skill/00000258,Skill 258 (ES),,Description for skill 258. Ability to perform task 258. [ES],knowledge
+http://data.europa.eu/esco/skill/00000259,Skill 259 (ES),,Description for skill 259. Ability to perform task 259. [ES],skill
+http://data.europa.eu/esco/skill/00000260,Skill 260 (ES),"Alt skill 260
+Synonym 260",Description for skill 260. Ability to perform task 260. [ES],knowledge
+http://data.europa.eu/esco/skill/00000261,Skill 261 (ES),,Description for skill 261. Ability to perform task 261. [ES],knowledge
+http://data.europa.eu/esco/skill/00000262,Skill 262 (ES),,Description for skill 262. Ability to perform task 262. [ES],skill
+http://data.europa.eu/esco/skill/00000263,Skill 263 (ES),,Description for skill 263. Ability to perform task 263. [ES],skill
+http://data.europa.eu/esco/skill/00000264,Skill 264 (ES),"Alt skill 264
+Synonym 264",Description for skill 264. Ability to perform task 264. [ES],skill
+http://data.europa.eu/esco/skill/00000265,Skill 265 (ES),,Description for skill 265. Ability to perform task 265. [ES],knowledge
+http://data.europa.eu/esco/skill/00000266,Skill 266 (ES),,Description for skill 266. Ability to perform task 266. [ES],knowledge
+http://data.europa.eu/esco/skill/00000267,Skill 267 (ES),,Description for skill 267. Ability to perform task 267. [ES],knowledge
+http://data.europa.eu/esco/skill/00000268,Skill 268 (ES),"Alt skill 268
+Synonym 268",Description for skill 268. Ability to perform task 268. [ES],attitude
+http://data.europa.eu/esco/skill/00000269,Skill 269 (ES),,Description for skill 269. Ability to perform task 269. [ES],knowledge
+http://data.europa.eu/esco/skill/00000270,Skill 270 (ES),,Description for skill 270. Ability to perform task 270. [ES],skill
+http://data.europa.eu/esco/skill/00000271,Skill 271 (ES),,Description for skill 271. Ability to perform task 271. [ES],skill
+http://data.europa.eu/esco/skill/00000272,Skill 272 (ES),"Alt skill 272
+Synonym 272",Description for skill 272. Ability to perform task 272. [ES],skill
+http://data.europa.eu/esco/skill/00000273,Skill 273 (ES),,Description for skill 273. Ability to perform task 273. [ES],knowledge
+http://data.europa.eu/esco/skill/00000274,Skill 274 (ES),,Description for skill 274. Ability to perform task 274. [ES],skill
+http://data.europa.eu/esco/skill/00000275,Skill 275 (ES),,Description for skill 275. Ability to perform task 275. [ES],skill
+http://data.europa.eu/esco/skill/00000276,Skill 276 (ES),"Alt skill 276
+Synonym 276",Description for skill 276. Ability to perform task 276. [ES],attitude
+http://data.europa.eu/esco/skill/00000277,Skill 277 (ES),,Description for skill 277. Ability to perform task 277. [ES],attitude
+http://data.europa.eu/esco/skill/00000278,Skill 278 (ES),,Description for skill 278. Ability to perform task 278. [ES],skill
+http://data.europa.eu/esco/skill/00000279,Skill 279 (ES),,Description for skill 279. Ability to perform task 279. [ES],attitude
+http://data.europa.eu/esco/skill/00000280,Skill 280 (ES),"Alt skill 280
+Synonym 280",Description for skill 280. Ability to perform task 280. [ES],attitude
+http://data.europa.eu/esco/skill/00000281,Skill 281 (ES),,Description for skill 281. Ability to perform task 281. [ES],skill
+http://data.europa.eu/esco/skill/00000282,Skill 282 (ES),,Description for skill 282. Ability to perform task 282. [ES],knowledge
+http://data.europa.eu/esco/skill/00000283,Skill 283 (ES),,Description for skill 283. Ability to perform task 283. [ES],knowledge
+http://data.europa.eu/esco/skill/00000284,Skill 284 (ES),"Alt skill 284
+Synonym 284",Description for skill 284. Ability to perform task 284. [ES],skill
+http://data.europa.eu/esco/skill/00000285,Skill 285 (ES),,Description for skill 285. Ability to perform task 285. [ES],knowledge
+http://data.europa.eu/esco/skill/00000286,Skill 286 (ES),,Description for skill 286. Ability to perform task 286. [ES],attitude
+http://data.europa.eu/esco/skill/00000287,Skill 287 (ES),,Description for skill 287. Ability to perform task 287. [ES],skill
+http://data.europa.eu/esco/skill/00000288,Skill 288 (ES),"Alt skill 288
+Synonym 288",Description for skill 288. Ability to perform task 288. [ES],knowledge
+http://data.europa.eu/esco/skill/00000289,Skill 289 (ES),,Description for skill 289. Ability to perform task 289. [ES],knowledge
+http://data.europa.eu/esco/skill/00000290,Skill 290 (ES),,Description for skill 290. Ability to perform task 290. [ES],attitude
+http://data.europa.eu/esco/skill/00000291,Skill 291 (ES),,Description for skill 291. Ability to perform task 291. [ES],skill
+http://data.europa.eu/esco/skill/00000292,Skill 292 (ES),"Alt skill 292
+Synonym 292",Description for skill 292. Ability to perform task 292. [ES],skill
+http://data.europa.eu/esco/skill/00000293,Skill 293 (ES),,Description for skill 293. Ability to perform task 293. [ES],attitude
+http://data.europa.eu/esco/skill/00000294,Skill 294 (ES),,Description for skill 294. Ability to perform task 294. [ES],skill
+http://data.europa.eu/esco/skill/00000295,Skill 295 (ES),,Description for skill 295. Ability to perform task 295. [ES],skill
+http://data.europa.eu/esco/skill/00000296,Skill 296 (ES),"Alt skill 296
+Synonym 296",Description for skill 296. Ability to perform task 296. [ES],attitude
+http://data.europa.eu/esco/skill/00000297,Skill 297 (ES),,Description for skill 297. Ability to perform task 297. [ES],attitude
+http://data.europa.eu/esco/skill/00000298,Skill 298 (ES),,Description for skill 298. Ability to perform task 298. [ES],knowledge
+http://data.europa.eu/esco/skill/00000299,Skill 299 (ES),,Description for skill 299. Ability to perform task 299. [ES],skill
+http://data.europa.eu/esco/skill/00000300,Skill 300 (ES),"Alt skill 300
+Synonym 300",Description for skill 300. Ability to perform task 300. [ES],attitude

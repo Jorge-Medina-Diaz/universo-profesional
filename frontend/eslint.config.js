@@ -49,7 +49,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["**/*.config.{js,ts,mjs,cjs}", "vite.config.ts", "debug-universe.cjs"],
+    files: ["**/*.config.{js,ts,mjs,cjs}", "vite.config.ts"],
     languageOptions: {
       globals: { ...globals.node },
     },

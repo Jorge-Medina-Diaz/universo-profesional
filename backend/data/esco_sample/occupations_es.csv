@@ -1,0 +1,267 @@
+conceptUri,preferredLabel,altLabels,description,iscoGroup
+http://data.europa.eu/esco/occupation/00000001,Occupation 1 (ES),,Description for occupation 1. Performs tasks related to field 1. [ES],08
+http://data.europa.eu/esco/occupation/00000002,Occupation 2 (ES),,Description for occupation 2. Performs tasks related to field 2. [ES],02
+http://data.europa.eu/esco/occupation/00000003,Occupation 3 (ES),"Alt occupation 3
+Secondary title 3",Description for occupation 3. Performs tasks related to field 3. [ES],18
+http://data.europa.eu/esco/occupation/00000004,Occupation 4 (ES),,Description for occupation 4. Performs tasks related to field 4. [ES],16
+http://data.europa.eu/esco/occupation/00000005,Occupation 5 (ES),,Description for occupation 5. Performs tasks related to field 5. [ES],15
+http://data.europa.eu/esco/occupation/00000006,Occupation 6 (ES),"Alt occupation 6
+Secondary title 6",Description for occupation 6. Performs tasks related to field 6. [ES],09
+http://data.europa.eu/esco/occupation/00000007,Occupation 7 (ES),,Description for occupation 7. Performs tasks related to field 7. [ES],07
+http://data.europa.eu/esco/occupation/00000008,Occupation 8 (ES),,Description for occupation 8. Performs tasks related to field 8. [ES],35
+http://data.europa.eu/esco/occupation/00000009,Occupation 9 (ES),"Alt occupation 9
+Secondary title 9",Description for occupation 9. Performs tasks related to field 9. [ES],06
+http://data.europa.eu/esco/occupation/00000010,Occupation 10 (ES),,Description for occupation 10. Performs tasks related to field 10. [ES],38
+http://data.europa.eu/esco/occupation/00000011,Occupation 11 (ES),,Description for occupation 11. Performs tasks related to field 11. [ES],28
+http://data.europa.eu/esco/occupation/00000012,Occupation 12 (ES),"Alt occupation 12
+Secondary title 12",Description for occupation 12. Performs tasks related to field 12. [ES],03
+http://data.europa.eu/esco/occupation/00000013,Occupation 13 (ES),,Description for occupation 13. Performs tasks related to field 13. [ES],02
+http://data.europa.eu/esco/occupation/00000014,Occupation 14 (ES),,Description for occupation 14. Performs tasks related to field 14. [ES],06
+http://data.europa.eu/esco/occupation/00000015,Occupation 15 (ES),"Alt occupation 15
+Secondary title 15",Description for occupation 15. Performs tasks related to field 15. [ES],14
+http://data.europa.eu/esco/occupation/00000016,Occupation 16 (ES),,Description for occupation 16. Performs tasks related to field 16. [ES],15
+http://data.europa.eu/esco/occupation/00000017,Occupation 17 (ES),,Description for occupation 17. Performs tasks related to field 17. [ES],33
+http://data.europa.eu/esco/occupation/00000018,Occupation 18 (ES),"Alt occupation 18
+Secondary title 18",Description for occupation 18. Performs tasks related to field 18. [ES],39
+http://data.europa.eu/esco/occupation/00000019,Occupation 19 (ES),,Description for occupation 19. Performs tasks related to field 19. [ES],02
+http://data.europa.eu/esco/occupation/00000020,Occupation 20 (ES),,Description for occupation 20. Performs tasks related to field 20. [ES],36
+http://data.europa.eu/esco/occupation/00000021,Occupation 21 (ES),"Alt occupation 21
+Secondary title 21",Description for occupation 21. Performs tasks related to field 21. [ES],13
+http://data.europa.eu/esco/occupation/00000022,Occupation 22 (ES),,Description for occupation 22. Performs tasks related to field 22. [ES],35
+http://data.europa.eu/esco/occupation/00000023,Occupation 23 (ES),,Description for occupation 23. Performs tasks related to field 23. [ES],27
+http://data.europa.eu/esco/occupation/00000024,Occupation 24 (ES),"Alt occupation 24
+Secondary title 24",Description for occupation 24. Performs tasks related to field 24. [ES],15
+http://data.europa.eu/esco/occupation/00000025,Occupation 25 (ES),,Description for occupation 25. Performs tasks related to field 25. [ES],29
+http://data.europa.eu/esco/occupation/00000026,Occupation 26 (ES),,Description for occupation 26. Performs tasks related to field 26. [ES],38
+http://data.europa.eu/esco/occupation/00000027,Occupation 27 (ES),"Alt occupation 27
+Secondary title 27",Description for occupation 27. Performs tasks related to field 27. [ES],18
+http://data.europa.eu/esco/occupation/00000028,Occupation 28 (ES),,Description for occupation 28. Performs tasks related to field 28. [ES],01
+http://data.europa.eu/esco/occupation/00000029,Occupation 29 (ES),,Description for occupation 29. Performs tasks related to field 29. [ES],11
+http://data.europa.eu/esco/occupation/00000030,Occupation 30 (ES),"Alt occupation 30
+Secondary title 30",Description for occupation 30. Performs tasks related to field 30. [ES],28
+http://data.europa.eu/esco/occupation/00000031,Occupation 31 (ES),,Description for occupation 31. Performs tasks related to field 31. [ES],22
+http://data.europa.eu/esco/occupation/00000032,Occupation 32 (ES),,Description for occupation 32. Performs tasks related to field 32. [ES],18
+http://data.europa.eu/esco/occupation/00000033,Occupation 33 (ES),"Alt occupation 33
+Secondary title 33",Description for occupation 33. Performs tasks related to field 33. [ES],10
+http://data.europa.eu/esco/occupation/00000034,Occupation 34 (ES),,Description for occupation 34. Performs tasks related to field 34. [ES],14
+http://data.europa.eu/esco/occupation/00000035,Occupation 35 (ES),,Description for occupation 35. Performs tasks related to field 35. [ES],22
+http://data.europa.eu/esco/occupation/00000036,Occupation 36 (ES),"Alt occupation 36
+Secondary title 36",Description for occupation 36. Performs tasks related to field 36. [ES],07
+http://data.europa.eu/esco/occupation/00000037,Occupation 37 (ES),,Description for occupation 37. Performs tasks related to field 37. [ES],06
+http://data.europa.eu/esco/occupation/00000038,Occupation 38 (ES),,Description for occupation 38. Performs tasks related to field 38. [ES],25
+http://data.europa.eu/esco/occupation/00000039,Occupation 39 (ES),"Alt occupation 39
+Secondary title 39",Description for occupation 39. Performs tasks related to field 39. [ES],07
+http://data.europa.eu/esco/occupation/00000040,Occupation 40 (ES),,Description for occupation 40. Performs tasks related to field 40. [ES],23
+http://data.europa.eu/esco/occupation/00000041,Occupation 41 (ES),,Description for occupation 41. Performs tasks related to field 41. [ES],23
+http://data.europa.eu/esco/occupation/00000042,Occupation 42 (ES),"Alt occupation 42
+Secondary title 42",Description for occupation 42. Performs tasks related to field 42. [ES],39
+http://data.europa.eu/esco/occupation/00000043,Occupation 43 (ES),,Description for occupation 43. Performs tasks related to field 43. [ES],17
+http://data.europa.eu/esco/occupation/00000044,Occupation 44 (ES),,Description for occupation 44. Performs tasks related to field 44. [ES],03
+http://data.europa.eu/esco/occupation/00000045,Occupation 45 (ES),"Alt occupation 45
+Secondary title 45",Description for occupation 45. Performs tasks related to field 45. [ES],30
+http://data.europa.eu/esco/occupation/00000046,Occupation 46 (ES),,Description for occupation 46. Performs tasks related to field 46. [ES],35
+http://data.europa.eu/esco/occupation/00000047,Occupation 47 (ES),,Description for occupation 47. Performs tasks related to field 47. [ES],08
+http://data.europa.eu/esco/occupation/00000048,Occupation 48 (ES),"Alt occupation 48
+Secondary title 48",Description for occupation 48. Performs tasks related to field 48. [ES],25
+http://data.europa.eu/esco/occupation/00000049,Occupation 49 (ES),,Description for occupation 49. Performs tasks related to field 49. [ES],06
+http://data.europa.eu/esco/occupation/00000050,Occupation 50 (ES),,Description for occupation 50. Performs tasks related to field 50. [ES],36
+http://data.europa.eu/esco/occupation/00000051,Occupation 51 (ES),"Alt occupation 51
+Secondary title 51",Description for occupation 51. Performs tasks related to field 51. [ES],19
+http://data.europa.eu/esco/occupation/00000052,Occupation 52 (ES),,Description for occupation 52. Performs tasks related to field 52. [ES],40
+http://data.europa.eu/esco/occupation/00000053,Occupation 53 (ES),,Description for occupation 53. Performs tasks related to field 53. [ES],24
+http://data.europa.eu/esco/occupation/00000054,Occupation 54 (ES),"Alt occupation 54
+Secondary title 54",Description for occupation 54. Performs tasks related to field 54. [ES],37
+http://data.europa.eu/esco/occupation/00000055,Occupation 55 (ES),,Description for occupation 55. Performs tasks related to field 55. [ES],13
+http://data.europa.eu/esco/occupation/00000056,Occupation 56 (ES),,Description for occupation 56. Performs tasks related to field 56. [ES],05
+http://data.europa.eu/esco/occupation/00000057,Occupation 57 (ES),"Alt occupation 57
+Secondary title 57",Description for occupation 57. Performs tasks related to field 57. [ES],03
+http://data.europa.eu/esco/occupation/00000058,Occupation 58 (ES),,Description for occupation 58. Performs tasks related to field 58. [ES],15
+http://data.europa.eu/esco/occupation/00000059,Occupation 59 (ES),,Description for occupation 59. Performs tasks related to field 59. [ES],19
+http://data.europa.eu/esco/occupation/00000060,Occupation 60 (ES),"Alt occupation 60
+Secondary title 60",Description for occupation 60. Performs tasks related to field 60. [ES],06
+http://data.europa.eu/esco/occupation/00000061,Occupation 61 (ES),,Description for occupation 61. Performs tasks related to field 61. [ES],15
+http://data.europa.eu/esco/occupation/00000062,Occupation 62 (ES),,Description for occupation 62. Performs tasks related to field 62. [ES],07
+http://data.europa.eu/esco/occupation/00000063,Occupation 63 (ES),"Alt occupation 63
+Secondary title 63",Description for occupation 63. Performs tasks related to field 63. [ES],25
+http://data.europa.eu/esco/occupation/00000064,Occupation 64 (ES),,Description for occupation 64. Performs tasks related to field 64. [ES],18
+http://data.europa.eu/esco/occupation/00000065,Occupation 65 (ES),,Description for occupation 65. Performs tasks related to field 65. [ES],30
+http://data.europa.eu/esco/occupation/00000066,Occupation 66 (ES),"Alt occupation 66
+Secondary title 66",Description for occupation 66. Performs tasks related to field 66. [ES],24
+http://data.europa.eu/esco/occupation/00000067,Occupation 67 (ES),,Description for occupation 67. Performs tasks related to field 67. [ES],11
+http://data.europa.eu/esco/occupation/00000068,Occupation 68 (ES),,Description for occupation 68. Performs tasks related to field 68. [ES],24
+http://data.europa.eu/esco/occupation/00000069,Occupation 69 (ES),"Alt occupation 69
+Secondary title 69",Description for occupation 69. Performs tasks related to field 69. [ES],23
+http://data.europa.eu/esco/occupation/00000070,Occupation 70 (ES),,Description for occupation 70. Performs tasks related to field 70. [ES],14
+http://data.europa.eu/esco/occupation/00000071,Occupation 71 (ES),,Description for occupation 71. Performs tasks related to field 71. [ES],18
+http://data.europa.eu/esco/occupation/00000072,Occupation 72 (ES),"Alt occupation 72
+Secondary title 72",Description for occupation 72. Performs tasks related to field 72. [ES],05
+http://data.europa.eu/esco/occupation/00000073,Occupation 73 (ES),,Description for occupation 73. Performs tasks related to field 73. [ES],39
+http://data.europa.eu/esco/occupation/00000074,Occupation 74 (ES),,Description for occupation 74. Performs tasks related to field 74. [ES],11
+http://data.europa.eu/esco/occupation/00000075,Occupation 75 (ES),"Alt occupation 75
+Secondary title 75",Description for occupation 75. Performs tasks related to field 75. [ES],35
+http://data.europa.eu/esco/occupation/00000076,Occupation 76 (ES),,Description for occupation 76. Performs tasks related to field 76. [ES],16
+http://data.europa.eu/esco/occupation/00000077,Occupation 77 (ES),,Description for occupation 77. Performs tasks related to field 77. [ES],11
+http://data.europa.eu/esco/occupation/00000078,Occupation 78 (ES),"Alt occupation 78
+Secondary title 78",Description for occupation 78. Performs tasks related to field 78. [ES],30
+http://data.europa.eu/esco/occupation/00000079,Occupation 79 (ES),,Description for occupation 79. Performs tasks related to field 79. [ES],25
+http://data.europa.eu/esco/occupation/00000080,Occupation 80 (ES),,Description for occupation 80. Performs tasks related to field 80. [ES],18
+http://data.europa.eu/esco/occupation/00000081,Occupation 81 (ES),"Alt occupation 81
+Secondary title 81",Description for occupation 81. Performs tasks related to field 81. [ES],36
+http://data.europa.eu/esco/occupation/00000082,Occupation 82 (ES),,Description for occupation 82. Performs tasks related to field 82. [ES],15
+http://data.europa.eu/esco/occupation/00000083,Occupation 83 (ES),,Description for occupation 83. Performs tasks related to field 83. [ES],21
+http://data.europa.eu/esco/occupation/00000084,Occupation 84 (ES),"Alt occupation 84
+Secondary title 84",Description for occupation 84. Performs tasks related to field 84. [ES],04
+http://data.europa.eu/esco/occupation/00000085,Occupation 85 (ES),,Description for occupation 85. Performs tasks related to field 85. [ES],15
+http://data.europa.eu/esco/occupation/00000086,Occupation 86 (ES),,Description for occupation 86. Performs tasks related to field 86. [ES],03
+http://data.europa.eu/esco/occupation/00000087,Occupation 87 (ES),"Alt occupation 87
+Secondary title 87",Description for occupation 87. Performs tasks related to field 87. [ES],21
+http://data.europa.eu/esco/occupation/00000088,Occupation 88 (ES),,Description for occupation 88. Performs tasks related to field 88. [ES],26
+http://data.europa.eu/esco/occupation/00000089,Occupation 89 (ES),,Description for occupation 89. Performs tasks related to field 89. [ES],18
+http://data.europa.eu/esco/occupation/00000090,Occupation 90 (ES),"Alt occupation 90
+Secondary title 90",Description for occupation 90. Performs tasks related to field 90. [ES],05
+http://data.europa.eu/esco/occupation/00000091,Occupation 91 (ES),,Description for occupation 91. Performs tasks related to field 91. [ES],14
+http://data.europa.eu/esco/occupation/00000092,Occupation 92 (ES),,Description for occupation 92. Performs tasks related to field 92. [ES],37
+http://data.europa.eu/esco/occupation/00000093,Occupation 93 (ES),"Alt occupation 93
+Secondary title 93",Description for occupation 93. Performs tasks related to field 93. [ES],21
+http://data.europa.eu/esco/occupation/00000094,Occupation 94 (ES),,Description for occupation 94. Performs tasks related to field 94. [ES],14
+http://data.europa.eu/esco/occupation/00000095,Occupation 95 (ES),,Description for occupation 95. Performs tasks related to field 95. [ES],32
+http://data.europa.eu/esco/occupation/00000096,Occupation 96 (ES),"Alt occupation 96
+Secondary title 96",Description for occupation 96. Performs tasks related to field 96. [ES],26
+http://data.europa.eu/esco/occupation/00000097,Occupation 97 (ES),,Description for occupation 97. Performs tasks related to field 97. [ES],30
+http://data.europa.eu/esco/occupation/00000098,Occupation 98 (ES),,Description for occupation 98. Performs tasks related to field 98. [ES],10
+http://data.europa.eu/esco/occupation/00000099,Occupation 99 (ES),"Alt occupation 99
+Secondary title 99",Description for occupation 99. Performs tasks related to field 99. [ES],17
+http://data.europa.eu/esco/occupation/00000100,Occupation 100 (ES),,Description for occupation 100. Performs tasks related to field 100. [ES],09
+http://data.europa.eu/esco/occupation/00000101,Occupation 101 (ES),,Description for occupation 101. Performs tasks related to field 101. [ES],16
+http://data.europa.eu/esco/occupation/00000102,Occupation 102 (ES),"Alt occupation 102
+Secondary title 102",Description for occupation 102. Performs tasks related to field 102. [ES],36
+http://data.europa.eu/esco/occupation/00000103,Occupation 103 (ES),,Description for occupation 103. Performs tasks related to field 103. [ES],35
+http://data.europa.eu/esco/occupation/00000104,Occupation 104 (ES),,Description for occupation 104. Performs tasks related to field 104. [ES],17
+http://data.europa.eu/esco/occupation/00000105,Occupation 105 (ES),"Alt occupation 105
+Secondary title 105",Description for occupation 105. Performs tasks related to field 105. [ES],38
+http://data.europa.eu/esco/occupation/00000106,Occupation 106 (ES),,Description for occupation 106. Performs tasks related to field 106. [ES],28
+http://data.europa.eu/esco/occupation/00000107,Occupation 107 (ES),,Description for occupation 107. Performs tasks related to field 107. [ES],38
+http://data.europa.eu/esco/occupation/00000108,Occupation 108 (ES),"Alt occupation 108
+Secondary title 108",Description for occupation 108. Performs tasks related to field 108. [ES],26
+http://data.europa.eu/esco/occupation/00000109,Occupation 109 (ES),,Description for occupation 109. Performs tasks related to field 109. [ES],24
+http://data.europa.eu/esco/occupation/00000110,Occupation 110 (ES),,Description for occupation 110. Performs tasks related to field 110. [ES],15
+http://data.europa.eu/esco/occupation/00000111,Occupation 111 (ES),"Alt occupation 111
+Secondary title 111",Description for occupation 111. Performs tasks related to field 111. [ES],09
+http://data.europa.eu/esco/occupation/00000112,Occupation 112 (ES),,Description for occupation 112. Performs tasks related to field 112. [ES],33
+http://data.europa.eu/esco/occupation/00000113,Occupation 113 (ES),,Description for occupation 113. Performs tasks related to field 113. [ES],32
+http://data.europa.eu/esco/occupation/00000114,Occupation 114 (ES),"Alt occupation 114
+Secondary title 114",Description for occupation 114. Performs tasks related to field 114. [ES],06
+http://data.europa.eu/esco/occupation/00000115,Occupation 115 (ES),,Description for occupation 115. Performs tasks related to field 115. [ES],04
+http://data.europa.eu/esco/occupation/00000116,Occupation 116 (ES),,Description for occupation 116. Performs tasks related to field 116. [ES],08
+http://data.europa.eu/esco/occupation/00000117,Occupation 117 (ES),"Alt occupation 117
+Secondary title 117",Description for occupation 117. Performs tasks related to field 117. [ES],10
+http://data.europa.eu/esco/occupation/00000118,Occupation 118 (ES),,Description for occupation 118. Performs tasks related to field 118. [ES],11
+http://data.europa.eu/esco/occupation/00000119,Occupation 119 (ES),,Description for occupation 119. Performs tasks related to field 119. [ES],28
+http://data.europa.eu/esco/occupation/00000120,Occupation 120 (ES),"Alt occupation 120
+Secondary title 120",Description for occupation 120. Performs tasks related to field 120. [ES],39
+http://data.europa.eu/esco/occupation/00000121,Occupation 121 (ES),,Description for occupation 121. Performs tasks related to field 121. [ES],05
+http://data.europa.eu/esco/occupation/00000122,Occupation 122 (ES),,Description for occupation 122. Performs tasks related to field 122. [ES],25
+http://data.europa.eu/esco/occupation/00000123,Occupation 123 (ES),"Alt occupation 123
+Secondary title 123",Description for occupation 123. Performs tasks related to field 123. [ES],25
+http://data.europa.eu/esco/occupation/00000124,Occupation 124 (ES),,Description for occupation 124. Performs tasks related to field 124. [ES],39
+http://data.europa.eu/esco/occupation/00000125,Occupation 125 (ES),,Description for occupation 125. Performs tasks related to field 125. [ES],30
+http://data.europa.eu/esco/occupation/00000126,Occupation 126 (ES),"Alt occupation 126
+Secondary title 126",Description for occupation 126. Performs tasks related to field 126. [ES],34
+http://data.europa.eu/esco/occupation/00000127,Occupation 127 (ES),,Description for occupation 127. Performs tasks related to field 127. [ES],17
+http://data.europa.eu/esco/occupation/00000128,Occupation 128 (ES),,Description for occupation 128. Performs tasks related to field 128. [ES],36
+http://data.europa.eu/esco/occupation/00000129,Occupation 129 (ES),"Alt occupation 129
+Secondary title 129",Description for occupation 129. Performs tasks related to field 129. [ES],01
+http://data.europa.eu/esco/occupation/00000130,Occupation 130 (ES),,Description for occupation 130. Performs tasks related to field 130. [ES],08
+http://data.europa.eu/esco/occupation/00000131,Occupation 131 (ES),,Description for occupation 131. Performs tasks related to field 131. [ES],35
+http://data.europa.eu/esco/occupation/00000132,Occupation 132 (ES),"Alt occupation 132
+Secondary title 132",Description for occupation 132. Performs tasks related to field 132. [ES],18
+http://data.europa.eu/esco/occupation/00000133,Occupation 133 (ES),,Description for occupation 133. Performs tasks related to field 133. [ES],22
+http://data.europa.eu/esco/occupation/00000134,Occupation 134 (ES),,Description for occupation 134. Performs tasks related to field 134. [ES],08
+http://data.europa.eu/esco/occupation/00000135,Occupation 135 (ES),"Alt occupation 135
+Secondary title 135",Description for occupation 135. Performs tasks related to field 135. [ES],19
+http://data.europa.eu/esco/occupation/00000136,Occupation 136 (ES),,Description for occupation 136. Performs tasks related to field 136. [ES],28
+http://data.europa.eu/esco/occupation/00000137,Occupation 137 (ES),,Description for occupation 137. Performs tasks related to field 137. [ES],11
+http://data.europa.eu/esco/occupation/00000138,Occupation 138 (ES),"Alt occupation 138
+Secondary title 138",Description for occupation 138. Performs tasks related to field 138. [ES],30
+http://data.europa.eu/esco/occupation/00000139,Occupation 139 (ES),,Description for occupation 139. Performs tasks related to field 139. [ES],01
+http://data.europa.eu/esco/occupation/00000140,Occupation 140 (ES),,Description for occupation 140. Performs tasks related to field 140. [ES],17
+http://data.europa.eu/esco/occupation/00000141,Occupation 141 (ES),"Alt occupation 141
+Secondary title 141",Description for occupation 141. Performs tasks related to field 141. [ES],33
+http://data.europa.eu/esco/occupation/00000142,Occupation 142 (ES),,Description for occupation 142. Performs tasks related to field 142. [ES],12
+http://data.europa.eu/esco/occupation/00000143,Occupation 143 (ES),,Description for occupation 143. Performs tasks related to field 143. [ES],33
+http://data.europa.eu/esco/occupation/00000144,Occupation 144 (ES),"Alt occupation 144
+Secondary title 144",Description for occupation 144. Performs tasks related to field 144. [ES],07
+http://data.europa.eu/esco/occupation/00000145,Occupation 145 (ES),,Description for occupation 145. Performs tasks related to field 145. [ES],20
+http://data.europa.eu/esco/occupation/00000146,Occupation 146 (ES),,Description for occupation 146. Performs tasks related to field 146. [ES],33
+http://data.europa.eu/esco/occupation/00000147,Occupation 147 (ES),"Alt occupation 147
+Secondary title 147",Description for occupation 147. Performs tasks related to field 147. [ES],39
+http://data.europa.eu/esco/occupation/00000148,Occupation 148 (ES),,Description for occupation 148. Performs tasks related to field 148. [ES],13
+http://data.europa.eu/esco/occupation/00000149,Occupation 149 (ES),,Description for occupation 149. Performs tasks related to field 149. [ES],10
+http://data.europa.eu/esco/occupation/00000150,Occupation 150 (ES),"Alt occupation 150
+Secondary title 150",Description for occupation 150. Performs tasks related to field 150. [ES],24
+http://data.europa.eu/esco/occupation/00000151,Occupation 151 (ES),,Description for occupation 151. Performs tasks related to field 151. [ES],11
+http://data.europa.eu/esco/occupation/00000152,Occupation 152 (ES),,Description for occupation 152. Performs tasks related to field 152. [ES],35
+http://data.europa.eu/esco/occupation/00000153,Occupation 153 (ES),"Alt occupation 153
+Secondary title 153",Description for occupation 153. Performs tasks related to field 153. [ES],34
+http://data.europa.eu/esco/occupation/00000154,Occupation 154 (ES),,Description for occupation 154. Performs tasks related to field 154. [ES],01
+http://data.europa.eu/esco/occupation/00000155,Occupation 155 (ES),,Description for occupation 155. Performs tasks related to field 155. [ES],39
+http://data.europa.eu/esco/occupation/00000156,Occupation 156 (ES),"Alt occupation 156
+Secondary title 156",Description for occupation 156. Performs tasks related to field 156. [ES],21
+http://data.europa.eu/esco/occupation/00000157,Occupation 157 (ES),,Description for occupation 157. Performs tasks related to field 157. [ES],32
+http://data.europa.eu/esco/occupation/00000158,Occupation 158 (ES),,Description for occupation 158. Performs tasks related to field 158. [ES],02
+http://data.europa.eu/esco/occupation/00000159,Occupation 159 (ES),"Alt occupation 159
+Secondary title 159",Description for occupation 159. Performs tasks related to field 159. [ES],08
+http://data.europa.eu/esco/occupation/00000160,Occupation 160 (ES),,Description for occupation 160. Performs tasks related to field 160. [ES],24
+http://data.europa.eu/esco/occupation/00000161,Occupation 161 (ES),,Description for occupation 161. Performs tasks related to field 161. [ES],20
+http://data.europa.eu/esco/occupation/00000162,Occupation 162 (ES),"Alt occupation 162
+Secondary title 162",Description for occupation 162. Performs tasks related to field 162. [ES],16
+http://data.europa.eu/esco/occupation/00000163,Occupation 163 (ES),,Description for occupation 163. Performs tasks related to field 163. [ES],04
+http://data.europa.eu/esco/occupation/00000164,Occupation 164 (ES),,Description for occupation 164. Performs tasks related to field 164. [ES],16
+http://data.europa.eu/esco/occupation/00000165,Occupation 165 (ES),"Alt occupation 165
+Secondary title 165",Description for occupation 165. Performs tasks related to field 165. [ES],37
+http://data.europa.eu/esco/occupation/00000166,Occupation 166 (ES),,Description for occupation 166. Performs tasks related to field 166. [ES],06
+http://data.europa.eu/esco/occupation/00000167,Occupation 167 (ES),,Description for occupation 167. Performs tasks related to field 167. [ES],06
+http://data.europa.eu/esco/occupation/00000168,Occupation 168 (ES),"Alt occupation 168
+Secondary title 168",Description for occupation 168. Performs tasks related to field 168. [ES],32
+http://data.europa.eu/esco/occupation/00000169,Occupation 169 (ES),,Description for occupation 169. Performs tasks related to field 169. [ES],05
+http://data.europa.eu/esco/occupation/00000170,Occupation 170 (ES),,Description for occupation 170. Performs tasks related to field 170. [ES],35
+http://data.europa.eu/esco/occupation/00000171,Occupation 171 (ES),"Alt occupation 171
+Secondary title 171",Description for occupation 171. Performs tasks related to field 171. [ES],09
+http://data.europa.eu/esco/occupation/00000172,Occupation 172 (ES),,Description for occupation 172. Performs tasks related to field 172. [ES],09
+http://data.europa.eu/esco/occupation/00000173,Occupation 173 (ES),,Description for occupation 173. Performs tasks related to field 173. [ES],31
+http://data.europa.eu/esco/occupation/00000174,Occupation 174 (ES),"Alt occupation 174
+Secondary title 174",Description for occupation 174. Performs tasks related to field 174. [ES],36
+http://data.europa.eu/esco/occupation/00000175,Occupation 175 (ES),,Description for occupation 175. Performs tasks related to field 175. [ES],11
+http://data.europa.eu/esco/occupation/00000176,Occupation 176 (ES),,Description for occupation 176. Performs tasks related to field 176. [ES],17
+http://data.europa.eu/esco/occupation/00000177,Occupation 177 (ES),"Alt occupation 177
+Secondary title 177",Description for occupation 177. Performs tasks related to field 177. [ES],34
+http://data.europa.eu/esco/occupation/00000178,Occupation 178 (ES),,Description for occupation 178. Performs tasks related to field 178. [ES],39
+http://data.europa.eu/esco/occupation/00000179,Occupation 179 (ES),,Description for occupation 179. Performs tasks related to field 179. [ES],28
+http://data.europa.eu/esco/occupation/00000180,Occupation 180 (ES),"Alt occupation 180
+Secondary title 180",Description for occupation 180. Performs tasks related to field 180. [ES],14
+http://data.europa.eu/esco/occupation/00000181,Occupation 181 (ES),,Description for occupation 181. Performs tasks related to field 181. [ES],35
+http://data.europa.eu/esco/occupation/00000182,Occupation 182 (ES),,Description for occupation 182. Performs tasks related to field 182. [ES],13
+http://data.europa.eu/esco/occupation/00000183,Occupation 183 (ES),"Alt occupation 183
+Secondary title 183",Description for occupation 183. Performs tasks related to field 183. [ES],20
+http://data.europa.eu/esco/occupation/00000184,Occupation 184 (ES),,Description for occupation 184. Performs tasks related to field 184. [ES],26
+http://data.europa.eu/esco/occupation/00000185,Occupation 185 (ES),,Description for occupation 185. Performs tasks related to field 185. [ES],24
+http://data.europa.eu/esco/occupation/00000186,Occupation 186 (ES),"Alt occupation 186
+Secondary title 186",Description for occupation 186. Performs tasks related to field 186. [ES],29
+http://data.europa.eu/esco/occupation/00000187,Occupation 187 (ES),,Description for occupation 187. Performs tasks related to field 187. [ES],34
+http://data.europa.eu/esco/occupation/00000188,Occupation 188 (ES),,Description for occupation 188. Performs tasks related to field 188. [ES],29
+http://data.europa.eu/esco/occupation/00000189,Occupation 189 (ES),"Alt occupation 189
+Secondary title 189",Description for occupation 189. Performs tasks related to field 189. [ES],08
+http://data.europa.eu/esco/occupation/00000190,Occupation 190 (ES),,Description for occupation 190. Performs tasks related to field 190. [ES],16
+http://data.europa.eu/esco/occupation/00000191,Occupation 191 (ES),,Description for occupation 191. Performs tasks related to field 191. [ES],15
+http://data.europa.eu/esco/occupation/00000192,Occupation 192 (ES),"Alt occupation 192
+Secondary title 192",Description for occupation 192. Performs tasks related to field 192. [ES],05
+http://data.europa.eu/esco/occupation/00000193,Occupation 193 (ES),,Description for occupation 193. Performs tasks related to field 193. [ES],22
+http://data.europa.eu/esco/occupation/00000194,Occupation 194 (ES),,Description for occupation 194. Performs tasks related to field 194. [ES],02
+http://data.europa.eu/esco/occupation/00000195,Occupation 195 (ES),"Alt occupation 195
+Secondary title 195",Description for occupation 195. Performs tasks related to field 195. [ES],38
+http://data.europa.eu/esco/occupation/00000196,Occupation 196 (ES),,Description for occupation 196. Performs tasks related to field 196. [ES],36
+http://data.europa.eu/esco/occupation/00000197,Occupation 197 (ES),,Description for occupation 197. Performs tasks related to field 197. [ES],15
+http://data.europa.eu/esco/occupation/00000198,Occupation 198 (ES),"Alt occupation 198
+Secondary title 198",Description for occupation 198. Performs tasks related to field 198. [ES],38
+http://data.europa.eu/esco/occupation/00000199,Occupation 199 (ES),,Description for occupation 199. Performs tasks related to field 199. [ES],15
+http://data.europa.eu/esco/occupation/00000200,Occupation 200 (ES),,Description for occupation 200. Performs tasks related to field 200. [ES],01

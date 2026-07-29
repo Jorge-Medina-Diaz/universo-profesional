@@ -117,18 +117,6 @@ async def enrich_universe_task(ctx: dict[str, Any], *, user_id: str) -> dict[str
         return stats.as_dict()
 
 
-async def compute_communities_task(ctx: dict[str, Any], *, user_id: str) -> dict[str, int]:
-    """Background community detection ("career pillars") for one user."""
-    from src.graph.application.communities import compute_communities
-    from src.shared.db import with_user_session
-
-    async with with_user_session(UUID(user_id)) as session:
-        pillars = await compute_communities(session, UUID(user_id))
-        await session.commit()
-        logger.info("compute_communities_task_done", user_id=user_id, count=len(pillars))
-        return {"communities": len(pillars)}
-
-
 # ---------------------------------------------------------------------------
 # Wire module-level ports so application layer stays import-clean.
 # ---------------------------------------------------------------------------
