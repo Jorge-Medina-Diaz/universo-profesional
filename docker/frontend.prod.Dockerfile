@@ -35,7 +35,14 @@ RUN npm run build && \
     (node scripts/prerender.mjs || echo "prerender step optional, skipping if missing")
 
 
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.29-alpine AS runtime
+
+# Patch the base OS packages. nginx:1.27-alpine sat on alpine 3.21.3 and carried
+# 37 fixable CRITICAL/HIGH CVEs (libcrypto3/libssl3, libexpat, libpng, libxml2,
+# musl, zlib, ...), which is what the Trivy image scan fails the build on. The
+# tag bump fixes most; `apk upgrade` keeps it clean when the base tag goes stale
+# again between nginx releases.
+RUN apk upgrade --no-cache
 
 # Drop privileges. The official nginx image already supports running as
 # user `nginx` (UID 101) — we just need to make sure the writable paths

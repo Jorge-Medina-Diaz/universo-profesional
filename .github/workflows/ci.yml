@@ -128,11 +128,33 @@ jobs:
       # Guard against marker rot: the requires_age suite must still exist —
       # combined with the conftest fail-not-skip guard this keeps the build
       # honest about the graph engine actually being exercised.
+      # Runs with the same env as the pytest step below. Without it, conftest
+      # falls back to its localhost defaults and collection can die before it
+      # reaches a single test — which is exactly what happened, invisibly,
+      # because this step used to send stderr to /dev/null. Never hide the
+      # output of a check you intend to gate on.
       - name: Assert AGE-marked tests are collected
         working-directory: backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://cvs_app:cvs_app_ci_password@localhost:5432/cvs_test
+          DATABASE_URL_SYNC: postgresql://cvs:cvs_dev_password@localhost:5432/cvs_test
+          REDIS_URL: redis://localhost:6379/1
+          ENV: test
+          CANONICAL_BASE_URL: http://test
+          FRONTEND_BASE_URL: http://test
+          STORAGE_ROOT: /tmp/cvs-docs
+          JWT_PRIVATE_KEY_PATH: /tmp/jwt_priv.pem
+          JWT_PUBLIC_KEY_PATH: /tmp/jwt_pub.pem
+          EMAIL_HOST: localhost
+          EMAIL_PORT: "1025"
         run: |
-          COUNT=$(uv run pytest -m requires_age --collect-only -q 2>/dev/null | grep -c "::" || true)
-          echo "requires_age tests collected: $COUNT"
+          mkdir -p /tmp/cvs-docs
+          set +e
+          OUT=$(uv run pytest -m requires_age --collect-only -q 2>&1)
+          set -e
+          echo "$OUT" | tail -25
+          COUNT=$(echo "$OUT" | grep -c "::")
+          echo "::notice::requires_age tests collected: $COUNT"
           test "$COUNT" -ge 3
       # Test suite — RATCHET, same rationale as mypy above. 867 pass, 51 fail
       # (the suite had literally never been executed: no remote, so no CI). The
