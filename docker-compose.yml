@@ -32,11 +32,13 @@ x-shared-env: &shared-env
 
 services:
   postgres:
-    image: ${POSTGRES_IMAGE:-ghcr.io/jorge/cvs-postgres:latest}
-    # Fallback to local build if image not available:
-    # build:
-    #   context: ./docker
-    #   dockerfile: postgres.Dockerfile
+    # Postgres 16 + pgvector + Apache AGE. Built locally by default so a fresh
+    # clone works with no registry access; set POSTGRES_IMAGE to a prebuilt tag
+    # (see .github/workflows/publish-postgres.yml) to skip the ~5 min build.
+    image: ${POSTGRES_IMAGE:-cvs-postgres:local}
+    build:
+      context: ./docker
+      dockerfile: postgres.Dockerfile
     container_name: cvs-postgres
     restart: unless-stopped
     environment:

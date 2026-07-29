@@ -43,6 +43,7 @@ Thumbs.db
 .env.*.local
 .env.production
 .env.*
+!.env.example
 
 # Logs
 *.log

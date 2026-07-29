@@ -77,12 +77,12 @@ async def fetch_userinfo(access_token: str) -> dict[str, Any]:
     Shape:
       {
         "sub": "abc123",
-        "name": "Jorge Medina",
-        "given_name": "Jorge",
-        "family_name": "Medina",
+        "name": "Ada Lovelace",
+        "given_name": "Ada",
+        "family_name": "Lovelace",
         "picture": "https://...",
         "locale": {"country": "ES", "language": "es"},
-        "email": "jorge@webtools.es",
+        "email": "ada@example.com",
         "email_verified": true
       }
     """

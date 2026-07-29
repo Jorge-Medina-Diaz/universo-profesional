@@ -34,9 +34,9 @@ import structlog
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.graph.application.ports.age import cypher as age_cypher
 from src.graph.application.universe_graph import universe_graph_service
 from src.graph.domain import schema
-from src.graph.application.ports.age import cypher as age_cypher
 from src.shared.embeddings import get_embeddings_service
 from src.universe.application.ports.orm import ExperienceOrm, ProjectOrm, SkillOrm
 from src.universe.application.ports.tasks import ENTITY_MAP as _ENTITY_MAP
@@ -129,7 +129,14 @@ async def enrich_user_graph(
     user_id: UUID,
     *,
     knn: int = 4,
-    min_score: float = 0.24,
+    # Cosine floor for a RELATED_TO edge. 0.24 was calibrated against the
+    # DETERMINISTIC sha256 embeddings (cosine ~ noise around 0), and was never
+    # re-tuned because this lane silently never ran — see the savepoint note in
+    # step 6. On real text-embedding-3-small vectors, 0.24 sits BELOW the median
+    # pair score for a single user's corpus (measured: median 0.29, p95 0.52),
+    # so ~2/3 of all possible pairs become "related" and the graph degenerates
+    # into a hairball. 0.50 ≈ p95: only genuinely close pairs get an edge.
+    min_score: float = 0.50,
     with_communities: bool = True,
 ) -> EnrichmentStats:
     """Infer + write relationships for the whole universe of one user.
@@ -188,12 +195,20 @@ async def enrich_user_graph(
 
     # 6. Career pillars: detect + summarize communities over the now-connected
     #    graph (best-effort — never fails the enrichment if the LLM is down).
+    #
+    #    MUST run inside a SAVEPOINT. A bare try/except catches the Python
+    #    exception but leaves the Postgres transaction ABORTED, and Postgres
+    #    turns the caller's later COMMIT into a silent ROLLBACK — so every
+    #    edge inferred in steps 4-5 was being discarded while the endpoint
+    #    still returned {"status": "ok"}. Rolling back to the savepoint keeps
+    #    the outer transaction usable.
     if with_communities:
         try:
             from src.graph.application.communities import compute_communities
 
-            pillars = await compute_communities(session, user_id)
-            stats.communities = len(pillars)
+            async with session.begin_nested():
+                pillars = await compute_communities(session, user_id)
+                stats.communities = len(pillars)
         except Exception as exc:
             logger.warning("community_compute_failed", user_id=str(user_id), error=str(exc))
 

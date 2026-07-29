@@ -8,7 +8,7 @@ tool follows the same pattern in every file — see the per-category sections.
 `@tool(external_execution=True)` declarations. The Python body never runs;
 Agno emits the call as an AG-UI tool-call event the React layer renders.
 **Tool names MUST match the `useCopilotAction({ name })` in
-[`frontend/src/chat/actions.tsx`](../../frontend/src/chat/actions.tsx).**
+[`frontend/src/chat/actions/`](../../frontend/src/chat/actions/).**
 
 | Name | Payload | Frontend card |
 |---|---|---|
@@ -54,7 +54,7 @@ user-facing chat interactions.
 1. Add a `@tool(external_execution=True)` decorated function in
    `ui_widgets.py` with the desired argument schema.
 2. Mirror the name and parameters in `useCopilotAction` inside
-   `frontend/src/chat/actions.tsx` using `renderAndWaitForResponse`.
+   `frontend/src/chat/actions/` using `renderAndWaitForResponse`.
 3. (Optional) Compose a specialist that owns it via
    `src/agents/specialists/<entity>.py`.
 

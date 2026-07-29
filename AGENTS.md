@@ -71,10 +71,9 @@ Esta regla está **forzada por `import-linter`** (configurado en `pyproject.toml
 | `shared/` | Kernel transversal: DB, config, logging, seguridad, eventos, worker, rate-limit, embeddings |
 | `identity/` | Registro, login, JWT, OAuth, 2FA, RGPD export/delete |
 | `universe/` | El "Universo Profesional" (educations, experiences, projects, skills, etc.) — núcleo del producto |
-| `documents/` | Generación de CVs/cover letters, almacenamiento, compartir |
-| `ai_generation/` | Pipeline RAG (mockeado en MVP): parse JD → embed → retrieve → rerank → LLM → JSON Resume → PDF/DOCX |
+| `documents/` | Generación de CVs/cover letters (tailoring grounded), render WeasyPrint/python-docx, exports JSON Resume + Europass, compartir |
 | `billing/` | Cuotas, suscripciones, Stripe (mock/real) |
-| `agents/` | Agentes Agno: coordinador + 27 módulos especialistas (consolidación a ~7 en curso — ver plan de transformación), herramientas, flujos de trabajo, memoria, context providers, auto-enrichment |
+| `agents/` | Agentes Agno: coordinador + **7 especialistas** (consolidación 26 → 7 completada), herramientas, flujos de trabajo, memoria, context providers, auto-enrichment |
 | `coherence/` | Motor de coherencia: cada escritura pasa por upsert con reglas de merge declarativas |
 | `graph/` | Apache AGE + ontología ESCO (Sprint M en adelante) |
 | `knowledge/` | RAG / base de conocimiento (chunks en pgvector) |
@@ -82,6 +81,8 @@ Esta regla está **forzada por `import-linter`** (configurado en `pyproject.toml
 | `integrations/` | LinkedIn, GitHub OAuth, Bright Data |
 | `mcp_server/` | Servidor MCP: OAuth 2.1 AS (RFC 8414, 9728, 8707, 7591) + tools MCP |
 | `rubrics/` | Rúbricas / documentos de evaluación |
+| `llm_tracking/` | Registro de uso y coste por llamada LLM (`llm_usage_logs`) |
+| `public_profile/` | Twin público: config del propietario, superficie pública `/t/{slug}`, embed, leads |
 
 **Otros directorios clave del backend:**
 - `backend/alembic/` — Migraciones Alembic (async-aware `env.py`, usa `psycopg` sync)

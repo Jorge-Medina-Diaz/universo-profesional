@@ -1,6 +1,12 @@
 # MCP Server — Tools Reference
 
-The Universo Profesional MCP server exposes **10 tools** through the official MCP Python SDK (`mcp>=1.1.0`).  Transport is HTTP streamable (SSE endpoint) with OAuth 2.1 authentication.
+The Universo Profesional MCP server exposes **33 tools** through the official MCP Python SDK (`mcp>=1.1.0`).  Transport is HTTP streamable (SSE endpoint) with OAuth 2.1 authentication.
+
+> **This page documents a representative subset**, not all 33. The registry in
+> [`backend/src/mcp_server/application/tools.py`](../../backend/src/mcp_server/application/tools.py)
+> is the source of truth — several tools (per-kind add/update/delete, the LinkedIn
+> and GitHub syncs, import commit) are generated per entity kind. A live client can
+> also just call `tools/list`, or read `/.well-known/mcp/server-card.json`.
 
 > **Scope**: all tools are user-scoped.  Every request carries a JWT access token obtained via our OAuth 2.1 Authorization Server (RFC 8414 metadata, PKCE, DPoP).  Write operations never mutate data directly — they create **proposals** that the user confirms through the HITL flow.
 

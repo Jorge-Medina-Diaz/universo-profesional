@@ -8,7 +8,7 @@ entidades enumeradas. Sprints M → R del plan v2.
 
 ```
                             ┌──────────────────────────────────────────┐
-                            │            CHAT AGÉNTICO (28)            │
+                            │            CHAT AGÉNTICO (7)              │
                             │  CopilotKit AG-UI · HITL proposal cards  │
                             └────────────────────┬─────────────────────┘
                                                  │
@@ -58,17 +58,20 @@ entidades enumeradas. Sprints M → R del plan v2.
                       │
                       ▼
         ┌───────────────────────────────────────────────────────────────┐
-        │             HYBRID RETRIEVER (3 carriles + RRF k=60)          │
+        │             HYBRID RETRIEVER (5 carriles + RRF k=60)          │
         │  ① BM25 (Postgres tsvector + GIN indexes)                     │
         │  ② Dense (pgvector HNSW, OpenAI text-embedding-3-small)       │
-        │  ③ PPR    (igraph snapshot/usuario, semilla por dense top-3)  │
-        │  fusión Reciprocal Rank Fusion (Cormack k=60)                 │
-        │  Fase 2 (futura): + SPLADE + community summaries (Leiden)     │
+        │  ③ PPR    (igraph snapshot/usuario, semillas dense ∪ BM25)    │
+        │  ④ Community (clusters Leiden + resúmenes LLM)                │
+        │  ⑤ Knowledge (chunks de PDFs/papers subidos)                  │
+        │  fusión Reciprocal Rank Fusion (Cormack k=60), pool 40        │
+        │  → rerank listwise LLM (gated: sólo si pool > top_k)          │
+        │  Fase 2 (futura): + SPLADE                                    │
         └───────────────────────────┬───────────────────────────────────┘
                                     │
                                     ▼
                           ┌─────────────────────────┐
-                          │     AGENTS (28)         │
+                          │     AGENTS (7)          │
                           │  Tools nuevos:          │
                           │   • universe_retrieve   │
                           │   • get_graph_neighbors │
@@ -97,7 +100,7 @@ entidades enumeradas. Sprints M → R del plan v2.
 |---|---|---|
 | Backend de grafo | **Apache AGE + pgvector** en una sola Postgres | Multi-tenant trivial por `user_id`; ACID con vectores y relacional; sin ops extra |
 | Ontología externa | **ESCO** subset ES+EN | Oficial UE, multilingüe, gratuita, hierarchica (SKOS), ~17k conceptos |
-| Retrieval híbrido | **3 carriles + RRF k=60** | Estándar de la literatura; SPLADE + community summaries en fase 2 |
+| Retrieval híbrido | **5 carriles + RRF k=60 + rerank** | Estándar de la literatura; SPLADE en fase 2 |
 | Hipergrafo | **Multigraph + nodos Evidence reificados** | Isomorfo a hyperedge, sin DB hypergraph dedicada |
 | UI primaria | **Conversación + lente de grafo** | Móvil-first; el grafo es lente secundaria, no la UX primaria |
 | Cross-encoder ESCO | **FeatureReranker local** (sin GPU) | Determinista, rápido, interpretable; reduce falsos positivos de términos polisémicos |
@@ -240,7 +243,7 @@ también.  Se puede ampliar añadiendo entradas a `_CUSTOM_SKILLS`.
 - **`src/pages/UniversePage.tsx`** — reescrita. 3 lentes (Graph,
   Outline, Trajectory), filtros por kind, sidebar con
   ProfileCompleteness + SuggestionBar.
-- **`src/chat/actions.tsx`** — registra los handlers
+- **`src/chat/actions/`** — registra los handlers
   `propose_esco_disambiguation`, `propose_edge_creation`,
   `propose_edge_deletion`, `propose_document_generation`, `propose_cover_letter`.
 - **`src/widgets/DiscoveryProgress.tsx`** — widget de score 0-100 con SSE

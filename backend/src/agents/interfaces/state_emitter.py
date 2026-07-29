@@ -50,16 +50,45 @@ def _delta(*ops: tuple[str, Any]) -> StateDeltaEvent:
     )
 
 
+def _on_tool_start(name: str) -> tuple[str, StateDeltaEvent]:
+    """Map a starting tool call to (new status, the delta announcing it)."""
+    if name == _DELEGATE_TOOL:
+        return "routing", _delta(("/agent_status", "routing"))
+    if _is_proposal_tool(name):
+        return "awaiting_confirmation", _delta(
+            ("/agent_status", "awaiting_confirmation"),
+            ("/pending_proposal", name),
+        )
+    return "using_tool", _delta(
+        ("/agent_status", "using_tool"),
+        ("/current_tool", name),
+    )
+
+
 async def emit_agent_state(events: Any, intent_state: dict[str, Any] | None) -> Any:
     """Pass-through stage that injects STATE_SNAPSHOT/STATE_DELTA events."""
     status = "thinking"
     delegate_args: dict[str, str] = {}  # tool_call_id → accumulated args json
     tool_names: dict[str, str] = {}  # tool_call_id → tool name
     snapshot_sent = False
+    run_closed = False
 
     async for event in events:
         etype = getattr(event, "type", None)
         yield event  # the underlying event always flows; state trails it
+
+        # Once the run is closed, NO further state events may be emitted.
+        # Guarding only the RUN_FINISHED branch is not enough: anything agno
+        # emits afterwards (post-turn auto-enrichment is the usual source)
+        # would still drive a status transition and yield a trailing
+        # STATE_DELTA. CopilotKit v1.57 rejects that with "run has already
+        # finished", which aborts the client run *mid tool-call-args stream* —
+        # the proposal card then renders with empty args.
+        if run_closed:
+            continue
+        if etype in (EventType.RUN_FINISHED, EventType.RUN_ERROR):
+            run_closed = True
+            continue
 
         try:
             if etype == EventType.RUN_STARTED and not snapshot_sent:
@@ -85,20 +114,8 @@ async def emit_agent_state(events: Any, intent_state: dict[str, Any] | None) -> 
                 tool_names[tcid] = name
                 if name == _DELEGATE_TOOL:
                     delegate_args[tcid] = ""
-                    status = "routing"
-                    yield _delta(("/agent_status", status))
-                elif _is_proposal_tool(name):
-                    status = "awaiting_confirmation"
-                    yield _delta(
-                        ("/agent_status", status),
-                        ("/pending_proposal", name),
-                    )
-                else:
-                    status = "using_tool"
-                    yield _delta(
-                        ("/agent_status", status),
-                        ("/current_tool", name),
-                    )
+                status, delta = _on_tool_start(name)
+                yield delta
             elif etype == EventType.TOOL_CALL_ARGS:
                 tcid = getattr(event, "tool_call_id", "") or ""
                 if tcid in delegate_args:
@@ -122,11 +139,6 @@ async def emit_agent_state(events: Any, intent_state: dict[str, Any] | None) -> 
             ):
                 status = "answering"
                 yield _delta(("/agent_status", status))
-            elif etype == EventType.RUN_FINISHED:
-                # Do NOT emit STATE_DELTA after RUN_FINISHED — CopilotKit v1.57
-                # rejects it ("run has already finished"). The frontend already
-                # transitions to idle via isLoading=false.
-                pass
         except Exception:  # narration must never break the stream
             logger.warning("state_emitter_failed", exc_info=True)
 

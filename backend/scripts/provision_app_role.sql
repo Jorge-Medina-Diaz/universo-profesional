@@ -77,10 +77,13 @@ DECLARE
     el text;
 BEGIN
     FOREACH g IN ARRAY ARRAY['universe_personal'] LOOP
+        -- Keep in sync with schema.PERSONAL_VERTEX_LABELS / PERSONAL_EDGE_TYPES
+        -- (tests/unit/graph/test_provision_labels.py asserts they match).
         FOREACH vl IN ARRAY ARRAY[
             'Achievement','ArchitectureDecision','Artifact','Certification',
-            'Course','Education','Evidence','Experience','Interest',
-            'Language','Project','Skill'
+            'Community','Course','Education','Entity','Episode','Evidence',
+            'Experience','Goal','Interest','Language','MergeEvent','Project',
+            'Signal','Skill'
         ] LOOP
             BEGIN
                 PERFORM ag_catalog.create_vlabel(g, vl);
