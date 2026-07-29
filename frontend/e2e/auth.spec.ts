@@ -47,7 +47,10 @@ test.describe.serial("Auth flow", () => {
     await page.getByLabel(/Email/i).fill("no-existe@example.com");
     await page.getByLabel(/Contraseña/i).fill("wrong");
     await page.locator("form").getByRole("button", { name: /Entrar/i }).click();
-    await expect(page.getByText(/incorrecto|inválido|error/i)).toBeVisible();
+    // Assert the alert region, not its wording: the message is whatever the API
+    // returns (currently the English "Invalid credentials"), so the old Spanish
+    // regex /incorrecto|inválido|error/i never matched.
+    await expect(page.getByRole("alert")).toBeVisible();
   });
 });
 

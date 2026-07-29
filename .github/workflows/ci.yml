@@ -326,6 +326,13 @@ jobs:
           ENV: test
           CANONICAL_BASE_URL: http://localhost:8000
           FRONTEND_BASE_URL: http://localhost:5173
+          # e2e/global-setup.ts registers a user and immediately logs in. Login
+          # returns 401 for an unverified account, so without this the setup
+          # stored a token-less session and every authenticated spec redirected
+          # to /login. Safe by construction: use_cases.py only honours the flag
+          # when is_dev or is_test, and validate_production_ready() rejects it
+          # outright under ENV=production.
+          AUTO_VERIFY_EMAILS_IN_DEV: "true"
           STORAGE_ROOT: /tmp/cvs-docs
           JWT_PRIVATE_KEY_PATH: /tmp/cvs-keys/jwt_priv.pem
           JWT_PUBLIC_KEY_PATH: /tmp/cvs-keys/jwt_pub.pem

@@ -29,6 +29,18 @@ export default async function globalSetup() {
   });
   const body = await loginRes.json();
 
+  // Fail loudly. This used to write a storage state with an undefined token
+  // whenever login failed (401 "Email not verified" when
+  // AUTO_VERIFY_EMAILS_IN_DEV is off), so every authenticated spec silently
+  // redirected to /login and failed with an unrelated-looking locator timeout.
+  if (!loginRes.ok() || !body.access_token) {
+    throw new Error(
+      `global-setup: login failed (HTTP ${loginRes.status()}): ${JSON.stringify(body)}. ` +
+        `The backend must accept the freshly registered account — set ` +
+        `AUTO_VERIFY_EMAILS_IN_DEV=true, or verify the account before logging in.`,
+    );
+  }
+
   // Build Playwright storage state for localStorage.
   const storageState = {
     origins: [
