@@ -88,7 +88,6 @@ async def test_delete_me_clears_byok_and_external_accounts(client: AsyncClient) 
 @pytest.mark.asyncio
 async def test_hard_delete_erases_past_retention_account(client: AsyncClient) -> None:
     from sqlalchemy import text
-
     from src.identity.infrastructure.tasks import hard_delete_expired_accounts
     from src.shared.db import get_session_factory
 

@@ -13,6 +13,12 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import text
 
+from src.coherence.application.coherence_v2 import resolve_quarantine
+from src.graph.application.retrieval import hybrid_retrieve
+from src.graph.application.universe_graph import universe_graph_service
+from src.graph.domain import schema as graph_schema
+from src.identity.interfaces.api.deps import CurrentUserId, SessionDep
+
 # Cap on snapshot size — guards both server memory (igraph + Cypher
 # result sets) and the JSON payload size pushed to the browser. A
 # typical professional universe is well under 1 000 nodes; the cap
@@ -20,11 +26,6 @@ from sqlalchemy import text
 # corrupted user) without crashing the process.
 MAX_SNAPSHOT_NODES: int = 2000
 
-from src.coherence.application.coherence_v2 import resolve_quarantine
-from src.graph.application.retrieval import hybrid_retrieve
-from src.graph.application.universe_graph import universe_graph_service
-from src.graph.domain import schema as graph_schema
-from src.identity.interfaces.api.deps import CurrentUserId, SessionDep
 
 router = APIRouter(prefix="/api/v1/graph", tags=["graph"])
 

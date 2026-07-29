@@ -6,7 +6,6 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-
 SIGNAL_STATUSES = ("aspire", "practice", "own", "teach", "avoid")
 SIGNAL_SECTION_KINDS = ("criteria", "questions", "signals", "anti_patterns", "resources", "general")
 

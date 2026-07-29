@@ -80,4 +80,3 @@ class MockStripeProvider(PaymentsProvider):
         sub.updated_at = now
         await self._subs.upsert(sub)
         return sub
-    

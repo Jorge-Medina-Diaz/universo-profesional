@@ -14,8 +14,8 @@ from .config import get_settings
 
 
 async def startup(ctx: dict[str, Any]) -> None:
-    from .orm_loader import import_all_models
     from .logging import configure_logging
+    from .orm_loader import import_all_models
 
     configure_logging()
     # Wire observability for the worker process too (the API does this in its
@@ -99,12 +99,12 @@ def _collect_functions() -> list[Any]:
 
 def _collect_cron() -> list[Any]:
     from src.agents.workflows.curator import curator_cron
-    from src.mcp_server.infrastructure.tasks import (
-        purge_expired_oauth_tokens,
-    )
     from src.identity.infrastructure.lifecycle_tasks import lifecycle_cron
     from src.identity.infrastructure.tasks import hard_delete_expired_accounts
     from src.integrations.infrastructure.tasks import resync_cron
+    from src.mcp_server.infrastructure.tasks import (
+        purge_expired_oauth_tokens,
+    )
     from src.universe.infrastructure.nudge_tasks import nudge_sweep_cron
     from src.universe.infrastructure.projections import project_embeddings_task
     from src.universe.infrastructure.reminder_tasks import reminders_cron

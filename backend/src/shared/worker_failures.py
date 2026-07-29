@@ -34,7 +34,7 @@ TRANSIENT_EXC: tuple[type[BaseException], ...] = (
 try:  # httpx ships with the app, but stay defensive at import time
     import httpx
 
-    TRANSIENT_EXC = TRANSIENT_EXC + (httpx.TransportError,)
+    TRANSIENT_EXC = (*TRANSIENT_EXC, httpx.TransportError)
 except Exception:  # pragma: no cover - httpx always present in practice
     pass
 

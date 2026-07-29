@@ -16,7 +16,6 @@ Adding a kind = one `_Candidate` builder here; storage/API/UI are generic.
 from __future__ import annotations
 
 import json
-
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any

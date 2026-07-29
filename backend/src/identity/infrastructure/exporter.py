@@ -22,7 +22,7 @@ MANUAL_ERASE).
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 from uuid import UUID
 
 import structlog
@@ -147,7 +147,7 @@ class SqlUserDataExporter(UserDataExporter):
 
     # The owning column is `user_id` on every table except `users`, where it's
     # the primary key `id`.
-    _TABLE_USER_COL: dict[str, str] = {"users": "id"}
+    _TABLE_USER_COL: ClassVar[dict[str, str]] = {"users": "id"}
 
     async def export_all(self, user_id: UUID) -> dict[str, Any]:
         # Dynamic: everything the user owns, minus the curated exclusions. A new
@@ -159,7 +159,7 @@ class SqlUserDataExporter(UserDataExporter):
             col = self._TABLE_USER_COL.get(table, "user_id")
             redact = _REDACT_COLUMNS.get(table, frozenset())
             # Table name comes from information_schema, never user input.
-            stmt = text(f"SELECT row_to_json(t) AS row FROM {table} t WHERE {col} = :uid")  # noqa: S608
+            stmt = text(f"SELECT row_to_json(t) AS row FROM {table} t WHERE {col} = :uid")
             try:
                 rows = (await self._session.execute(stmt, {"uid": str(user_id)})).all()
                 records = [r[0] for r in rows]

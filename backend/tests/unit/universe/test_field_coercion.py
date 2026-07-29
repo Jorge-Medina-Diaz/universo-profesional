@@ -12,7 +12,6 @@ from datetime import date
 from uuid import uuid4
 
 import pytest
-
 from src.shared.errors import ValidationError
 from src.universe.domain.entities import (
     Course,

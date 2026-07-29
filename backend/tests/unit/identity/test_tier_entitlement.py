@@ -10,11 +10,10 @@ from __future__ import annotations
 import datetime as dt
 
 import pytest
-
 from src.identity.domain.user import PAID_TIERS, VALID_TIERS, User
 from src.shared.value_objects import Email
 
-_NOW = dt.datetime(2026, 6, 1, tzinfo=dt.timezone.utc)
+_NOW = dt.datetime(2026, 6, 1, tzinfo=dt.UTC)
 
 
 def _user(tier: str) -> User:
@@ -30,8 +29,8 @@ def _user(tier: str) -> User:
 
 
 def test_constants() -> None:
-    assert PAID_TIERS == frozenset({"pro", "premium"})
-    assert VALID_TIERS == frozenset({"free", "pro", "premium"})
+    assert frozenset({"pro", "premium"}) == PAID_TIERS
+    assert frozenset({"free", "pro", "premium"}) == VALID_TIERS
 
 
 @pytest.mark.parametrize(

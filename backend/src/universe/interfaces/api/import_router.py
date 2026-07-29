@@ -323,7 +323,7 @@ async def import_json_resume(
     exp_uc: ExperienceCrudDep,
     skill_uc: SkillCrudDep,
     session: SessionDep,
-    body: dict[str, Any] = None,  # type: ignore[assignment]
+    body: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Import JSON Resume v1.0.0."""
     if body is None:

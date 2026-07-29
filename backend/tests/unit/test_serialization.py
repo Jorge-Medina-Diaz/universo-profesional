@@ -2,10 +2,9 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from pydantic import BaseModel
-
 from src.shared.serialization import jsonify
 
 

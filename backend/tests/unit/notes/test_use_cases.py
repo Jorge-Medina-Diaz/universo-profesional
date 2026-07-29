@@ -2,11 +2,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
-from uuid import UUID, uuid4
-
-import pytest
+from uuid import uuid4
 
 from src.notes.application.use_cases import (
     CreateNote,

@@ -45,7 +45,7 @@ def _is_blank(value: Any) -> bool:
     if value is None:
         return True
     text = str(value).strip()
-    return text == "" or text == "None"
+    return text in ("", "None")
 
 
 def _fix_tool_result_content(inner: Any) -> Any | None:
@@ -80,21 +80,22 @@ def _sanitise_content_list(content: list[Any]) -> list[Any]:
             fixed = _fix_tool_result_content(_block_attr(block, "content"))
             if fixed is not None:
                 if isinstance(block, dict):
-                    block = {**block, "content": fixed}
-                else:
-                    # SDK object (not a dict): the old code kept it unchanged, so
-                    # the repaired content was silently discarded and Anthropic
-                    # still received the empty tool_result this sanitiser exists
-                    # to prevent. Rebuild as a plain dict, preserving the linking
-                    # tool_use_id and error flag.
-                    rebuilt: dict[str, Any] = {"type": "tool_result", "content": fixed}
-                    tool_use_id = _block_attr(block, "tool_use_id")
-                    if tool_use_id is not None:
-                        rebuilt["tool_use_id"] = tool_use_id
-                    is_error = _block_attr(block, "is_error")
-                    if is_error is not None:
-                        rebuilt["is_error"] = is_error
-                    block = rebuilt
+                    out.append({**block, "content": fixed})
+                    continue
+                # SDK object (not a dict): the old code kept it unchanged, so
+                # the repaired content was silently discarded and Anthropic
+                # still received the empty tool_result this sanitiser exists
+                # to prevent. Rebuild as a plain dict, preserving the linking
+                # tool_use_id and error flag.
+                rebuilt: dict[str, Any] = {"type": "tool_result", "content": fixed}
+                tool_use_id = _block_attr(block, "tool_use_id")
+                if tool_use_id is not None:
+                    rebuilt["tool_use_id"] = tool_use_id
+                is_error = _block_attr(block, "is_error")
+                if is_error is not None:
+                    rebuilt["is_error"] = is_error
+                out.append(rebuilt)
+                continue
         out.append(block)
     return out
 

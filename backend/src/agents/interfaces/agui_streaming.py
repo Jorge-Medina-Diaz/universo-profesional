@@ -39,8 +39,8 @@ from src.agents.interfaces.agui_core import (
     _MAX_CONCURRENT_STREAMS_PER_USER,
     _acquire_stream_slot,
     _background_tasks,
-    _extract_user_id_from_jwt,
     _conversation_window,
+    _extract_user_id_from_jwt,
     _last_user_text,
     _norm_text,
     _release_stream_slot,
@@ -162,7 +162,7 @@ async def _inject_proposal_metadata(ev: Any, user_id: str | None) -> None:
         # "entity" is not a real kind). All other propose_* derive the kind from
         # the tool name and use the args themselves as the entity data.
         if name == "propose_entity":
-            from src.coherence.application.upsert_use_cases import (  # noqa: PLC0415
+            from src.coherence.application.upsert_use_cases import (
                 is_known_entity,
             )
 
@@ -363,7 +363,7 @@ async def _run_team_with_attachments(
         yield RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=run_input.thread_id, run_id=run_id)
 
 
-async def _clean_event_stream(
+async def _clean_event_stream(  # noqa: PLR0912, PLR0915 - AG-UI protocol state machine: one branch per event type, linear and ordered
     events: Any,
     encoder: EventEncoder,
     *,
@@ -402,8 +402,8 @@ async def _clean_event_stream(
     #   • tail holdback: always lag by a small window so a TRAILING notice can
     #     still be stripped at END before it ever reaches the client.
     # Messages 2+ keep the buffered dedup path unchanged.
-    _PREFIX_GATE = 48
-    _TAIL_HOLD = 64
+    prefix_gate = 48
+    tail_hold = 64
     live_mid: str | None = None  # message currently streaming live
     pending_ack: dict | None = None
     live_done = False  # only the first text message gets the live path
@@ -577,8 +577,8 @@ async def _clean_event_stream(
                     if live_mid is None:
                         # Prefix gate: wait until the head is provably real
                         # content (long enough and not a plumbing notice).
-                        head = _strip_notices(text[: _PREFIX_GATE * 3]).strip()
-                        if len(text) >= _PREFIX_GATE and len(head) >= 24:
+                        head = _strip_notices(text[: prefix_gate * 3]).strip()
+                        if len(text) >= prefix_gate and len(head) >= 24:
                             live_mid = event.message_id
                             live_done = True
                     if live_mid == event.message_id:
@@ -589,7 +589,7 @@ async def _clean_event_stream(
                         # notice at the end stays inside the holdback window
                         # until it completes, so stripping is stable.
                         cleaned_live = _strip_notices(buf["text"])
-                        flush_upto = max(0, len(cleaned_live) - _TAIL_HOLD)
+                        flush_upto = max(0, len(cleaned_live) - tail_hold)
                         if flush_upto > buf["emitted_upto"]:
                             if not buf["started_emitted"]:
                                 buf["started_emitted"] = True
@@ -881,7 +881,7 @@ async def _event_stream(
         # Close the run as well: CopilotKit v1.57 leaves the client stuck in a
         # permanently-"running" state if RUN_ERROR is not followed by
         # RUN_FINISHED. Wrapped in its own guard so it can never break the SSE.
-        try:
+        with contextlib.suppress(Exception):
             yield encoder.encode(
                 RunFinishedEvent(
                     type=EventType.RUN_FINISHED,
@@ -889,8 +889,6 @@ async def _event_stream(
                     run_id=run_input.run_id or "",
                 )
             )
-        except Exception:
-            pass
     finally:
         if acquired:
             await _release_stream_slot(user_id)

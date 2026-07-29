@@ -2,11 +2,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
-from uuid import UUID, uuid4
-
-import pytest
+from uuid import uuid4
 
 from src.identity.application.use_cases import (
     DeleteAccount,
@@ -117,8 +114,8 @@ class TestLogin:
         assert result.is_failure
 
     async def test_not_verified(self):
+
         from src.shared.security import hash_password
-        from unittest.mock import patch
 
         user = _user(verified=False, password_hash=hash_password("password123"))
         users = MagicMock()

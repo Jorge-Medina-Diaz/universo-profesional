@@ -6,7 +6,7 @@ from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Body, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
@@ -119,8 +119,7 @@ async def github_sync_async(user_id: CurrentUserId) -> dict[str, Any]:
     """
     from src.integrations.infrastructure.queue import enqueue_integration_task
 
-    res = await enqueue_integration_task("run_github_sync_task", user_id=user_id)
-    return res
+    return await enqueue_integration_task("run_github_sync_task", user_id=user_id)
 
 
 @router.post("/linkedin/dma/sync-async")
@@ -139,8 +138,11 @@ class _BrightDataAsyncBody(BaseModel):
 
 @router.post("/linkedin/brightdata/sync-async")
 async def linkedin_brightdata_sync_async(
-    user_id: CurrentUserId, body: _BrightDataAsyncBody = Body(default=_BrightDataAsyncBody())
+    user_id: CurrentUserId, body: _BrightDataAsyncBody | None = None
 ) -> dict[str, Any]:
+    # Built per request: a module-level default instance would be shared
+    # mutable state across every caller.
+    body = body or _BrightDataAsyncBody()
     from src.integrations.infrastructure.queue import enqueue_integration_task
 
     return await enqueue_integration_task(
@@ -181,7 +183,7 @@ async def github_disconnect(user_id: CurrentUserId, session: SessionDep) -> dict
     async with unit_of_work(session) as uow:
         r = await uc.execute(user_id=user_id, provider="github", uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         await uow.commit()
     return {"ok": True}
 
@@ -647,7 +649,7 @@ async def linkedin_dma_disconnect(
     async with unit_of_work(session) as uow:
         r = await uc.execute(user_id=user_id, provider="linkedin_dma", uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         await uow.commit()
     return {"ok": True}
 

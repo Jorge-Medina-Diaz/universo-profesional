@@ -11,6 +11,7 @@ The result is a living graph that grows with every conversation.
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 from dataclasses import dataclass, field
@@ -427,7 +428,7 @@ class UniverseEnrichmentEngine:
                     # its own session — the entity is already committed by
                     # _upsert_entity, so the embed read sees it.
                     try:
-                        from src.universe.infrastructure.tasks import (  # noqa: PLC0415
+                        from src.universe.infrastructure.tasks import (
                             refresh_embedding,
                         )
 
@@ -451,10 +452,8 @@ class UniverseEnrichmentEngine:
                 logger.warning("enrichment_entity_failed", kind=ent.kind, error=str(exc))
                 # Recover the session for the next entity. Prior entities are
                 # already committed, so this only discards the failed one.
-                try:
+                with contextlib.suppress(Exception):  # pragma: no cover
                     await self._session.rollback()
-                except Exception:  # pragma: no cover - defensive
-                    pass
 
         # 4. Materialise relations as graph edges. Endpoints resolve against
         # this pass's map first, then against the user's EXISTING entities —
@@ -500,10 +499,8 @@ class UniverseEnrichmentEngine:
             except Exception as exc:
                 result.errors.append(f"relation failed: {exc}")
                 logger.warning("enrichment_relation_failed", error=str(exc))
-                try:
+                with contextlib.suppress(Exception):  # pragma: no cover
                     await self._session.rollback()
-                except Exception:  # pragma: no cover - defensive
-                    pass
 
         # 5. Full-graph enrichment (infer RELATED_TO, USES_TECH from tech_stack,
         # etc.). DEBOUNCED off the chat turn (R15 s2): we enqueue a coalesced
@@ -511,13 +508,13 @@ class UniverseEnrichmentEngine:
         # If the queue is unreachable we fall back to running it inline on this
         # session so enrichment NEVER silently stops.
         try:
-            from src.universe.infrastructure.scheduler import (  # noqa: PLC0415
+            from src.universe.infrastructure.scheduler import (
                 enqueue_graph_enrichment,
             )
 
             enqueued = await enqueue_graph_enrichment(self._user_id)
             if not enqueued:
-                from src.universe.application.enrichment import (  # noqa: PLC0415
+                from src.universe.application.enrichment import (
                     enrich_user_graph,
                 )
 
@@ -645,7 +642,7 @@ class UniverseEnrichmentEngine:
         """Find an existing entity of *kind* whose display name matches *name*
         (case/whitespace-insensitive). Lets relations connect new facts to
         entities created in earlier turns or imports."""
-        from sqlalchemy import text as _text  # noqa: PLC0415
+        from sqlalchemy import text as _text
 
         spec = _KIND_SQL.get(kind)
         if not spec or not name:
@@ -655,10 +652,10 @@ class UniverseEnrichmentEngine:
         # one space. Plain trim() only strips the ENDS, so a stored "Search  v2"
         # (double space — common in LLM/CV payloads) never equalled _norm's
         # "search v2" and its relations were silently dropped (#37/#41).
-        row = (
+        return (
             await self._session.execute(
                 _text(
-                    f"SELECT id FROM {table} WHERE user_id = :uid "  # noqa: S608
+                    f"SELECT id FROM {table} WHERE user_id = :uid "
                     f"AND deleted_at IS NULL "
                     f"AND lower(regexp_replace(trim({field}), '\\s+', ' ', 'g')) = :name "
                     "ORDER BY updated_at DESC LIMIT 1"
@@ -666,7 +663,6 @@ class UniverseEnrichmentEngine:
                 {"uid": str(self._user_id), "name": _norm(name)},
             )
         ).scalar()
-        return row
 
     def _canonical_name(self, ent: ExtractedEntity) -> str:
         """Return a stable name key for the entity (used in relation mapping)."""
@@ -696,7 +692,7 @@ class UniverseEnrichmentEngine:
         return "[]"
 
     async def _call_anthropic(self, messages: list[dict[str, str]]) -> str:
-        from anthropic import AsyncAnthropic  # noqa: PLC0415
+        from anthropic import AsyncAnthropic
 
         client = AsyncAnthropic(api_key=self._settings.anthropic_api_key)
         system = messages[0]["content"]
@@ -710,7 +706,7 @@ class UniverseEnrichmentEngine:
         return str(response.content[0].text)
 
     async def _call_openai(self, messages: list[dict[str, str]]) -> str:
-        from openai import AsyncOpenAI  # noqa: PLC0415
+        from openai import AsyncOpenAI
 
         client = AsyncOpenAI(api_key=self._settings.openai_api_key)
         # NOTE: response_format json_object would force a top-level OBJECT, but

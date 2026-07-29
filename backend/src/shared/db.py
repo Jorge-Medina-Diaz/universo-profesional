@@ -6,6 +6,7 @@ Every request acquires a session via `get_session()`. Sessions set
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from uuid import UUID
 
 from sqlalchemy import event, text
@@ -132,8 +133,6 @@ async def set_rls_user(session: AsyncSession, user_id: UUID | None) -> None:
             connection.exec_driver_sql(f"SET LOCAL app.bypass_rls = '{b}'")
             connection.exec_driver_sql(f"SET LOCAL app.current_user_id = '{u}'")
 
-
-from contextlib import asynccontextmanager
 
 
 @asynccontextmanager

@@ -317,7 +317,8 @@ def _facts_for_prompt(resume: dict[str, Any]) -> str:
         "current_summary": basics.get("summary"),
         "skills": [s.get("name") for s in (resume.get("skills") or [])],
         "languages": [
-            f"{l.get('language')} ({l.get('fluency')})" for l in (resume.get("languages") or [])
+            f"{lang.get('language')} ({lang.get('fluency')})"
+            for lang in (resume.get("languages") or [])
         ],
         "work": [
             {

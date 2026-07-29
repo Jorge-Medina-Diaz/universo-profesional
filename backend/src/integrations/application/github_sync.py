@@ -22,8 +22,8 @@ from src.integrations.application.ports import (
     OperationCancelledError,
     SyncRunsRepository,
 )
-from src.integrations.domain.external_account import IntegrationSynced
 from src.integrations.application.ports.github import GithubClient
+from src.integrations.domain.external_account import IntegrationSynced
 from src.shared.security import utc_now
 from src.shared.uow import UnitOfWork
 from src.universe.application.ports import (
@@ -126,7 +126,7 @@ class SyncGithub:
             semantic_matcher=PgVectorSemanticMatcher(self._session),
         )
 
-    async def execute(self, *, user_id: str, uow: UnitOfWork) -> dict[str, Any]:
+    async def execute(self, *, user_id: str, uow: UnitOfWork) -> dict[str, Any]:  # noqa: PLR0912, PLR0915 - maps a whole GitHub profile to entities; branches are per-field null handling
         uid = UUID(user_id)
         account = await self._accounts.get(uid, "github")
         if account is None or not account.access_token:

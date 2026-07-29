@@ -108,7 +108,7 @@ async def generate_cv(
     )
     quota_result = await quota.execute(user_id=user_id, resource=quota_resource)
     if quota_result.is_failure:
-        raise quota_result.error  # type: ignore[union-attr]
+        raise quota_result.error
 
     async with unit_of_work(session) as uow:
         result = await uc.execute(
@@ -125,11 +125,11 @@ async def generate_cv(
             uow=uow,
         )
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         # Increment the matching quota bucket (CV vs cover letter).
         await quota.increment(user_id=user_id, resource=quota_resource)
         await uow.commit()
-        dto = result.value  # type: ignore[union-attr]
+        dto = result.value
         cv_generated_total.labels(kind=body.kind).inc()
     return {
         "document_id": dto.document_id,
@@ -159,7 +159,7 @@ async def get_document(
 ) -> dict[str, Any]:
     result = await uc.execute(user_id=user_id, document_id=document_id)
     if result.is_failure:
-        raise result.error  # type: ignore[union-attr]
+        raise result.error
     return result.value
 
 
@@ -239,8 +239,8 @@ async def download_json(
 ) -> JSONResponse:
     result = await uc.execute(user_id=user_id, document_id=document_id)
     if result.is_failure:
-        raise result.error  # type: ignore[union-attr]
-    doc = result.value  # type: ignore[union-attr]
+        raise result.error
+    doc = result.value
     return JSONResponse(
         content=doc["content_json"],
         headers={"Content-Disposition": f'attachment; filename="cv-{document_id}.json"'},
@@ -258,8 +258,8 @@ async def download_europass(
 
     result = await uc.execute(user_id=user_id, document_id=document_id)
     if result.is_failure:
-        raise result.error  # type: ignore[union-attr]
-    doc = result.value  # type: ignore[union-attr]
+        raise result.error
+    doc = result.value
     europass = to_europass(doc["content_json"])
     return JSONResponse(
         content=europass,
@@ -279,7 +279,7 @@ async def share_document(
     async with unit_of_work(session) as uow:
         result = await uc.execute(user_id=user_id, document_id=document_id, expires_in_days=30)
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
         return result.value
 

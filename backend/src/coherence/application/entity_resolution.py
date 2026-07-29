@@ -28,7 +28,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 from uuid import UUID, uuid4
 
 import structlog
@@ -236,7 +236,7 @@ class PairwiseScore:
 class PairwiseMatcher:
     """Score a candidate entity against the incoming payload."""
 
-    _WEIGHTS = {
+    _WEIGHTS: ClassVar[dict[str, float]] = {
         "embedding": 0.40,
         "string": 0.30,
         "temporal": 0.15,
@@ -291,7 +291,7 @@ class PairwiseMatcher:
         emb_a = await self._embedder.embed(text_a)
         emb_b = await self._embedder.embed(text_b)
         # cosine similarity
-        dot = sum(x * y for x, y in zip(emb_a, emb_b))
+        dot = sum(x * y for x, y in zip(emb_a, emb_b, strict=False))
         norm_a = sum(x * x for x in emb_a) ** 0.5
         norm_b = sum(x * x for x in emb_b) ** 0.5
         if norm_a == 0 or norm_b == 0:

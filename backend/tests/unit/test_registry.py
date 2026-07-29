@@ -2,9 +2,8 @@
 from __future__ import annotations
 
 from src.graph.domain.registry import (
-    GRAPH_REGISTRY,
-    _adr_text,
     _achievement_text,
+    _adr_text,
     _artifact_text,
     _cert_text,
     _course_text,

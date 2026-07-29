@@ -122,8 +122,8 @@ async def resolve_proposal(
         # Local imports: pulling CrudRegistry / the scheduler at module top
         # creates a circular import (registry → use_cases → … ) that left
         # coherence's _DISPATCH repo classes None at startup.
-        from src.universe.application.registry import CrudRegistry  # noqa: PLC0415
-        from src.universe.infrastructure.scheduler import (  # noqa: PLC0415
+        from src.universe.application.registry import CrudRegistry
+        from src.universe.infrastructure.scheduler import (
             ArqEmbeddingScheduler,
         )
 

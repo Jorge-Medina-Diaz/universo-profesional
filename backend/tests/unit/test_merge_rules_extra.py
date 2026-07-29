@@ -4,13 +4,11 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import uuid4
 
-import pytest
-
 from src.coherence.domain.merge_rules import (
-    _to_date,
+    _collect_diffs,
     _max_int,
     _max_ranked,
-    _collect_diffs,
+    _to_date,
     merge_for,
 )
 

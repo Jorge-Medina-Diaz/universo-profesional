@@ -14,24 +14,24 @@ from typing import Any
 
 
 def build_entity_curator(*, db: Any):  # type: ignore[no-untyped-def]
-    from src.agents.specialists._helpers import build_specialist  # noqa: PLC0415
-    from src.agents.tools.coherence_tools import (  # noqa: PLC0415
+    from src.agents.specialists._helpers import build_specialist
+    from src.agents.tools.coherence_tools import (
         find_existing,
         get_change_history,
         mark_stale,
     )
-    from src.agents.tools.discovery_tools import (  # noqa: PLC0415
+    from src.agents.tools.discovery_tools import (
         get_profile_completeness,
     )
-    from src.agents.tools.knowledge_tools import search_knowledge  # noqa: PLC0415
-    from src.agents.tools.notes_tools import (  # noqa: PLC0415
+    from src.agents.tools.knowledge_tools import search_knowledge
+    from src.agents.tools.notes_tools import (
         add_note,
         list_notes,
         update_note,
     )
-    from src.agents.tools.rubrics_tools import search_rubrics  # noqa: PLC0415
-    from src.agents.tools.shape_tools import upsert_artifact  # noqa: PLC0415
-    from src.agents.tools.ui_widgets import (  # noqa: PLC0415
+    from src.agents.tools.rubrics_tools import search_rubrics
+    from src.agents.tools.shape_tools import upsert_artifact
+    from src.agents.tools.ui_widgets import (
         present_questionnaire,
         propose_achievement,
         propose_artifact,

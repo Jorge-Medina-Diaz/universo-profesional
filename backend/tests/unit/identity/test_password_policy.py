@@ -35,10 +35,10 @@ class TestRegisterUserPasswordValidation:
         from src.identity.interfaces.api.schemas import RegisterRequest
 
         with pytest.raises(ValueError):
-            RegisterRequest(email="test@x.com", password="weak")  # noqa: S106
+            RegisterRequest(email="test@x.com", password="weak")
 
     def test_schema_accepts_strong_password(self) -> None:
         from src.identity.interfaces.api.schemas import RegisterRequest
 
-        req = RegisterRequest(email="test@x.com", password="S3cur3-Passw0rd!")  # noqa: S106
+        req = RegisterRequest(email="test@x.com", password="S3cur3-Passw0rd!")
         assert req.password == "S3cur3-Passw0rd!"

@@ -10,7 +10,6 @@ from __future__ import annotations
 from uuid import UUID
 
 import pytest
-
 from src.universe.infrastructure import scheduler as s
 
 _UID = UUID("11111111-1111-1111-1111-111111111111")

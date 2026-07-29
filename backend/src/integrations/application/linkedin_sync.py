@@ -14,6 +14,7 @@ Two entry points:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from typing import Any
 from uuid import UUID
 
@@ -61,11 +62,11 @@ async def _run_with_cooperative_cancel(
         except TimeoutError:
             if await runs.is_cancelled(run_id):
                 task.cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError, Exception):
                     await task
-                except (asyncio.CancelledError, Exception):
-                    pass
-                raise OperationCancelledError(stage)
+                # `from None`: the TimeoutError is just our polling tick, not
+                # the reason the operation stopped — the user cancelling is.
+                raise OperationCancelledError(stage) from None
             # Not cancelled yet — keep waiting.
             continue
 

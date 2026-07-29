@@ -16,6 +16,10 @@ from uuid import UUID
 
 import structlog
 
+from src.integrations.application.ports.linkedin_dma import (
+    DOMAINS,
+    fetch_all_domains,
+)
 from src.integrations.domain.external_account import ExternalAccount
 from src.integrations.domain.linkedin_profile import (
     LinkedInAchievement,
@@ -28,10 +32,6 @@ from src.integrations.domain.linkedin_profile import (
     LinkedInProfile,
     LinkedInProject,
     LinkedInSkill,
-)
-from src.integrations.application.ports.linkedin_dma import (
-    DOMAINS,
-    fetch_all_domains,
 )
 from src.shared.config import get_settings
 
@@ -283,7 +283,7 @@ def _map_volunteering(elements: list[dict[str, Any]]) -> list[LinkedInExperience
 
 def map_dma_to_profile(domains: dict[str, list[dict[str, Any]]]) -> LinkedInProfile:
     """Single entry point — turn DMA response into our DTO."""
-    profile = LinkedInProfile(
+    return LinkedInProfile(
         basics=_map_profile(domains.get("PROFILE", [])),
         experiences=_map_positions(domains.get("POSITIONS", []))
         + _map_volunteering(domains.get("VOLUNTEERING_EXPERIENCE", [])),
@@ -301,7 +301,6 @@ def map_dma_to_profile(domains: dict[str, list[dict[str, Any]]]) -> LinkedInProf
         source="linkedin_dma",
         source_metadata={"domains_fetched": list(domains.keys())},
     )
-    return profile
 
 
 # --- Mock fixture ---------------------------------------------------------

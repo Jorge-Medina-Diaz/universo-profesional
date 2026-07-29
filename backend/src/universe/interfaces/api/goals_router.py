@@ -86,7 +86,9 @@ async def create_goal(
         try:
             parsed_date = _date.fromisoformat(body.target_date)
         except ValueError:
-            raise HTTPException(status_code=400, detail="target_date must be ISO YYYY-MM-DD")
+            raise HTTPException(
+                status_code=400, detail="target_date must be ISO YYYY-MM-DD"
+            ) from None
     details: dict[str, Any] = {}
     if body.subtasks:
         details["subtasks"] = [
@@ -141,7 +143,9 @@ async def patch_goal(
             try:
                 goal.target_date = _date.fromisoformat(body.target_date)
             except ValueError:
-                raise HTTPException(status_code=400, detail="target_date must be ISO YYYY-MM-DD")
+                raise HTTPException(
+                status_code=400, detail="target_date must be ISO YYYY-MM-DD"
+            ) from None
     if body.status is not None:
         if body.status not in VALID_STATUS:
             raise HTTPException(status_code=400, detail=f"status must be one of {sorted(VALID_STATUS)}")

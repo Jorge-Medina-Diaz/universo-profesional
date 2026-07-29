@@ -4,9 +4,7 @@ from __future__ import annotations
 import asyncio
 from uuid import uuid4
 
-import pytest
-
-from src.shared.events import DomainEvent, EventBus, get_event_bus, reset_event_bus
+from src.shared.events import DomainEvent, get_event_bus, reset_event_bus
 
 
 class TestDomainEvent:

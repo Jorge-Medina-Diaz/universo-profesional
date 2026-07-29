@@ -5,6 +5,7 @@ Result. Mapping to HTTP / MCP happens in the interfaces layer.
 """
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
@@ -179,10 +180,8 @@ class VerifyEmail:
         # unverified → verified. We swallow errors here so verification itself
         # always succeeds; the email worker handles retries.
         if was_unverified and self._welcome_emailer is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await self._welcome_emailer(user.id)
-            except Exception:
-                pass
         return ok(True)
 
 

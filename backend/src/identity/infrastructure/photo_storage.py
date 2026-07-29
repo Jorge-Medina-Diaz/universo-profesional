@@ -1,6 +1,7 @@
 """Profile photo upload + validation + pluggable storage (filesystem or S3)."""
 from __future__ import annotations
 
+import contextlib
 import io
 from typing import Any
 from uuid import UUID
@@ -145,10 +146,8 @@ async def delete_avatar(session: AsyncSession, user_id: UUID) -> bool:
     row = await session.get(AvatarOrm, user_id)
     if row is None:
         return False
-    try:
+    with contextlib.suppress(Exception):
         await get_storage().delete(_avatar_key(row.filename))
-    except Exception:
-        pass
     await session.delete(row)
     await session.flush()
     return True

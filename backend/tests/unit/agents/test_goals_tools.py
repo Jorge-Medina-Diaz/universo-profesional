@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
-from src.agents.tools.goals_tools import _serialize, VALID_HORIZONS, VALID_STATUS
+from src.agents.tools.goals_tools import VALID_HORIZONS, VALID_STATUS, _serialize
 
 
 class TestSerialize:

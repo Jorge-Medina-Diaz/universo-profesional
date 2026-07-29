@@ -4,7 +4,6 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
-
 from src.notes.domain.entities import Note
 from src.shared.errors import ValidationError
 

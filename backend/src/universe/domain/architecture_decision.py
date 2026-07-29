@@ -7,7 +7,6 @@ from uuid import UUID, uuid4
 
 from src.universe.domain.entities import _Base
 
-
 ADR_STATUSES = ("proposed", "accepted", "superseded", "rejected")
 
 

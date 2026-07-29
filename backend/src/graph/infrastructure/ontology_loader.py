@@ -150,7 +150,7 @@ class IngestStats:
     skipped: bool = False
 
 
-async def ingest_esco(
+async def ingest_esco(  # noqa: PLR0912, PLR0915 - ESCO CSV ingest: one pass per file, each with its own column mapping
     session: AsyncSession,
     esco_dir: Path,
     *,

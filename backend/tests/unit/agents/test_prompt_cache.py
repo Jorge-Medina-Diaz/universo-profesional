@@ -6,7 +6,6 @@ busy chats. This pins it so a refactor can't silently drop the breakpoint.
 from __future__ import annotations
 
 import pytest
-
 from src.agents import factory
 
 _FAKE = ("anthropic", "sk-ant-fake-key-for-construction-only")

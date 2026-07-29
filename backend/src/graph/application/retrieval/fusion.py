@@ -96,9 +96,8 @@ async def hybrid_retrieve(
     retrieval). A cross-encoder/LLM reranker reorders the fused candidate
     pool against the query for a precision lift.
     """
-    from src.shared.config import get_settings
-
     from src.graph.application.retrieval.knowledge import KnowledgeRetriever
+    from src.shared.config import get_settings
 
     bm25 = BM25Retriever()
     dense = DenseRetriever()

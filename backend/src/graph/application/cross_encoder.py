@@ -15,6 +15,7 @@ The reranker is deterministic, fast, and interpretable.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 import structlog
 
@@ -76,7 +77,7 @@ class FeatureReranker:
       rank_decay    0.20  (1.0 for rank 0, 0.85 for rank 1, …)
     """
 
-    _WEIGHTS: dict[str, float] = {
+    _WEIGHTS: ClassVar[dict[str, float]] = {
         "jaro_winkler": 0.35,
         "jaccard": 0.25,
         "exact_bonus": 0.20,

@@ -164,9 +164,9 @@ async def cancel_subscription(
         )
         r = await uc.execute(user_id=user_id)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         await uow.commit()
-        sub = r.value  # type: ignore[union-attr]
+        sub = r.value
     return {"plan": sub.plan, "status": sub.status}
 
 
@@ -197,7 +197,7 @@ def _plan_from_subscription_object(data_object: dict[str, Any], settings: Any) -
 
 
 @router.post("/webhook")
-async def stripe_webhook(
+async def stripe_webhook(  # noqa: PLR0912, PLR0915 - Stripe webhook: one branch per event type, splitting it would only hide the fan-out
     request: Request,
     session: ServiceSessionDep,
 ) -> dict[str, Any]:

@@ -68,7 +68,7 @@ def _parse_li_date(raw: str | None) -> str | None:
     return raw
 
 
-def parse_linkedin_zip(zip_bytes: bytes) -> dict[str, list[dict[str, Any]]]:
+def parse_linkedin_zip(zip_bytes: bytes) -> dict[str, list[dict[str, Any]]]:  # noqa: PLR0912 - one branch per CSV in the LinkedIn export, each with a different schema
     """Parse every supported CSV in the LinkedIn export ZIP.
 
     Returns a dict shaped as a ParsedCv-like structure:

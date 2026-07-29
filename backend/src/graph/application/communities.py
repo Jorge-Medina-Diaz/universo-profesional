@@ -273,7 +273,7 @@ async def get_public_pillars(
     from src.graph.application.ports.age import parse_agtype
     from src.graph.domain.registry import GRAPH_REGISTRY
 
-    visible = {k for k in kinds if k in {c for c in GRAPH_REGISTRY}}
+    visible = {k for k in kinds if k in set(GRAPH_REGISTRY)}
     if not visible:
         return []
     uid = str(user_id)
@@ -309,7 +309,7 @@ async def get_public_pillars(
             continue
         result = await session.execute(
             text(
-                f"SELECT id::text AS id, {cfg.name_field} AS name FROM {cfg.sql_table} "  # noqa: S608
+                f"SELECT id::text AS id, {cfg.name_field} AS name FROM {cfg.sql_table} "
                 "WHERE id = ANY(CAST(:ids AS uuid[])) AND deleted_at IS NULL "
                 "AND visibility = 'public'"
             ),

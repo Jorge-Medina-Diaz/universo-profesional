@@ -19,8 +19,8 @@ from src.identity.application.use_cases import (
     DisableMfa,
     ExportUserData,
     GetCurrentUser,
-    SetUserTier,
     SetupMfa,
+    SetUserTier,
 )
 from src.identity.infrastructure.photo_storage import (
     delete_avatar,
@@ -63,8 +63,8 @@ async def me(
 ) -> CurrentUserResponse:
     result = await uc.execute(user_id=user_id)
     if result.is_failure:
-        raise result.error  # type: ignore[union-attr]
-    dto = result.value  # type: ignore[union-attr]
+        raise result.error
+    dto = result.value
     return _user_response(dto)
 
 
@@ -89,9 +89,9 @@ async def set_tier(
     async with unit_of_work(session) as uow:
         result = await uc.execute(user_id=user_id, tier=body.tier, uow=uow)
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
-        dto = result.value  # type: ignore[union-attr]
+        dto = result.value
     return _user_response(dto)
 
 
@@ -108,9 +108,9 @@ async def advance_onboarding(
     async with unit_of_work(session) as uow:
         result = await uc.execute(user_id=user_id, complete=body.complete, uow=uow)
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
-        dto = result.value  # type: ignore[union-attr]
+        dto = result.value
     if body.complete:
         from src.shared.metrics import onboarding_completed_total
 
@@ -130,9 +130,9 @@ async def mfa_setup(
     uc = SetupMfa(SqlAlchemyUserRepository(session))
     result = await uc.execute(user_id=user_id)
     if result.is_failure:
-        raise result.error  # type: ignore[union-attr]
+        raise result.error
     await session.commit()
-    setup = result.value  # type: ignore[union-attr]
+    setup = result.value
     return MfaSetupResponse(secret=setup.secret, otpauth_uri=setup.otpauth_uri)
 
 
@@ -146,7 +146,7 @@ async def mfa_confirm(
     uc = ConfirmMfa(SqlAlchemyUserRepository(session))
     result = await uc.execute(user_id=user_id, code=body.code)
     if result.is_failure:
-        raise result.error  # type: ignore[union-attr]
+        raise result.error
     await session.commit()
     return MfaStatusResponse(mfa_enabled=True)
 
@@ -161,7 +161,7 @@ async def mfa_disable(
     uc = DisableMfa(SqlAlchemyUserRepository(session))
     result = await uc.execute(user_id=user_id, code=body.code)
     if result.is_failure:
-        raise result.error  # type: ignore[union-attr]
+        raise result.error
     await session.commit()
     return MfaStatusResponse(mfa_enabled=False)
 
@@ -204,8 +204,8 @@ async def export_my_data(
 ) -> StreamingResponse:
     result = await uc.execute(user_id=user_id)
     if result.is_failure:
-        raise result.error  # type: ignore[union-attr]
-    payload = result.value  # type: ignore[union-attr]
+        raise result.error
+    payload = result.value
     readme = (
         "This archive contains every record we hold linked to your account, "
         "per GDPR Article 20 (data portability)."
@@ -247,7 +247,7 @@ async def delete_me(
     async with unit_of_work(session) as uow:
         result = await uc.execute(user_id=user_id, uow=uow)
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         # The use case soft-deletes + revokes browser refresh tokens. A
         # soft-delete does NOT fire the FK CASCADE, so anything holding a live
         # secret/token would otherwise outlive the "deleted" account. Clear them

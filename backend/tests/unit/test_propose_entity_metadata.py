@@ -10,7 +10,6 @@ the tool name. No Redis here — set_proposal is monkeypatched.
 from __future__ import annotations
 
 import pytest
-
 from src.agents.interfaces import agui_streaming as s
 
 

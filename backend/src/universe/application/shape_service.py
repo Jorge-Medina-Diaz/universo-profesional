@@ -33,7 +33,6 @@ from src.universe.application.area_keywords import (
     primary_area,
     score_areas,
 )
-from src.universe.domain.entities import AreaStrength, ShapeType
 from src.universe.application.ports.orm import (
     ExperienceOrm,
     ProjectOrm,
@@ -44,6 +43,7 @@ from src.universe.application.ports.repositories import (
     SqlAlchemyAreaStrengthRepository,
     update_universe_areas,
 )
+from src.universe.domain.entities import AreaStrength, ShapeType
 
 
 @dataclass
@@ -163,7 +163,7 @@ def _infer_shape(scores: dict[str, float], primary_areas: list[str]) -> ShapeTyp
     return "T"
 
 
-async def compute_area_strengths(
+async def compute_area_strengths(  # noqa: PLR0912, PLR0915 - T-shape scoring walks every area and every entity kind in one pass
     session: AsyncSession,
     user_id: UUID,
 ) -> ShapeResult:
@@ -178,9 +178,10 @@ async def compute_area_strengths(
             {"breadth": 0, "max_year": None, "max_depth_years": 0.0},
         )
         slot["breadth"] += 1
-        if recency_year is not None:
-            if slot["max_year"] is None or recency_year > slot["max_year"]:
-                slot["max_year"] = recency_year
+        if recency_year is not None and (
+            slot["max_year"] is None or recency_year > slot["max_year"]
+        ):
+            slot["max_year"] = recency_year
         if depth_years is not None and depth_years > slot["max_depth_years"]:
             slot["max_depth_years"] = depth_years
 

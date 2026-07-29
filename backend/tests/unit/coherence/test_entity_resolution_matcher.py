@@ -2,9 +2,6 @@
 from __future__ import annotations
 
 from datetime import date
-from types import SimpleNamespace
-
-import pytest
 
 from src.coherence.application.entity_resolution import PairwiseMatcher
 

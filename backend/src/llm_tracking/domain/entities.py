@@ -46,7 +46,7 @@ class LlmUsageLog:
             cache_write_tokens=_int(metrics.get("cache_write_tokens")),
             total_tokens=_int(metrics.get("total_tokens")),
             duration_ms=_int(metrics.get("duration") * 1000)
-            if isinstance(metrics.get("duration"), (int, float))
+            if isinstance(metrics.get("duration"), int | float)
             else None,
             cost_eur=None,  # computed separately
             run_id=run_id,

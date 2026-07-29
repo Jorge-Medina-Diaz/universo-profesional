@@ -1,11 +1,8 @@
 """Unit tests for the fail-loud background-task policy (pure, no DB)."""
 from __future__ import annotations
 
-import asyncio
-
 import pytest
 from arq import Retry
-
 from src.shared.worker_failures import backoff_seconds, handle_task_exception
 
 
@@ -22,7 +19,7 @@ def test_connection_error_is_transient_retry():
 
 def test_timeout_is_transient_retry():
     with pytest.raises(Retry):
-        handle_task_exception({"job_try": 2}, asyncio.TimeoutError(), task="t")
+        handle_task_exception({"job_try": 2}, TimeoutError(), task="t")
 
 
 def test_terminal_error_reraises_original():

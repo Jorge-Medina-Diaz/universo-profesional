@@ -25,7 +25,6 @@ from starlette.responses import Response
 
 from src.shared.config import get_settings
 from src.shared.db import dispose_engine, get_session_factory
-from src.shared.orm_loader import import_all_models
 from src.shared.errors import DomainError
 from src.shared.events import get_event_bus
 from src.shared.logging import configure_logging, get_logger
@@ -35,6 +34,7 @@ from src.shared.metrics import (
     http_requests_total,
 )
 from src.shared.middleware import SecurityHeadersMiddleware
+from src.shared.orm_loader import import_all_models
 from src.shared.rate_limit import limiter, rate_limit_exceeded_handler
 from src.shared.security import ensure_jwt_keys
 
@@ -204,20 +204,20 @@ def _wire_event_subscribers() -> None:
     register_activity_log(bus)
 
 
-def create_app() -> FastAPI:
+def create_app() -> FastAPI:  # noqa: PLR0915 - composition root: linear registration of routers, middleware and lifespan hooks
     # Wire graph infrastructure ports early so any downstream import
     # of graph.application modules finds wired module-level variables.
-    import src.graph.infrastructure.age_repository  # noqa: F401
-
-    # Wire universe ORM / repo / task ports before any app code runs.
-    import src.universe.infrastructure.orm  # noqa: F401
-    import src.universe.infrastructure.repositories  # noqa: F401
-    import src.universe.infrastructure.tasks  # noqa: F401
+    import src.graph.infrastructure.age_repository
 
     # Wire integrations infrastructure ports before any app code runs.
-    import src.integrations.infrastructure.github_client  # noqa: F401
-    import src.integrations.infrastructure.linkedin_brightdata_client  # noqa: F401
-    import src.integrations.infrastructure.linkedin_dma_client  # noqa: F401
+    import src.integrations.infrastructure.github_client
+    import src.integrations.infrastructure.linkedin_brightdata_client
+    import src.integrations.infrastructure.linkedin_dma_client
+
+    # Wire universe ORM / repo / task ports before any app code runs.
+    import src.universe.infrastructure.orm
+    import src.universe.infrastructure.repositories
+    import src.universe.infrastructure.tasks  # noqa: F401
 
     settings = get_settings()
 
@@ -502,7 +502,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     @app.get("/readyz", tags=["health"])
-    async def readiness() -> JSONResponse:
+    async def readiness() -> JSONResponse:  # noqa: PLR0915 - readiness probe: one independent check per dependency, deliberately flat
         """Readiness probe — verifies the app can actually serve traffic.
 
         Checks DB, Redis, and JWT keys. Returns 503 + per-check status when

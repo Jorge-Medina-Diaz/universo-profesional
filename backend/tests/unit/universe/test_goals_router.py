@@ -1,11 +1,11 @@
 """Unit tests for goals_router helpers."""
 from __future__ import annotations
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
-from src.universe.interfaces.api.goals_router import _serialize, VALID_HORIZONS, VALID_STATUS
+from src.universe.interfaces.api.goals_router import VALID_HORIZONS, VALID_STATUS, _serialize
 
 
 class TestSerialize:

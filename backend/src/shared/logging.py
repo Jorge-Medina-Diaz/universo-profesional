@@ -49,8 +49,7 @@ def _scrub_value(value: object) -> object:
         s = _hash_email(s)
         s = _JWT_RE.sub("<jwt-redacted>", s)
         s = _BEARER_RE.sub("Bearer <redacted>", s)
-        s = _API_KEY_RE.sub("<stripe-key-redacted>", s)
-        return s
+        return _API_KEY_RE.sub("<stripe-key-redacted>", s)
     if isinstance(value, dict):
         return {k: _scrub_value(v) for k, v in value.items()}
     if isinstance(value, list):

@@ -150,13 +150,13 @@ def profile_to_universe_payloads(profile: LinkedInProfile) -> dict[str, Any]:
 
     languages = [
         {
-            "code": (l.code or l.name[:2]).lower(),
-            "name": l.name,
-            "level": l.level or "B1",
+            "code": (lang.code or lang.name[:2]).lower(),
+            "name": lang.name,
+            "level": lang.level or "B1",
             "source_metadata": dict(src_meta_base),
         }
-        for l in profile.languages
-        if l.name
+        for lang in profile.languages
+        if lang.name
     ]
 
     certifications = [

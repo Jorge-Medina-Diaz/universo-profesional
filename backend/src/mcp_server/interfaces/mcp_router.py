@@ -86,7 +86,7 @@ async def _authenticate(
 
 
 @router.post("/")
-async def mcp_endpoint(
+async def mcp_endpoint(  # noqa: PLR0911 - JSON-RPC dispatch: one early return per method, flatter than a nested match
     request: Request,
     session: SessionDep,
     authorization: Annotated[str | None, Header()] = None,

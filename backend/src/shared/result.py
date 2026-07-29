@@ -7,7 +7,7 @@ appropriate responses, never propagating raw exceptions.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Generic, NoReturn, TypeVar, overload
+from typing import Generic, Literal, NoReturn, TypeVar, overload
 
 from .errors import DomainError
 
@@ -19,12 +19,17 @@ E = TypeVar("E", bound=DomainError)
 class Success(Generic[T]):
     value: T
 
+    # `Literal[True]`/`Literal[False]` (rather than plain `bool`) makes
+    # Success/Failure a discriminated union, so `if result.is_failure: ...`
+    # actually NARROWS `Result` for the type checker. With `bool` every
+    # `result.value` after a guard was a union-attr error, which is what
+    # pushed callers toward `# type: ignore` instead of real narrowing.
     @property
-    def is_success(self) -> bool:
+    def is_success(self) -> Literal[True]:
         return True
 
     @property
-    def is_failure(self) -> bool:
+    def is_failure(self) -> Literal[False]:
         return False
 
     def unwrap(self) -> T:
@@ -36,11 +41,11 @@ class Failure(Generic[E]):
     error: E
 
     @property
-    def is_success(self) -> bool:
+    def is_success(self) -> Literal[False]:
         return False
 
     @property
-    def is_failure(self) -> bool:
+    def is_failure(self) -> Literal[True]:
         return True
 
     def unwrap(self) -> NoReturn:

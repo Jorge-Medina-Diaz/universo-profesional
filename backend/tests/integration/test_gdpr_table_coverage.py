@@ -11,13 +11,12 @@ import re
 
 import pytest
 from sqlalchemy import text
-
 from src.identity.infrastructure.exporter import (
+    _REDACT_COLUMNS,
     AI_ERASE_ACKNOWLEDGED,
     INTERNAL_NO_EXPORT,
     MANUAL_ERASE,
     SECRET_BEARING,
-    _REDACT_COLUMNS,
     discover_ai_scoped_tables,
     discover_user_scoped_tables,
 )

@@ -23,9 +23,10 @@ text so the loop always terminates (a runaway script can't hang the test).
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Any, Iterator
+from typing import Any
 
 from agno.models.base import Model
 from agno.models.response import ModelResponse

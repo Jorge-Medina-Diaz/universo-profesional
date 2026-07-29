@@ -24,7 +24,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.rubrics.infrastructure.orm import RubricChunkOrm
 from src.shared.embeddings import get_embeddings_service
-from src.universe.domain.entities import UserRubricSignal
 from src.universe.application.ports.orm import (
     ArtifactOrm,
     ExperienceOrm,
@@ -34,6 +33,7 @@ from src.universe.application.ports.orm import (
 from src.universe.application.ports.repositories import (
     SqlAlchemyUserRubricSignalRepository,
 )
+from src.universe.domain.entities import UserRubricSignal
 
 # Thresholds tuned for production embeddings (OpenAI text-embedding-3-small).
 # Deterministic embeddings (dev fallback) produce noise; we still upsert

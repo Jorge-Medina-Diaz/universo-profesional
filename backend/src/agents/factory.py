@@ -414,6 +414,9 @@ def _build_universe_team(coordinator_tier: ModelTier = "coordinator"):  # type: 
         get_profile_completeness,
         suggest_discovery_questions,
     )
+
+    # Sprint O — hybrid graph retrieval (BM25 + dense + PPR + RRF).
+    from src.agents.tools.graph_query_tools import query_graph
     from src.agents.tools.insights_tools import (
         compute_profile_health,
         detect_software_area,
@@ -421,9 +424,6 @@ def _build_universe_team(coordinator_tier: ModelTier = "coordinator"):  # type: 
     from src.agents.tools.knowledge_tools import search_knowledge
     from src.agents.tools.learning_tools import record_agent_feedback
     from src.agents.tools.notes_tools import list_notes
-
-    # Sprint O — hybrid graph retrieval (BM25 + dense + PPR + RRF).
-    from src.agents.tools.graph_query_tools import query_graph
     from src.agents.tools.retrieval_tools import (
         enrich_universe,
         explain_path,
@@ -450,10 +450,8 @@ def _build_universe_team(coordinator_tier: ModelTier = "coordinator"):  # type: 
         navigate_to,
         present_diary_card,
         present_document_preview,
-        present_form,
-        set_cv_params,
-        toggle_reminder_email,
         present_experience_card,
+        present_form,
         present_graph_view,
         present_job_match,
         present_progress,
@@ -472,6 +470,8 @@ def _build_universe_team(coordinator_tier: ModelTier = "coordinator"):  # type: 
         propose_pdf_import,
         propose_preferences_update,
         set_chat_focus,
+        set_cv_params,
+        toggle_reminder_email,
         upload_document_inline,
     )
     from src.agents.tools.universe_reads import (

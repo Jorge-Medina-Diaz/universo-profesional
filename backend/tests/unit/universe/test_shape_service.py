@@ -6,7 +6,6 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-
 from src.universe.application.shape_service import (
     _confidence,
     _experience_years,

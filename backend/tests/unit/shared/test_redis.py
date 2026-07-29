@@ -8,9 +8,11 @@ from src.shared.redis import dispose_redis, get_redis
 
 class TestRedis:
     def test_get_redis_singleton(self):
-        with patch("src.shared.redis._redis_client", None):
-            with patch("src.shared.redis.Redis") as mock_redis:
-                with patch("src.shared.redis.get_settings") as mock_settings:
+        with (
+            patch("src.shared.redis._redis_client", None),
+            patch("src.shared.redis.Redis") as mock_redis,
+            patch("src.shared.redis.get_settings") as mock_settings,
+        ):
                     mock_settings.return_value = type("S", (), {"redis_url": "redis://localhost"})()
                     r1 = get_redis()
                     r2 = get_redis()

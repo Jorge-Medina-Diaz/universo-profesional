@@ -101,7 +101,7 @@ async def add_education(
     async with unit_of_work(session) as uow:
         result = await uc.add(user_id=user_id, payload=body, uow=uow)
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
         return result.value
 
@@ -119,7 +119,7 @@ async def update_education(
             user_id=user_id, entity_id=entity_id, patch=body, uow=uow
         )
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
         return result.value
 
@@ -134,7 +134,7 @@ async def delete_education(
     async with unit_of_work(session) as uow:
         result = await uc.delete(user_id=user_id, entity_id=entity_id, uow=uow)
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
 
 
@@ -156,7 +156,7 @@ async def add_experience(
     async with unit_of_work(session) as uow:
         result = await uc.add(user_id=user_id, payload=body, uow=uow)
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
         return result.value
 
@@ -172,7 +172,7 @@ async def update_experience(
     async with unit_of_work(session) as uow:
         result = await uc.update(user_id=user_id, entity_id=entity_id, patch=body, uow=uow)
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
         return result.value
 
@@ -187,7 +187,7 @@ async def delete_experience(
     async with unit_of_work(session) as uow:
         result = await uc.delete(user_id=user_id, entity_id=entity_id, uow=uow)
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
 
 
@@ -209,7 +209,7 @@ async def add_project(
     async with unit_of_work(session) as uow:
         result = await uc.add(user_id=user_id, payload=body, uow=uow)
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
         return result.value
 
@@ -225,7 +225,7 @@ async def update_project(
     async with unit_of_work(session) as uow:
         result = await uc.update(user_id=user_id, entity_id=entity_id, patch=body, uow=uow)
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
         return result.value
 
@@ -240,7 +240,7 @@ async def delete_project(
     async with unit_of_work(session) as uow:
         result = await uc.delete(user_id=user_id, entity_id=entity_id, uow=uow)
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
 
 
@@ -262,7 +262,7 @@ async def add_skill(
     async with unit_of_work(session) as uow:
         result = await uc.add(user_id=user_id, payload=body, uow=uow)
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
         return result.value
 
@@ -278,7 +278,7 @@ async def update_skill(
     async with unit_of_work(session) as uow:
         result = await uc.update(user_id=user_id, entity_id=entity_id, patch=body, uow=uow)
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
         return result.value
 
@@ -293,14 +293,14 @@ async def delete_skill(
     async with unit_of_work(session) as uow:
         result = await uc.delete(user_id=user_id, entity_id=entity_id, uow=uow)
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
 
 
 # --- Certifications, Courses, Languages, Achievements, Interests ----------
 
 
-for prefix, crud_dep, label in [
+for _prefix, _crud_dep, _label in [
     ("certification", "CertificationCrudDep", "certification"),
     ("course", "CourseCrudDep", "course"),
     ("language", "LanguageCrudDep", "language"),
@@ -326,7 +326,7 @@ async def add_certification(
     async with unit_of_work(session) as uow:
         r = await uc.add(user_id=user_id, payload=body, uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         await uow.commit()
         return r.value
 
@@ -342,7 +342,7 @@ async def update_certification(
     async with unit_of_work(session) as uow:
         r = await uc.update(user_id=user_id, entity_id=entity_id, patch=body, uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         await uow.commit()
         return r.value
 
@@ -357,7 +357,7 @@ async def delete_certification(
     async with unit_of_work(session) as uow:
         r = await uc.delete(user_id=user_id, entity_id=entity_id, uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         await uow.commit()
 
 
@@ -376,7 +376,7 @@ async def add_course(
     async with unit_of_work(session) as uow:
         r = await uc.add(user_id=user_id, payload=body, uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         await uow.commit()
         return r.value
 
@@ -392,7 +392,7 @@ async def update_course(
     async with unit_of_work(session) as uow:
         r = await uc.update(user_id=user_id, entity_id=entity_id, patch=body, uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         await uow.commit()
         return r.value
 
@@ -407,7 +407,7 @@ async def delete_course(
     async with unit_of_work(session) as uow:
         r = await uc.delete(user_id=user_id, entity_id=entity_id, uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         await uow.commit()
 
 
@@ -426,7 +426,7 @@ async def add_language(
     async with unit_of_work(session) as uow:
         r = await uc.add(user_id=user_id, payload=body, uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         await uow.commit()
         return r.value
 
@@ -442,7 +442,7 @@ async def update_language(
     async with unit_of_work(session) as uow:
         r = await uc.update(user_id=user_id, entity_id=entity_id, patch=body, uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         await uow.commit()
         return r.value
 
@@ -457,7 +457,7 @@ async def delete_language(
     async with unit_of_work(session) as uow:
         r = await uc.delete(user_id=user_id, entity_id=entity_id, uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         await uow.commit()
 
 
@@ -476,7 +476,7 @@ async def add_achievement(
     async with unit_of_work(session) as uow:
         r = await uc.add(user_id=user_id, payload=body, uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         await uow.commit()
         return r.value
 
@@ -492,7 +492,7 @@ async def update_achievement(
     async with unit_of_work(session) as uow:
         r = await uc.update(user_id=user_id, entity_id=entity_id, patch=body, uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         await uow.commit()
         return r.value
 
@@ -507,7 +507,7 @@ async def delete_achievement(
     async with unit_of_work(session) as uow:
         r = await uc.delete(user_id=user_id, entity_id=entity_id, uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         await uow.commit()
 
 
@@ -526,7 +526,7 @@ async def add_interest(
     async with unit_of_work(session) as uow:
         r = await uc.add(user_id=user_id, payload=body, uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         await uow.commit()
         return r.value
 
@@ -541,7 +541,7 @@ async def delete_interest(
     async with unit_of_work(session) as uow:
         r = await uc.delete(user_id=user_id, entity_id=entity_id, uow=uow)
         if r.is_failure:
-            raise r.error  # type: ignore[union-attr]
+            raise r.error
         await uow.commit()
 
 
@@ -595,7 +595,7 @@ async def mark_reviewed(
         entity_id=body["entity_id"],
     )
     if result.is_failure:
-        raise result.error  # type: ignore[union-attr]
+        raise result.error
     await session.commit()
     return result.value
 
@@ -629,7 +629,7 @@ async def link_evidence(
         notes=body.notes,
     )
     if result.is_failure:
-        raise result.error  # type: ignore[union-attr]
+        raise result.error
     await session.commit()
     return result.value
 
@@ -702,7 +702,7 @@ async def act_on_suggestion(
     uc = ActOnSuggestion(session)
     r = await uc.execute(user_id=user_id, suggestion_id=suggestion_id, action=body["action"])
     if r.is_failure:
-        raise r.error  # type: ignore[union-attr]
+        raise r.error
     await session.commit()
     return r.value
 
@@ -746,7 +746,7 @@ async def dismiss_reminder(
 
     r = await DismissReminder(session).execute(user_id=user_id, reminder_id=reminder_id)
     if r.is_failure:
-        raise r.error  # type: ignore[union-attr]
+        raise r.error
     await session.commit()
     return {"ok": True}
 

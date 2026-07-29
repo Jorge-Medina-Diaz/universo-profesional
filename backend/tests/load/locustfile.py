@@ -10,6 +10,7 @@ Required env:
 from __future__ import annotations
 
 import os
+from typing import ClassVar
 
 from locust import HttpUser, TaskSet, between, task
 
@@ -85,12 +86,12 @@ class AuthFlowTasks(TaskSet):
 
 
 class NormalUser(HttpUser):
-    tasks = [AuthFlowTasks]
+    tasks: ClassVar[list] = [AuthFlowTasks]
     wait_time = between(1, 3)
 
 
 class SpikeUser(HttpUser):
     """Higher throughput variant for stress testing."""
 
-    tasks = [AuthFlowTasks]
+    tasks: ClassVar[list] = [AuthFlowTasks]
     wait_time = between(0.1, 0.5)

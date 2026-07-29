@@ -1,8 +1,6 @@
 """Unit tests for shared config properties."""
 from __future__ import annotations
 
-import pytest
-
 from src.shared.config import Settings
 
 

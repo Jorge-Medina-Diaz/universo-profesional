@@ -67,8 +67,8 @@ async def register(
         )
         if result.is_failure:
             assert result.is_failure
-            raise result.error  # type: ignore[union-attr]
-        payload = result.value  # type: ignore[union-attr]
+            raise result.error
+        payload = result.value
         await trial_uc.execute(user_id=payload.user_id, now=utc_now())
         await uow.commit()
 
@@ -89,7 +89,7 @@ async def verify_email(
     async with unit_of_work(session) as uow:
         result = await uc.execute(token=body.token, uow=uow)
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
     return GenericOkResponse()
 
@@ -112,9 +112,9 @@ async def login(
             uow=uow,
         )
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
-        tokens = result.value  # type: ignore[union-attr]
+        tokens = result.value
     if tokens.mfa_required:
         # Password OK but a second factor is required — no session yet.
         return TokenResponse(
@@ -153,9 +153,9 @@ async def mfa_login(
             uow=uow,
         )
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
-        tokens = result.value  # type: ignore[union-attr]
+        tokens = result.value
     logins_total.inc()
     return TokenResponse(
         access_token=tokens.access_token,
@@ -180,9 +180,9 @@ async def refresh(
             ip_address=meta["ip_address"],
         )
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
-        tokens = result.value  # type: ignore[union-attr]
+        tokens = result.value
     return TokenResponse(
         access_token=tokens.access_token,
         refresh_token=tokens.refresh_token,
@@ -214,6 +214,6 @@ async def password_reset_confirm(
     async with unit_of_work(session) as uow:
         result = await uc.execute(token=body.token, new_password=body.new_password, uow=uow)
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
     return GenericOkResponse()

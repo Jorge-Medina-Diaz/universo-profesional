@@ -9,7 +9,8 @@ like skill evidence, currentness, etc., later in v1).
 from __future__ import annotations
 
 import datetime as _dt
-from dataclasses import dataclass, field, fields as _dc_fields
+from dataclasses import dataclass, field
+from dataclasses import fields as _dc_fields
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, ClassVar, Literal
@@ -185,7 +186,7 @@ def _to_datetime(v: Any) -> Any:
 
 
 def _to_int(v: Any) -> Any:
-    if v is None or isinstance(v, bool) or isinstance(v, int):
+    if v is None or isinstance(v, bool | int):
         return v
     if isinstance(v, float):
         return int(v)
@@ -206,7 +207,7 @@ def _to_int(v: Any) -> Any:
 
 
 def _to_float(v: Any) -> Any:
-    if v is None or isinstance(v, bool) or isinstance(v, (int, float, Decimal)):
+    if v is None or isinstance(v, bool | int | float | Decimal):
         return v
     if isinstance(v, str):
         s = v.strip()
@@ -324,28 +325,63 @@ CANONICAL_AREAS = (
 )
 
 # Backward-compatible re-exports — previous code imported directly from this module.
-from src.universe.domain.achievement import Achievement  # noqa: E402,F401
-from src.universe.domain.architecture_decision import (  # noqa: E402,F401
+from src.universe.domain.achievement import Achievement  # noqa: E402
+from src.universe.domain.architecture_decision import (  # noqa: E402
     ADR_STATUSES,
     ArchitectureDecision,
 )
-from src.universe.domain.artifact import Artifact, ArtifactType  # noqa: E402,F401
-from src.universe.domain.career import (  # noqa: E402,F401
+from src.universe.domain.artifact import Artifact, ArtifactType  # noqa: E402
+from src.universe.domain.career import (  # noqa: E402
     AreaStrength,
     CareerPreferences,
     ShapeType,
 )
-from src.universe.domain.certification import Certification  # noqa: E402,F401
-from src.universe.domain.course import Course  # noqa: E402,F401
-from src.universe.domain.education import Education  # noqa: E402,F401
-from src.universe.domain.experience import Experience  # noqa: E402,F401
-from src.universe.domain.interest import Interest  # noqa: E402,F401
-from src.universe.domain.language import Language  # noqa: E402,F401
-from src.universe.domain.project import Project  # noqa: E402,F401
-from src.universe.domain.rubric_signal import (  # noqa: E402,F401
+from src.universe.domain.certification import Certification  # noqa: E402
+from src.universe.domain.course import Course  # noqa: E402
+from src.universe.domain.education import Education  # noqa: E402
+from src.universe.domain.experience import Experience  # noqa: E402
+from src.universe.domain.interest import Interest  # noqa: E402
+from src.universe.domain.language import Language  # noqa: E402
+from src.universe.domain.project import Project  # noqa: E402
+from src.universe.domain.rubric_signal import (  # noqa: E402
     SIGNAL_SECTION_KINDS,
     SIGNAL_STATUSES,
     UserRubricSignal,
 )
-from src.universe.domain.skill import Skill  # noqa: E402,F401
-from src.universe.domain.skill_stack import SkillStack  # noqa: E402,F401
+from src.universe.domain.skill import Skill  # noqa: E402
+from src.universe.domain.skill_stack import SkillStack  # noqa: E402
+
+# `__all__` is what makes the late imports above an EXPLICIT re-export.
+# Under `mypy --strict` (no_implicit_reexport) every `from ...entities import
+# Achievement` would otherwise be an attr-defined error, because the import
+# exists only to complete the runtime registry.
+__all__ = [
+    "ADR_STATUSES",
+    "Achievement",
+    "ArchitectureDecision",
+    "AreaStrength",
+    "Artifact",
+    "ArtifactType",
+    "CANONICAL_AREAS",
+    "CareerPreferences",
+    "Certification",
+    "Course",
+    "Education",
+    "EntityType",
+    "EntryAdded",
+    "EntryRemoved",
+    "EntryUpdated",
+    "Experience",
+    "Interest",
+    "Language",
+    "Project",
+    "SIGNAL_SECTION_KINDS",
+    "SIGNAL_STATUSES",
+    "ShapeType",
+    "Skill",
+    "SkillStack",
+    "UserRubricSignal",
+    "_Base",
+    "apply_field_coercion",
+    "coerce_patch",
+]

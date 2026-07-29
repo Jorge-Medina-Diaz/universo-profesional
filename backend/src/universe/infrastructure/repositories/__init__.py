@@ -7,6 +7,10 @@ than the duplication costs.
 """
 from __future__ import annotations
 
+# ---------------------------------------------------------------------------
+# Wire module-level ports so application layer stays import-clean.
+# ---------------------------------------------------------------------------
+from src.universe.application.ports import repositories as _repo_port
 from src.universe.infrastructure.repositories.base import (
     _BaseRepo,
     _entity_to_orm_kwargs,
@@ -34,11 +38,6 @@ from src.universe.infrastructure.repositories.generated import (
     SqlAlchemyInterestRepository,
     SqlAlchemyProjectRepository,
 )
-
-# ---------------------------------------------------------------------------
-# Wire module-level ports so application layer stays import-clean.
-# ---------------------------------------------------------------------------
-from src.universe.application.ports import repositories as _repo_port  # noqa: E402
 
 _repo_port.SqlAlchemyEducationRepository = SqlAlchemyEducationRepository
 _repo_port.SqlAlchemyExperienceRepository = SqlAlchemyExperienceRepository

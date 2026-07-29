@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 from src.universe.application.area_keywords import (
-    collect_text_blob,
-    score_areas,
     area_hits_per_kw,
+    collect_text_blob,
     primary_area,
+    score_areas,
 )
 
 

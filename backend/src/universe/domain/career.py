@@ -8,7 +8,6 @@ from uuid import UUID, uuid4
 
 from src.universe.domain.entities import CANONICAL_AREAS
 
-
 ShapeType = Literal["I", "T", "π", "M", "none"]
 
 

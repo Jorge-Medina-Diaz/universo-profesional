@@ -88,6 +88,7 @@ dev = [
     "ruff>=0.7.4,<0.8",
     "mypy>=1.13.0",
     "types-jsonschema>=4.23.0",
+    "types-PyYAML>=6.0.12",
     "import-linter>=2.1",
     "locust>=2.32.0",
 ]
@@ -135,11 +136,56 @@ ignore = [
     "S112",     # try-except-continue — deferred cleanup
     "S301",     # pickle usage — internal serialization only
     "S608",     # SQL string formatting — registry-driven, not user input
+    # --- Rules that do not fit this codebase (deliberate, not debt) ---
+    "PLW0603",  # `global` for lazy module singletons: the engine, redis and
+                # arq pools, the reranker, the embeddings client. One instance
+                # per process, initialised on first use and reused — the whole
+                # point is shared mutable module state.
+    "N811",     # `from sqlalchemy.dialects.postgresql import UUID as PgUUID`.
+                # UUID is a class; ruff reads the CAPS name as a constant.
+    "RUF001",   # `×`, `–` and accented characters in Spanish product copy and
+    "RUF002",   # docstrings are intentional typography, not homoglyph attacks.
+    "RUF003",   # (The product and most comments are written in Spanish.)
+]
+
+[tool.ruff.lint.pylint]
+# Ruff's defaults (12 branches / 50 statements / 6 returns) are tuned for
+# small pure functions. Composition roots, protocol adapters and streaming
+# state machines are legitimately longer without being harder to read. These
+# limits are set where "long" actually starts to mean "hard to follow" here;
+# the handful of functions still over them carry an explicit `noqa` naming
+# the reason, so the hot spots stay visible instead of being ignored wholesale.
+max-branches = 20
+max-statements = 60
+max-returns = 10
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's entire dependency-injection API is "call in the argument default".
+# `Depends()`, `Body()`, `Query()` et al are markers the framework resolves per
+# request, not shared mutable defaults, so B008 does not apply to them.
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Cookie",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+    "fastapi.Security",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["PLR2004", "S101", "ARG", "N806", "PLC0415"]
+# Tests: literal credentials and /tmp paths are the point of the fixture.
+"tests/**/*.py" = [
+    "PLR2004", "S101", "ARG", "N806", "PLC0415",
+    "S105", "S106", "S108", "N802",
+]
 "alembic/**/*.py" = ["E501", "I001"]
+# The 55 HITL tools are generated at import time from a declarative spec and
+# injected into module globals, so every name here is undefined to a static
+# reader. See the module docstring for why the codegen exists.
+"src/agents/tools/ui_widgets.py" = ["F821", "S102"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -163,8 +209,25 @@ strict_equality = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["weasyprint.*", "docx.*", "pgvector.*", "arq.*", "jose.*", "mcp.*"]
+# Third-party packages that ship no type information (no py.typed, no stubs on
+# typeshed). Nothing here is a workaround for our own code — each is a library
+# we consume at a boundary and wrap in typed adapters.
+module = [
+    "weasyprint.*",
+    "docx.*",
+    "pgvector.*",
+    "arq.*",
+    "jose.*",
+    "aioboto3.*",
+    "botocore.*",
+    "sklearn.*",
+    "igraph.*",
+    "asyncpg.*",
+    "agno.*",
+    "ag_ui.*",
+]
 ignore_missing_imports = true
+disallow_untyped_calls = false
 
 [tool.pytest.ini_options]
 minversion = "8.0"

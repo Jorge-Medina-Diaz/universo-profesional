@@ -24,6 +24,7 @@ overlay during the Sprint N→Q migration window.
 """
 from __future__ import annotations
 
+import contextlib
 import json
 from typing import Any
 from uuid import UUID
@@ -348,7 +349,7 @@ async def _materialise_edges(
     if entity_type == "architecture_decision":
         rel_proj = payload.get("related_project_id")
         if rel_proj:
-            try:
+            with contextlib.suppress(ValueError):
                 await universe_graph_service.upsert_edge(
                     session,
                     edge_type=schema.PART_OF,
@@ -357,11 +358,11 @@ async def _materialise_edges(
                     user_id=user_id,
                     source=source,
                 )
-            except ValueError:
-                pass
         superseded_by = payload.get("superseded_by")
         if superseded_by:
-            try:
+            # ValueError = `superseded_by` is not a UUID; the caller sent a
+            # free-text reference, which is not worth failing the upsert over.
+            with contextlib.suppress(ValueError):
                 # The *new* ADR supersedes *this* one — edge points from
                 # superseder to superseded (matches SUPERSEDES verb).
                 await universe_graph_service.upsert_edge(
@@ -372,8 +373,6 @@ async def _materialise_edges(
                     user_id=user_id,
                     source=source,
                 )
-            except ValueError:
-                pass
 
 
 # ---------------------------------------------------------------------------

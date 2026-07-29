@@ -93,9 +93,12 @@ def _collect_diffs(existing: dict[str, Any], merged: dict[str, Any]) -> list[Fie
         # Treat empty list and None as equivalent for diff purposes.
         if old_val == new_val:
             continue
-        if isinstance(old_val, list) and isinstance(new_val, list):
-            if list(old_val) == list(new_val):
-                continue
+        if (
+            isinstance(old_val, list)
+            and isinstance(new_val, list)
+            and list(old_val) == list(new_val)
+        ):
+            continue
         out.append(FieldDiff(field=k, old=old_val, new=new_val))
     return out
 

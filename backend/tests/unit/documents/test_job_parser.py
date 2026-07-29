@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pytest
-
 from src.documents.infrastructure.job_parser import MockJobParser, _guess_language
 
 

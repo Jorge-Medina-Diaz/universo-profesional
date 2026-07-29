@@ -18,6 +18,8 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.universe.application.registry import CrudRegistry
+
 
 @dataclass(frozen=True)
 class ToolSpec:
@@ -136,8 +138,6 @@ async def _h_search(*, session, user_id, client_id, args):
 
 # --- Universe write (CRUD per entity, via registry) -------------------------
 
-from src.universe.application.registry import CrudRegistry
-
 
 def _build_crud(session, entity: str):  # type: ignore[no-untyped-def]
     deps = _session_only_deps(session)
@@ -228,7 +228,7 @@ async def _h_mark_reviewed(*, session, user_id, client_id, args):
         entity_id=args["entity_id"],
     )
     if r.is_failure:
-        raise r.error  # type: ignore[union-attr]
+        raise r.error
     return r.value
 
 
@@ -244,7 +244,7 @@ async def _h_link_evidence(*, session, user_id, client_id, args):
         notes=args.get("notes"),
     )
     if r.is_failure:
-        raise r.error  # type: ignore[union-attr]
+        raise r.error
     return r.value
 
 
@@ -263,9 +263,8 @@ async def _h_get_activity(*, session, user_id, client_id, args):
 
 
 async def _h_match_job(*, session, user_id, client_id, args):
-    from src.documents.infrastructure.job_parser import MockJobParser
-
     from src.documents.application.match_scoring import compute_match_breakdown
+    from src.documents.infrastructure.job_parser import MockJobParser
 
     parser = MockJobParser()
     parsed = await parser.parse(url=args.get("job_url"), description=args.get("job_description"))
@@ -313,7 +312,7 @@ async def _h_generate_cv(*, session, user_id, client_id, args):
     )
     qr2 = await quota.execute(user_id=str(user_id), resource="cv_generated")
     if qr2.is_failure:
-        raise qr2.error  # type: ignore[union-attr]
+        raise qr2.error
 
     uc = GenerateCv(
         documents=SqlAlchemyDocumentRepository(session),
@@ -338,9 +337,9 @@ async def _h_generate_cv(*, session, user_id, client_id, args):
         uow=uow,
     )
     if r.is_failure:
-        raise r.error  # type: ignore[union-attr]
+        raise r.error
     await quota.increment(user_id=str(user_id), resource="cv_generated")
-    dto = r.value  # type: ignore[union-attr]
+    dto = r.value
     return {
         "document_id": dto.document_id,
         "pdf_url": dto.pdf_url,
@@ -369,7 +368,7 @@ async def _h_get_document(*, session, user_id, client_id, args):
         user_id=str(user_id), document_id=args["id"]
     )
     if r.is_failure:
-        raise r.error  # type: ignore[union-attr]
+        raise r.error
     return r.value
 
 
@@ -383,7 +382,7 @@ async def _h_share_document(*, session, user_id, client_id, args):
         expires_in_days=int(args.get("expires_in_days") or 30),
     )
     if r.is_failure:
-        raise r.error  # type: ignore[union-attr]
+        raise r.error
     return r.value
 
 
@@ -433,7 +432,7 @@ async def _h_disconnect_account(*, session, user_id, client_id, args):
     uow = _new_uow(session)
     r = await uc.execute(user_id=str(user_id), provider=args["provider"], uow=uow)
     if r.is_failure:
-        raise r.error  # type: ignore[union-attr]
+        raise r.error
     return {"disconnected": True}
 
 
@@ -616,7 +615,7 @@ async def _h_set_user_tier(*, session, user_id, client_id, args):
     uow = _new_uow(session)
     r = await uc.execute(user_id=str(user_id), tier=args["tier"], uow=uow)
     if r.is_failure:
-        raise r.error  # type: ignore[union-attr]
+        raise r.error
     return {
         "tier": r.value.tier,
         "tier_updated_at": r.value.tier_updated_at,
@@ -684,7 +683,7 @@ async def _h_apply_suggestion(*, session, user_id, client_id, args):
         action=args.get("action", "accept"),
     )
     if r.is_failure:
-        raise r.error  # type: ignore[union-attr]
+        raise r.error
     return r.value
 
 
@@ -704,7 +703,7 @@ async def _h_dismiss_reminder(*, session, user_id, client_id, args):
         user_id=str(user_id), reminder_id=args["reminder_id"]
     )
     if r.is_failure:
-        raise r.error  # type: ignore[union-attr]
+        raise r.error
     return {"dismissed": True}
 
 

@@ -67,7 +67,7 @@ async def test_render_pdf_creates_file(sample_resume: dict, storage_tmp: Path) -
     )
     assert key.startswith(f"{user_id}/")
     assert Path(key).suffix in (".pdf", ".html")
-    assert (storage_tmp / key).exists()  # noqa: ASYNC240
+    assert (storage_tmp / key).exists()
 
 
 @pytest.mark.asyncio
@@ -78,7 +78,7 @@ async def test_render_docx_creates_file(sample_resume: dict, storage_tmp: Path) 
         content_json=sample_resume, template="ats-classic", language="en", user_id=user_id
     )
     assert key.endswith(".docx")
-    assert (storage_tmp / key).exists()  # noqa: ASYNC240
+    assert (storage_tmp / key).exists()
 
 
 @pytest.mark.asyncio
@@ -94,7 +94,7 @@ async def test_render_cover_letter_docx(sample_resume: dict, storage_tmp: Path) 
         content_json=cover_letter, template="cover-letter-classic", language="en", user_id=user_id
     )
     assert key.endswith(".docx")
-    assert (storage_tmp / key).exists()  # noqa: ASYNC240
+    assert (storage_tmp / key).exists()
 
 
 @pytest.mark.asyncio
@@ -104,4 +104,4 @@ async def test_render_pdf_fallback_on_bad_template(sample_resume: dict, storage_
     key = await renderer.render_pdf(
         content_json=sample_resume, template="nonexistent-template", language="en", user_id=user_id
     )
-    assert (storage_tmp / key).exists()  # noqa: ASYNC240
+    assert (storage_tmp / key).exists()

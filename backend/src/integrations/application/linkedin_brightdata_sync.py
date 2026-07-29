@@ -24,6 +24,7 @@ from uuid import UUID
 
 import structlog
 
+from src.integrations.application.ports.linkedin_brightdata import scrape_profile
 from src.integrations.domain.external_account import ExternalAccount
 from src.integrations.domain.linkedin_profile import (
     LinkedInAchievement,
@@ -37,7 +38,6 @@ from src.integrations.domain.linkedin_profile import (
     LinkedInProject,
     LinkedInSkill,
 )
-from src.integrations.application.ports.linkedin_brightdata import scrape_profile
 from src.shared.config import get_settings
 
 logger = structlog.get_logger(__name__)
@@ -438,7 +438,7 @@ def _coerce_achievements(raw: dict[str, Any]) -> list[LinkedInAchievement]:
 
 def map_brightdata_to_profile(raw: dict[str, Any]) -> LinkedInProfile:
     """Single entry point: Bright Data response → normalized LinkedInProfile."""
-    profile = LinkedInProfile(
+    return LinkedInProfile(
         basics=_coerce_basics(raw),
         experiences=_coerce_experiences(raw),
         educations=_coerce_educations(raw),
@@ -461,7 +461,6 @@ def map_brightdata_to_profile(raw: dict[str, Any]) -> LinkedInProfile:
             "input_url": raw.get("input_url") or raw.get("url"),
         },
     )
-    return profile
 
 
 # --- Mock fixture for dev mode (no BRIGHTDATA_API_KEY) ----------------------

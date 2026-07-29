@@ -1,16 +1,14 @@
 """Unit tests for universe domain entity constructors (pure, no DB)."""
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
 from uuid import uuid4
 
 import pytest
-
 from src.shared.errors import ValidationError
 from src.universe.domain.achievement import Achievement
 from src.universe.domain.architecture_decision import ADR_STATUSES, ArchitectureDecision
-from src.universe.domain.artifact import Artifact, _ARTIFACT_TYPES
-from src.universe.domain.career import AreaStrength, CANONICAL_AREAS
+from src.universe.domain.artifact import _ARTIFACT_TYPES, Artifact
+from src.universe.domain.career import CANONICAL_AREAS, AreaStrength
 from src.universe.domain.certification import Certification
 from src.universe.domain.course import Course
 from src.universe.domain.education import Education
@@ -18,10 +16,13 @@ from src.universe.domain.experience import Experience
 from src.universe.domain.interest import Interest
 from src.universe.domain.language import Language
 from src.universe.domain.project import Project
-from src.universe.domain.rubric_signal import SIGNAL_SECTION_KINDS, SIGNAL_STATUSES, UserRubricSignal
+from src.universe.domain.rubric_signal import (
+    SIGNAL_SECTION_KINDS,
+    SIGNAL_STATUSES,
+    UserRubricSignal,
+)
 from src.universe.domain.skill import Skill
 from src.universe.domain.skill_stack import SkillStack
-
 
 UID = uuid4()
 
@@ -162,8 +163,8 @@ class TestCourse:
 
 class TestLanguage:
     def test_create(self):
-        l = Language.create(user_id=UID, code="en", name="English", level="C1")
-        assert l.code == "en"
+        lang = Language.create(user_id=UID, code="en", name="English", level="C1")
+        assert lang.code == "en"
 
     def test_invalid_code_raises(self):
         with pytest.raises(ValidationError):
@@ -174,8 +175,8 @@ class TestLanguage:
             Language.create(user_id=UID, code="en", name="English", level="Z9")
 
     def test_embedding_text(self):
-        l = Language.create(user_id=UID, code="en", name="English", level="C1")
-        assert "C1" in l.embedding_text()
+        lang = Language.create(user_id=UID, code="en", name="English", level="C1")
+        assert "C1" in lang.embedding_text()
 
 
 class TestInterest:

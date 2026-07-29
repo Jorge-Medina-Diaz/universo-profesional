@@ -70,8 +70,12 @@ async def _stats(session: Any, user_id: str) -> dict[str, Any]:
             {"question": q.question, "at": q.created_at.isoformat()} for q in questions
         ],
         "leads": [
-            {"contact": l.contact, "message": l.message, "at": l.created_at.isoformat()}
-            for l in leads
+            {
+                "contact": lead.contact,
+                "message": lead.message,
+                "at": lead.created_at.isoformat(),
+            }
+            for lead in leads
         ],
     }
 
@@ -173,7 +177,9 @@ async def update_twin(
             )
         except Exception as exc:
             if "unique" in str(exc).lower():
-                raise HTTPException(status_code=409, detail="Ese slug ya está en uso.")
+                raise HTTPException(
+                    status_code=409, detail="Ese slug ya está en uso."
+                ) from exc
             raise
     # Read-back BEFORE commit: `SET LOCAL app.current_user_id` dies with the
     # transaction, so a post-commit SELECT runs GUC-less and RLS hides the

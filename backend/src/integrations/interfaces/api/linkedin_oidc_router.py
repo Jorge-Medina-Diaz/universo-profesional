@@ -141,9 +141,9 @@ async def linkedin_callback(
             uow=uow,
         )
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
-        payload = result.value  # type: ignore[union-attr]
+        payload = result.value
 
     # SPA picks up tokens from the fragment (#access_token=…)
     fragment = (
@@ -207,9 +207,9 @@ async def linkedin_exchange(
             uow=uow,
         )
         if result.is_failure:
-            raise result.error  # type: ignore[union-attr]
+            raise result.error
         await uow.commit()
-        payload = result.value  # type: ignore[union-attr]
+        payload = result.value
     return TokenResponse(
         access_token=payload.tokens.access_token,
         refresh_token=payload.tokens.refresh_token,

@@ -10,7 +10,6 @@ import uuid
 
 import pytest
 from sqlalchemy import text
-
 from src.shared.db import with_user_session
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio]

@@ -2,15 +2,9 @@
 from __future__ import annotations
 
 from src.integrations.domain.linkedin_profile import (
-    LinkedInAchievement,
     LinkedInBasics,
-    LinkedInCertification,
-    LinkedInCourse,
-    LinkedInEducation,
     LinkedInExperience,
-    LinkedInLanguage,
     LinkedInProfile,
-    LinkedInProject,
     LinkedInSkill,
 )
 

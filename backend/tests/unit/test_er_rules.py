@@ -1,7 +1,7 @@
 """Unit tests for er_rules."""
 from __future__ import annotations
 
-from src.coherence.domain.er_rules import config_for, ER_REGISTRY
+from src.coherence.domain.er_rules import ER_REGISTRY, config_for
 
 
 class TestConfigFor:

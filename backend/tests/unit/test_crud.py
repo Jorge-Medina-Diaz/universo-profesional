@@ -2,13 +2,9 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
-from uuid import UUID, uuid4
+from uuid import uuid4
 
-import pytest
-
-from src.shared.result import Success
 from src.shared.uow import UnitOfWork
 from src.universe.application.crud import (
     AchievementCrud,
@@ -25,7 +21,7 @@ from src.universe.application.crud import (
     _coerce,
     _serialize,
 )
-from src.universe.domain.entities import Certification, Education, Experience, Project, Skill
+from src.universe.domain.entities import Certification, Education, Experience, Skill
 
 
 class TestCoerce:
@@ -189,7 +185,6 @@ class TestCertificationCrud:
         repo.add.assert_awaited_once()
 
     async def test_update_success(self):
-        from src.universe.domain.entities import Certification
 
         entity = Certification.create(user_id=uuid4(), name="AWS SA", issuer="AWS")
         repo = MagicMock()

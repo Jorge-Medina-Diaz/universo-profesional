@@ -377,10 +377,7 @@ class Text2CypherEngine:
             # arity to match. Derive it from the RETURN clause instead of
             # hardcoding a single column (which 'number of columns' errored).
             n_cols = _count_return_columns(result.cypher)
-            if n_cols <= 1:
-                col_names = ["result"]
-            else:
-                col_names = [f"col{i}" for i in range(n_cols)]
+            col_names = ["result"] if n_cols <= 1 else [f"col{i}" for i in range(n_cols)]
             column_defs = ", ".join(f"{c} agtype" for c in col_names)
 
             rows = await cypher(

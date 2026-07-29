@@ -132,7 +132,7 @@ async def invalidate_snapshot(user_id: UUID) -> None:
     await _delete_snapshot_redis(user_id)
 
 
-async def _load_snapshot(
+async def _load_snapshot(  # noqa: PLR0915 - two-tier cache lookup + igraph build, sequential by nature
     session: AsyncSession, user_id: UUID
 ) -> _UserSnapshot:
     """Build (or fetch from LRU / Redis) the igraph snapshot of a user's graph."""

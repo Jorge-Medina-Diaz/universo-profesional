@@ -1,4 +1,15 @@
 """Universe domain — re-export all public symbols for backward compatibility."""
+# isort: off
+# ---------------------------------------------------------------------------
+# Import order below is LOAD-BEARING. Do not alphabetise.
+#
+# `entities` defines `_Base`, which every sibling entity module imports at
+# module scope, and then imports the concrete entities back at the bottom of
+# its own file to complete the registry. Importing a sibling (e.g.
+# `achievement`) *before* `entities` enters that cycle from the wrong side and
+# fails with "cannot import name 'Achievement' from partially initialized
+# module". `# isort: off` stops the formatter from reintroducing that bug.
+# ---------------------------------------------------------------------------
 from src.universe.domain.entities import (
     CANONICAL_AREAS,
     EntityType,
@@ -23,6 +34,8 @@ from src.universe.domain.project import Project
 from src.universe.domain.rubric_signal import SIGNAL_SECTION_KINDS, SIGNAL_STATUSES, UserRubricSignal
 from src.universe.domain.skill import Skill
 from src.universe.domain.skill_stack import SkillStack
+
+# isort: on
 
 __all__ = [
     "ADR_STATUSES",

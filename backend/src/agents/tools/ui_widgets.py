@@ -12,7 +12,7 @@ Tool names MUST match the names registered in `frontend/src/chat/actions.tsx`
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from agno.tools import tool
 
@@ -983,3 +983,12 @@ ALL_GENERIC_A2UI_TOOLS = [
     present_progress,
     set_chat_focus,
 ]
+
+
+if TYPE_CHECKING:  # pragma: no cover
+    # The 55 HITL tools above are generated at import time from `_HITL_TOOLS`
+    # and injected into module globals, so no static reader can see them.
+    # PEP 484 module-level `__getattr__` is the sanctioned way to tell a type
+    # checker "this module resolves names dynamically" — without it every
+    # `from ... import propose_experience` is an attr-defined error.
+    def __getattr__(name: str) -> Any: ...

@@ -121,7 +121,7 @@ async def _public_kind_counts(
         n = (
             await session.execute(
                 text(
-                    f"SELECT count(*) FROM {table} "  # noqa: S608
+                    f"SELECT count(*) FROM {table} "
                     "WHERE user_id = :uid AND deleted_at IS NULL "
                     "AND visibility = 'public'"
                 ),

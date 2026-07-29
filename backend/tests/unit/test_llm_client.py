@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import pytest
-
 from src.shared.llm_client import (
     AnthropicLlmClient,
     MockLlmClient,

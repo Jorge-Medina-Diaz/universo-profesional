@@ -4,6 +4,7 @@ from __future__ import annotations
 from uuid import UUID
 
 import structlog
+
 from src.universe.application.ports import EmbeddingRefreshScheduler
 
 logger = structlog.get_logger(__name__)

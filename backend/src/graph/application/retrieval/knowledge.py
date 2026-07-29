@@ -9,7 +9,7 @@ the document by title.
 """
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 import structlog
@@ -31,7 +31,7 @@ class KnowledgeRetriever:
         query: str,
         *,
         top_k: int = 12,
-        kinds: Iterable[str] | None = None,  # noqa: ARG002 — lane is kind-agnostic
+        kinds: Iterable[str] | None = None,
     ) -> list[ScoredItem]:
         try:
             from src.knowledge.application.use_cases import search_knowledge

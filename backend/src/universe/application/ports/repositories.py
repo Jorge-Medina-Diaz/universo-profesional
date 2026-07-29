@@ -1,5 +1,6 @@
 """Repository port variables — populated by infrastructure at import time."""
 from __future__ import annotations
+
 from typing import Any
 
 # Repository classes used directly by application layer

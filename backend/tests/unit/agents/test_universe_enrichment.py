@@ -1,7 +1,6 @@
 """Unit tests for UniverseEnrichmentEngine pure helpers (no DB)."""
 from __future__ import annotations
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 from uuid import uuid4
 

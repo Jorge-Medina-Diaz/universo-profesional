@@ -3,12 +3,12 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+from src.graph.application.retrieval._base import ScoredItem
 from src.graph.application.retrieval._helpers import (
     _attach_ranks,
     _coerce_uuid,
     _strip_quotes,
 )
-from src.graph.application.retrieval._base import ScoredItem
 
 
 class TestAttachRanks:

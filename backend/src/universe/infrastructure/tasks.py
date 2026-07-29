@@ -120,7 +120,6 @@ async def enrich_universe_task(ctx: dict[str, Any], *, user_id: str) -> dict[str
 async def compute_communities_task(ctx: dict[str, Any], *, user_id: str) -> dict[str, int]:
     """Background community detection ("career pillars") for one user."""
     from src.graph.application.communities import compute_communities
-
     from src.shared.db import with_user_session
 
     async with with_user_session(UUID(user_id)) as session:

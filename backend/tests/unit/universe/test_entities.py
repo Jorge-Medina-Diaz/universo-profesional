@@ -4,7 +4,6 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
-
 from src.shared.errors import ValidationError
 from src.universe.domain.entities import (
     Achievement,
@@ -117,8 +116,8 @@ class TestCourse:
 
 class TestLanguage:
     def test_create_valid(self):
-        l = Language.create(user_id=uuid4(), code="en", name="English", level="C1")
-        assert l.code == "en"
+        lang = Language.create(user_id=uuid4(), code="en", name="English", level="C1")
+        assert lang.code == "en"
 
     def test_create_invalid_code_raises(self):
         with pytest.raises(ValidationError):
@@ -225,8 +224,8 @@ class TestCourseEmbedding:
 
 class TestLanguageEmbedding:
     def test_embedding_text(self):
-        l = Language.create(user_id=uuid4(), code="en", name="English", level="C1")
-        assert "English" in l.embedding_text()
+        lang = Language.create(user_id=uuid4(), code="en", name="English", level="C1")
+        assert "English" in lang.embedding_text()
 
 
 class TestAchievementEmbedding:

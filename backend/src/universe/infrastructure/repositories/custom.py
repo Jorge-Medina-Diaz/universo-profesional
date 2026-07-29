@@ -39,7 +39,6 @@ from src.universe.infrastructure.repositories.base import (
     _orm_to_entity,
 )
 
-
 # --- Universe --------------------------------------------------------------
 
 

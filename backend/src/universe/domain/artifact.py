@@ -7,7 +7,6 @@ from uuid import UUID, uuid4
 
 from src.universe.domain.entities import _Base
 
-
 ArtifactType = Literal[
     "github_repo",
     "talk",

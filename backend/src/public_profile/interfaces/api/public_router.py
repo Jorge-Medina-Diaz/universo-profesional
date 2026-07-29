@@ -109,7 +109,7 @@ async def public_chat(request: Request, slug: str, body: ChatBody) -> dict[str, 
         raise HTTPException(
             status_code=503,
             detail="El gemelo no está disponible ahora mismo. Inténtalo en un momento.",
-        )
+        ) from exc
     if not answer:
         answered = False
         answer = (

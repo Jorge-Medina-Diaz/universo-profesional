@@ -1,8 +1,9 @@
 """Unit tests for small shared modules with missing coverage."""
 from __future__ import annotations
 
+import pytest
 from src.shared.errors import DomainError, ValidationError
-from src.shared.result import Failure, Success, ok, err
+from src.shared.result import Failure, Success, err, ok
 from src.shared.value_objects import Email
 
 
@@ -46,8 +47,6 @@ class TestResult:
         e = ValidationError("x")
         assert err(e).error is e
 
-
-import pytest
 
 
 class TestValueObjectsStr:

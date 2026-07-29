@@ -69,7 +69,7 @@ class WeasyPrintRenderer(Renderer):
             await get_storage().save(key, html.encode("utf-8"), content_type="text/html")
         return key
 
-    async def render_docx(
+    async def render_docx(  # noqa: PLR0912, PLR0915 - python-docx builds the document imperatively, section by section
         self,
         *,
         content_json: dict[str, Any],

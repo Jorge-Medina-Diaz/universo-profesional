@@ -150,7 +150,7 @@ async def hard_delete_expired_accounts(ctx: dict[str, Any]) -> int:
 
             for tbl in MANUAL_ERASE:
                 await session.execute(
-                    text(f"DELETE FROM {tbl} WHERE user_id::text = ANY(:ids)"),  # noqa: S608
+                    text(f"DELETE FROM {tbl} WHERE user_id::text = ANY(:ids)"),
                     {"ids": ids},
                 )
             # The agno framework stores narrative memories (PII facts) + full
@@ -160,7 +160,7 @@ async def hard_delete_expired_accounts(ctx: dict[str, Any]) -> int:
             # agno table is erased automatically.
             for tbl in await discover_ai_scoped_tables(session):
                 await session.execute(
-                    text(f'DELETE FROM ai."{tbl}" WHERE user_id = ANY(:ids)'),  # noqa: S608
+                    text(f'DELETE FROM ai."{tbl}" WHERE user_id = ANY(:ids)'),
                     {"ids": ids},
                 )
             # The user's personal knowledge graph (AGE vertices + edges) is

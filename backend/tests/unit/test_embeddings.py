@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 
+import pytest
 from src.shared.embeddings import (
     DeterministicEmbeddingsProvider,
     get_embeddings_provider,
@@ -47,5 +48,3 @@ class TestGetEmbeddingsProvider:
         provider = get_embeddings_provider()
         assert provider is not None
 
-
-import pytest

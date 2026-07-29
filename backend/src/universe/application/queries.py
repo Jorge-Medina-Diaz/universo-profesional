@@ -1,7 +1,7 @@
 """Query use cases — search, list, filter, summary, and other one-off reads."""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 from uuid import UUID
 
 from src.shared.errors import NotFoundError, ValidationError
@@ -192,7 +192,7 @@ class SearchUniverse:
 class MarkReviewed:
     """Touch `last_reviewed_at` on an entity. Confirms the user has inspected it recently."""
 
-    _TABLE_BY_TYPE = {
+    _TABLE_BY_TYPE: ClassVar[dict[str, str]] = {
         "education": "educations",
         "experience": "experiences",
         "project": "projects",

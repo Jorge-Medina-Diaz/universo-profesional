@@ -83,9 +83,9 @@ def build_specialist_from_spec(spec: SpecialistSpec, *, db: Any):  # type: ignor
     Any additional tools (e.g. ``mark_stale``, ``propose_artifact``) are
     appended via ``extra_tools``.
     """
-    from src.agents.tools.coherence_tools import find_existing  # noqa: PLC0415
-    from src.agents.tools.discovery_tools import get_profile_completeness  # noqa: PLC0415
-    from src.agents.tools.ui_widgets import present_questionnaire  # noqa: PLC0415
+    from src.agents.tools.coherence_tools import find_existing
+    from src.agents.tools.discovery_tools import get_profile_completeness
+    from src.agents.tools.ui_widgets import present_questionnaire
 
     tools = [
         spec.propose_tool,
@@ -122,9 +122,9 @@ def build_specialist(
     specialist can pass `tier="coordinator"` to opt back into the strong
     model if quality regresses. `tool_call_limit` bounds runaway tool loops.
     """
-    from agno.agent import Agent  # noqa: PLC0415
+    from agno.agent import Agent
 
-    from src.agents.factory import _build_model  # noqa: PLC0415
+    from src.agents.factory import _build_model
 
     return Agent(
         name=name,

@@ -19,12 +19,12 @@ from uuid import UUID, uuid4
 import structlog
 from jose import JWTError
 
-from src.identity.application.use_cases import LoginTokens
-from src.identity.domain.user import User
 from src.identity.application.ports import (
     RefreshTokenRepository,
     UserRepository,
 )
+from src.identity.application.use_cases import LoginTokens
+from src.identity.domain.user import User
 from src.integrations.application.ports import ExternalAccountRepository
 from src.integrations.domain.external_account import (
     ExternalAccount,

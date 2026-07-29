@@ -116,7 +116,7 @@ def _norm(label: str) -> str:
 
 
 def _build_index() -> None:
-    global _BY_LABEL_NORM
+    # No `global`: the dict is mutated in place, never rebound.
     if _BY_LABEL_NORM:
         return
     for c in _CUSTOM_SKILLS:

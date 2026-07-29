@@ -6,21 +6,8 @@ must be registered here.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
-from src.universe.application.use_cases import (
-    AchievementCrud,
-    ArchitectureDecisionCrud,
-    ArtifactCrud,
-    CertificationCrud,
-    CourseCrud,
-    EducationCrud,
-    ExperienceCrud,
-    InterestCrud,
-    LanguageCrud,
-    ProjectCrud,
-    SkillCrud,
-)
 from src.universe.application.ports.repositories import (
     SqlAlchemyAchievementRepository,
     SqlAlchemyArchitectureDecisionRepository,
@@ -34,6 +21,19 @@ from src.universe.application.ports.repositories import (
     SqlAlchemyProjectRepository,
     SqlAlchemySkillRepository,
 )
+from src.universe.application.use_cases import (
+    AchievementCrud,
+    ArchitectureDecisionCrud,
+    ArtifactCrud,
+    CertificationCrud,
+    CourseCrud,
+    EducationCrud,
+    ExperienceCrud,
+    InterestCrud,
+    LanguageCrud,
+    ProjectCrud,
+    SkillCrud,
+)
 
 
 class CrudRegistry:
@@ -43,7 +43,7 @@ class CrudRegistry:
     """
 
     # (crud_class, repo_class, deps_key)
-    _DATA: dict[str, tuple[Any, Any, str]] = {
+    _DATA: ClassVar[dict[str, tuple[Any, Any, str]]] = {
         "skill": (SkillCrud, SqlAlchemySkillRepository, "skill_repo"),
         "experience": (ExperienceCrud, SqlAlchemyExperienceRepository, "exp_repo"),
         "education": (EducationCrud, SqlAlchemyEducationRepository, "edu_repo"),

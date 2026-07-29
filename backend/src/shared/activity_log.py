@@ -10,11 +10,10 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from uuid import UUID
 
 import structlog
 from sqlalchemy import text
-
-from uuid import UUID
 
 from src.shared.db import get_session_factory, set_rls_user
 from src.shared.events import DomainEvent, EventBus
