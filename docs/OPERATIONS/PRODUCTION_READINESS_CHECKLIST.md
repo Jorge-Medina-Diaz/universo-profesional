@@ -8,8 +8,8 @@
 | 4 | **Tests backend** | Integration: Billing webhook con mock Stripe | ✅ | `tests/integration/test_billing_webhook.py` |
 | 5 | **Tests backend** | Unit: identity password policy + JWT encode/decode | ✅ | `tests/unit/identity/` |
 | 6 | **Tests backend** | Unit: billing quota enforcement + plan upgrades | ✅ | `tests/unit/billing/` |
-| 7 | **Tests backend** | Unit: documents template rendering (PDF/DOCX) | ✅ | `tests/unit/documents/` |
-| 8 | **Tests backend** | Sin umbral de coverage | — | `ci.yml` sube `coverage.xml` como artefacto pero no hay `--cov-fail-under`; la puerta real es el ratchet `PYTEST_MAX_FAILURES` |
+| 7 | **Tests backend** | Unit: documents template rendering (PDF/DOCX) | — | Eliminado en la poda de la suite (918 → 165). El render se cubre end-to-end en `tests/integration/test_documents_integration.py` |
+| 8 | **Tests backend** | 165 tests, puerta dura | ✅ | Suite curada (918 → 165). `ci.yml` la ejecuta como pass/fail, sin presupuesto de fallos. Sube `coverage.xml` como artefacto, pero no impone `--cov-fail-under` |
 | 9 | **Tests frontend** | Componentes críticos: LoginPage, RegisterPage | ✅ | `frontend/src/__tests__/LoginPage.test.tsx` |
 | 10 | **Tests frontend** | Wizard de onboarding | — | Obsoleto: el wizard se eliminó en favor de un onboarding chat-native (`frontend/src/pages/OnboardingChatPage.tsx`). No existe test unitario que lo cubra |
 | 11 | **Tests frontend** | Chat/AG-UI wrapper (mock CopilotKit provider) | ✅ | `frontend/src/__tests__/CopilotProvider.test.tsx` |
@@ -47,7 +47,6 @@
 - `backend/tests/unit/identity/test_jwt.py` (nuevo)
 - `backend/tests/unit/billing/test_quota.py` (nuevo)
 - `backend/tests/unit/billing/test_plan_upgrades.py` (nuevo)
-- `backend/tests/unit/documents/test_renderer.py` (nuevo)
 - `backend/tests/unit/test_config_production.py` (nuevo)
 - `backend/tests/load/locustfile.py` (nuevo)
 
@@ -62,7 +61,7 @@
 - `frontend/src/__tests__/CopilotProvider.test.tsx` (nuevo)
 
 ### Infra / CI
-- `.github/workflows/ci.yml` — Trivy image scan, coverage threshold 50%
+- `.github/workflows/ci.yml` — Trivy fs + image scan; sin umbral de coverage (ver ítem 8)
 - `docker/backend.Dockerfile` — gunicorn + uvicorn workers
 - `docker-compose.prod.yml` — `WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}`
 - `.env.example` — `WEB_CONCURRENCY`, `OTLP_ENDPOINT`

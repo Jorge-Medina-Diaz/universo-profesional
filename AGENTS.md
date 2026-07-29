@@ -147,8 +147,9 @@ uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
 # Worker arq
 arq src.shared.worker.WorkerSettings
 
-# Seed manual de ESCO (la imagen Docker ya lo hace en startup)
-python scripts/seed_esco.py
+# Seeds manuales (el servicio `seed` de docker-compose ya los ejecuta al arrancar)
+python -m scripts.seed_esco --sample-only   # ontología ESCO (muestra sintética)
+python -m scripts.seed_rubrics             # 44 rúbricas -> rubric_documents/chunks
 
 # Reset completo de ESCO (trunca + re-seed).
 # Ojo: este script vive en `scripts/` de la RAÍZ del repo (no en `backend/scripts/`)
@@ -241,7 +242,7 @@ docker compose down -v && docker compose up -d --build
   - `e2e` — flujo completo de API o MCP.
   - `slow` — tarda >1s.
 - **Cobertura:** fuente `src/`, omite `src/main.py` y `alembic/*`. Umbral mínimo **40 %** (intencionalmente permisivo para el primer push; se apretará sprint a sprint).
-- **Tests de migración:** matriz en `backend/tests/migrations/` validada en CI.
+- **Tests de migración:** no hay matriz dedicada. CI valida las migraciones ejecutando `alembic upgrade head` desde cero contra una base recién creada, en los jobs `backend` y `e2e`.
 
 ### Frontend
 - **Framework:** Vitest 2.1 con entorno `jsdom`.

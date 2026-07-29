@@ -34,12 +34,20 @@ docker exec -i cvs-postgres psql -U cvs -d cvs -v ON_ERROR_STOP=1 \
 docker exec cvs-postgres psql -U cvs -d cvs \
   -c "ALTER ROLE cvs_app PASSWORD '$APP_PW';" >/dev/null
 
-echo "[4/6] ESCO ontology seed (sample, as owner role — creates AGE labels)"
+echo "[4/6] seeds: ESCO sample + rubric corpus (as owner role — creates AGE labels)"
 OWNER_ASYNC_URL=$(echo "$SYNC_URL" | sed -E 's#^postgresql(\+psycopg)?://#postgresql+asyncpg://#')
 MSYS_NO_PATHCONV=1 docker run --rm --network cvs-prod_default \
   --env-file .env.production -e DATABASE_URL="$OWNER_ASYNC_URL" \
   -e PYTHONPATH=/app -w /app \
   --entrypoint python cvs-saas-backend:latest -m scripts.seed_esco --sample-only
+
+# Keep in step with the dev `seed` service in docker-compose.yml: without this
+# the rubric corpus (backend/rubrics, 44 documents) never loads and the agent's
+# search_rubrics tool queries an empty table. Idempotent - skips unchanged docs.
+MSYS_NO_PATHCONV=1 docker run --rm --network cvs-prod_default \
+  --env-file .env.production -e DATABASE_URL="$OWNER_ASYNC_URL" \
+  -e PYTHONPATH=/app -w /app \
+  --entrypoint python cvs-saas-backend:latest -m scripts.seed_rubrics
 
 echo "[5/6] full stack"
 $COMPOSE up -d

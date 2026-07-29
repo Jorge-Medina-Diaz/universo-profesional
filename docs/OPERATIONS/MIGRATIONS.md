@@ -48,7 +48,7 @@ know how to talk to.
   docker compose exec backend alembic downgrade -1
   docker compose exec backend alembic upgrade head
   ```
-- The CI matrix at `backend/tests/migrations/` runs this loop on every PR.
+- There is no dedicated migration test matrix. CI validates migrations by running `alembic upgrade head` from an empty database on every push, in both the `backend` and `e2e` jobs — a from-scratch 0001 -> head run each time.
 
 ## Maintenance window
 
