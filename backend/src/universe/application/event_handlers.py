@@ -117,7 +117,10 @@ async def _recompute_shape_safe(user_id: UUID) -> None:
             # After shape is known, refresh signals for primary areas only —
             # cheaper than scanning the whole corpus and good enough as a
             # signal that the polyglot dimensions changed.
-            primary_areas = list(shape_result.primary_areas) or [None]
+            # `[None]` is the deliberate fallback: no primary area means run the
+            # extraction once with no sector filter. Annotated because the list
+            # is genuinely heterogeneous, not because mypy is being awkward.
+            primary_areas: list[str | None] = list(shape_result.primary_areas) or [None]
             for area in primary_areas[:2]:
                 await extract_user_signals(session, user_id, sector=area)
             await session.commit()
