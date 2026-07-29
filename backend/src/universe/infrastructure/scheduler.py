@@ -11,10 +11,24 @@ logger = structlog.get_logger(__name__)
 
 
 class ArqEmbeddingScheduler(EmbeddingRefreshScheduler):
-    """Enqueue embedding refresh task on Redis.
+    """Enqueue an embedding-refresh job on Redis.
 
-    In-process fallback: if the queue is unreachable, we run the embedding
-    synchronously to keep the system usable in dev.
+    When the queue is unreachable we SKIP and let the transactional outbox
+    backfill. There used to be an in-process fallback here that ran
+    `refresh_embedding` synchronously, and it deadlocked:
+
+      * `enqueue()` is called from the CRUD use case *inside* the caller's
+        still-open transaction, which holds a row lock on the entity;
+      * `refresh_embedding` opens its OWN session and issues
+        `UPDATE <table> SET embedding = …` against that same row;
+      * so it blocked on a lock the caller could only release by committing —
+        which it could not do, because it was awaiting this call.
+
+    Every entity write hung for as long as Redis was down. Skipping is both
+    safe and already the documented design: embeddings are written at request
+    time as at-most-once fire-and-forget, and
+    `universe.infrastructure.projections.project_embeddings_task` is the
+    reliability net that repairs anything lost, within a tick.
     """
 
     async def _get_pool(self) -> Any:
@@ -25,10 +39,12 @@ class ArqEmbeddingScheduler(EmbeddingRefreshScheduler):
     async def enqueue(self, *, entity_type: str, entity_id: UUID) -> None:
         pool = await self._get_pool()
         if pool is None:
-            # Sync fallback for tests / when Redis is down
-            from src.universe.infrastructure.tasks import refresh_embedding
-
-            await refresh_embedding({}, entity_type=entity_type, entity_id=str(entity_id))
+            logger.warning(
+                "embedding_enqueue_skipped_no_queue",
+                entity_type=entity_type,
+                entity_id=str(entity_id),
+                detail="queue unreachable; the outbox projection will backfill",
+            )
             return
         await pool.enqueue_job(
             "refresh_embedding",
