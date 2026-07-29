@@ -951,38 +951,48 @@ _HITL_TOOLS: list[dict[str, Any]] = [
 for _spec in _HITL_TOOLS:
     globals()[_spec["name"]] = _make_tool(**_spec)
 
+def _generated(*names: str) -> list[Any]:
+    """Look up tools produced by the codegen above.
+
+    They are injected into `globals()`, so referencing them as bare names makes
+    every aggregate list below a `name-defined` error for any static reader.
+    Fetching them by name says what actually happens, and fails loudly at
+    import time if a name in `_HITL_TOOLS` is ever renamed.
+    """
+    return [globals()[n] for n in names]
+
 
 # Aggregated list — handy for specialists that want "all entity proposals"
-ALL_PROPOSE_TOOLS = [
-    propose_experience,
-    propose_education,
-    propose_project,
-    propose_skill,
-    propose_certification,
-    propose_course,
-    propose_language,
-    propose_achievement,
-    propose_interest,
-]
+ALL_PROPOSE_TOOLS = _generated(
+    "propose_experience",
+    "propose_education",
+    "propose_project",
+    "propose_skill",
+    "propose_certification",
+    "propose_course",
+    "propose_language",
+    "propose_achievement",
+    "propose_interest",
+)
 
 
 # All generic A2UI tools — convenient bundle for the coordinator and the two
 # proactive specialists (job_strategist, cv_coach).
-ALL_GENERIC_A2UI_TOOLS = [
-    select_job_from_list,
-    select_document_from_list,
-    preview_list,
-    propose_job_create,
-    propose_job_status_change,
-    propose_autopilot_run,
-    propose_cv_regenerate,
-    propose_preferences_update,
-    confirm_destructive,
-    upload_document_inline,
-    present_document_preview,
-    present_progress,
-    set_chat_focus,
-]
+ALL_GENERIC_A2UI_TOOLS = _generated(
+    "select_job_from_list",
+    "select_document_from_list",
+    "preview_list",
+    "propose_job_create",
+    "propose_job_status_change",
+    "propose_autopilot_run",
+    "propose_cv_regenerate",
+    "propose_preferences_update",
+    "confirm_destructive",
+    "upload_document_inline",
+    "present_document_preview",
+    "present_progress",
+    "set_chat_focus",
+)
 
 
 if TYPE_CHECKING:  # pragma: no cover

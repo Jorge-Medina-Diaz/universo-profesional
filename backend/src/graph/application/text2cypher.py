@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.graph.application.ports.age import cypher
 from src.graph.domain import schema as graph_schema
 from src.shared.config import get_settings
+from src.shared.llm_client import anthropic_text
 
 logger = structlog.get_logger(__name__)
 
@@ -451,7 +452,7 @@ class Text2CypherEngine:
             system=system,
             messages=[{"role": "user", "content": m["content"]} for m in user_msgs],
         )
-        return str(response.content[0].text)
+        return anthropic_text(response.content)
 
     async def _call_openai(self, messages: list[dict[str, str]]) -> str:
         from openai import AsyncOpenAI

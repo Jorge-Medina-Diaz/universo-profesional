@@ -200,7 +200,9 @@ class IntentRouter:
                     ),
                     timeout=_LLM_CLASSIFY_TIMEOUT_SECONDS,
                 )
-                raw = str(response.content[0].text)
+                from src.shared.llm_client import anthropic_text
+
+                raw = anthropic_text(response.content)
             elif provider == "openai":
                 from openai import AsyncOpenAI
 

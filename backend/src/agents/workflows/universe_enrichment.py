@@ -30,6 +30,7 @@ from src.coherence.infrastructure.semantic_matcher import PgVectorSemanticMatche
 from src.graph.application.esco_linker import LinkState, esco_linker
 from src.graph.application.universe_graph import universe_graph_service
 from src.shared.config import get_settings
+from src.shared.llm_client import anthropic_text
 from src.shared.metrics import discovery_entities_extracted_total
 from src.shared.uow import UnitOfWork
 
@@ -703,7 +704,7 @@ class UniverseEnrichmentEngine:
             system=system,
             messages=[{"role": "user", "content": m["content"]} for m in user_msgs],
         )
-        return str(response.content[0].text)
+        return anthropic_text(response.content)
 
     async def _call_openai(self, messages: list[dict[str, str]]) -> str:
         from openai import AsyncOpenAI

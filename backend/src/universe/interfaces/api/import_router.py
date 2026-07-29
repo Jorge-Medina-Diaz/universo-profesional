@@ -11,6 +11,7 @@ import structlog
 from fastapi import APIRouter, File, UploadFile
 
 from src.identity.interfaces.api.deps import CurrentUserId, SessionDep
+from src.shared.llm_client import anthropic_text
 from src.shared.uow import unit_of_work
 from src.universe.interfaces.api.deps import (
     EducationCrudDep,
@@ -143,7 +144,7 @@ async def import_pdf(
                 system=_PDF_EXTRACT_SYSTEM,
                 messages=[{"role": "user", "content": text}],
             )
-            content = str(resp.content[0].text)
+            content = anthropic_text(resp.content)
         elif provider == "openai":
             from openai import AsyncOpenAI
 

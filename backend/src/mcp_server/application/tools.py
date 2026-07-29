@@ -79,7 +79,13 @@ def _new_uow(session: AsyncSession):  # type: ignore[no-untyped-def]
 # --- Universe read ----------------------------------------------------------
 
 
-async def _h_get_profile(*, session, user_id, client_id, args):
+async def _h_get_profile(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.universe.application.use_cases import GetUniverseSummary
 
     deps = _session_only_deps(session)
@@ -100,11 +106,23 @@ async def _h_get_profile(*, session, user_id, client_id, args):
     return summary
 
 
-async def _h_summary(*, session, user_id, client_id, args):
+async def _h_summary(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     return await _h_get_profile(session=session, user_id=user_id, client_id=client_id, args={})
 
 
-async def _h_list_skills(*, session, user_id, client_id, args):
+async def _h_list_skills(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     deps = _session_only_deps(session)
     skills = await deps["skill_repo"].list(user_id)
     category = args.get("category")
@@ -123,7 +141,13 @@ async def _h_list_skills(*, session, user_id, client_id, args):
     return out
 
 
-async def _h_search(*, session, user_id, client_id, args):
+async def _h_search(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.universe.application.use_cases import SearchUniverse
 
     deps = _session_only_deps(session)
@@ -139,15 +163,21 @@ async def _h_search(*, session, user_id, client_id, args):
 # --- Universe write (CRUD per entity, via registry) -------------------------
 
 
-def _build_crud(session, entity: str):  # type: ignore[no-untyped-def]
+def _build_crud(session: AsyncSession, entity: str) -> Any:
     deps = _session_only_deps(session)
     crud_cls = CrudRegistry.get_crud_class(entity)
     repo = deps[CrudRegistry.get_repo_key(entity)]
     return crud_cls(repo, deps["scheduler"])
 
 
-def _make_add_handler(entity: str):
-    async def handler(*, session, user_id, client_id, args):
+def _make_add_handler(entity: str) -> Any:
+    async def handler(
+        *,
+        session: AsyncSession,
+        user_id: UUID,
+        client_id: str | None,
+        args: dict[str, Any],
+    ) -> Any:
         uc_inst = _build_crud(session, entity)
         uow = _new_uow(session)
         r = await uc_inst.add(user_id=str(user_id), payload=dict(args), uow=uow)
@@ -158,8 +188,14 @@ def _make_add_handler(entity: str):
     return handler
 
 
-def _make_update_handler(entity: str):
-    async def handler(*, session, user_id, client_id, args):
+def _make_update_handler(entity: str) -> Any:
+    async def handler(
+        *,
+        session: AsyncSession,
+        user_id: UUID,
+        client_id: str | None,
+        args: dict[str, Any],
+    ) -> Any:
         uc_inst = _build_crud(session, entity)
         uow = _new_uow(session)
         args = dict(args)
@@ -176,8 +212,14 @@ def _make_update_handler(entity: str):
     return handler
 
 
-def _make_delete_handler(entity: str):
-    async def handler(*, session, user_id, client_id, args):
+def _make_delete_handler(entity: str) -> Any:
+    async def handler(
+        *,
+        session: AsyncSession,
+        user_id: UUID,
+        client_id: str | None,
+        args: dict[str, Any],
+    ) -> Any:
         uc_inst = _build_crud(session, entity)
         uow = _new_uow(session)
         r = await uc_inst.delete(user_id=str(user_id), entity_id=args["id"], uow=uow)
@@ -191,7 +233,13 @@ def _make_delete_handler(entity: str):
 # --- Preferences + header ---------------------------------------------------
 
 
-async def _h_set_prefs(*, session, user_id, client_id, args):
+async def _h_set_prefs(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.universe.application.use_cases import SetCareerPreferences
 
     deps = _session_only_deps(session)
@@ -200,14 +248,26 @@ async def _h_set_prefs(*, session, user_id, client_id, args):
     )
 
 
-async def _h_get_prefs(*, session, user_id, client_id, args):
+async def _h_get_prefs(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.universe.application.use_cases import GetCareerPreferences
 
     deps = _session_only_deps(session)
     return await GetCareerPreferences(deps["prefs_repo"]).execute(user_id=str(user_id))
 
 
-async def _h_update_header(*, session, user_id, client_id, args):
+async def _h_update_header(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.universe.application.use_cases import UpdateUniverseHeader
 
     deps = _session_only_deps(session)
@@ -219,7 +279,13 @@ async def _h_update_header(*, session, user_id, client_id, args):
 # --- Mark reviewed + Evidence + Activity -----------------------------------
 
 
-async def _h_mark_reviewed(*, session, user_id, client_id, args):
+async def _h_mark_reviewed(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.universe.application.use_cases import MarkReviewed
 
     r = await MarkReviewed(session).execute(
@@ -232,7 +298,13 @@ async def _h_mark_reviewed(*, session, user_id, client_id, args):
     return r.value
 
 
-async def _h_link_evidence(*, session, user_id, client_id, args):
+async def _h_link_evidence(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.universe.application.use_cases import LinkEvidence
 
     r = await LinkEvidence(session).execute(
@@ -248,7 +320,13 @@ async def _h_link_evidence(*, session, user_id, client_id, args):
     return r.value
 
 
-async def _h_get_activity(*, session, user_id, client_id, args):
+async def _h_get_activity(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.universe.application.use_cases import GetActivity
 
     return await GetActivity(session).execute(
@@ -262,7 +340,13 @@ async def _h_get_activity(*, session, user_id, client_id, args):
 # --- Match job + Generate CV ------------------------------------------------
 
 
-async def _h_match_job(*, session, user_id, client_id, args):
+async def _h_match_job(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.documents.application.match_scoring import compute_match_breakdown
     from src.documents.infrastructure.job_parser import MockJobParser
 
@@ -285,7 +369,13 @@ async def _h_match_job(*, session, user_id, client_id, args):
     }
 
 
-async def _h_generate_cv(*, session, user_id, client_id, args):
+async def _h_generate_cv(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.billing.application.use_cases import CheckQuota
     from src.billing.infrastructure.repositories import (
         SqlAlchemyQuotaRepository,
@@ -351,7 +441,13 @@ async def _h_generate_cv(*, session, user_id, client_id, args):
 # --- Documents read ---------------------------------------------------------
 
 
-async def _h_list_documents(*, session, user_id, client_id, args):
+async def _h_list_documents(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.documents.application.use_cases import ListDocuments
     from src.documents.infrastructure.repositories import SqlAlchemyDocumentRepository
 
@@ -360,7 +456,13 @@ async def _h_list_documents(*, session, user_id, client_id, args):
     )
 
 
-async def _h_get_document(*, session, user_id, client_id, args):
+async def _h_get_document(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.documents.application.use_cases import GetDocument
     from src.documents.infrastructure.repositories import SqlAlchemyDocumentRepository
 
@@ -372,7 +474,13 @@ async def _h_get_document(*, session, user_id, client_id, args):
     return r.value
 
 
-async def _h_share_document(*, session, user_id, client_id, args):
+async def _h_share_document(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.documents.application.use_cases import ShareDocument
     from src.documents.infrastructure.repositories import SqlAlchemyDocumentRepository
 
@@ -389,7 +497,13 @@ async def _h_share_document(*, session, user_id, client_id, args):
 # --- Integrations -----------------------------------------------------------
 
 
-async def _h_list_connections(*, session, user_id, client_id, args):
+async def _h_list_connections(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.integrations.application.connect_disconnect import ListConnections
     from src.integrations.infrastructure.repositories import SqlExternalAccountRepository
 
@@ -398,7 +512,13 @@ async def _h_list_connections(*, session, user_id, client_id, args):
     )
 
 
-async def _h_sync_github(*, session, user_id, client_id, args):
+async def _h_sync_github(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.integrations.application.github_sync import SyncGithub
     from src.integrations.infrastructure.repositories import (
         SqlExternalAccountRepository,
@@ -424,7 +544,13 @@ async def _h_sync_github(*, session, user_id, client_id, args):
     return await uc.execute(user_id=str(user_id), uow=uow)
 
 
-async def _h_disconnect_account(*, session, user_id, client_id, args):
+async def _h_disconnect_account(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.integrations.application.connect_disconnect import DisconnectAccount
     from src.integrations.infrastructure.repositories import SqlExternalAccountRepository
 
@@ -436,7 +562,13 @@ async def _h_disconnect_account(*, session, user_id, client_id, args):
     return {"disconnected": True}
 
 
-async def _h_import_linkedin_zip(*, session, user_id, client_id, args):
+async def _h_import_linkedin_zip(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     import base64
 
     from src.integrations.application.linkedin_csv_deep import (
@@ -479,7 +611,13 @@ async def _h_import_linkedin_zip(*, session, user_id, client_id, args):
     return {"session_id": str(sid), "parsed": parsed}
 
 
-async def _h_import_pdf_cv(*, session, user_id, client_id, args):
+async def _h_import_pdf_cv(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     import base64
 
     from src.integrations.application.pdf_cv_parser import parse_cv_pdf
@@ -492,7 +630,13 @@ async def _h_import_pdf_cv(*, session, user_id, client_id, args):
     return {"session_id": str(sid), "parsed": parsed}
 
 
-async def _h_sync_linkedin_dma(*, session, user_id, client_id, args):
+async def _h_sync_linkedin_dma(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.integrations.application.linkedin_sync import SyncLinkedinDma
     from src.integrations.infrastructure.repositories import (
         SqlExternalAccountRepository,
@@ -509,7 +653,13 @@ async def _h_sync_linkedin_dma(*, session, user_id, client_id, args):
     return await uc.execute(user_id=str(user_id), uow=uow)
 
 
-async def _h_sync_linkedin_brightdata(*, session, user_id, client_id, args):
+async def _h_sync_linkedin_brightdata(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     # PRO gating: enforce here (MCP doesn't pass through FastAPI deps)
     from src.identity.infrastructure.repositories import SqlAlchemyUserRepository
     from src.integrations.application.linkedin_sync import SyncLinkedinBrightdata
@@ -540,7 +690,13 @@ async def _h_sync_linkedin_brightdata(*, session, user_id, client_id, args):
     )
 
 
-async def _h_commit_import_session(*, session, user_id, client_id, args):
+async def _h_commit_import_session(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     """Commit a previously-opened import session (LinkedIn DMA / Bright Data / PDF / ZIP).
 
     Args: { session_id, selection? }
@@ -599,7 +755,13 @@ async def _h_commit_import_session(*, session, user_id, client_id, args):
     return {"committed": summary}
 
 
-async def _h_set_user_tier(*, session, user_id, client_id, args):
+async def _h_set_user_tier(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.identity.application.use_cases import SetUserTier
     from src.identity.infrastructure.repositories import SqlAlchemyUserRepository
     from src.shared.config import get_settings
@@ -622,7 +784,13 @@ async def _h_set_user_tier(*, session, user_id, client_id, args):
     }
 
 
-async def _h_get_user_tier(*, session, user_id, client_id, args):
+async def _h_get_user_tier(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.identity.infrastructure.repositories import SqlAlchemyUserRepository
 
     users = SqlAlchemyUserRepository(session)
@@ -639,7 +807,13 @@ async def _h_get_user_tier(*, session, user_id, client_id, args):
 # --- Suggestions + Reminders ----------------------------------------------
 
 
-async def _h_suggest_profile_updates(*, session, user_id, client_id, args):
+async def _h_suggest_profile_updates(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.universe.application.suggestions import GenerateSuggestions
     from src.universe.infrastructure.repositories import (
         SqlAlchemyCareerPreferencesRepository,
@@ -664,7 +838,13 @@ async def _h_suggest_profile_updates(*, session, user_id, client_id, args):
     return await uc.execute(user_id=str(user_id))
 
 
-async def _h_list_suggestions(*, session, user_id, client_id, args):
+async def _h_list_suggestions(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.universe.application.suggestions import ListSuggestions
 
     return await ListSuggestions(session).execute(
@@ -674,7 +854,13 @@ async def _h_list_suggestions(*, session, user_id, client_id, args):
     )
 
 
-async def _h_apply_suggestion(*, session, user_id, client_id, args):
+async def _h_apply_suggestion(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.universe.application.suggestions import ActOnSuggestion
 
     r = await ActOnSuggestion(session).execute(
@@ -687,7 +873,13 @@ async def _h_apply_suggestion(*, session, user_id, client_id, args):
     return r.value
 
 
-async def _h_list_reminders(*, session, user_id, client_id, args):
+async def _h_list_reminders(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.universe.application.reminders import ListReminders
 
     return await ListReminders(session).execute(
@@ -696,7 +888,13 @@ async def _h_list_reminders(*, session, user_id, client_id, args):
     )
 
 
-async def _h_dismiss_reminder(*, session, user_id, client_id, args):
+async def _h_dismiss_reminder(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.universe.application.reminders import DismissReminder
 
     r = await DismissReminder(session).execute(
@@ -707,7 +905,13 @@ async def _h_dismiss_reminder(*, session, user_id, client_id, args):
     return {"dismissed": True}
 
 
-async def _h_scan_reminders(*, session, user_id, client_id, args):
+async def _h_scan_reminders(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from src.universe.application.reminders import ScanReminders
 
     created = await ScanReminders(session).execute(user_id=user_id)
@@ -717,7 +921,13 @@ async def _h_scan_reminders(*, session, user_id, client_id, args):
 # --- Avatar ----------------------------------------------------------------
 
 
-async def _h_set_avatar(*, session, user_id, client_id, args):
+async def _h_set_avatar(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     import base64
 
     from src.identity.infrastructure.photo_storage import save_avatar
@@ -732,7 +942,13 @@ async def _h_set_avatar(*, session, user_id, client_id, args):
     )
 
 
-async def _h_get_avatar_url(*, session, user_id, client_id, args):
+async def _h_get_avatar_url(
+    *,
+    session: AsyncSession,
+    user_id: UUID,
+    client_id: str | None,
+    args: dict[str, Any],
+) -> Any:
     from sqlalchemy import select
 
     from src.shared.config import get_settings

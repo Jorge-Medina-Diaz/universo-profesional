@@ -14,6 +14,7 @@ from agno.tools import tool
 
 from src.agents.tools._deps import require_user_id
 from src.graph.domain import schema as graph_schema
+from src.shared.llm_client import anthropic_text
 
 logger = structlog.get_logger(__name__)
 
@@ -147,7 +148,7 @@ async def suggest_discovery_questions(run_context: Any) -> dict[str, Any]:
                 system=_DISCOVERY_QUESTION_PROMPT.format(profile_summary=profile_summary),
                 messages=[{"role": "user", "content": "Genera las preguntas."}],
             )
-            raw = str(response.content[0].text)
+            raw = anthropic_text(response.content)
         elif provider == "openai":
             from openai import AsyncOpenAI
 

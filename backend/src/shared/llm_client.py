@@ -17,6 +17,7 @@ in CI.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from typing import Any, Protocol, TypeVar
 
 import structlog
@@ -25,6 +26,19 @@ from pydantic import BaseModel
 from src.shared.config import get_settings
 
 logger = structlog.get_logger(__name__)
+def anthropic_text(blocks: Iterable[Any]) -> str:
+    """Concatenate the text of every text block in an Anthropic response.
+
+    `response.content` is a 12-member union and only `TextBlock` carries
+    `.text`. Indexing `content[0].text` therefore raises AttributeError the
+    moment a `ThinkingBlock` (or any tool block) is emitted first — and is a
+    union-attr error under strict typing. Scanning for text blocks is both
+    type-safe and robust to block ordering.
+    """
+    return "".join(
+        b.text for b in blocks if getattr(b, "type", None) == "text" and hasattr(b, "text")
+    )
+
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -111,7 +125,7 @@ class AnthropicLlmClient:
             messages=[{"role": "user", "content": prompt}],
         )
         self.last_usage = self._extract_usage(resp)
-        return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+        return anthropic_text(resp.content)
 
     async def structured(
         self,
