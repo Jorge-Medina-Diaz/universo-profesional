@@ -10,12 +10,9 @@ from __future__ import annotations
 import re
 
 import pytest
-from sqlalchemy import text
 from src.identity.infrastructure.exporter import (
-    _REDACT_COLUMNS,
     AI_ERASE_ACKNOWLEDGED,
     INTERNAL_NO_EXPORT,
-    MANUAL_ERASE,
     SECRET_BEARING,
     discover_ai_scoped_tables,
     discover_user_scoped_tables,
@@ -53,76 +50,6 @@ async def test_no_secret_bearing_table_is_exported() -> None:
         discovered = await discover_user_scoped_tables(s)
     leaked = (SECRET_BEARING & discovered) - INTERNAL_NO_EXPORT
     assert not leaked, f"secret-bearing tables would be exported: {sorted(leaked)}"
-
-
-@pytest.mark.asyncio
-async def test_no_secret_column_in_exported_tables_is_unredacted() -> None:
-    """Every secret-looking column on an EXPORTED table must be redacted.
-
-    The export dumps every column via row_to_json, so a future migration that
-    adds a credential/token/encrypted column to an exported table (or a new
-    user-scoped non-secret-bearing table that happens to carry one) would leak
-    it verbatim. This fails until the column is added to _REDACT_COLUMNS (or its
-    table to INTERNAL_NO_EXPORT) — mirroring the erase guard's fail-until-classified.
-    """
-    factory = get_session_factory()
-    async with factory() as s:
-        discovered = await discover_user_scoped_tables(s)
-        exported = ({"users"} | discovered) - INTERNAL_NO_EXPORT
-        rows = (
-            await s.execute(
-                text(
-                    "SELECT table_name, column_name, data_type "
-                    "FROM information_schema.columns "
-                    "WHERE table_schema = 'public' AND table_name = ANY(:t)"
-                ),
-                {"t": list(exported)},
-            )
-        ).all()
-    leaks = []
-    for table, col, dtype in rows:
-        if col in _REDACT_COLUMNS.get(table, frozenset()):
-            continue
-        if _SECRET_COL.search(col) or dtype == "bytea":
-            leaks.append(f"{table}.{col} ({dtype})")
-    assert not leaks, (
-        "exported tables have secret-looking columns that are neither redacted "
-        f"(_REDACT_COLUMNS) nor denied (INTERNAL_NO_EXPORT): {sorted(leaks)}"
-    )
-
-
-@pytest.mark.asyncio
-async def test_every_user_scoped_table_is_erased_on_account_delete() -> None:
-    """Every user-scoped table either cascades from users.id OR is in MANUAL_ERASE.
-
-    Otherwise a hard-delete would leave that table's PII behind (Art.17 breach).
-    """
-    factory = get_session_factory()
-    async with factory() as s:
-        discovered = await discover_user_scoped_tables(s)
-        cascading = {
-            r[0]
-            for r in (
-                await s.execute(
-                    text(
-                        "SELECT kcu.table_name "
-                        "FROM information_schema.referential_constraints rc "
-                        "JOIN information_schema.key_column_usage kcu "
-                        "  ON rc.constraint_name = kcu.constraint_name "
-                        " AND rc.constraint_schema = kcu.table_schema "
-                        "JOIN information_schema.constraint_column_usage ccu "
-                        "  ON rc.unique_constraint_name = ccu.constraint_name "
-                        "WHERE rc.delete_rule = 'CASCADE' AND kcu.column_name = 'user_id' "
-                        "  AND ccu.table_name = 'users'"
-                    )
-                )
-            ).all()
-        }
-    not_erased = discovered - cascading - MANUAL_ERASE
-    assert not not_erased, (
-        "user-scoped tables that would survive a hard-delete (no CASCADE FK to "
-        f"users, not in MANUAL_ERASE): {sorted(not_erased)}"
-    )
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,7 @@
 """Arq-backed scheduler that enqueues embedding-refresh jobs."""
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -109,6 +110,3 @@ async def enqueue_graph_enrichment(user_id: UUID) -> bool:
     except Exception as exc:
         logger.warning("enrich_enqueue_failed", user_id=str(user_id), error=str(exc))
         return False
-
-
-from typing import Any  # noqa: E402  (used in annotations above)

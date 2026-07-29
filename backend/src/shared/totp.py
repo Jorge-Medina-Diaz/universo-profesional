@@ -70,7 +70,15 @@ def verify(
     now = time.time() if at is None else at
     counter = int(now // period)
     for step in range(-window, window + 1):
-        if hmac.compare_digest(_hotp(secret, counter + step, digits), candidate):
+        probe = counter + step
+        # A negative counter is unrepresentable as the unsigned 64-bit value RFC
+        # 4226 defines, and `struct.pack(">Q", -1)` raises instead of returning
+        # False — so verifying within one step of the Unix epoch crashed rather
+        # than rejecting. Unreachable with a real clock, but this is the MFA
+        # path: it should never raise on input it can simply refuse.
+        if probe < 0:
+            continue
+        if hmac.compare_digest(_hotp(secret, probe, digits), candidate):
             return True
     return False
 

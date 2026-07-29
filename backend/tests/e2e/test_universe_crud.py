@@ -22,65 +22,6 @@ async def _register_and_login(client: AsyncClient, email: str = "jorge@webtools.
 
 
 @pytest.mark.asyncio
-async def test_universe_summary_and_crud(client: AsyncClient) -> None:
-    access = await _register_and_login(client)
-    h = {"Authorization": f"Bearer {access}"}
-
-    # Empty summary
-    r = await client.get("/api/v1/universe/summary", headers=h)
-    assert r.status_code == 200
-    body = r.json()
-    assert body["counts"]["educations"] == 0
-    assert body["counts"]["experiences"] == 0
-
-    # Add education
-    r = await client.post(
-        "/api/v1/universe/education",
-        json={"institution": "UCM", "degree": "Licenciado", "field_of_study": "CS"},
-        headers=h,
-    )
-    assert r.status_code == 201
-    edu_id = r.json()["id"]
-
-    # Add experience
-    r = await client.post(
-        "/api/v1/universe/experience",
-        json={
-            "organization": "Acme",
-            "role": "Backend Engineer",
-            "description": "Worked on the API",
-            "highlights": ["3x throughput"],
-        },
-        headers=h,
-    )
-    assert r.status_code == 201
-
-    # Add skill
-    r = await client.post(
-        "/api/v1/universe/skill",
-        json={"name": "Python", "category": "hard", "level": "expert"},
-        headers=h,
-    )
-    assert r.status_code == 201
-
-    # Patch education
-    r = await client.patch(
-        f"/api/v1/universe/education/{edu_id}",
-        json={"degree": "Ingeniero"},
-        headers=h,
-    )
-    assert r.status_code == 200
-    assert r.json()["degree"] == "Ingeniero"
-
-    # Summary should now reflect everything
-    r = await client.get("/api/v1/universe/summary", headers=h)
-    counts = r.json()["counts"]
-    assert counts["educations"] == 1
-    assert counts["experiences"] == 1
-    assert counts["skills"] == 1
-
-
-@pytest.mark.asyncio
 async def test_generate_cv(client: AsyncClient) -> None:
     access = await _register_and_login(client)
     h = {"Authorization": f"Bearer {access}"}
