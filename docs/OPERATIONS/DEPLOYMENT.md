@@ -109,8 +109,8 @@ flyctl ssh console --app cvs-saas-backend --command 'cd /app && alembic upgrade 
 
 ```bash
 # On the host:
-git clone https://github.com/<you>/cvs-saas.git
-cd cvs-saas
+git clone https://github.com/<you>/universo-profesional.git
+cd universo-profesional
 cp .env.example .env.production
 # Edit .env.production with your real values.
 
